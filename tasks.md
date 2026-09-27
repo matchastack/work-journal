@@ -9,7 +9,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 - **Branch:** named after the change, as `<type>/<short-description>`.
   - Examples: `feat/telegram-webhook-storage`, `fix/latex-escaping`, `docs/project-planning-documents`.
   - Types match the commit types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `ci`, `build`.
-  - Branch from `main`. If a dependency isn't merged yet, branch from the dependency's branch and write "Stacked on #N" in the PR.
+  - Branch from `main`. When a task depends only lightly on an unmerged PR, stack it on that PR's branch and write "Stacked on #N". When it depends heavily, wait for the merge. `CLAUDE.md` step 1 has the rule.
 - **Commits:** atomic. Each commit is one logical change, with its tests in the same commit. Messages use `type(scope): summary`.
 - **PR:** titled `T-XXX: <task title>`, using the PR template. The same PR updates this file (status and PR link) and adds a short entry to [change-log.md](change-log.md).
 - **Definition of done:**
