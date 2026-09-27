@@ -4,7 +4,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 
 ## How to work a task
 
-- **Status symbols:** ☐ todo · ◐ in progress / PR open · ☑ done (merged) · ⛔ blocked
+- **Status symbols:** ☐ todo · ◐ in progress / PR open · ☑ done (merged) · ⛔ blocked · ✖ dropped (kept so task IDs stay stable)
 - **Size:** S = up to half a day · M = about a day · L = two to three days. Split anything bigger.
 - **Branch:** named after the change, as `<type>/<short-description>`.
   - Examples: `feat/telegram-webhook-storage`, `fix/latex-escaping`, `docs/project-planning-documents`.
@@ -23,7 +23,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 | Milestone | Tasks | Status |
 |---|---|---|
 | M0: Documents | T-000 | ◐ |
-| M1: Engine and command line | T-001 – T-024 | ☐ |
+| M1: Engine and command line | T-001 – T-024 (T-007 dropped) | ☐ |
 | M2: Journal loop | T-025 – T-053 | ☐ |
 | M3: Quality and habit | Epics (at the end of this file) | — |
 | M4: Open to others | Epics (at the end of this file) | — |
@@ -148,14 +148,9 @@ As the owner, I want my master resume converted into the profile format, so that
 - [ ] Tests use a fictional `.tex` fixture that exercises every macro and comment tag.
 
 ### T-007 · Import master-resume.json and the application log
-**Status:** ⛔ blocked on OQ-1 (file not yet provided) · **Size:** M · **Depends on:** T-006 · **Requirements:** FR-IMP-2, FR-TLR-8 · **PR:** —
+**Status:** ✖ dropped · **Size:** — · **Depends on:** — · **Requirements:** FR-IMP-2 (dropped) · **PR:** —
 
-As the owner, I want the JSON twin and my application log imported too, so that nothing I've tracked by hand is lost.
-
-- [ ] `wj import json <path>` maps the JSON into the profile and into Application records.
-- [ ] Bullet IDs are cross-checked against the LaTeX import, and mismatches are listed in the report.
-- [ ] Application log entries become Application records.
-- [ ] Tests are based on fixtures. Personal data goes only in `local/`.
+Dropped after OQ-1: the JSON twin isn't needed. The LaTeX master (T-006) holds everything the app needs, and the app's database replaces the JSON twin. Past applications aren't imported; the application log starts with the first tailored resume (T-021).
 
 ### T-008 · Variant selection
 **Status:** ☐ · **Size:** M · **Depends on:** T-003 · **Requirements:** FR-RES-5, FR-PRF-4, FR-PRF-5, FR-PRF-7, FR-PRF-8, FR-PRF-9, R7, R8 · **PR:** —

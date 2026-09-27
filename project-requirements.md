@@ -41,7 +41,7 @@ The owner's current setup shows the cost of doing all this by hand:
 
 - **A master resume in LaTeX.** It holds every bullet worth using. Comments in the file record each bullet's ID, strength, verification status, approved alternative phrasings ("swaps") and open questions. They also record rules about what may and may not be claimed.
 - **Tailored resumes made by hand.** Each one-page resume is made by copying the master, deleting what doesn't fit the job posting and swapping in the posting's vocabulary.
-- **A JSON twin of the master and an application log**, both kept in sync by hand.
+- **A JSON twin of the master and an application log**, both kept in sync by hand. The app's database replaces both.
 - **A portfolio website** that hardcodes the same content in code. Earlier resume exports have drifted away from it: duplicated entries, inconsistent names and mixed date formats.
 
 Keeping all of this current depends on remembering to do it, and on remembering what happened months ago.
@@ -75,7 +75,7 @@ Keeping all of this current depends on remembering to do it, and on remembering 
 - Job-posting tailoring, with a keyword coverage report and an application log.
 - A portfolio page hosted by the app.
 - A LinkedIn update pack (assisted: the owner pastes it in).
-- Import of the owner's master resume (LaTeX, and JSON when provided).
+- Import of the owner's master resume from LaTeX.
 - A web app for review, journal, profile, resumes, tailoring, portfolio, LinkedIn and settings.
 - Deployment for one invited user.
 
@@ -308,7 +308,7 @@ Priority: **M** = Must (v1) · **S** = Should (v1 if time allows) · **C** = Cou
 | ID | Requirement | Pri | Acceptance criteria |
 |---|---|---|---|
 | FR-IMP-1 | Import the owner's master resume from LaTeX: the macros give the structure, and structured comments give the metadata. | M | Structure: sections, roles, projects, bullets and skills lines. Metadata: bullet ID, strength, verification, swaps, open questions, notes, benched and planned items, title variants, coursework subsets, summary variants, skills presets, proficiency tiers and gaps. |
-| FR-IMP-2 | Import the JSON twin (`master-resume.json`) when provided, including the application log. Cross-check its bullet IDs against the LaTeX. | M | Any mismatch is reported. |
+| FR-IMP-2 | ~~Import the JSON twin (`master-resume.json`), including the application log.~~ **Dropped** (OQ-1): the LaTeX master holds everything the app needs, and the app's database replaces the JSON twin. | — | — |
 | FR-IMP-3 | Import is deterministic: it makes no LLM calls, and reports anything it couldn't map. | M | |
 | FR-IMP-4 | Each imported bullet gets a linked fact, with metrics parsed by the number check, so the verifier can check future rewording. | M | |
 | FR-IMP-5 | Imported personal data is stored only in the database, or in a git-ignored local file until the database exists. It is never stored in git. | M | |
@@ -399,7 +399,7 @@ At list prices in September 2026: about US$2/month for regular journaling, plus 
 | C4 | v1 has one user, the owner. The data model is ready for more: every row belongs to a user. |
 | C5 | The resume template needs pdfLaTeX (it uses `\pdfgentounicode`). |
 | C6 | Hosting is on Railway (Singapore region). Costs are estimates. |
-| A1 | The owner provides `master-resume.tex` (received) and `master-resume.json` (see OQ-1). |
+| A1 | The owner provides `master-resume.tex` (received). The JSON twin isn't needed (OQ-1). Past applications aren't imported; the app's application log starts with the first tailored resume. |
 | A2 | The owner reviews proposals at least once a month. |
 
 ## 12. Risks and mitigations
@@ -467,11 +467,11 @@ Telegram ──webhook──▶ FastAPI "web" service ──▶ PostgreSQL ◀�
 
 ## 15. Open questions
 
-| ID | Question | Needed by |
-|---|---|---|
-| OQ-1 | Please upload `master-resume.json`, the JSON twin with bullet IDs, open questions and the application log. | T-007 |
-| OQ-2 | May I commit the template skeleton? That means Jake's Resume preamble and macros (MIT-licensed, credited) plus your one-line subheading macro, with **all personal content removed**. | T-011 |
-| OQ-3 | What should the portfolio handle (`/p/<handle>`) and the app's domain be? | T-046, T-051 |
-| OQ-4 | Is the default reminder time right: Friday 18:00, Asia/Singapore? | T-035 |
-| OQ-5 | Which application-log fields matter to you, beyond what FR-TLR-8 lists (e.g. contacts, outcome)? | T-021 |
-| OQ-6 | Should the named resume variants be the role types from your master resume (backend/full stack, ML/AI, identity/security, systems)? | T-008 |
+| ID | Question | Needed by | Answer |
+|---|---|---|---|
+| OQ-1 | Is `master-resume.json` (the JSON twin with bullet IDs, open questions and the application log) needed? | T-007 | **Resolved 2026-09-27: no.** The LaTeX master has everything the app needs, and the database replaces the JSON twin. FR-IMP-2 and T-007 are dropped. |
+| OQ-2 | May I commit the template skeleton? That means Jake's Resume preamble and macros (MIT-licensed, credited) plus your one-line subheading macro, with **all personal content removed**. | T-011 | Open |
+| OQ-3 | What should the portfolio handle (`/p/<handle>`) and the app's domain be? | T-046, T-051 | Open |
+| OQ-4 | Is the default reminder time right: Friday 18:00, Asia/Singapore? | T-035 | Open |
+| OQ-5 | Which application-log fields matter to you, beyond what FR-TLR-8 lists (e.g. contacts, outcome)? | T-021 | Open |
+| OQ-6 | Should the named resume variants be the role types from your master resume (backend/full stack, ML/AI, identity/security, systems)? | T-008 | Open |

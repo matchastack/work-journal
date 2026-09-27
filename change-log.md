@@ -43,12 +43,15 @@ You asked for the requirements, the backlog, a change log and Claude instruction
 - **Model routing as you asked** (§10): the heavy tier (Opus) only for synthesis and tailoring selection; the standard tier (Sonnet) and light tier (Haiku) for short tasks. Exact model versions live in environment variables, not in the repo.
 - **Branch names describe the change** (e.g. `docs/project-planning-documents`), as you asked. The rule is recorded in `CLAUDE.md`.
 
+### Your answers applied during review
+- **OQ-1:** `master-resume.json` isn't needed. FR-IMP-2 and T-007 are marked dropped, keeping their IDs so references stay stable. Past applications aren't imported; the application log starts with the first tailored resume.
+
 ### Verify
 - [ ] `project-requirements.md` §3 Scope: anything missing, or anything that shouldn't be there?
 - [ ] §7 Functional requirements: are the priorities (M/S/C) right?
 - [ ] §8 Resume rules: do they match how you use your master resume?
 - [ ] §10 LLM policy: is routing by tier as you want it?
-- [ ] §15 Open questions: please answer OQ-1 to OQ-6. For OQ-1, upload `master-resume.json`.
+- [ ] §15 Open questions: OQ-1 is answered. Please answer OQ-2 to OQ-6.
 - [ ] `tasks.md`: are the task sizes and order right? Anything to split or merge?
 - [ ] `CLAUDE.md`: are the workflow and branch-naming rules as you want them?
 - [ ] This file: does the entry format tell you what you need?
