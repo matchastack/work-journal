@@ -30,7 +30,20 @@ Work Journal turns informal Telegram journal messages into a structured, version
 
 ## Commands
 
-Filled in by T-001 and later tasks.
+Run these from `backend/` (uv project, Python 3.12):
+
+| What | Command |
+|---|---|
+| Install dependencies | `uv sync` |
+| Run the API locally (auto-reload) | `uv run uvicorn app.main:app --reload`, then open `/healthz` or `/docs` |
+| Run the command-line tool | `uv run wj --help` |
+| Lint | `uv run ruff check .` |
+| Format | `uv run ruff format .` |
+| Type-check | `uv run pyright` |
+| Tests | `uv run pytest` (tests that call the real Claude API: `uv run pytest -m llm`) |
+| **All checks before pushing** | `uv run ruff check . && uv run ruff format --check . && uv run pyright && uv run pytest` |
+
+Add a dependency with `uv add <package>` (or `uv add --dev <package>` for tools), and commit `pyproject.toml` together with `uv.lock`.
 
 ## Layout
 

@@ -10,7 +10,19 @@ You send short, informal messages about your work to a Telegram bot. Work Journa
 
 Every generated sentence is checked so that professional wording never changes the meaning or the numbers, and nothing goes public without your approval.
 
-**Status:** planning. There's no code yet; see the task backlog.
+**Status:** in development. Milestone M1 (engine and command line) is under way; see the task backlog.
+
+## Development
+
+The backend lives in `backend/` and needs [uv](https://docs.astral.sh/uv/) and Python 3.12. From `backend/`:
+
+```sh
+uv sync          # install dependencies
+uv run pytest    # run the tests
+uv run wj --help # the command-line tool
+```
+
+The full list of commands is in [CLAUDE.md](CLAUDE.md#commands).
 
 ## Documents
 
