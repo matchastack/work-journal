@@ -80,11 +80,11 @@ As the owner, I want every PR checked automatically, so that I only review chang
 - [x] CI is green on this PR.
 
 ### T-003 · Core schemas
-**Status:** ☐ · **Size:** M · **Depends on:** T-001 · **Requirements:** FR-PRF-1, FR-PRF-4, FR-PRF-5, FR-PRF-6, FR-PRF-7, FR-PRF-8, FR-PRF-9, FR-PRF-10, FR-EXT-1, NFR-PRIV-1 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-001 · **Requirements:** FR-PRF-1, FR-PRF-4, FR-PRF-5, FR-PRF-6, FR-PRF-7, FR-PRF-8, FR-PRF-9, FR-PRF-10, FR-EXT-1, NFR-PRIV-1 · **PR:** [#4](https://github.com/matchastack/work-journal/pull/4)
 
 As a developer, I want typed models for every core object, so that the engine, the API and LLM outputs share one definition.
 
-- [ ] Pydantic models:
+- [x] Pydantic models:
   - **Profile:** basics, roles, education, projects, skills, summaries and open questions.
   - **Bullet:** id, text, strength, verification, swaps, needs, notes, status, tags, priority, visibility and sources.
   - **Role:** title variants, load-bearing, during-education, keep-for/cut-for, sensitivity and honesty boundaries.
@@ -92,10 +92,10 @@ As a developer, I want typed models for every core object, so that the engine, t
   - **Education:** honours, coursework, subsets and rules.
   - **Fact and Metric:** Metric has subject, a value (single, from→to, or range), unit and qualifier.
   - **Variant, the ChangeOp union, JobPosting and Application.**
-- [ ] Field names follow JSON Resume wherever JSON Resume has one.
-- [ ] Dates are stored as `YYYY-MM`. IDs are stable strings.
-- [ ] `wj schema export` writes the JSON Schema files.
-- [ ] A fixture profile for a fictional person (`backend/tests/fixtures/`) validates. Round-trip tests (load → dump → load) pass.
+- [x] Field names follow JSON Resume wherever JSON Resume has one.
+- [x] Dates are stored as `YYYY-MM`. IDs are stable strings.
+- [x] `wj schema export` writes the JSON Schema files.
+- [x] A fixture profile for a fictional person (`backend/tests/fixtures/`) validates. Round-trip tests (load → dump → load) pass.
 
 ### T-004 · Profile operations
 **Status:** ☐ · **Size:** S · **Depends on:** T-003 · **Requirements:** FR-PRF-2, FR-PRF-3, FR-PRF-11, FR-REV-3, NFR-DATA-1 · **PR:** —

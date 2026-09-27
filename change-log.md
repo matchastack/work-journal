@@ -2,6 +2,14 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-09-27 · T-003 Core schemas · [#4](https://github.com/matchastack/work-journal/pull/4)
+**Changed:** added typed models for the master profile (with all the master-resume metadata), facts and metrics, variants, change operations, job postings and applications, plus `wj schema export`.
+
+**Verify:**
+- CI is green on #4
+- `uv run wj schema export /tmp/wj-schemas` writes 6 schema files
+- The profile model captures everything your master resume records
+
 ## 2026-09-27 · T-002 CI pipeline · [#3](https://github.com/matchastack/work-journal/pull/3)
 **Changed:** added a GitHub Actions workflow that runs the backend's lint, format, type and test checks on every PR and on `main`.
 
