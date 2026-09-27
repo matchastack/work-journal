@@ -1,0 +1,185 @@
+{
+  "basics": {
+    "name": "Casey Morgan",
+    "label": "Software Engineer",
+    "email": "casey@example.com",
+    "phone": "+1 555 0100",
+    "phoneVisibility": "resume_only",
+    "url": "https://example.com",
+    "location": { "city": "Springfield", "countryCode": "US" },
+    "profiles": [
+      { "network": "GitHub", "username": "casey-example", "url": "https://github.com/casey-example" }
+    ]
+  },
+  "roleTypes": [
+    { "id": "backend", "name": "Backend / full stack" },
+    { "id": "data", "name": "Data engineering" }
+  ],
+  "work": [
+    {
+      "id": "northwind",
+      "name": "Northwind Traders",
+      "position": "Engineer",
+      "titleVariants": ["Software Engineer", "Backend Engineer"],
+      "startDate": "2025-08",
+      "loadBearing": true,
+      "keepFor": ["backend", "data"],
+      "sensitivity": "sensitive",
+      "honestyBoundaries": ["Did not own the deployment pipeline."],
+      "highlights": [
+        {
+          "id": "nw_orders",
+          "text": "Build and maintain Python services that process order events from a message queue.",
+          "strength": "high",
+          "verification": "partial",
+          "verificationNote": "Volume not yet known.",
+          "needs": ["q_nw_volume"],
+          "swaps": [
+            {
+              "text": "event-driven Python services",
+              "replaces": "Python services",
+              "contexts": ["platform roles"]
+            }
+          ],
+          "tags": ["backend"],
+          "priority": 1
+        },
+        {
+          "id": "nw_export",
+          "text": "Cut the nightly export job from 50 to 12 minutes by batching database writes.",
+          "strength": "high",
+          "verification": "yes",
+          "sources": ["fact_nw_export"]
+        },
+        {
+          "id": "nw_tracker",
+          "text": "Used an issue tracker for sprint planning.",
+          "strength": "low",
+          "status": "benched",
+          "statusReason": "Tool usage, not an achievement."
+        }
+      ]
+    },
+    {
+      "id": "contoso",
+      "name": "Contoso Research",
+      "position": "Research Intern",
+      "startDate": "2024-01",
+      "endDate": "2024-06",
+      "duringEducation": true,
+      "keepFor": ["data"],
+      "cutFor": ["backend"],
+      "highlights": [
+        {
+          "id": "ct_sensors",
+          "text": "Built a Python tool that labels sensor logs and flags anomalies for a reliability study.",
+          "strength": "medium",
+          "strengthOverrides": [{ "roleType": "data", "strength": "high" }],
+          "verification": "yes",
+          "notes": [{ "kind": "warning", "text": "Labelling and flagging only; no model training." }]
+        },
+        {
+          "id": "ct_datasets",
+          "text": "Surveyed 40 open datasets to choose benchmarks for the study.",
+          "strength": "low",
+          "verification": "yes",
+          "priority": 3
+        }
+      ]
+    }
+  ],
+  "education": [
+    {
+      "id": "springfield_state",
+      "institution": "Springfield State University",
+      "studyType": "Bachelor of Science",
+      "area": "Computer Science",
+      "honours": "Magna Cum Laude",
+      "startDate": "2020-08",
+      "endDate": "2024-05",
+      "courses": ["Algorithms", "Operating Systems", "Databases", "Distributed Systems", "Statistics"],
+      "courseworkSubsets": [
+        { "roleType": "backend", "courses": ["Algorithms", "Operating Systems", "Distributed Systems"] },
+        { "roleType": "data", "courses": ["Databases", "Statistics", "Algorithms"] }
+      ],
+      "highlights": [{ "id": "ss_minor", "text": "Minor in Mathematics", "verification": "yes" }],
+      "rules": ["Show the minor after the major."]
+    }
+  ],
+  "projects": [
+    {
+      "id": "recipe_box",
+      "name": "Recipe Box",
+      "keywords": ["TypeScript", "React", "PostgreSQL"],
+      "url": "https://github.com/casey-example/recipe-box",
+      "startDate": "2023-06",
+      "endDate": "2023-09",
+      "keepFor": ["backend"],
+      "tags": ["web"],
+      "highlights": [
+        {
+          "id": "rb_app",
+          "text": "Built a recipe-sharing web app with full-text search and image uploads, used by 300 people a month.",
+          "strength": "medium",
+          "verification": "yes"
+        }
+      ]
+    },
+    {
+      "id": "bird_calls",
+      "name": "Bird Call Classifier",
+      "keywords": ["Python", "PyTorch"],
+      "status": "planned",
+      "statusReason": "Not built yet.",
+      "highlights": [
+        {
+          "id": "bc_model",
+          "text": "Classify bird species from short audio clips.",
+          "status": "planned",
+          "statusReason": "Not built yet."
+        }
+      ]
+    }
+  ],
+  "skills": [
+    { "name": "Python", "category": "Languages", "tier": "strong" },
+    { "name": "TypeScript", "category": "Languages", "tier": "working" },
+    { "name": "SQL", "category": "Languages", "tier": "strong" },
+    { "name": "FastAPI", "category": "Backend & APIs" },
+    { "name": "Node.js", "category": "Backend & APIs", "aliases": ["NodeJS"] },
+    {
+      "name": "React",
+      "category": "Frontend",
+      "notes": [{ "kind": "note", "text": "Personal projects only." }]
+    },
+    { "name": "Kotlin", "category": "Languages", "tier": "academic", "verifyBeforeShipping": true },
+    { "name": "PostgreSQL", "category": "Databases" },
+    { "name": "Apache Airflow", "category": "Data" }
+  ],
+  "skillGaps": ["Rust", "Swift"],
+  "skillPresets": [
+    {
+      "roleType": "backend",
+      "lines": [
+        { "label": "Languages", "skills": ["Python", "TypeScript", "SQL"] },
+        { "label": "Backend & APIs", "skills": ["FastAPI", "Node.js"] },
+        { "label": "Databases", "skills": ["PostgreSQL"] }
+      ]
+    },
+    {
+      "roleType": "data",
+      "lines": [
+        { "label": "Languages", "skills": ["Python", "SQL"] },
+        { "label": "Data", "skills": ["Apache Airflow", "PostgreSQL"] }
+      ]
+    }
+  ],
+  "summaries": [
+    { "roleType": "backend", "text": "Backend engineer building event-driven Python services." },
+    { "roleType": "data", "text": "Engineer who builds reliable data pipelines and tooling." }
+  ],
+  "openQuestions": [
+    { "id": "q_nw_volume", "question": "How many order events a day do the services handle?" },
+    { "id": "q_project_dates", "question": "When was each project built?", "status": "answered" }
+  ]
+}
