@@ -10,7 +10,7 @@ Work Journal turns informal Telegram journal messages into a structured, version
 |---|---|
 | [project-requirements.md](project-requirements.md) | The source of truth. Read the parts relevant to a task before starting it. |
 | [tasks.md](tasks.md) | The backlog. One task = one PR. |
-| [change-log.md](change-log.md) | What each PR changed and what the owner must verify |
+| [change-log.md](change-log.md) | A short entry per PR: what changed and what the owner must verify |
 
 ## Workflow
 
@@ -24,7 +24,7 @@ Work Journal turns informal Telegram journal messages into a structured, version
 4. **Check before pushing.** Lint, type-check and tests must pass (see Commands).
 5. **Update the docs in the same PR.**
    - In `tasks.md`, set the task's status and PR link.
-   - In `change-log.md`, add an entry with concrete **Verify** steps: commands to run, pages to open, expected results.
+   - In `change-log.md`, add a **short** entry: one line on what changed, and a few **Verify** checks. Don't copy the PR description; the details live in the PR.
 6. **Open the PR** titled `T-XXX: <task title>`, using the PR template. Never push to `main`, and never merge.
 7. **Change the requirements first.** If scope needs to change, update `project-requirements.md` in the PR and call it out in the PR description.
 

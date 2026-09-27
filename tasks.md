@@ -11,11 +11,11 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
   - Types match the commit types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `ci`, `build`.
   - Branch from `main`. If a dependency isn't merged yet, branch from the dependency's branch and write "Stacked on #N" in the PR.
 - **Commits:** atomic. Each commit is one logical change, with its tests in the same commit. Messages use `type(scope): summary`.
-- **PR:** titled `T-XXX: <task title>`, using the PR template. The same PR updates this file (status and PR link) and adds an entry to [change-log.md](change-log.md).
+- **PR:** titled `T-XXX: <task title>`, using the PR template. The same PR updates this file (status and PR link) and adds a short entry to [change-log.md](change-log.md).
 - **Definition of done:**
   - All acceptance criteria are met.
   - Lint, type-check and tests pass in CI.
-  - The change-log entry includes verification steps.
+  - The change-log entry says in one line what changed, and lists a few checks to verify.
   - No personal data or secrets are committed.
 
 ## Overview

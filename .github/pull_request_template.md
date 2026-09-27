@@ -8,7 +8,7 @@ Stacked on: <!-- #PR number, or "none" -->
 -
 
 ## How to verify
-<!-- The same steps as the change-log entry: commands to run, pages to open, expected results. -->
+<!-- Full steps: commands to run, pages to open, expected results. The change-log entry keeps only a short version. -->
 - [ ]
 
 ## Commits
@@ -18,6 +18,6 @@ Stacked on: <!-- #PR number, or "none" -->
 ## Checklist
 - [ ] Acceptance criteria in `tasks.md` are met
 - [ ] `tasks.md` status and PR link updated
-- [ ] `change-log.md` entry added, with verification steps
+- [ ] Short `change-log.md` entry added
 - [ ] Lint, type-check and tests pass
 - [ ] No personal data or secrets committed
