@@ -33,7 +33,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 ## M0: Documents
 
 ### T-000 · Project documents
-**Status:** ◐ · **Size:** S · **Depends on:** — · **Requirements:** all (defines them) · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** — · **Requirements:** all (defines them) · **PR:** [#1](https://github.com/matchastack/work-journal/pull/1)
 
 As the owner, I want the requirements, backlog, change log and Claude conventions written down before any code, so that every later PR is grounded and easy to verify.
 

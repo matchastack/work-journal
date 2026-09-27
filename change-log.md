@@ -8,13 +8,13 @@ Every PR adds one entry here. When you've checked everything under **Verify**, t
 
 | Task | PR | What to check |
 |---|---|---|
-| T-000 Project documents | Link added once the PR is open | Read the documents and answer the open questions (below) |
+| T-000 Project documents | [#1](https://github.com/matchastack/work-journal/pull/1) | Read the documents and answer the open questions (below) |
 
 ---
 
 ## 2026-09-27 · T-000 · Project documents
 
-**PR:** link added once the PR is open · **Branch:** `docs/project-planning-documents` · **Status:** awaiting your review
+**PR:** [#1](https://github.com/matchastack/work-journal/pull/1) · **Branch:** `docs/project-planning-documents` · **Status:** awaiting your review
 
 ### What changed
 - **`project-requirements.md`**: the requirements document the project is grounded in. It covers:
