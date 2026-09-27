@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Turn Telegram journal entries into an up-to-date resume, portfolio page and LinkedIn text."
 requires-python = ">=3.12"
 dependencies = [
+    "fastapi>=0.141.1",
     "pydantic-settings>=2.15.0",
+    "uvicorn[standard]>=0.54.0",
 ]
 
 [build-system]
@@ -35,6 +37,7 @@ markers = ["llm: calls the real Claude API; opt in with `pytest -m llm`"]
 
 [dependency-groups]
 dev = [
+    "httpx2>=2.13.1",
     "pyright>=1.1.414",
     "pytest>=9.1.1",
     "ruff>=0.16.9",
