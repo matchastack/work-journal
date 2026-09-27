@@ -102,10 +102,10 @@ As a developer, I want typed models for every core object, so that the engine, t
 
 As a developer, I want pure functions that apply change operations and compare profiles, so that AI proposals and manual edits change the profile in exactly the same way.
 
-- [ ] `apply(profile, ops) -> profile` supports these ops:
-  - AddBullet, EditBullet, SetBulletStatus
-  - AddSwap, AddItem, UpdateField
-  - AddSkill, ResolveOpenQuestion
+- [ ] `apply(profile, ops) -> profile` supports every op in the `ChangeOp` union (T-003):
+  - AddBullet, EditBullet, SetBulletStatus, AddSwap
+  - AddRole, AddEducation, AddProject
+  - UpdateField, AddSkill, ResolveOpenQuestion
 - [ ] Ops address items by ID, and an unknown ID raises a clear error. Apply is atomic: either every op applies or none does.
 - [ ] `diff(a, b)` returns the changed items and fields in a readable structure.
 - [ ] Tests confirm that applying ops and then diffing shows exactly the applied changes.
