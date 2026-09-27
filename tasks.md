@@ -15,7 +15,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 - **Definition of done:**
   - All acceptance criteria are met.
   - Lint, type-check and tests pass in CI.
-  - The change-log entry says in one line what changed, and lists a few checks to verify.
+  - The change-log entry says in one line what changed and lists what to verify, without checkboxes.
   - No personal data or secrets are committed.
 
 ## Overview

@@ -8,7 +8,7 @@ Stacked on: <!-- #PR number, or "none" -->
 -
 
 ## How to verify
-<!-- Full steps: commands to run, pages to open, expected results. The change-log entry keeps only a short version. -->
+<!-- Full steps: commands to run, pages to open, expected results. Tick them here; the change-log entry lists a short version without checkboxes. -->
 - [ ]
 
 ## Commits
