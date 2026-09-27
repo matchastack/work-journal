@@ -470,7 +470,7 @@ Telegram ──webhook──▶ FastAPI "web" service ──▶ PostgreSQL ◀�
 | ID | Question | Needed by | Answer |
 |---|---|---|---|
 | OQ-1 | Is `master-resume.json` (the JSON twin with bullet IDs, open questions and the application log) needed? | T-007 | **Resolved 2026-09-27: no.** The LaTeX master has everything the app needs, and the database replaces the JSON twin. FR-IMP-2 and T-007 are dropped. |
-| OQ-2 | May I commit the template skeleton? That means Jake's Resume preamble and macros (MIT-licensed, credited) plus your one-line subheading macro, with **all personal content removed**. | T-011 | Open |
+| OQ-2 | May I commit the template skeleton? That means Jake's Resume preamble and macros (MIT-licensed, credited) plus your one-line subheading macro, with **all personal content removed**. | T-011 | **Resolved 2026-09-27: yes.** |
 | OQ-3 | What should the portfolio handle (`/p/<handle>`) and the app's domain be? | T-046, T-051 | Open |
 | OQ-4 | Is the default reminder time right: Friday 18:00, Asia/Singapore? | T-035 | Open |
 | OQ-5 | Which application-log fields matter to you, beyond what FR-TLR-8 lists (e.g. contacts, outcome)? | T-021 | Open |

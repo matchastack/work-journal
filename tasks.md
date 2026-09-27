@@ -200,7 +200,7 @@ As the owner, I want resumes rendered safely from data through LaTeX, so that PD
 - [ ] The required TeX Live packages are documented and installed in CI.
 
 ### T-011 · Owner's resume template
-**Status:** ☐ · **Size:** S · **Depends on:** T-006, T-010 · **Requirements:** FR-RES-1, FR-RES-6 · **Needs:** OQ-2 · **PR:** —
+**Status:** ☐ · **Size:** S · **Depends on:** T-006, T-010 · **Requirements:** FR-RES-1, FR-RES-6 · **PR:** —
 
 As the owner, I want my own LaTeX template used for every resume, so that generated PDFs look exactly like the ones I send today.
 
