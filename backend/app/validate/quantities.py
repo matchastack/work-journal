@@ -3,7 +3,7 @@
 Used by the number checker (`app.validate.numbers`) and to turn existing bullets into fact
 metrics on import. Handles thousands separators, decimals, `%`, `x`, currency, time units, plain
 counts, number words ("two"), vague magnitudes ("hundreds of"), ranges, before/after changes,
-qualifiers ("about", "over", "200+") and LaTeX escapes (`33\\%`).
+qualifiers ("about", "over", "300+") and LaTeX escapes (`15\\%`).
 """
 
 import re
@@ -50,7 +50,7 @@ _NOT_UNITS = frozenset(
 
 
 def normalize_unit(unit: str | None) -> str | None:
-    """Canonical form of a unit: `minutes` -> `minute`, `percent` -> `%`, `papers` -> `paper`."""
+    """Canonical form of a unit: `minutes` -> `minute`, `percent` -> `%`, `tickets` -> `ticket`."""
     if unit is None:
         return None
     text = unit.strip().lower()
@@ -315,7 +315,7 @@ def _values_and_symbol_unit(
 
 
 def _word_unit(text: str, end: int) -> tuple[str | None, int]:
-    """A unit word after a number, e.g. `papers` or `of users`; connectives don't count."""
+    """A unit word after a number, e.g. `tickets` or `of users`; connectives don't count."""
     word_unit = _WORD_UNIT_AFTER.match(text, end)
     if word_unit and word_unit[1].lower() not in _NOT_UNITS:
         return normalize_unit(word_unit[1]), word_unit.end()

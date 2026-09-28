@@ -116,16 +116,16 @@ As a developer, I want pure functions that apply change operations and compare p
 As the owner, I want every number in generated text checked against my facts, so that nothing I publish or send misstates a metric.
 
 - [x] It extracts:
-  - integers and decimals, including thousands separators ("1,000")
-  - percentages and multipliers ("6x")
+  - integers and decimals, including thousands separators ("1,500")
+  - percentages and multipliers ("5x")
   - currency, durations and counts
-  - ranges ("2–3 hours", "8% to 2.1%")
-  - qualifiers ("about", "over", "up to", "200+")
+  - ranges ("3–5 days", "12% to 4.5%")
+  - qualifiers ("about", "over", "up to", "300+")
 - [x] It flags a number that isn't in the cited facts, a changed unit, or a stronger qualifier.
 - [x] It accepts figures derived by code (percentage change, ratio, multiplier) and records the formula.
 - [x] A metric that is in the facts but missing from the text is reported as a warning.
 - [x] It can also parse metrics out of existing bullets, for import.
-- [x] Unit tests cover every rule, including LaTeX-escaped input (`33\%`).
+- [x] Unit tests cover every rule, including LaTeX-escaped input (`15\%`).
 
 ### T-006 · Import master resume from LaTeX
 **Status:** ☐ · **Size:** M · **Depends on:** T-003, T-005 · **Requirements:** FR-IMP-1, FR-IMP-3, FR-IMP-4, FR-IMP-5, NFR-PRIV-1 · **PR:** —

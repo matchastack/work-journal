@@ -2,7 +2,7 @@
 
 Deterministic, no LLM (FR-FID-1..3, FR-EXT-2). Quantities are found in the text and each must be
 supported by a fact metric: the same numbers, a compatible unit, and a qualifier no stronger than
-the fact's. Numbers are compared as intervals: "200+" is [200, inf), "about 200" is 200 +/- 10%,
+the fact's. Numbers are compared as intervals: "300+" is [300, inf), "about 300" is 300 +/- 10%,
 and text is supported only if the fact's interval lies inside the text's. Figures derived by code
 from a before/after metric (percentage change, ratio, difference) are accepted with their formula.
 Metrics the text leaves out are warnings.
@@ -85,7 +85,7 @@ def check_numbers(
 
 
 def describe_metric(metric: Metric) -> str:
-    """E.g. `export duration: 50 -> 12 minute` or `papers: at least 200`."""
+    """E.g. `export duration: 50 -> 12 minute` or `tickets: at least 300`."""
     value = metric.value
     if isinstance(value, SingleValue):
         numbers = _fmt(value.value)

@@ -10,7 +10,7 @@ def metric(value: SingleValue | ChangeValue | RangeValue, unit: str | None = Non
 
 
 EXPORT = metric(ChangeValue(before=50, after=12), "minutes", subject="export duration")
-PAPERS = metric(SingleValue(value=200), "papers", qualifier="at_least", subject="papers")
+TICKETS = metric(SingleValue(value=300), "tickets", qualifier="at_least", subject="tickets")
 
 
 def codes(text: str, metrics: list[Metric], allowed: tuple[str, ...] = ()) -> list[str]:
@@ -24,8 +24,8 @@ def test_supported_numbers_pass_cleanly() -> None:
 
 
 def test_latex_escaped_percent_is_supported() -> None:
-    f1 = metric(SingleValue(value=33), "%", subject="F1 improvement")
-    assert check_numbers("improving F1 score by 33\\%", [f1]).findings == ()
+    recall = metric(SingleValue(value=15), "%", subject="recall improvement")
+    assert check_numbers("improving recall by 15\\%", [recall]).findings == ()
 
 
 def test_invented_number_is_an_error() -> None:
@@ -43,21 +43,21 @@ def test_changed_unit_is_an_error() -> None:
 
 
 def test_stronger_qualifier_is_an_error() -> None:
-    assert codes("Reviewed over 200 papers", [PAPERS]) == ["qualifier_stronger"]
-    approx = metric(SingleValue(value=200), "papers", qualifier="approximately")
-    assert codes("Reviewed 200 papers", [approx]) == ["qualifier_stronger"]
+    assert codes("Triaged over 300 tickets", [TICKETS]) == ["qualifier_stronger"]
+    approx = metric(SingleValue(value=300), "tickets", qualifier="approximately")
+    assert codes("Triaged 300 tickets", [approx]) == ["qualifier_stronger"]
 
 
 def test_weaker_qualifier_is_a_warning() -> None:
-    exact = metric(SingleValue(value=200), "papers")
-    result = check_numbers("Reviewed about 200 papers", [exact])
+    exact = metric(SingleValue(value=300), "tickets")
+    result = check_numbers("Triaged about 300 tickets", [exact])
     assert result.ok
     assert [finding.code for finding in result.findings] == ["qualifier_weakened"]
 
 
 def test_same_qualifier_passes() -> None:
-    assert codes("Reviewed 200+ papers", [PAPERS]) == []
-    assert codes("Reviewed at least 200 papers", [PAPERS]) == []
+    assert codes("Triaged 300+ tickets", [TICKETS]) == []
+    assert codes("Triaged at least 300 tickets", [TICKETS]) == []
 
 
 @pytest.mark.parametrize(
@@ -87,22 +87,22 @@ def test_one_end_of_a_change_can_be_cited_alone() -> None:
 
 
 def test_pair_matches_a_change_or_a_range() -> None:
-    ceiling = metric(ChangeValue(before=1000, after=6000), "items")
-    assert codes("from a ceiling of 1,000 to 6,000 items", [ceiling]) == []
-    assert codes("1,000 to 6,000 items", [ceiling]) == []
-    weekly = metric(RangeValue(low=2, high=3), "hours")
-    assert codes("saving 2 to 3 hours a week", [weekly]) == []
-    assert codes("saving 2\u20133 hours a week", [weekly]) == []
+    limit = metric(ChangeValue(before=1500, after=7500), "requests")
+    assert codes("from a limit of 1,500 to 7,500 requests", [limit]) == []
+    assert codes("1,500 to 7,500 requests", [limit]) == []
+    monthly = metric(RangeValue(low=3, high=5), "days")
+    assert codes("saving 3 to 5 days a month", [monthly]) == []
+    assert codes("saving 3\u20135 days a month", [monthly]) == []
 
 
 def test_dropped_metric_is_a_warning() -> None:
-    result = check_numbers("Reviewed the literature.", [PAPERS])
+    result = check_numbers("Triaged the backlog.", [TICKETS])
     assert result.ok
     assert [finding.code for finding in result.findings] == ["metric_dropped"]
 
 
 def test_vague_magnitudes_cannot_be_inflated() -> None:
-    users = metric(RangeValue(low=200, high=999), "users", subject="concurrent users")
+    users = metric(RangeValue(low=200, high=999), "users", subject="active users")
     assert codes("serving hundreds of users", [users]) == []
     assert codes("serving thousands of users", [users]) == ["unsupported_number", "metric_dropped"]
 
@@ -112,14 +112,14 @@ def test_allowed_terms_are_not_checked() -> None:
 
 
 def test_word_numbers_are_checked() -> None:
-    departments = metric(SingleValue(value=2), "departments")
-    assert codes("across two departments", [departments]) == []
-    assert codes("across three departments", [departments]) == [
+    regions = metric(SingleValue(value=2), "regions")
+    assert codes("across two regions", [regions]) == []
+    assert codes("across three regions", [regions]) == [
         "unsupported_number",
         "metric_dropped",
     ]
 
 
 def test_a_bullet_passes_against_its_own_extracted_metrics() -> None:
-    text = "Raised the ceiling 6x (1,000 to 6,000 items), saving 2--3 hours per week."
+    text = "Raised throughput 5x (1,500 to 7,500 requests), saving 3--5 days per month."
     assert check_numbers(text, extract_metrics(text)).findings == ()
