@@ -43,7 +43,7 @@ Run these from `backend/` (uv project, Python 3.12):
 | Lint | `uv run ruff check .` |
 | Format | `uv run ruff format .` |
 | Type-check | `uv run pyright` |
-| Tests | `uv run pytest` (tests that call the real Claude API: `uv run pytest -m llm`) |
+| Tests | `uv run pytest` (tests that call the real Claude API: `uv run pytest -m llm`; browser tests need `uv run playwright install chromium`) |
 | **All checks before pushing** | `uv run ruff check . && uv run ruff format --check . && uv run pyright && uv run pytest` (CI runs the same checks on every PR and on `main`: `.github/workflows/ci.yml`) |
 
 Add a dependency with `uv add <package>` (or `uv add --dev <package>` for tools), and commit `pyproject.toml` together with `uv.lock`.
