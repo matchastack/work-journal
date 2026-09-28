@@ -6,11 +6,13 @@ Every variable is listed in `backend/.env.example`; empty values fall back to th
 
 import re
 from functools import lru_cache
+from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
+REPOSITORY = Path(__file__).resolve().parents[2]
 GITHUB_LOGIN = re.compile(r"^[a-z0-9][a-z0-9-]{0,38}$")
 """A GitHub username in lowercase: up to 39 letters, digits and hyphens, not starting with one."""
 
@@ -36,6 +38,8 @@ class Settings(BaseSettings):
     github_client_secret: SecretStr | None = None
     allowed_github_logins: Annotated[frozenset[str], NoDecode] = frozenset()
     """GitHub usernames that may sign in, in lowercase. Empty means nobody can."""
+    web_dist_dir: Path = REPOSITORY / "frontend" / "dist"
+    """The built web app (`npm run build` in `frontend/`), served at `/` when it exists."""
 
     @field_validator("app_url")
     @classmethod
