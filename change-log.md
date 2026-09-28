@@ -2,6 +2,14 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-09-28 · T-013 Style checker · [#10](https://github.com/matchastack/work-journal/pull/10)
+**Changed:** added the style checker. Resume bullets must open with an action verb in the role's tense, use no first-person pronouns and fit in 2 lines at the template's width. LinkedIn text must fit each section's limit, and every style avoids your words to avoid.
+
+**Verify:**
+- CI is green on #10
+- A few of your own bullets get the findings you'd expect
+- Whether current-role bullets must use the present tense (see the PR)
+
 ## 2026-09-27 · T-003 Core schemas · [#4](https://github.com/matchastack/work-journal/pull/4)
 **Changed:** added typed models for the master profile (with all the master-resume metadata), facts and metrics, variants, change operations, job postings and applications, plus `wj schema export`.
 

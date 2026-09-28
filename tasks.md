@@ -221,18 +221,18 @@ As a developer, I want one client for every Claude call, so that routing, retrie
 - [ ] Tests use a fake client. `pytest -m llm` makes real calls only when an API key is set.
 
 ### T-013 · Style checker
-**Status:** ☐ · **Size:** S · **Depends on:** T-003 · **Requirements:** FR-WRT-1, FR-WRT-2, FR-WRT-4 · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-003 · **Requirements:** FR-WRT-1, FR-WRT-2, FR-WRT-4 · **PR:** [#10](https://github.com/matchastack/work-journal/pull/10)
 
 As the owner, I want wording rules checked by code, so that every bullet follows the same style.
 
-- [ ] Resume style checks:
+- [x] Resume style checks:
   - starts with an action verb
   - tense matches the role: present for the current role, past otherwise
   - no first-person pronouns
   - a length limit of about 2 lines at the template's width
-- [ ] LinkedIn style: character limits for each section.
-- [ ] The owner's words-to-avoid list is applied.
-- [ ] Each finding has a severity, and there are tests for each rule.
+- [x] LinkedIn style: character limits for each section.
+- [x] The owner's words-to-avoid list is applied.
+- [x] Each finding has a severity, and there are tests for each rule.
 
 ### T-014 · Fact extraction
 **Status:** ☐ · **Size:** M · **Depends on:** T-005, T-012 · **Requirements:** FR-EXT-1, FR-EXT-2, FR-CAP-8 · **PR:** —
