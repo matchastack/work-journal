@@ -40,6 +40,7 @@ Run these from `backend/` (uv project, Python 3.12):
 | Install dependencies | `uv sync` |
 | Run the API locally (auto-reload) | `uv run uvicorn app.main:app --reload`, then open `/healthz` or `/docs` |
 | Run the command-line tool | `uv run wj --help` |
+| Render a resume (needs TeX Live: `backend/templates/README.md`) | `uv run wj render --variant master` |
 | Lint | `uv run ruff check .` |
 | Format | `uv run ruff format .` |
 | Type-check | `uv run pyright` |
