@@ -2,6 +2,13 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-09-28 · T-028 Background jobs · [#16](https://github.com/matchastack/work-journal/pull/16)
+**Changed:** added a Procrastinate job queue on Postgres, with retries and exponential backoff, cron schedules, an example job, a 15-minute heartbeat, and `wj worker`. Adds Procrastinate and psycopg.
+
+**Verify:**
+- CI is green on #16
+- `uv run wj worker` starts and logs a heartbeat within 15 minutes
+
 ## 2026-09-28 · T-025 Database foundation · [#14](https://github.com/matchastack/work-journal/pull/14)
 **Changed:** added PostgreSQL: an async SQLAlchemy engine, Alembic migrations creating `users` and keyed `settings`, a `/healthz` database check, `compose.yml` for local Postgres 16, and database tests on a fresh database (a Postgres service in CI). Adds SQLAlchemy, asyncpg and Alembic.
 
