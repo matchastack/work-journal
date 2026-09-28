@@ -4,8 +4,10 @@ AI proposals and the owner's manual edits both go through `apply`, so they chang
 exactly the same way (FR-PRF-11). Nothing here does I/O.
 """
 
+import json
 from collections.abc import Sequence
-from typing import Any, assert_never
+from dataclasses import dataclass
+from typing import Any, Literal, assert_never, cast
 
 from pydantic import BaseModel, ValidationError
 
@@ -146,3 +148,106 @@ def _update_field(data: Json, op: UpdateField) -> None:
 def _merge_ids(existing: Sequence[str], new: Sequence[str]) -> list[str]:
     """Append `new` IDs that aren't already present, keeping order."""
     return list(dict.fromkeys([*existing, *new]))
+
+
+IDENTITY_KEYS = ("id", "roleType", "name", "label", "network")
+"""Keys that identify list entries, tried in order: items and bullets by `id`, presets and
+summaries by `roleType`, skills by `name`, skill lines by `label`, social profiles by `network`."""
+
+
+@dataclass(frozen=True)
+class Change:
+    """One difference between two profiles, at a path like `work[acme].highlights[b1].text`."""
+
+    kind: Literal["added", "removed", "changed"]
+    path: str
+    before: Any = None
+    after: Any = None
+
+
+def diff(before: Profile, after: Profile) -> list[Change]:
+    """List what changed from `before` to `after`, in document order.
+
+    List entries are matched by identity (see `IDENTITY_KEYS`), not position, so an inserted
+    bullet shows as one addition rather than a shift of every later bullet. A change in order
+    alone isn't reported.
+    """
+    changes: list[Change] = []
+    _diff(before.model_dump(mode="json"), after.model_dump(mode="json"), "", changes)
+    return changes
+
+
+def format_changes(changes: Sequence[Change], width: int = 80) -> str:
+    """Render changes one per line: `+` added, `-` removed, `~` changed."""
+    lines: list[str] = []
+    for change in changes:
+        if change.kind == "added":
+            lines.append(f"+ {change.path}: {_short(change.after, width)}")
+        elif change.kind == "removed":
+            lines.append(f"- {change.path}: {_short(change.before, width)}")
+        else:
+            before, after = _short(change.before, width), _short(change.after, width)
+            lines.append(f"~ {change.path}: {before} -> {after}")
+    return "\n".join(lines)
+
+
+def _diff(before: Any, after: Any, path: str, changes: list[Change]) -> None:
+    if before == after:
+        return
+    if isinstance(before, dict) and isinstance(after, dict):
+        _diff_dicts(cast(Json, before), cast(Json, after), path, changes)
+        return
+    if isinstance(before, list) and isinstance(after, list):
+        before_list, after_list = cast(list[Any], before), cast(list[Any], after)
+        key = _identity_key(before_list, after_list)
+        if key is not None:
+            _diff_keyed_lists(before_list, after_list, key, path, changes)
+            return
+    changes.append(Change("changed", path, before=before, after=after))
+
+
+def _diff_dicts(before: Json, after: Json, path: str, changes: list[Change]) -> None:
+    for key in dict.fromkeys([*before, *after]):
+        child = f"{path}.{key}" if path else key
+        if key not in before:
+            changes.append(Change("added", child, after=after[key]))
+        elif key not in after:
+            changes.append(Change("removed", child, before=before[key]))
+        else:
+            _diff(before[key], after[key], child, changes)
+
+
+def _diff_keyed_lists(
+    before: list[Any], after: list[Any], key: str, path: str, changes: list[Change]
+) -> None:
+    before_by_id = {item[key]: item for item in before}
+    after_by_id = {item[key]: item for item in after}
+    for item_id in dict.fromkeys([*before_by_id, *after_by_id]):
+        child = f"{path}[{item_id}]"
+        if item_id not in before_by_id:
+            changes.append(Change("added", child, after=after_by_id[item_id]))
+        elif item_id not in after_by_id:
+            changes.append(Change("removed", child, before=before_by_id[item_id]))
+        else:
+            _diff(before_by_id[item_id], after_by_id[item_id], child, changes)
+
+
+def _identity_key(before: list[Any], after: list[Any]) -> str | None:
+    """The key that uniquely identifies every entry in both lists, if there is one."""
+    items = [*before, *after]
+    if not items or not all(isinstance(item, dict) for item in items):
+        return None
+    dicts = cast(list[Json], items)
+    for key in IDENTITY_KEYS:
+        if not all(isinstance(item.get(key), str) for item in dicts):
+            continue
+        before_ids = [item[key] for item in cast(list[Json], before)]
+        after_ids = [item[key] for item in cast(list[Json], after)]
+        if len(set(before_ids)) == len(before_ids) and len(set(after_ids)) == len(after_ids):
+            return key
+    return None
+
+
+def _short(value: Any, width: int) -> str:
+    text = json.dumps(value, ensure_ascii=False)
+    return text if len(text) <= width else text[: width - 1] + "…"
