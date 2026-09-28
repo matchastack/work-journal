@@ -70,14 +70,14 @@ As a developer, I want a runnable Python project with the tooling in place, so t
 - [x] The "Commands" section of `CLAUDE.md` is filled in.
 
 ### T-002 · CI pipeline
-**Status:** ☐ · **Size:** S · **Depends on:** T-001 · **Requirements:** NFR-MAINT-1 · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-001 · **Requirements:** NFR-MAINT-1 · **PR:** [#3](https://github.com/matchastack/work-journal/pull/3)
 
 As the owner, I want every PR checked automatically, so that I only review changes that already pass lint, types and tests.
 
-- [ ] `.github/workflows/ci.yml` runs on pull requests and on pushes to `main`.
-- [ ] It runs `ruff check`, `ruff format --check`, `pyright` and `pytest`. Tests marked `llm` are excluded.
-- [ ] The uv cache is enabled, and a run takes under 5 minutes.
-- [ ] CI is green on this PR.
+- [x] `.github/workflows/ci.yml` runs on pull requests and on pushes to `main`.
+- [x] It runs `ruff check`, `ruff format --check`, `pyright` and `pytest`. Tests marked `llm` are excluded.
+- [x] The uv cache is enabled, and a run takes under 5 minutes.
+- [x] CI is green on this PR.
 
 ### T-003 · Core schemas
 **Status:** ☐ · **Size:** M · **Depends on:** T-001 · **Requirements:** FR-PRF-1, FR-PRF-4, FR-PRF-5, FR-PRF-6, FR-PRF-7, FR-PRF-8, FR-PRF-9, FR-PRF-10, FR-EXT-1, NFR-PRIV-1 · **PR:** —
