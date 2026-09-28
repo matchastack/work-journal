@@ -111,21 +111,21 @@ As a developer, I want pure functions that apply change operations and compare p
 - [ ] Tests confirm that applying ops and then diffing shows exactly the applied changes.
 
 ### T-005 · Number checker
-**Status:** ☐ · **Size:** M · **Depends on:** T-003 · **Requirements:** FR-FID-1, FR-FID-2, FR-FID-3, FR-EXT-2 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-003 · **Requirements:** FR-FID-1, FR-FID-2, FR-FID-3, FR-EXT-2 · **PR:** [#6](https://github.com/matchastack/work-journal/pull/6)
 
 As the owner, I want every number in generated text checked against my facts, so that nothing I publish or send misstates a metric.
 
-- [ ] It extracts:
+- [x] It extracts:
   - integers and decimals, including thousands separators ("1,000")
   - percentages and multipliers ("6x")
   - currency, durations and counts
   - ranges ("2–3 hours", "8% to 2.1%")
   - qualifiers ("about", "over", "up to", "200+")
-- [ ] It flags a number that isn't in the cited facts, a changed unit, or a stronger qualifier.
-- [ ] It accepts figures derived by code (percentage change, ratio, multiplier) and records the formula.
-- [ ] A metric that is in the facts but missing from the text is reported as a warning.
-- [ ] It can also parse metrics out of existing bullets, for import.
-- [ ] Unit tests cover every rule, including LaTeX-escaped input (`33\%`).
+- [x] It flags a number that isn't in the cited facts, a changed unit, or a stronger qualifier.
+- [x] It accepts figures derived by code (percentage change, ratio, multiplier) and records the formula.
+- [x] A metric that is in the facts but missing from the text is reported as a warning.
+- [x] It can also parse metrics out of existing bullets, for import.
+- [x] Unit tests cover every rule, including LaTeX-escaped input (`33\%`).
 
 ### T-006 · Import master resume from LaTeX
 **Status:** ☐ · **Size:** M · **Depends on:** T-003, T-005 · **Requirements:** FR-IMP-1, FR-IMP-3, FR-IMP-4, FR-IMP-5, NFR-PRIV-1 · **PR:** —

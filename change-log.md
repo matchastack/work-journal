@@ -2,6 +2,14 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-09-28 · T-005 Number checker · [#6](https://github.com/matchastack/work-journal/pull/6)
+**Changed:** added a deterministic checker that blocks any number in generated text that the cited facts don't back (invented numbers, changed units, stronger qualifiers), accepts figures computed by code with their formula, and extracts metrics from existing bullets for import.
+
+**Verify:**
+- CI is green on #6
+- The example in the PR prints the expected three lines
+- The rules in the PR (±10% for "about", the ranges for "hundreds" and "thousands", unit families) match your judgement
+
 ## 2026-09-27 · T-003 Core schemas · [#4](https://github.com/matchastack/work-journal/pull/4)
 **Changed:** added typed models for the master profile (with all the master-resume metadata), facts and metrics, variants, change operations, job postings and applications, plus `wj schema export`.
 
