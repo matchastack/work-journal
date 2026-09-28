@@ -419,7 +419,7 @@ As a developer, I want a durable job queue with scheduled tasks, so that slow wo
 - [x] The worker is documented in `CLAUDE.md`.
 
 ### T-029 · GitHub sign-in with an allowlist
-**Status:** ☐ · **Size:** M · **Depends on:** T-025 · **Requirements:** FR-AUTH-1, FR-AUTH-2, NFR-SEC-4 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-025 · **Requirements:** FR-AUTH-1, FR-AUTH-2, NFR-SEC-4 · **PR:** [#17](https://github.com/matchastack/work-journal/pull/17)
 
 As the owner, I want to sign in with GitHub and nobody else to get in, so that my data stays private.
 
