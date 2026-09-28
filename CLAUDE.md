@@ -51,6 +51,19 @@ Run these from `backend/` (uv project, Python 3.12):
 
 Add a dependency with `uv add <package>` (or `uv add --dev <package>` for tools), and commit `pyproject.toml` together with `uv.lock`.
 
+Run these from `frontend/` (Node.js 22.22 or later):
+
+| What | Command |
+|---|---|
+| Install dependencies | `npm ci` |
+| Run the web app locally | `npm run dev` with the API running on port 8000, then open http://localhost:5173. To sign in there, set `APP_URL=http://localhost:5173` and use `http://localhost:5173/auth/callback` as the GitHub callback URL |
+| Regenerate the API types after changing the API | `npm run api` (`wj openapi`, then `openapi-typescript`) |
+| Lint, type-check, test | `npm run lint`, `npm run typecheck`, `npm test` |
+| Build (FastAPI then serves `frontend/dist` at `/`) | `npm run build` |
+| **All checks before pushing** | `npm run lint && npm run typecheck && npm test && npm run build` |
+
+Add a dependency with `npm install <package>` (or `npm install --save-dev <package>` for tools), and commit `package.json` together with `package-lock.json`.
+
 ## Layout
 
 | Path | Contents |
@@ -58,7 +71,7 @@ Add a dependency with `uv add <package>` (or `uv add --dev <package>` for tools)
 | `backend/` | FastAPI app, engine and the `wj` command-line tool (from T-001) |
 | `backend/migrations/` | Alembic migrations for `app/db/models.py` |
 | `backend/templates/` | LaTeX resume template and portfolio templates |
-| `frontend/` | React web app (from T-039) |
+| `frontend/` | React web app: Vite, TypeScript, Tailwind, React Router and TanStack Query. `src/api/schema.d.ts` is generated. |
 | `local/` | **Git-ignored** personal data: the imported profile and private evaluations. Never commit it. |
 
 ## Conventions
@@ -67,6 +80,7 @@ Add a dependency with `uv add <package>` (or `uv add --dev <package>` for tools)
 - **Schemas:** the Pydantic v2 models in `app/schema/` are the only definition of the core objects. Field names follow JSON Resume where one exists.
 - **Profile operations** are pure functions; I/O stays at the edges.
 - **TypeScript:** strict mode. API types are generated from OpenAPI, never written by hand.
+- **Routes:** the web app's JSON routes go under `/api/`; sign-in stays under `/auth/`. The Vite dev server passes only the paths in `API_PATHS` (`frontend/vite.config.ts`) on to the API.
 - **Tests** sit next to the behaviour they cover. Fixtures use a fictional person (`backend/tests/fixtures/`).
 
 ## LLM rules
