@@ -14,7 +14,7 @@
 - **Visibility:** fields show when the audience may see them, so resumes show `resume_only`
   fields such as the phone and web pages don't. The variant can also hide contact details.
 
-Fitting the result on a page comes later (T-020), so selection keeps each item's priority and
+Fitting the result on a page comes later (T-010), so selection keeps each item's priority and
 each bullet's strength for it.
 """
 
