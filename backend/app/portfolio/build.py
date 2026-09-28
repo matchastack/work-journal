@@ -2,8 +2,8 @@
 
 The page shows the profile's web selection: active items only (R8), and only fields visible on
 the web, so the phone number stays hidden by default (FR-PRT-4). Projects can be filtered by role
-type: a project belongs to the role types it's kept for, or, with no keep-for list, to every role
-type it isn't cut for.
+type: each role type that some project is kept for gets a tab. Projects without keep-for tags
+show under "All projects" only.
 
 `backend/templates/portfolio/` holds the Jinja template, the JavaScript for the menu and the tabs,
 and the CSS, which Tailwind's standalone CLI builds (`scripts/build-portfolio-css.sh`).
@@ -150,10 +150,8 @@ def portfolio_page(
 
 
 def project_categories(project: Project, role_types: Sequence[str]) -> tuple[str, ...]:
-    """The role types a project is filed under: those it's kept for, or all it isn't cut for."""
-    if project.keep_for:
-        return tuple(kind for kind in role_types if kind in project.keep_for)
-    return tuple(kind for kind in role_types if kind not in project.cut_for)
+    """The role types a project is filed under: the ones it's kept for, in profile order."""
+    return tuple(kind for kind in role_types if kind in project.keep_for)
 
 
 def render_page(page: Page) -> str:

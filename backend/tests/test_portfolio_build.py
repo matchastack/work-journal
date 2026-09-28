@@ -106,9 +106,10 @@ def test_only_web_and_email_links_are_kept() -> None:
 
 def test_projects_are_filed_under_the_role_types_they_are_kept_for() -> None:
     kinds = ["backend", "data"]
-    assert project_categories(Project(id="a", name="A", keep_for=("data",)), kinds) == ("data",)
-    assert project_categories(Project(id="b", name="B", cut_for=("backend",)), kinds) == ("data",)
-    assert project_categories(Project(id="c", name="C"), kinds) == ("backend", "data")
+    both = Project(id="a", name="A", keep_for=("data", "backend"))
+    assert project_categories(both, kinds) == ("backend", "data")
+    assert project_categories(Project(id="b", name="B", cut_for=("backend",)), kinds) == ()
+    assert project_categories(Project(id="c", name="C"), kinds) == ()
 
 
 def test_tabs_show_when_projects_span_role_types() -> None:
