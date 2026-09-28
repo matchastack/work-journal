@@ -299,13 +299,13 @@ As the owner, I want new facts turned into proposed profile changes, so that my 
 - [ ] Tests use the fake client, plus an opt-in evaluation.
 
 ### T-019 · Job-posting parser
-**Status:** ☐ · **Size:** S · **Depends on:** T-012 · **Requirements:** FR-TLR-1 · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-012 · **Requirements:** FR-TLR-1 · **PR:** [#12](https://github.com/matchastack/work-journal/pull/12)
 
 As the owner, I want a pasted posting broken into structured requirements, so that tailoring can match against them.
 
-- [ ] A light-tier prompt returns title, company, seniority, must-have and nice-to-have skills, responsibilities and key terms, keeping the posting's exact spellings.
-- [ ] `wj posting parse <file>`
-- [ ] Tests use the fake client, with three fictional postings as fixtures.
+- [x] A light-tier prompt returns title, company, seniority, must-have and nice-to-have skills, responsibilities and key terms, keeping the posting's exact spellings.
+- [x] `wj posting parse <file>`
+- [x] Tests use the fake client, with three fictional postings as fixtures.
 
 ### T-020 · Tailoring: selection and assembly
 **Status:** ☐ · **Size:** L · **Depends on:** T-009, T-010, T-017, T-019 · **Requirements:** FR-TLR-2, FR-TLR-3, FR-TLR-4, FR-TLR-5, FR-TLR-7, R1–R10 · **PR:** —
