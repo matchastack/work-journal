@@ -58,3 +58,29 @@ def test_env_example_lists_every_setting_without_values() -> None:
     entries = dict(line.split("=", 1) for line in lines if re.match(r"^[A-Z][A-Z0-9_]*=", line))
     assert set(entries) == {name.upper() for name in Settings.model_fields}
     assert all(value == "" for value in entries.values())
+
+
+def test_llm_settings_are_unset_by_default() -> None:
+    settings = Settings()
+    assert settings.anthropic_api_key is None
+    assert (settings.llm_model_heavy, settings.llm_model_standard, settings.llm_model_light) == (
+        None,
+        None,
+        None,
+    )
+    assert settings.llm_price_heavy is None
+    assert settings.llm_heavy_fallback is True
+    assert settings.llm_call_log.parent.name == "local"
+
+
+def test_llm_prices_are_read_as_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LLM_PRICE_STANDARD", "[2, 10]")
+    assert Settings().llm_price_standard == (2, 10)
+
+
+def test_the_api_key_stays_out_of_reprs(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-not-a-real-key")
+    settings = Settings()
+    assert "sk-not-a-real-key" not in repr(settings)
+    assert settings.anthropic_api_key is not None
+    assert settings.anthropic_api_key.get_secret_value() == "sk-not-a-real-key"
