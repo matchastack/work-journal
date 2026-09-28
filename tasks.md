@@ -386,13 +386,13 @@ As a developer, I want PostgreSQL, migrations and test fixtures in place, so tha
 - [x] `/healthz` also checks the database.
 
 ### T-026 · Column encryption
-**Status:** ☐ · **Size:** S · **Depends on:** T-025 · **Requirements:** FR-JRN-4, NFR-SEC-2 · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-025 · **Requirements:** FR-JRN-4, NFR-SEC-2 · **PR:** [#15](https://github.com/matchastack/work-journal/pull/15)
 
 As the owner, I want my journal text encrypted in the database, so that a leaked dump or backup can't be read.
 
-- [ ] A SQLAlchemy column type encrypts and decrypts text with the key from `DATA_ENCRYPTION_KEY`, and stores a key ID for rotation.
-- [ ] `wj keys rotate` re-encrypts data with a new key.
-- [ ] Tests: ciphertext at rest, a clean round trip, and a clear failure with the wrong key.
+- [x] A SQLAlchemy column type encrypts and decrypts text with the key from `DATA_ENCRYPTION_KEY`, and stores a key ID for rotation.
+- [x] `wj keys rotate` re-encrypts data with a new key.
+- [x] Tests: ciphertext at rest, a clean round trip, and a clear failure with the wrong key.
 
 ### T-027 · Persistence for engine data, and loading the master profile
 **Status:** ☐ · **Size:** M · **Depends on:** T-003, T-025, T-026 · **Requirements:** FR-PRF-2, FR-PRF-3, FR-IMP-5, NFR-COST-1, NFR-DATA-1 · **PR:** —

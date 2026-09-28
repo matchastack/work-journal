@@ -2,6 +2,13 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-09-28 · T-026 Column encryption · [#15](https://github.com/matchastack/work-journal/pull/15)
+**Changed:** added `EncryptedText`, a column type that stores text as AES-256-GCM ciphertext under keys from `DATA_ENCRYPTION_KEY`, with `wj keys new` and `wj keys rotate`. Journal and fact tables will use it. Adds `cryptography`.
+
+**Verify:**
+- CI is green on #15
+- `uv run wj keys new` prints a key, and the rotation steps in `app/db/crypto.py` are clear
+
 ## 2026-09-28 · T-025 Database foundation · [#14](https://github.com/matchastack/work-journal/pull/14)
 **Changed:** added PostgreSQL: an async SQLAlchemy engine, Alembic migrations creating `users` and keyed `settings`, a `/healthz` database check, `compose.yml` for local Postgres 16, and database tests on a fresh database (a Postgres service in CI). Adds SQLAlchemy, asyncpg and Alembic.
 
