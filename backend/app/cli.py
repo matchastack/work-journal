@@ -1,6 +1,7 @@
 """The `wj` command-line tool. Later tasks add commands for import, rendering and tailoring."""
 
 import asyncio
+import json
 import logging
 from pathlib import Path
 from typing import Annotated
@@ -10,6 +11,7 @@ import typer
 from app import __version__
 from app.config import get_settings
 from app.jobs import run_worker
+from app.main import create_app
 from app.schema.export import write_json_schemas
 
 cli = typer.Typer(help="Work Journal command-line tool.", no_args_is_help=True)
@@ -39,6 +41,21 @@ def worker(
         raise typer.Exit(1)
     logging.basicConfig(level=settings.log_level, format="%(levelname)s %(name)s: %(message)s")
     asyncio.run(run_worker(concurrency))
+
+
+@cli.command()
+def openapi(
+    out: Annotated[
+        Path | None, typer.Argument(help="File to write. Without one, prints the schema.")
+    ] = None,
+) -> None:
+    """Write the API's OpenAPI schema, which `frontend/` turns into its API types."""
+    schema = json.dumps(create_app().openapi(), indent=2, ensure_ascii=False) + "\n"
+    if out is None:
+        typer.echo(schema, nl=False)
+        return
+    out.write_text(schema, encoding="utf-8")
+    typer.echo(f"Wrote {out}")
 
 
 @schema_cli.command("export")
