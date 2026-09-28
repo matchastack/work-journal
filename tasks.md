@@ -210,15 +210,15 @@ As the owner, I want my own LaTeX template used for every resume, so that genera
 - [ ] Manual check: the rendered master matches the compiled uploaded master for all active content. Screenshots or a checklist go in the change log.
 
 ### T-012 · LLM client
-**Status:** ☐ · **Size:** M · **Depends on:** T-001 · **Requirements:** NFR-COST-1, NFR-REL-2, NFR-MAINT-2, NFR-PRIV-2 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-001 · **Requirements:** NFR-COST-1, NFR-REL-2, NFR-MAINT-2, NFR-PRIV-2 · **PR:** [#9](https://github.com/matchastack/work-journal/pull/9)
 
 As a developer, I want one client for every Claude call, so that routing, retries, caching, refusals and cost logging behave the same everywhere.
 
-- [ ] Each task is routed to a tier (heavy, standard or light, as in requirements §10). Model IDs come from environment variables.
-- [ ] Structured outputs are parsed into Pydantic models, and invalid output is retried once.
-- [ ] Stable prefixes use prompt caching. Refusals and transient errors are handled.
-- [ ] Prompts load from versioned files. Each call records task, model, prompt version, tokens, cost and latency (to JSONL until the database exists). Journal text is never logged.
-- [ ] Tests use a fake client. `pytest -m llm` makes real calls only when an API key is set.
+- [x] Each task is routed to a tier (heavy, standard or light, as in requirements §10). Model IDs come from environment variables.
+- [x] Structured outputs are parsed into Pydantic models, and invalid output is retried once.
+- [x] Stable prefixes use prompt caching. Refusals and transient errors are handled.
+- [x] Prompts load from versioned files. Each call records task, model, prompt version, tokens, cost and latency (to JSONL until the database exists). Journal text is never logged.
+- [x] Tests use a fake client. `pytest -m llm` makes real calls only when an API key is set.
 
 ### T-013 · Style checker
 **Status:** ☐ · **Size:** S · **Depends on:** T-003 · **Requirements:** FR-WRT-1, FR-WRT-2, FR-WRT-4 · **PR:** —

@@ -2,6 +2,14 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-09-28 · T-012 LLM client · [#9](https://github.com/matchastack/work-journal/pull/9)
+**Changed:** added the client every Claude call goes through: routing each task to a tier's model from the environment, versioned prompt files, prompt caching, validated structured output with one retry, refusal and error handling, and a call log with tokens and cost but no text. Adds the `anthropic` SDK.
+
+**Verify:**
+- CI is green on #9
+- The task tiers in `backend/app/llm/routing.py` are the ones you want
+- Optional, with a key: `uv run pytest -m llm` passes
+
 ## 2026-09-27 · T-003 Core schemas · [#4](https://github.com/matchastack/work-journal/pull/4)
 **Changed:** added typed models for the master profile (with all the master-resume metadata), facts and metrics, variants, change operations, job postings and applications, plus `wj schema export`.
 
