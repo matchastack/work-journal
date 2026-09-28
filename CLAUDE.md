@@ -14,23 +14,39 @@ Work Journal turns informal Telegram journal messages into a structured, version
 
 ## Workflow
 
-1. **Pick a task.** Take the next unblocked task in `tasks.md`: the lowest ID whose dependencies are merged or in open PRs. Read the requirements it cites.
+1. **Pick a task.** Take the lowest-ID task that isn't done or in progress, and read the requirements it cites. Then decide whether to start:
+   - **Independent** (all its dependencies are merged): start it.
+   - **Small dependency on an open PR** (it only needs that PR's scaffold or a stable interface): start it as a stacked PR (see step 2).
+   - **Large dependency** (it builds on logic that is still under review and may change): wait for that PR to merge, or pick another task.
 2. **Name the branch after the change,** as `<type>/<short-description>`, in kebab-case.
    - Examples: `feat/telegram-webhook-storage`, `fix/latex-escaping`, `docs/project-planning-documents`.
    - Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `ci`, `build`.
    - Don't use generic or session-generated names.
-   - Branch from `main`. If a dependency isn't merged, branch from its branch and write "Stacked on #N" in the PR.
+   - Branch from `main`. For a stacked PR, branch from the dependency's branch, set the PR's base to that branch, and write "Stacked on #N" in the PR. Once the dependency merges, retarget the PR to `main`.
 3. **Commit atomically.** Each commit is one logical change, with the tests for that change in the same commit. Messages use `type(scope): summary`. A PR usually has several commits; only a tiny task has just one.
 4. **Check before pushing.** Lint, type-check and tests must pass (see Commands).
 5. **Update the docs in the same PR.**
    - In `tasks.md`, set the task's status and PR link.
-   - In `change-log.md`, add a **short** entry: one line on what changed, and a few **Verify** checks. Don't copy the PR description; the details live in the PR.
+   - In `change-log.md`, add a **short** entry: one line on what changed, and a few plain bullets on what to verify. **No checkboxes:** verification is ticked only in the PR. Don't copy the PR description; the details live in the PR.
 6. **Open the PR** titled `T-XXX: <task title>`, using the PR template. Never push to `main`, and never merge.
 7. **Change the requirements first.** If scope needs to change, update `project-requirements.md` in the PR and call it out in the PR description.
 
 ## Commands
 
-Filled in by T-001 and later tasks.
+Run these from `backend/` (uv project, Python 3.12):
+
+| What | Command |
+|---|---|
+| Install dependencies | `uv sync` |
+| Run the API locally (auto-reload) | `uv run uvicorn app.main:app --reload`, then open `/healthz` or `/docs` |
+| Run the command-line tool | `uv run wj --help` |
+| Lint | `uv run ruff check .` |
+| Format | `uv run ruff format .` |
+| Type-check | `uv run pyright` |
+| Tests | `uv run pytest` (tests that call the real Claude API: `uv run pytest -m llm`) |
+| **All checks before pushing** | `uv run ruff check . && uv run ruff format --check . && uv run pyright && uv run pytest` |
+
+Add a dependency with `uv add <package>` (or `uv add --dev <package>` for tools), and commit `pyproject.toml` together with `uv.lock`.
 
 ## Layout
 

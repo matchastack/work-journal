@@ -9,21 +9,21 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 - **Branch:** named after the change, as `<type>/<short-description>`.
   - Examples: `feat/telegram-webhook-storage`, `fix/latex-escaping`, `docs/project-planning-documents`.
   - Types match the commit types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `ci`, `build`.
-  - Branch from `main`. If a dependency isn't merged yet, branch from the dependency's branch and write "Stacked on #N" in the PR.
+  - Branch from `main`. When a task depends only lightly on an unmerged PR, stack it on that PR's branch and write "Stacked on #N". When it depends heavily, wait for the merge. `CLAUDE.md` step 1 has the rule.
 - **Commits:** atomic. Each commit is one logical change, with its tests in the same commit. Messages use `type(scope): summary`.
 - **PR:** titled `T-XXX: <task title>`, using the PR template. The same PR updates this file (status and PR link) and adds a short entry to [change-log.md](change-log.md).
 - **Definition of done:**
   - All acceptance criteria are met.
   - Lint, type-check and tests pass in CI.
-  - The change-log entry says in one line what changed, and lists a few checks to verify.
+  - The change-log entry says in one line what changed and lists what to verify, without checkboxes.
   - No personal data or secrets are committed.
 
 ## Overview
 
 | Milestone | Tasks | Status |
 |---|---|---|
-| M0: Documents | T-000 | ◐ |
-| M1: Engine and command line | T-001 – T-024 (T-007 dropped) | ☐ |
+| M0: Documents | T-000 | ☑ |
+| M1: Engine and command line | T-001 – T-024 (T-007 dropped) | ◐ |
 | M2: Journal loop | T-025 – T-053 | ☐ |
 | M3: Quality and habit | Epics (at the end of this file) | — |
 | M4: Open to others | Epics (at the end of this file) | — |
@@ -33,22 +33,22 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 ## M0: Documents
 
 ### T-000 · Project documents
-**Status:** ◐ · **Size:** S · **Depends on:** — · **Requirements:** all (defines them) · **PR:** [#1](https://github.com/matchastack/work-journal/pull/1)
+**Status:** ☑ · **Size:** S · **Depends on:** — · **Requirements:** all (defines them) · **PR:** [#1](https://github.com/matchastack/work-journal/pull/1)
 
 As the owner, I want the requirements, backlog, change log and Claude conventions written down before any code, so that every later PR is grounded and easy to verify.
 
-- [ ] `project-requirements.md` covers these, with IDs and priorities:
+- [x] `project-requirements.md` covers these, with IDs and priorities:
   - background, goals, scope, users and concepts
   - journeys and functional requirements
   - non-functional requirements and resume rules
   - LLM policy, constraints and risks
   - architecture, milestones and open questions
-- [ ] This file breaks M0–M2 into PR-sized tasks, each with a user story, acceptance criteria, dependencies and requirement IDs. M3–M4 are listed as epics.
-- [ ] Every Must requirement is covered by at least one task.
-- [ ] `change-log.md` has its format and the T-000 entry.
-- [ ] `CLAUDE.md` covers the workflow, branch naming, conventions, LLM rules and data rules.
-- [ ] A PR template is added and the README is expanded.
-- [ ] No personal data is committed.
+- [x] This file breaks M0–M2 into PR-sized tasks, each with a user story, acceptance criteria, dependencies and requirement IDs. M3–M4 are listed as epics.
+- [x] Every Must requirement is covered by at least one task.
+- [x] `change-log.md` has its format and the T-000 entry.
+- [x] `CLAUDE.md` covers the workflow, branch naming, conventions, LLM rules and data rules.
+- [x] A PR template is added and the README is expanded.
+- [x] No personal data is committed.
 
 ---
 
@@ -57,17 +57,17 @@ As the owner, I want the requirements, backlog, change log and Claude convention
 The goal of M1: everything the app does, usable from the `wj` command-line tool on local files. The owner's real data lives in the git-ignored `local/` folder.
 
 ### T-001 · Backend scaffold
-**Status:** ☐ · **Size:** S · **Depends on:** T-000 · **Requirements:** NFR-MAINT-1, NFR-SEC-1 · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-000 · **Requirements:** NFR-MAINT-1, NFR-SEC-1 · **PR:** [#2](https://github.com/matchastack/work-journal/pull/2)
 
 As a developer, I want a runnable Python project with the tooling in place, so that later tasks only add features.
 
-- [ ] `backend/` is a uv project (Python 3.12) with an `app` package, and `uv sync` works from a clean checkout.
-- [ ] Settings are read from the environment with pydantic-settings. `.env.example` lists every variable, with no real values.
-- [ ] A FastAPI app with `GET /healthz`, which returns `{"status": "ok"}`.
-- [ ] A `wj` command-line entry point (Typer) with `wj --help` and `wj version`.
-- [ ] ruff (lint and format), pyright (strict for `app/`) and pytest are configured. Smoke tests cover `/healthz` and `wj version`.
-- [ ] `.gitignore` covers `.env`, `local/` and build outputs.
-- [ ] The "Commands" section of `CLAUDE.md` is filled in.
+- [x] `backend/` is a uv project (Python 3.12) with an `app` package, and `uv sync` works from a clean checkout.
+- [x] Settings are read from the environment with pydantic-settings. `.env.example` lists every variable, with no real values.
+- [x] A FastAPI app with `GET /healthz`, which returns `{"status": "ok"}`.
+- [x] A `wj` command-line entry point (Typer) with `wj --help` and `wj version`.
+- [x] ruff (lint and format), pyright (strict for `app/`) and pytest are configured. Smoke tests cover `/healthz` and `wj version`.
+- [x] `.gitignore` covers `.env`, `local/` and build outputs.
+- [x] The "Commands" section of `CLAUDE.md` is filled in.
 
 ### T-002 · CI pipeline
 **Status:** ☐ · **Size:** S · **Depends on:** T-001 · **Requirements:** NFR-MAINT-1 · **PR:** —
