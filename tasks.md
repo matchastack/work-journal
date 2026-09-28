@@ -153,17 +153,17 @@ As the owner, I want my master resume converted into the profile format, so that
 Dropped after OQ-1: the JSON twin isn't needed. The LaTeX master (T-006) holds everything the app needs, and the app's database replaces the JSON twin. Past applications aren't imported; the application log starts with the first tailored resume (T-021).
 
 ### T-008 · Variant selection
-**Status:** ☐ · **Size:** M · **Depends on:** T-003 · **Requirements:** FR-RES-5, FR-PRF-4, FR-PRF-5, FR-PRF-7, FR-PRF-8, FR-PRF-9, R7, R8 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-003 · **Requirements:** FR-RES-5, FR-PRF-4, FR-PRF-5, FR-PRF-7, FR-PRF-8, FR-PRF-9, R7, R8 · **PR:** [#8](https://github.com/matchastack/work-journal/pull/8)
 
 As the owner, I want named variants (such as backend or ML/AI) to pick the right bullets, coursework, skills and summary from the master profile, so that every resume is consistent without manual deleting.
 
-- [ ] A variant selects roles, projects and bullets by role type (keep-for/cut-for and tags), status and priority. Benched and planned items are never selected.
-- [ ] Load-bearing roles are always included.
-- [ ] The variant chooses the coursework subset, the skills preset, the summary variant (or none) and the title variant.
-- [ ] Section order can be configured. The default is Education → Work Experience → Projects → Technical Skills.
-- [ ] Visibility is applied, for example showing or hiding the phone number per variant.
-- [ ] Default variants are created from the role types in the master profile (see OQ-6).
-- [ ] Golden tests run against the fictional fixture.
+- [x] A variant selects roles, projects and bullets by role type (keep-for/cut-for and tags), status and priority. Benched and planned items are never selected.
+- [x] Load-bearing roles are always included.
+- [x] The variant chooses the coursework subset, the skills preset, the summary variant (or none) and the title variant.
+- [x] Section order can be configured. The default is Education → Work Experience → Projects → Technical Skills.
+- [x] Visibility is applied, for example showing or hiding the phone number per variant.
+- [x] Default variants are created from the role types in the master profile (see OQ-6).
+- [x] Golden tests run against the fictional fixture.
 
 ### T-009 · Consistency linter and resume rules
 **Status:** ☐ · **Size:** M · **Depends on:** T-005, T-008 · **Requirements:** R1, R2, R3, R4, R9, R10, FR-PRF-6 · **PR:** —
