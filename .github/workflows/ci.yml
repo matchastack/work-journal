@@ -31,6 +31,12 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked
 
+      - name: Install TeX Live (see backend/templates/README.md)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            latexmk texlive-latex-base texlive-latex-extra texlive-fonts-recommended
+
       - name: Lint
         run: uv run ruff check .
 
