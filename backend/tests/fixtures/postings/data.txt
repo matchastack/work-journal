@@ -1,0 +1,20 @@
+Data Engineer
+Tailspin Analytics - Chicago, IL (hybrid)
+
+We help airlines understand their operations. You'll join a small data platform team.
+
+Responsibilities
+• Build and maintain batch and streaming pipelines
+• Model data in the warehouse for analysts
+• Monitor data quality and fix issues at the source
+
+Requirements
+• Solid SQL and Python
+• Experience with Apache Airflow and dbt
+• Cloud data warehouses such as Snowflake or BigQuery
+
+Bonus points
+• Spark or Flink
+• Dashboards in Looker
+
+Entry level candidates with internship experience are welcome.

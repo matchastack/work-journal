@@ -1,0 +1,16 @@
+Frontend Developer (React)
+Wingtip Games
+
+Wingtip Games makes browser games played by millions. We're hiring a mid-level frontend developer.
+
+You will
+- Build game menus, stores and account pages in React and TypeScript
+- Work with designers to ship accessible, fast interfaces
+- Write tests with Jest and Playwright
+
+You have
+- 3+ years with React and TypeScript
+- A good eye for accessibility (WCAG 2.1)
+- Experience with REST APIs and GraphQL
+
+Nice to have: Next.js, WebGL, experience with in-game stores.

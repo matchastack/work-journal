@@ -1,0 +1,13 @@
+{
+  "title": "Data Engineer",
+  "company": "Tailspin Analytics",
+  "seniority": "Entry level",
+  "mustHave": ["SQL", "Python", "Apache Airflow", "dbt", "Snowflake", "BigQuery"],
+  "niceToHave": ["Spark", "Flink", "Looker"],
+  "responsibilities": [
+    "Build and maintain batch and streaming pipelines",
+    "Model data in the warehouse for analysts",
+    "Monitor data quality"
+  ],
+  "keyTerms": ["data platform", "streaming pipelines", "data quality"]
+}
