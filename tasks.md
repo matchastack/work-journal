@@ -57,7 +57,7 @@ As the owner, I want the requirements, backlog, change log and Claude convention
 The goal of M1: everything the app does, usable from the `wj` command-line tool on local files. The owner's real data lives in the git-ignored `local/` folder.
 
 ### T-001 · Backend scaffold
-**Status:** ◐ · **Size:** S · **Depends on:** T-000 · **Requirements:** NFR-MAINT-1, NFR-SEC-1 · **PR:** [#2](https://github.com/matchastack/work-journal/pull/2)
+**Status:** ☑ · **Size:** S · **Depends on:** T-000 · **Requirements:** NFR-MAINT-1, NFR-SEC-1 · **PR:** [#2](https://github.com/matchastack/work-journal/pull/2)
 
 As a developer, I want a runnable Python project with the tooling in place, so that later tasks only add features.
 
@@ -70,7 +70,7 @@ As a developer, I want a runnable Python project with the tooling in place, so t
 - [x] The "Commands" section of `CLAUDE.md` is filled in.
 
 ### T-002 · CI pipeline
-**Status:** ◐ · **Size:** S · **Depends on:** T-001 · **Requirements:** NFR-MAINT-1 · **PR:** [#3](https://github.com/matchastack/work-journal/pull/3)
+**Status:** ☑ · **Size:** S · **Depends on:** T-001 · **Requirements:** NFR-MAINT-1 · **PR:** [#3](https://github.com/matchastack/work-journal/pull/3)
 
 As the owner, I want every PR checked automatically, so that I only review changes that already pass lint, types and tests.
 
@@ -80,7 +80,7 @@ As the owner, I want every PR checked automatically, so that I only review chang
 - [x] CI is green on this PR.
 
 ### T-003 · Core schemas
-**Status:** ◐ · **Size:** M · **Depends on:** T-001 · **Requirements:** FR-PRF-1, FR-PRF-4, FR-PRF-5, FR-PRF-6, FR-PRF-7, FR-PRF-8, FR-PRF-9, FR-PRF-10, FR-EXT-1, NFR-PRIV-1 · **PR:** [#4](https://github.com/matchastack/work-journal/pull/4)
+**Status:** ☑ · **Size:** M · **Depends on:** T-001 · **Requirements:** FR-PRF-1, FR-PRF-4, FR-PRF-5, FR-PRF-6, FR-PRF-7, FR-PRF-8, FR-PRF-9, FR-PRF-10, FR-EXT-1, NFR-PRIV-1 · **PR:** [#4](https://github.com/matchastack/work-journal/pull/4)
 
 As a developer, I want typed models for every core object, so that the engine, the API and LLM outputs share one definition.
 
@@ -184,20 +184,20 @@ As the owner, I want my profile and every rendered resume checked against my rul
 - [ ] There are tests for each rule.
 
 ### T-010 · LaTeX renderer
-**Status:** ☐ · **Size:** M · **Depends on:** T-008 · **Requirements:** FR-RES-2, FR-RES-3, FR-RES-4, FR-RES-5, FR-RES-7, R6, NFR-SEC-3, NFR-PERF-2 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-008 · **Requirements:** FR-RES-2, FR-RES-3, FR-RES-4, FR-RES-5, FR-RES-7, R6, NFR-SEC-3, NFR-PERF-2 · **PR:** [#11](https://github.com/matchastack/work-journal/pull/11)
 
 As the owner, I want resumes rendered safely from data through LaTeX, so that PDFs are consistent and unusual text can't break them.
 
-- [ ] A Jinja environment with LaTeX-safe delimiters (`\VAR{}`, `\BLOCK{}`, `\#{}`), which escapes every value automatically.
-- [ ] Compiles with `latexmk -pdf` (pdfLaTeX):
+- [x] A Jinja environment with LaTeX-safe delimiters (`\VAR{}`, `\BLOCK{}`, `\#{}`), which escapes every value automatically.
+- [x] Compiles with `latexmk -pdf` (pdfLaTeX):
   - shell-escape off and restricted file access
   - a 30 s timeout and an isolated temporary directory
   - the compile log is returned on failure
-- [ ] Page count and extractable text are checked with pypdf.
-- [ ] Cut-to-fit: while the resume is over the page limit, drop the lowest-value selected bullet and report what was cut. Load-bearing roles are never dropped, and fonts and margins are never shrunk.
-- [ ] Tests use a small fixture template. `wj render --variant <name>` writes the PDF.
-- [ ] Tests cover escaping of `& % $ # _ { } ~ ^ \`.
-- [ ] The required TeX Live packages are documented and installed in CI.
+- [x] Page count and extractable text are checked with pypdf.
+- [x] Cut-to-fit: while the resume is over the page limit, drop the lowest-value selected bullet and report what was cut. Load-bearing roles are never dropped, and fonts and margins are never shrunk.
+- [x] Tests use a small fixture template. `wj render --variant <name>` writes the PDF.
+- [x] Tests cover escaping of `& % $ # _ { } ~ ^ \`.
+- [x] The required TeX Live packages are documented and installed in CI.
 
 ### T-011 · Owner's resume template
 **Status:** ☐ · **Size:** S · **Depends on:** T-006, T-010 · **Requirements:** FR-RES-1, FR-RES-6 · **PR:** —

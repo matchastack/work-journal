@@ -2,6 +2,14 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-09-28 · T-010 LaTeX renderer · [#11](https://github.com/matchastack/work-journal/pull/11)
+**Changed:** added resume rendering. Values are escaped into LaTeX templates, compiled in a sandbox (no shell escape, no file access outside a temporary folder, 30 s timeout) and cut to fit the page limit, lowest-value bullets first. Adds `wj render`, a plain default template, TeX Live in CI, and Jinja2 and pypdf.
+
+**Verify:**
+- CI is green on #11
+- `uv run wj render --variant master --profile tests/fixtures/profile.json` writes a one-page PDF that reads well
+- The cut order is how you'd cut by hand
+
 ## 2026-09-28 · T-008 Variant selection · [#8](https://github.com/matchastack/work-journal/pull/8)
 **Changed:** added variant selection: from the master profile, each variant picks its roles, bullets, title, coursework, skills preset, summary and contact details by role type, never showing benched or planned items and always keeping load-bearing roles. Proposed default variants for OQ-6.
 
