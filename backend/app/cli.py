@@ -1,11 +1,15 @@
 """The `wj` command-line tool. Later tasks add commands for import, rendering and tailoring."""
 
+import asyncio
+import logging
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
 from app import __version__
+from app.config import get_settings
+from app.jobs import run_worker
 from app.schema.export import write_json_schemas
 
 cli = typer.Typer(help="Work Journal command-line tool.", no_args_is_help=True)
@@ -22,6 +26,19 @@ def main() -> None:
 def version() -> None:
     """Print the installed version."""
     typer.echo(__version__)
+
+
+@cli.command()
+def worker(
+    concurrency: Annotated[int, typer.Option(min=1, help="How many jobs to run at once.")] = 1,
+) -> None:
+    """Run the background worker: queued jobs and scheduled tasks, until Ctrl-C."""
+    settings = get_settings()
+    if settings.database_url is None:
+        typer.echo("Set DATABASE_URL to the database that holds the jobs.", err=True)
+        raise typer.Exit(1)
+    logging.basicConfig(level=settings.log_level, format="%(levelname)s %(name)s: %(message)s")
+    asyncio.run(run_worker(concurrency))
 
 
 @schema_cli.command("export")
