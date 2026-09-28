@@ -1,0 +1,78 @@
+% The default resume template: one column, set in Computer Modern with pdfLaTeX.
+% See backend/templates/README.md for how templates are filled in and compiled.
+\documentclass[letterpaper,11pt]{article}
+\usepackage[margin=0.6in]{geometry}
+\usepackage[hidelinks]{hyperref}
+\usepackage{enumitem}
+\pdfgentounicode=1
+\input{glyphtounicode}
+
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\setlist[itemize]{label=\ensuremath{\bullet}, leftmargin=1.5em, itemsep=1pt, parsep=0pt, topsep=2pt}
+
+\newcommand{\resumesection}[1]{%
+  \vspace{8pt}{\large\bfseries #1}\par\vspace{2pt}\hrule\vspace{4pt}}
+\newcommand{\resumeentry}[4]{%
+  \textbf{#1}\hfill #2\par
+  \textit{#3}\hfill\textit{#4}\par}
+
+\begin{document}
+\begin{center}
+  {\LARGE\bfseries \VAR{selection.contact.name}}\par\vspace{4pt}
+  \small
+\BLOCK{for text, link in contact}
+  \BLOCK{if link}\href{\VAR{link|url}}{\VAR{text}}\BLOCK{else}\VAR{text}\BLOCK{endif}\BLOCK{if not loop.last} \textbar{} \BLOCK{endif}
+\BLOCK{endfor}
+\end{center}
+\BLOCK{for section in selection.sections}
+\BLOCK{if section == "summary" and selection.summary}
+\resumesection{Summary}
+\VAR{selection.summary}\par
+\BLOCK{elif section == "education" and selection.education}
+\resumesection{Education}
+\BLOCK{for school in selection.education}
+\resumeentry{\VAR{school.institution}}{\VAR{school.location or ""}}{\VAR{school.study_type}, \VAR{school.area}\BLOCK{if school.honours} (\VAR{school.honours})\BLOCK{endif}}{\VAR{dates(school.start_date, school.end_date)}}
+\BLOCK{if school.courses}
+{\small\textit{Coursework:} \VAR{school.courses|join(", ")}\par}
+\BLOCK{endif}
+\BLOCK{if school.bullets}
+\begin{itemize}
+\BLOCK{for bullet in school.bullets}
+  \item \VAR{bullet.text}
+\BLOCK{endfor}
+\end{itemize}
+\BLOCK{endif}
+\BLOCK{endfor}
+\BLOCK{elif section == "work" and selection.work}
+\resumesection{Experience}
+\BLOCK{for role in selection.work}
+\resumeentry{\VAR{role.title}}{\VAR{dates(role.start_date, role.end_date)}}{\VAR{role.organisation}}{\VAR{role.location or ""}}
+\BLOCK{if role.bullets}
+\begin{itemize}
+\BLOCK{for bullet in role.bullets}
+  \item \VAR{bullet.text}
+\BLOCK{endfor}
+\end{itemize}
+\BLOCK{endif}
+\BLOCK{endfor}
+\BLOCK{elif section == "projects" and selection.projects}
+\resumesection{Projects}
+\BLOCK{for project in selection.projects}
+\textbf{\BLOCK{if project.url}\href{\VAR{project.url|url}}{\VAR{project.name}}\BLOCK{else}\VAR{project.name}\BLOCK{endif}}\BLOCK{if project.keywords} \textbar{} \textit{\VAR{project.keywords|join(", ")}}\BLOCK{endif}\hfill \VAR{dates(project.start_date, project.end_date)}\par
+\BLOCK{if project.bullets}
+\begin{itemize}
+\BLOCK{for bullet in project.bullets}
+  \item \VAR{bullet.text}
+\BLOCK{endfor}
+\end{itemize}
+\BLOCK{endif}
+\BLOCK{endfor}
+\BLOCK{elif section == "skills" and selection.skills}
+\resumesection{Skills}
+\BLOCK{for line in selection.skills}
+\textbf{\VAR{line.label}:} \VAR{line.skills|join(", ")}\par
+\BLOCK{endfor}
+\BLOCK{endif}
+\BLOCK{endfor}
+\end{document}
