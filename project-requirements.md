@@ -474,4 +474,4 @@ Telegram ──webhook──▶ FastAPI "web" service ──▶ PostgreSQL ◀�
 | OQ-3 | What should the portfolio handle (`/p/<handle>`) and the app's domain be? | T-046, T-051 | Open |
 | OQ-4 | Is the default reminder time right: Friday 18:00, Asia/Singapore? | T-035 | Open |
 | OQ-5 | Which application-log fields matter to you, beyond what FR-TLR-8 lists (e.g. contacts, outcome)? | T-021 | Open |
-| OQ-6 | Should the named resume variants be the role types from your master resume (backend/full stack, ML/AI, identity/security, systems)? | T-008 | Open |
+| OQ-6 | Should the named resume variants be the role types from your master resume (backend/full stack, ML/AI, identity/security, systems)? | T-008 | **Proposed in T-008:** yes. The defaults are one one-page resume per role type in the profile, plus a "master" variant with everything and no page limit. Open until you confirm it in the T-008 PR. |
