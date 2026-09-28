@@ -2,6 +2,14 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-09-28 · T-023 Portfolio page · [#13](https://github.com/matchastack/work-journal/pull/13)
+**Changed:** added the portfolio page, built as static HTML in the style of your site. It shows public, active content only, with project tabs by role type, link previews and JSON-LD. Adds `wj portfolio build`, Tailwind's standalone CLI, and accessibility checks in Chromium, which CI runs.
+
+**Verify:**
+- CI is green on #13
+- The page built from your profile reads like your site and shows nothing you'd keep off the web
+- Tabs following your keep-for tags suits you
+
 ## 2026-09-28 · T-008 Variant selection · [#8](https://github.com/matchastack/work-journal/pull/8)
 **Changed:** added variant selection: from the master profile, each variant picks its roles, bullets, title, coursework, skills preset, summary and contact details by role type, never showing benched or planned items and always keeping load-bearing roles. Proposed default variants for OQ-6.
 
