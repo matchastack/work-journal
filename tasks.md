@@ -375,15 +375,15 @@ As the owner, I want LinkedIn text generated from my profile, and only for what 
 The goal of M2: the Telegram bot, background jobs and web app running on Railway for the owner.
 
 ### T-025 · Database foundation
-**Status:** ☐ · **Size:** M · **Depends on:** T-001 · **Requirements:** NFR-MAINT-1 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-001 · **Requirements:** NFR-MAINT-1 · **PR:** [#14](https://github.com/matchastack/work-journal/pull/14)
 
 As a developer, I want PostgreSQL, migrations and test fixtures in place, so that features can store data safely.
 
-- [ ] `compose.yml` runs Postgres 16 for local development.
-- [ ] Async SQLAlchemy engine and session. Alembic is configured, and the first migration creates `users` and `settings`.
-- [ ] Every table that belongs to a user has a `user_id`.
-- [ ] Tests get a fresh database, and CI uses a Postgres service container.
-- [ ] `/healthz` also checks the database.
+- [x] `compose.yml` runs Postgres 16 for local development.
+- [x] Async SQLAlchemy engine and session. Alembic is configured, and the first migration creates `users` and `settings`.
+- [x] Every table that belongs to a user has a `user_id`.
+- [x] Tests get a fresh database, and CI uses a Postgres service container.
+- [x] `/healthz` also checks the database.
 
 ### T-026 · Column encryption
 **Status:** ☐ · **Size:** S · **Depends on:** T-025 · **Requirements:** FR-JRN-4, NFR-SEC-2 · **PR:** —
