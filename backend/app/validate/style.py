@@ -106,8 +106,9 @@ def check_resume_bullet(
     avoid: Sequence[str] = (),
     layout: BulletLayout = TEMPLATE_LAYOUT,
 ) -> StyleCheck:
-    """Check a resume bullet, given as plain text the way the profile stores it.
+    """Check a work or project bullet, given as plain text the way the profile stores it.
 
+    Education lines such as honours don't open with a verb, so they aren't checked here.
     `current` is True for a bullet of the current role, which takes the present tense. `avoid` is
     the owner's list of words to avoid.
     """
