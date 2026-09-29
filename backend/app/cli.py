@@ -9,6 +9,8 @@ import typer
 from app import __version__
 from app.importers.master_resume import MasterResumeError, import_master_resume
 from app.schema.export import write_json_schemas
+from app.schema.profile import Profile
+from app.validate.lint import format_report, lint_profile
 
 LOCAL_DIR = Path(__file__).resolve().parents[2] / "local"
 """The repository's git-ignored folder for personal data (`backend/app/cli.py` is two below)."""
@@ -29,6 +31,22 @@ def main() -> None:
 def version() -> None:
     """Print the installed version."""
     typer.echo(__version__)
+
+
+@cli.command()
+def lint(
+    profile: Annotated[
+        Path, typer.Option(help="The profile to check.", exists=True, dir_okay=False)
+    ] = LOCAL_DIR / "profile.json",
+) -> None:
+    """Check the profile against the resume rules and for inconsistencies.
+
+    Exits with status 1 when there are errors, which would block a sendable resume.
+    """
+    report = lint_profile(Profile.model_validate_json(profile.read_text(encoding="utf-8")))
+    typer.echo(format_report(report))
+    if report.errors:
+        raise typer.Exit(1)
 
 
 @schema_cli.command("export")
