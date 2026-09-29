@@ -57,7 +57,7 @@ As the owner, I want the requirements, backlog, change log and Claude convention
 The goal of M1: everything the app does, usable from the `wj` command-line tool on local files. The owner's real data lives in the git-ignored `local/` folder.
 
 ### T-001 · Backend scaffold
-**Status:** ◐ · **Size:** S · **Depends on:** T-000 · **Requirements:** NFR-MAINT-1, NFR-SEC-1 · **PR:** [#2](https://github.com/matchastack/work-journal/pull/2)
+**Status:** ☑ · **Size:** S · **Depends on:** T-000 · **Requirements:** NFR-MAINT-1, NFR-SEC-1 · **PR:** [#2](https://github.com/matchastack/work-journal/pull/2)
 
 As a developer, I want a runnable Python project with the tooling in place, so that later tasks only add features.
 
@@ -70,7 +70,7 @@ As a developer, I want a runnable Python project with the tooling in place, so t
 - [x] The "Commands" section of `CLAUDE.md` is filled in.
 
 ### T-002 · CI pipeline
-**Status:** ◐ · **Size:** S · **Depends on:** T-001 · **Requirements:** NFR-MAINT-1 · **PR:** [#3](https://github.com/matchastack/work-journal/pull/3)
+**Status:** ☑ · **Size:** S · **Depends on:** T-001 · **Requirements:** NFR-MAINT-1 · **PR:** [#3](https://github.com/matchastack/work-journal/pull/3)
 
 As the owner, I want every PR checked automatically, so that I only review changes that already pass lint, types and tests.
 
@@ -80,7 +80,7 @@ As the owner, I want every PR checked automatically, so that I only review chang
 - [x] CI is green on this PR.
 
 ### T-003 · Core schemas
-**Status:** ◐ · **Size:** M · **Depends on:** T-001 · **Requirements:** FR-PRF-1, FR-PRF-4, FR-PRF-5, FR-PRF-6, FR-PRF-7, FR-PRF-8, FR-PRF-9, FR-PRF-10, FR-EXT-1, NFR-PRIV-1 · **PR:** [#4](https://github.com/matchastack/work-journal/pull/4)
+**Status:** ☑ · **Size:** M · **Depends on:** T-001 · **Requirements:** FR-PRF-1, FR-PRF-4, FR-PRF-5, FR-PRF-6, FR-PRF-7, FR-PRF-8, FR-PRF-9, FR-PRF-10, FR-EXT-1, NFR-PRIV-1 · **PR:** [#4](https://github.com/matchastack/work-journal/pull/4)
 
 As a developer, I want typed models for every core object, so that the engine, the API and LLM outputs share one definition.
 
@@ -98,34 +98,34 @@ As a developer, I want typed models for every core object, so that the engine, t
 - [x] A fixture profile for a fictional person (`backend/tests/fixtures/`) validates. Round-trip tests (load → dump → load) pass.
 
 ### T-004 · Profile operations
-**Status:** ☐ · **Size:** S · **Depends on:** T-003 · **Requirements:** FR-PRF-2, FR-PRF-3, FR-PRF-11, FR-REV-3, NFR-DATA-1 · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-003 · **Requirements:** FR-PRF-2, FR-PRF-3, FR-PRF-11, FR-REV-3, NFR-DATA-1 · **PR:** [#5](https://github.com/matchastack/work-journal/pull/5)
 
 As a developer, I want pure functions that apply change operations and compare profiles, so that AI proposals and manual edits change the profile in exactly the same way.
 
-- [ ] `apply(profile, ops) -> profile` supports every op in the `ChangeOp` union (T-003):
+- [x] `apply(profile, ops) -> profile` supports every op in the `ChangeOp` union (T-003):
   - AddBullet, EditBullet, SetBulletStatus, AddSwap
   - AddRole, AddEducation, AddProject
   - UpdateField, AddSkill, ResolveOpenQuestion
-- [ ] Ops address items by ID, and an unknown ID raises a clear error. Apply is atomic: either every op applies or none does.
-- [ ] `diff(a, b)` returns the changed items and fields in a readable structure.
-- [ ] Tests confirm that applying ops and then diffing shows exactly the applied changes.
+- [x] Ops address items by ID, and an unknown ID raises a clear error. Apply is atomic: either every op applies or none does.
+- [x] `diff(a, b)` returns the changed items and fields in a readable structure.
+- [x] Tests confirm that applying ops and then diffing shows exactly the applied changes.
 
 ### T-005 · Number checker
-**Status:** ☐ · **Size:** M · **Depends on:** T-003 · **Requirements:** FR-FID-1, FR-FID-2, FR-FID-3, FR-EXT-2 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-003 · **Requirements:** FR-FID-1, FR-FID-2, FR-FID-3, FR-EXT-2 · **PR:** [#6](https://github.com/matchastack/work-journal/pull/6)
 
 As the owner, I want every number in generated text checked against my facts, so that nothing I publish or send misstates a metric.
 
-- [ ] It extracts:
-  - integers and decimals, including thousands separators ("1,000")
-  - percentages and multipliers ("6x")
+- [x] It extracts:
+  - integers and decimals, including thousands separators ("1,500")
+  - percentages and multipliers ("5x")
   - currency, durations and counts
-  - ranges ("2–3 hours", "8% to 2.1%")
-  - qualifiers ("about", "over", "up to", "200+")
-- [ ] It flags a number that isn't in the cited facts, a changed unit, or a stronger qualifier.
-- [ ] It accepts figures derived by code (percentage change, ratio, multiplier) and records the formula.
-- [ ] A metric that is in the facts but missing from the text is reported as a warning.
-- [ ] It can also parse metrics out of existing bullets, for import.
-- [ ] Unit tests cover every rule, including LaTeX-escaped input (`33\%`).
+  - ranges ("3–5 days", "12% to 4.5%")
+  - qualifiers ("about", "over", "up to", "300+")
+- [x] It flags a number that isn't in the cited facts, a changed unit, or a stronger qualifier.
+- [x] It accepts figures derived by code (percentage change, ratio, multiplier) and records the formula.
+- [x] A metric that is in the facts but missing from the text is reported as a warning.
+- [x] It can also parse metrics out of existing bullets, for import.
+- [x] Unit tests cover every rule, including LaTeX-escaped input (`15\%`).
 
 ### T-006 · Import master resume from LaTeX
 **Status:** ☐ · **Size:** M · **Depends on:** T-003, T-005 · **Requirements:** FR-IMP-1, FR-IMP-3, FR-IMP-4, FR-IMP-5, NFR-PRIV-1 · **PR:** —
