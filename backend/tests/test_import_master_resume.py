@@ -60,7 +60,7 @@ def test_role_types_come_from_labels_that_share_a_part(profile: Profile) -> None
         ("backend", "Backend engineer run"),
         ("data", "Engineer who builds "),
     ]
-    assert "\u2013 from raw sensor logs" in profile.summaries[1].text
+    assert "- from raw sensor logs" in profile.summaries[1].text
 
 
 def test_education(profile: Profile) -> None:
@@ -99,7 +99,7 @@ def test_role_metadata(profile: Profile) -> None:
     assert northwind.sensitivity == "sensitive"
     assert not northwind.during_education
     assert northwind.honesty_boundaries == (
-        "did not own the on-call rotation \u2013 never claim incident command.",
+        "did not own the on-call rotation - never claim incident command.",
     )
     contoso = role(profile, "contoso_research")
     assert (contoso.position, contoso.location) == ("Research Intern", "Springfield, IL")
@@ -123,7 +123,7 @@ def test_bullet_metadata(profile: Profile) -> None:
         ("event-driven Python services", ("platform roles",)),
         (
             "services that consume order events from a queue and write them to PostgreSQL",
-            ('data roles \u2013 matches "streaming"',),
+            ('data roles - matches "streaming"',),
         ),
     ]
     assert orders.needs == ("q_nw_volume",)
@@ -198,7 +198,7 @@ def test_projects(profile: Profile) -> None:
 def test_planned_project(profile: Profile) -> None:
     planned = project(profile, "bird_call_classifier")
     assert (planned.status, planned.keywords) == ("planned", ("Python", "PyTorch"))
-    assert planned.status_reason == "NOT YET BUILT \u2013 keep it out of every resume for now."
+    assert planned.status_reason == "NOT YET BUILT - keep it out of every resume for now."
     assert [(b.status, b.text) for b in planned.highlights] == [
         (
             "planned",
