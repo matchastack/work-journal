@@ -17,6 +17,12 @@ One short entry per pull request, newest first: what changed and what to verify.
 - CI is green on #6
 - The example in the PR prints the expected three lines
 - The rules in the PR (±10% for "about", the ranges for "hundreds" and "thousands", unit families) match your judgement
+## 2026-09-28 · T-004 Profile operations · [#5](https://github.com/matchastack/work-journal/pull/5)
+**Changed:** added `apply()`, which applies change operations atomically and by ID, and `diff()`, which lists the changes between two profiles at readable paths.
+
+**Verify:**
+- CI is green on #5
+- The operations and guard rails in `app/profile_ops.py` cover the edits you'd expect to make
 
 ## 2026-09-27 · T-003 Core schemas · [#4](https://github.com/matchastack/work-journal/pull/4)
 **Changed:** added typed models for the master profile (with all the master-resume metadata), facts and metrics, variants, change operations, job postings and applications, plus `wj schema export`.
