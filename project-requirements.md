@@ -228,7 +228,7 @@ Priority: **M** = Must (v1) · **S** = Should (v1 if time allows) · **C** = Cou
 | FR-WRT-3 | **Job-posting style.** Uses the posting's vocabulary where it is true, and leads with the most relevant facts. | M | |
 | FR-WRT-4 | The owner's style notes (words to avoid, preferences) apply to every style. | M | |
 | FR-WRT-5 | New phrasings the owner approves are saved as swaps on the bullet, so they can be reused. | M | |
-| FR-WRT-6 | Stored text uses plain characters: look-alikes such as the en dash become their plain form (a hyphen). Rules in code make the replacement, for imported, generated and typed text alike, rather than instructions in LLM prompts. | M | No stored profile or fact text contains an en dash. |
+| FR-WRT-6 | Everything the app writes uses the ASCII version of a character where one exists: dashes, quotes, ellipses, spaces and symbols such as the multiplication sign. This covers stored text, reports, rendered resumes and pages, and the web app. Rules in code make the replacement, for imported, generated and typed text alike, rather than instructions in LLM prompts. Letters and currency signs without an ASCII version stay. | M | The import's output is pure ASCII, and rendered date ranges use a hyphen. |
 
 ### 7.8 LaTeX resumes (FR-RES)
 
