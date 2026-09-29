@@ -73,6 +73,7 @@ Add a dependency with `uv add <package>` (or `uv add --dev <package>` for tools)
   - **Light (Haiku):** follow-up questions, summaries, triage and parsing job postings.
 - **Every call goes through `app/llm/client.py`.** Prompts are versioned files in `app/llm/prompts/`.
 - **Every generated sentence passes the verifier** before it's stored.
+- **Plain characters come from code, not prompts.** Schema models apply the rules in `app/text.py` to every string (for example, en dash to hyphen). To keep another character out of generated text, add a rule there.
 - **Tests:** unit tests use the fake client. Real API calls happen only in `pytest -m llm` and `wj eval`, never in default CI.
 - **Evaluations:** run the evaluation suite before changing a prompt or the routing, and report the numbers in the PR.
 - **Check the docs first:** before writing Claude API code, check the current SDK documentation (the `claude-api` skill) rather than relying on memory.

@@ -9,6 +9,7 @@ One short entry per pull request, newest first: what changed and what to verify.
 - CI is green on #7
 - Importing your own file gives the counts in the PR, and the report's mappings look right
 - The sensitive roles are marked (see the PR)
+- `local/profile.json`, `local/facts.json` and the report contain no en dashes
 
 ## 2026-09-28 · T-005 Number checker · [#6](https://github.com/matchastack/work-journal/pull/6)
 **Changed:** added a deterministic checker that blocks any number in generated text that the cited facts don't back (invented numbers, changed units, stronger qualifiers), accepts figures computed by code with their formula, and extracts metrics from existing bullets for import.
