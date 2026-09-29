@@ -144,6 +144,8 @@ def test_accounts_not_on_the_allowlist_see_a_clear_message() -> None:
         response = github.sign_in(client, 2001, "stranger-example")
     assert response.status_code == 403
     assert "This journal is private" in response.text
+    assert "<title>This journal is private | Work Journal</title>" in response.text
+    assert response.text.isascii()
     assert "@stranger-example isn't one of them" in response.text
     assert "ALLOWED_GITHUB_LOGINS" in response.text
     assert not sets_cookie(response, SESSION_COOKIE)
