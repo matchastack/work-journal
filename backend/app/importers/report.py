@@ -3,6 +3,8 @@
 from dataclasses import dataclass, field
 from typing import Literal
 
+from app.text import plain
+
 ReportKind = Literal["problem", "check", "generated", "skipped"]
 
 _HEADINGS: dict[ReportKind, str] = {
@@ -55,4 +57,4 @@ class ImportReport:
                     f"  line {item.line}: {item.message}" if item.line else f"  {item.message}"
                     for item in items
                 )
-        return "\n".join(parts) + "\n"
+        return plain("\n".join(parts) + "\n")

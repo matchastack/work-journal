@@ -44,3 +44,17 @@ def test_the_default_output_folder_is_git_ignored() -> None:
     assert LOCAL_DIR.name == "local"
     ignored = (LOCAL_DIR.parent / ".gitignore").read_text(encoding="utf-8").splitlines()
     assert "local/" in ignored
+
+
+def test_the_import_writes_no_en_dashes(tmp_path: Path) -> None:
+    """LaTeX `--` and en dashes typed into the source both come out as hyphens."""
+    source = tmp_path / "master-resume.tex"
+    tex = FIXTURE.read_text(encoding="utf-8")
+    assert "4--6 hours" in tex
+    source.write_text(tex.replace("4--6 hours", "4\N{EN DASH}6 hours"), encoding="utf-8")
+    result = runner.invoke(cli, ["import", "tex", str(source), "--out", str(tmp_path / "out")])
+    assert result.exit_code == 0, result.output
+    for name in ("profile.json", "facts.json", "import-report.txt"):
+        text = (tmp_path / "out" / name).read_text(encoding="utf-8")
+        assert "\N{EN DASH}" not in text, name
+    assert "4-6 hours" in (tmp_path / "out" / "facts.json").read_text(encoding="utf-8")
