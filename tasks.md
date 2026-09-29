@@ -98,7 +98,7 @@ As a developer, I want typed models for every core object, so that the engine, t
 - [x] A fixture profile for a fictional person (`backend/tests/fixtures/`) validates. Round-trip tests (load → dump → load) pass.
 
 ### T-004 · Profile operations
-**Status:** ◐ · **Size:** S · **Depends on:** T-003 · **Requirements:** FR-PRF-2, FR-PRF-3, FR-PRF-11, FR-REV-3, NFR-DATA-1 · **PR:** [#5](https://github.com/matchastack/work-journal/pull/5)
+**Status:** ☑ · **Size:** S · **Depends on:** T-003 · **Requirements:** FR-PRF-2, FR-PRF-3, FR-PRF-11, FR-REV-3, NFR-DATA-1 · **PR:** [#5](https://github.com/matchastack/work-journal/pull/5)
 
 As a developer, I want pure functions that apply change operations and compare profiles, so that AI proposals and manual edits change the profile in exactly the same way.
 
@@ -111,7 +111,7 @@ As a developer, I want pure functions that apply change operations and compare p
 - [x] Tests confirm that applying ops and then diffing shows exactly the applied changes.
 
 ### T-005 · Number checker
-**Status:** ◐ · **Size:** M · **Depends on:** T-003 · **Requirements:** FR-FID-1, FR-FID-2, FR-FID-3, FR-EXT-2 · **PR:** [#6](https://github.com/matchastack/work-journal/pull/6)
+**Status:** ☑ · **Size:** M · **Depends on:** T-003 · **Requirements:** FR-FID-1, FR-FID-2, FR-FID-3, FR-EXT-2 · **PR:** [#6](https://github.com/matchastack/work-journal/pull/6)
 
 As the owner, I want every number in generated text checked against my facts, so that nothing I publish or send misstates a metric.
 
@@ -128,12 +128,12 @@ As the owner, I want every number in generated text checked against my facts, so
 - [x] Unit tests cover every rule, including LaTeX-escaped input (`15\%`).
 
 ### T-006 · Import master resume from LaTeX
-**Status:** ☐ · **Size:** M · **Depends on:** T-003, T-005 · **Requirements:** FR-IMP-1, FR-IMP-3, FR-IMP-4, FR-IMP-5, NFR-PRIV-1 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-003, T-005 · **Requirements:** FR-IMP-1, FR-IMP-3, FR-IMP-4, FR-IMP-5, FR-WRT-6, NFR-PRIV-1 · **PR:** [#7](https://github.com/matchastack/work-journal/pull/7)
 
 As the owner, I want my master resume converted into the profile format, so that the app starts from everything I've already written.
 
-- [ ] `wj import tex <path>` parses the template's macros into the profile: `\section`, `\resumeSubheading`, `\resumeSubheadingOneLine`, `\resumeProjectHeading`, `\resumeItem` and the skills lines.
-- [ ] Structured comments are mapped:
+- [x] `wj import tex <path>` parses the template's macros into the profile: `\section`, `\resumeSubheading`, `\resumeSubheadingOneLine`, `\resumeProjectHeading`, `\resumeItem` and the skills lines.
+- [x] Structured comments are mapped:
   - **Per bullet:** `ID`, `STRENGTH`, `VERIFIED`, `SWAPS` (with their context), `NEEDS` (open-question IDs) and `WARNING` / `NOTE` / `UPGRADE AVAILABLE` notes.
   - **Benched and planned items:** benched bullets (with reasons) and planned projects.
   - **Per role:** keep/cut notes and approved title variants.
@@ -141,11 +141,11 @@ As the owner, I want my master resume converted into the profile format, so that
   - **Summaries:** summary variants.
   - **Skills:** skills presets, proficiency tiers and the gaps list.
   - **Open questions.**
-- [ ] LaTeX markup is converted to plain text: `\%` → `%`, `\&` → `&`, `--` → en dash.
-- [ ] Each active bullet gets a linked fact, with metrics parsed by the number checker (T-005).
-- [ ] No LLM calls are made. Anything that can't be mapped is listed in an import report.
-- [ ] Output goes to `local/profile.json`, which git ignores. Nothing personal is committed.
-- [ ] Tests use a fictional `.tex` fixture that exercises every macro and comment tag.
+- [x] LaTeX markup is converted to plain text: `\%` → `%`, `\&` → `&`, `--` → en dash.
+- [x] Each active bullet gets a linked fact, with metrics parsed by the number checker (T-005).
+- [x] No LLM calls are made. Anything that can't be mapped is listed in an import report.
+- [x] Output goes to `local/profile.json`, which git ignores. Nothing personal is committed.
+- [x] Tests use a fictional `.tex` fixture that exercises every macro and comment tag.
 
 ### T-007 · Import master-resume.json and the application log
 **Status:** ✖ dropped · **Size:** — · **Depends on:** — · **Requirements:** FR-IMP-2 (dropped) · **PR:** —
