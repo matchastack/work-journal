@@ -9,7 +9,7 @@ export function SignIn() {
   }
   return (
     <main className="grid min-h-screen place-items-center bg-stone-50 px-4 text-stone-900">
-      <title>Sign in · Work Journal</title>
+      <title>Sign in | Work Journal</title>
       <div className="w-full max-w-sm rounded-lg border border-stone-200 bg-white p-8 shadow-sm">
         <h1 className="text-xl font-semibold text-emerald-800">Work Journal</h1>
         <p className="mt-2 text-sm text-stone-600">

@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
@@ -84,6 +84,24 @@ describe("the web app", () => {
     serveApi();
     renderAt("/nowhere");
     expect(await screen.findByRole("heading", { name: "Page not found" })).toBeInTheDocument();
+  });
+
+  it("writes only ASCII characters", async () => {
+    const nonAscii = () => document.documentElement.outerHTML.match(/[^\t\n\r\x20-\x7e]/gu) ?? [];
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(() => undefined)));
+    renderAt("/inbox");
+    expect(await screen.findByRole("status")).toHaveTextContent("Loading...");
+    expect(nonAscii()).toEqual([]);
+    cleanup();
+    serveApi({ signedIn: false });
+    renderAt("/sign-in");
+    await screen.findByRole("link", { name: "Sign in with GitHub" });
+    expect(nonAscii()).toEqual([]);
+    cleanup();
+    serveApi();
+    renderAt("/inbox");
+    await screen.findByRole("heading", { level: 1, name: "Inbox" });
+    expect(nonAscii()).toEqual([]);
   });
 
   it("says so when the server can't be reached", async () => {

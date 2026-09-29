@@ -9,7 +9,7 @@ export function RequireSignIn() {
   if (me.isPending) {
     return (
       <p role="status" className="p-8 text-stone-600">
-        Loading…
+        Loading...
       </p>
     );
   }
