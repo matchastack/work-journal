@@ -208,7 +208,7 @@ def _page(status_code: int, title: str, message: str, *, retry: bool = False) ->
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{text(title)} · Work Journal</title>
+<title>{text(title)} | Work Journal</title>
 <style>
   body {{ max-width: 36rem; margin: 4rem auto; padding: 0 1rem; }}
   body {{ font: 1rem/1.5 system-ui, sans-serif; }}
