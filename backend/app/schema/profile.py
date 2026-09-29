@@ -30,7 +30,8 @@ class Swap(Model):
 
     text: NonEmptyStr
     replaces: str | None = None
-    """The part of the bullet this replaces; None means it replaces the whole bullet."""
+    """The part of the bullet this replaces. None means the whole bullet, or, for an imported
+    swap, that the master resume doesn't say which part the phrase replaces."""
     contexts: tuple[str, ...] = ()
     """Where this phrasing fits, e.g. a role type or the posting it was written for."""
     origin: Literal["imported", "approved"] = "imported"

@@ -109,5 +109,5 @@ def test_extract_metrics_from_an_existing_bullet() -> None:
     assert [(type(m.value).__name__, m.unit, m.subject) for m in metrics] == [
         ("SingleValue", "x", "5x"),
         ("ChangeValue", "request", "1,500 to 7,500 requests"),
-        ("RangeValue", "day", "3\u20135 days"),
+        ("RangeValue", "day", "3-5 days"),
     ]
