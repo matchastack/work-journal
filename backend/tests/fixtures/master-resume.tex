@@ -1,0 +1,303 @@
+%==============================================================================
+% MASTER RESUME -- CASEY MORGAN (a fictional person, for tests)
+%
+% The long version: tailored resumes are cut down from it.
+%==============================================================================
+
+\documentclass[letterpaper,11pt]{article}
+
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\input{glyphtounicode}
+\pdfgentounicode=1
+
+\newcommand{\resumeItem}[1]{\item\small{{#1 \vspace{-2pt}}}}
+\newcommand{\resumeSubheading}[4]{
+  \vspace{-2pt}\item
+  \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
+    \textbf{#1} & #2 \\
+    \textit{\small#3} & \textit{\small #4} \\
+  \end{tabular*}\vspace{-7pt}
+}
+\newcommand{\resumeSubheadingOneLine}[2]{
+  \vspace{-2pt}\item
+  \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
+    \textbf{#1} & #2 \\
+  \end{tabular*}\vspace{-7pt}
+}
+\newcommand{\resumeProjectHeading}[2]{
+  \item
+  \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
+    \small#1 & #2 \\
+  \end{tabular*}\vspace{-7pt}
+}
+\newcommand{\resumeItemListStart}{\begin{itemize}}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+
+\begin{document}
+
+%----------HEADING----------
+% Phone only on resumes that are sent directly.
+
+\begin{center}
+  \textbf{\Huge \scshape Casey Morgan} \\ \vspace{1pt}
+  \small +1 555 0100
+  $|$
+  \href{mailto:casey@example.com}{\underline{casey@example.com}}
+  $|$
+  \href{https://linkedin.com/in/casey-example}{linkedin.com/in/casey-example}
+  $|$
+  \href{https://github.com/casey-example}{github.com/casey-example}
+  $|$
+  \href{https://example.com}{example.com}
+\end{center}
+
+%-----------SUMMARY-----------
+% Off unless a summary helps. Choose one variant.
+%
+% \section{Summary}
+% \small{
+%   BACKEND / PLATFORM:
+%   Backend engineer running event-driven Python services, with a
+%   research internship in sensor data.
+%
+%   DATA / ML:
+%   Engineer who builds reliable data pipelines and labelling tools --
+%   from raw sensor logs to benchmark datasets.
+% }
+
+%-----------EDUCATION-----------
+
+\section{Education}
+
+\resumeSubHeadingListStart
+
+  % This layout puts the dates on the first line.
+  \resumeSubheading
+    {Springfield State University}{Aug 2020 -- May 2024}
+    {Bachelor of Science in Computer Science, Magna Cum Laude}{}
+      \resumeItemListStart
+        % NOTE ON ORDER: the minor always comes after the major.
+        \resumeItem{Minor in Mathematics}
+
+        % RULE: never print the GPA.
+
+        % Complete coursework list. Print three or four at most.
+        \resumeItem{
+          Relevant coursework: Algorithms, Operating Systems, Databases,
+          Distributed Systems, Statistics \& Probability
+        }
+        % SUBSETS USED BEFORE:
+        %   Backend / platform : Algorithms, Operating Systems,
+        %                        Distributed Systems
+        %   ML / data          : the three above + Statistics \& Probability, Databases
+      \resumeItemListEnd
+
+\resumeSubHeadingListEnd
+
+%-----------EXPERIENCE-----------
+
+\section{Work Experience}
+
+\resumeSubHeadingListStart
+
+%------------------------------------------------------------------ NORTHWIND
+% LOAD-BEARING -- the current job, so it always appears.
+% SENSITIVE -- client work: describe the design and results, nothing else.
+% TITLE: the official title is "Engineer". Approved variants:
+%   Backend Engineer | Platform Engineer
+%   Software Engineer
+% Never add Senior or Lead.
+
+  \resumeSubheadingOneLine
+    {Software Engineer, Northwind Traders}{Aug 2024 -- Present}
+
+  \resumeItemListStart
+
+    % ID: nw_orders | STRENGTH: high | VERIFIED: partial (volume unknown)
+    % SWAPS: "event-driven Python services" (platform roles)
+    %        "services that consume order events from a queue and
+    %         write them to PostgreSQL" (data roles -- matches "streaming")
+    % NEEDS: q_nw_volume -- orders per day, even a rough range.
+    \resumeItem{
+      Run Python services that process order events from a message queue in
+      an event-driven architecture.
+    }
+
+    % ID: nw_export | STRENGTH: low (HIGH for data roles) | VERIFIED: yes
+    % SWAPS: drop " by batching database writes" for non-data roles
+    % WARNING: the batching approach came from a teammate's design; say
+    % "implemented", never "designed".
+    \resumeItem{
+      Cut the nightly export job from 50 to 12 minutes by batching database writes.
+    }
+
+    % ID: nw_alerts | STRENGTH: high | VERIFIED: dates yes, scope no
+    % UPGRADE AVAILABLE: add the alert volume once it is known.
+    % HONESTY BOUNDARY: did not own the on-call rotation -- never claim
+    % incident command.
+    \resumeItem{
+      Reduced false alerts by 40\% across 3 services by tuning alert thresholds.
+    }
+
+    % ID: nw_docs | STRENGTH: low | VERIFIED: no
+    % Weakest bullet here -- vague about the audience.
+    % Cut this one first. NEEDS: q_nw_docs.
+    \resumeItem{Wrote onboarding guides for the order services.}
+
+    %%% BENCHED -- retired bullets; never rendered.
+    % ID: nw_tracker -- "Used an issue tracker for sprint planning."
+    %   REASON: it names a tool, not a result.
+    % ID: nw_meetings -- "Attended design reviews with the platform
+    %   team."
+    %   REASON: attendance is not an outcome.
+
+  \resumeItemListEnd
+
+%------------------------------------------------------------------ CONTOSO
+% Part-time while studying.
+% KEEP for: ML/data, research, sensor-analytics roles.
+% CUT for: pure platform, mobile roles.
+
+  \resumeSubheading
+    {Research Intern}{Jan 2023 -- Jun 2023}
+    {Contoso Research}{Springfield, IL}
+
+  \resumeItemListStart
+
+    % ID: ct_sensors | STRENGTH: medium | VERIFIED: yes
+    % SWAPS: append " for two research teams" when applying to data roles.
+    \resumeItem{
+      Wrote a Python tool that labels sensor logs and flags anomalies, saving
+      4--6 hours of manual review a week.
+    }
+
+    % ID: ct_model | STRENGTH: low (HIGH if a posting asks for testing) | VERIFIED: yes (metric = recall)
+    % SWAPS: lead with "Rewrote the evaluation script"
+    %        for testing roles -- it shows test discipline.
+    \resumeItem{
+      Rewrote the evaluation script for an anomaly model, raising recall by 12\%.
+    }
+
+    %%% BENCHED
+    % ID: ct_reading -- "Surveyed 40 open datasets."
+    %   REASON: reading, not building.
+
+  \resumeItemListEnd
+
+\resumeSubHeadingListEnd
+
+%-----------PROJECTS-----------
+% Optional section; drop it when the jobs make the case.
+
+\section{Projects}
+
+\resumeSubHeadingListStart
+
+%------------------------------------------------------------------ RECIPE BOX
+% STRONGEST FOR: backend, platform, web roles.
+% The only public repo; link it.
+% OPEN QUESTION: how many monthly users are there now, not at launch?
+
+  \resumeProjectHeading
+    {\textbf{Recipe Box} $|$ \emph{TypeScript, React, PostgreSQL}}
+    {Jun 2023 -- Sep 2023}
+
+  \resumeItemListStart
+
+    % ID: rb_app | STRENGTH: medium | VERIFIED: yes
+    \resumeItem{
+      Built a recipe-sharing web app with full-text search and image uploads,
+      used by 300 people a month.
+    }
+
+  \resumeItemListEnd
+
+%------------------------------------------------------------------ LINT RULES
+% INCLUDE for: backend roles.
+% OMIT for: mobile, design roles.
+% *** CHECK BEFORE INCLUDING ***
+% The rule set is small; only use it where code quality is asked for.
+
+  \resumeProjectHeading
+    {\textbf{Lint Rules} \emph{(Python, pytest)}}
+    {} % TODO: add the dates
+
+  \resumeItemListStart
+
+    % ID: lr_rules | STRENGTH: medium | VERIFIED: yes
+    \resumeItem{
+      Wrote custom lint rules that cut duplicated code from 12\% to 4.5\% in a
+      shared library.
+    }
+
+  \resumeItemListEnd
+
+%------------------------------------------------------------------ BIRD CALLS
+% NOT YET BUILT -- keep it out of every resume for now.
+%
+%   Bird Call Classifier (Python, PyTorch)
+%   Phase 1: classify bird species from short audio clips, tested
+%            against a baseline.
+%   Phase 2: serve the model behind an API.
+%
+% WHY: closes the audio-ML gap.
+
+\resumeSubHeadingListEnd
+
+%-----------TECHNICAL SKILLS-----------
+% Keep this section last.
+
+\section{Technical Skills}
+
+\begin{itemize}[leftmargin=0.15in, label={}]
+  \small{
+    \item{
+      % Proficiency tiers -- private, never printed:
+      %   Strong  : Python, SQL
+      %   Working : TypeScript
+      %   Academic: Kotlin
+      % SQL is a language here, never a database.
+      \textbf{Languages}{: Python, SQL, TypeScript, Kotlin} \\
+
+      \textbf{Web \& APIs}{: FastAPI, Node.js} \\
+
+      % VERIFY BEFORE SHIPPING: Kotlin comes from a single course project.
+      % React: side projects only.
+      \textbf{Frontend}{: React} \\
+
+      \textbf{Data}{: PostgreSQL, Apache Airflow} \\
+
+      % NOT ON THE RESUME -- never claim these:
+      %   Mobile: no Swift / SwiftUI, no Flutter
+      %   Other: no Rust, no Haskell
+      %   Unconfirmed: mobile app work
+    }
+  }
+\end{itemize}
+
+%==============================================================================
+% SKILLS PRESETS -- pick one per role type.
+%==============================================================================
+%
+% BACKEND / PLATFORM
+%   Languages: Python, TypeScript, SQL
+%   Web \& APIs: FastAPI,
+%                Node.js
+%
+% DATA / ML PIPELINES
+%   Languages: Python, SQL
+%   Data: Apache Airflow, PostgreSQL
+%
+%==============================================================================
+% OPEN QUESTIONS -- details that would strengthen bullets
+%
+%   q_nw_volume     how many order events a day do the services handle?
+%   PROJECT DATES   when was each project built?
+%==============================================================================
+
+\end{document}
