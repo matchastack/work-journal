@@ -118,6 +118,11 @@ class Selection(Model):
     """What the variant asked for but the profile doesn't have, e.g. a skills preset."""
 
 
+MASTER_VARIANT = Variant(id="master", name="Master (everything)", max_pages=None)
+"""The only predefined variant: the full master document, with no page limit (OQ-6). One-page
+resumes are tailored to each job posting (T-020), so no variant is predefined per role type."""
+
+
 def select(profile: Profile, variant: Variant) -> Selection:
     """The content `variant` shows from `profile`."""
     notes: list[str] = []
@@ -167,17 +172,6 @@ def select(profile: Profile, variant: Variant) -> Selection:
         template=variant.template,
         notes=tuple(notes),
     )
-
-
-def default_variants(profile: Profile) -> list[Variant]:
-    """The full master document, plus a one-page resume for each role type (OQ-6)."""
-    variants = [Variant(id="master", name="Master (everything)", max_pages=None)]
-    taken = {"master"}
-    for role_type in profile.role_types:
-        variant_id = role_type.id if role_type.id not in taken else f"{role_type.id}_resume"
-        taken.add(variant_id)
-        variants.append(Variant(id=variant_id, name=role_type.name, role_type=role_type.id))
-    return variants
 
 
 def _role(
