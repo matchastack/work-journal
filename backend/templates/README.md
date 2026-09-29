@@ -22,7 +22,7 @@ Printing a missing value is an error, so guard optional fields with `\BLOCK{if .
 
 ## Compiling
 
-`wj render --variant <name>` compiles with `latexmk -pdf` (pdfLaTeX) in a temporary folder, with shell escape off, file access limited to that folder, and a 30-second timeout. Install TeX Live first:
+`wj render` compiles with `latexmk -pdf` (pdfLaTeX) in a temporary folder, with shell escape off, file access limited to that folder, and a 30-second timeout. Install TeX Live first:
 
 ```sh
 sudo apt-get install --no-install-recommends latexmk texlive-latex-base texlive-latex-extra texlive-fonts-recommended

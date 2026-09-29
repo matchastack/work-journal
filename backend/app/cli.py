@@ -13,7 +13,7 @@ from app.render.fit import FitError
 from app.render.resume import RenderError, render_resume
 from app.schema.export import write_json_schemas
 from app.schema.profile import Profile
-from app.selection import default_variants, select
+from app.selection import MASTER_VARIANT, select
 
 LOCAL_DIR = Path(__file__).resolve().parents[2] / "local"
 """The repository's git-ignored folder for personal data (`backend/app/cli.py` is two below)."""
@@ -38,45 +38,34 @@ def version() -> None:
 
 @cli.command()
 def render(
-    variant: Annotated[
-        str, typer.Option(help="The variant: master, or a role type such as backend.")
-    ] = "master",
     profile: Annotated[
         Path, typer.Option(help="The profile to render.", exists=True, dir_okay=False)
     ] = LOCAL_DIR / "profile.json",
     out: Annotated[
-        Path | None,
-        typer.Option(help="Where to write the PDF.", show_default="local/resumes/<variant>.pdf"),
-    ] = None,
+        Path,
+        typer.Option(help="Where to write the PDF."),
+    ] = LOCAL_DIR / "resumes" / "master.pdf",
 ) -> None:
-    """Render a resume variant of the profile as a PDF, cut to fit its page limit."""
+    """Render the profile's full master document as a PDF. One-page resumes are tailored to a
+    posting instead (OQ-6)."""
     loaded = Profile.model_validate_json(profile.read_text(encoding="utf-8"))
-    variants = {choice.id: choice for choice in default_variants(loaded)}
-    if variant not in variants:
-        typer.echo(f"No variant {variant!r}. Choose from: {', '.join(variants)}.", err=True)
-        raise typer.Exit(1)
-    selection = select(loaded, variants[variant])
-    path = out or LOCAL_DIR / "resumes" / f"{variant}.pdf"
-    path.parent.mkdir(parents=True, exist_ok=True)
+    selection = select(loaded, MASTER_VARIANT)
+    out.parent.mkdir(parents=True, exist_ok=True)
     try:
         rendered = render_resume(selection)
     except CompileError as error:
-        log = path.with_suffix(".log")
+        log = out.with_suffix(".log")
         log.write_text(error.log, encoding="utf-8")
         typer.echo(f"{error}. The full log is in {log}.", err=True)
         raise typer.Exit(1) from None
     except (RenderError, FitError) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(1) from None
-    path.write_bytes(rendered.pdf)
+    out.write_bytes(rendered.pdf)
     pages = f"{rendered.pages} page{'' if rendered.pages == 1 else 's'}"
-    typer.echo(f"Wrote {path} ({pages}).")
+    typer.echo(f"Wrote {out} ({pages}).")
     for note in selection.notes:
         typer.echo(f"Note: {note}")
-    if rendered.cuts:
-        typer.echo(f"Cut to fit the {selection.max_pages}-page limit:")
-        for cut in rendered.cuts:
-            typer.echo(f"- {cut.kind} {cut.id}: {cut.text}")
     for warning in rendered.warnings:
         typer.echo(f"Warning: {warning}", err=True)
 

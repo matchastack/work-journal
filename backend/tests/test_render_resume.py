@@ -5,11 +5,17 @@ import pytest
 from app.render.resume import RenderError, contact_items, render_resume
 from app.schema.profile import Profile, SocialProfile
 from app.schema.variant import Variant
-from app.selection import Contact, Selection, default_variants, select
+from app.selection import MASTER_VARIANT, Contact, Selection, select
 
 FIXTURES = Path(__file__).parent / "fixtures"
 PROFILE = Profile.model_validate_json((FIXTURES / "profile.json").read_text(encoding="utf-8"))
-VARIANTS = {variant.id: variant for variant in default_variants(PROFILE)}
+VARIANTS = {
+    "master": MASTER_VARIANT,
+    **{
+        role.id: Variant(id=role.id, name=role.name, role_type=role.id)
+        for role in PROFILE.role_types
+    },
+}
 TEMPLATES = FIXTURES / "templates"
 
 

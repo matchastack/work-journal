@@ -3,9 +3,9 @@ from typing import Any
 
 import pytest
 
-from app.schema.profile import Profile, RoleType
+from app.schema.profile import Profile
 from app.schema.variant import TitleChoice, Variant
-from app.selection import Selection, default_variants, select
+from app.selection import MASTER_VARIANT, Selection, select
 
 PROFILE = Profile.model_validate_json(
     (Path(__file__).parent / "fixtures" / "profile.json").read_text(encoding="utf-8")
@@ -155,15 +155,13 @@ def test_private_and_resume_only_bullets() -> None:
     assert bullet_ids(select(profile, variant(audience="web"))) == ["ss_minor", "rb_app"]
 
 
-def test_default_variants_are_the_master_plus_one_per_role_type() -> None:
-    variants = default_variants(PROFILE)
-    assert [(v.id, v.name, v.role_type, v.max_pages) for v in variants] == [
-        ("master", "Master (everything)", None, None),
-        ("backend", "Backend / full stack", "backend", 1),
-        ("data", "Data engineering", "data", 1),
-    ]
-    clash = PROFILE.model_copy(update={"role_types": (RoleType(id="master", name="Master"),)})
-    assert [v.id for v in default_variants(clash)] == ["master", "master_resume"]
+def test_the_only_predefined_variant_is_the_master_document() -> None:
+    """OQ-6: one-page resumes are tailored to each posting, so no role type has a variant."""
+    master = MASTER_VARIANT
+    assert (master.id, master.role_type, master.max_pages) == ("master", None, None)
+    assert bullet_ids(select(PROFILE, master)) == bullet_ids(
+        select(PROFILE, variant(max_pages=None))
+    )
 
 
 @pytest.mark.parametrize("role_type", [None, "backend", "data"])

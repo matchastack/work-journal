@@ -10,29 +10,19 @@ runner = CliRunner()
 
 
 @pytest.mark.latex
-def test_render_writes_the_variant_as_a_pdf(tmp_path: Path) -> None:
-    out = tmp_path / "resumes" / "backend.pdf"
-    args = ["render", "--variant", "backend", "--profile", str(PROFILE), "--out", str(out)]
-    result = runner.invoke(cli, args)
+def test_render_writes_the_master_document_as_a_pdf(tmp_path: Path) -> None:
+    out = tmp_path / "resumes" / "master.pdf"
+    result = runner.invoke(cli, ["render", "--profile", str(PROFILE), "--out", str(out)])
     assert result.exit_code == 0, result.output
     assert out.read_bytes().startswith(b"%PDF")
     assert f"Wrote {out} (1 page)." in result.stdout
 
 
-def test_an_unknown_variant_lists_the_choices(tmp_path: Path) -> None:
-    args = [
-        "render",
-        "--variant",
-        "sales",
-        "--profile",
-        str(PROFILE),
-        "--out",
-        str(tmp_path / "x.pdf"),
-    ]
-    result = runner.invoke(cli, args)
-    assert result.exit_code == 1
-    assert "No variant 'sales'. Choose from: master, backend, data." in result.stderr
-    assert not (tmp_path / "x.pdf").exists()
+def test_there_is_no_variant_to_choose(tmp_path: Path) -> None:
+    """OQ-6: only the master document is predefined; one-page resumes are tailored."""
+    result = runner.invoke(cli, ["render", "--variant", "backend", "--profile", str(PROFILE)])
+    assert result.exit_code == 2
+    assert "No such option: --variant" in result.stderr
 
 
 def test_a_missing_profile_is_reported(tmp_path: Path) -> None:
