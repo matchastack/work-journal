@@ -209,10 +209,10 @@ def safe_url(url: str) -> bool:
 
 
 def date_range(start: YearMonth | None, end: YearMonth | None) -> str:
-    """ "Mar 2024 \u2013 Present", with an en dash."""
+    """ "Mar 2024 - Present", with an ASCII hyphen (requirement FR-WRT-6)."""
     if start is None:
         return _month(end) if end else ""
-    return f"{_month(start)} \u2013 {_month(end) if end else 'Present'}"
+    return f"{_month(start)} - {_month(end) if end else 'Present'}"
 
 
 def _month(value: YearMonth) -> str:

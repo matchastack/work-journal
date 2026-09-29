@@ -66,7 +66,7 @@ def test_only_public_active_content_shows() -> None:
 
 def test_link_previews_and_search_engine_data() -> None:
     html = html_for(site_url=SITE)
-    assert '<meta property="og:title" content="Casey Morgan · Software Engineer">' in html
+    assert '<meta property="og:title" content="Casey Morgan | Software Engineer">' in html
     assert f'<link rel="canonical" href="{SITE}">' in html
     person = json_ld(html)
     assert (person["@type"], person["name"], person["jobTitle"]) == (
@@ -140,8 +140,8 @@ def test_sections_without_content_are_left_out() -> None:
 @pytest.mark.parametrize(
     ("start", "end", "shown"),
     [
-        ("2024-03", None, "Mar 2024 \N{EN DASH} Present"),
-        ("2023-06", "2023-09", "Jun 2023 \N{EN DASH} Sep 2023"),
+        ("2024-03", None, "Mar 2024 - Present"),
+        ("2023-06", "2023-09", "Jun 2023 - Sep 2023"),
         (None, "2023-09", "Sep 2023"),
     ],
 )
