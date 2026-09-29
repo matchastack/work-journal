@@ -72,8 +72,8 @@ def test_urls_are_safe_inside_href(url: str, latex: str) -> None:
 
 def test_month_and_date_ranges() -> None:
     assert month("2024-03") == "Mar 2024"
-    assert dates("2023-06", "2023-09") == "Jun 2023 -- Sep 2023"
-    assert dates("2024-03", None) == "Mar 2024 -- Present"
+    assert dates("2023-06", "2023-09") == "Jun 2023 - Sep 2023"
+    assert dates("2024-03", None) == "Mar 2024 - Present"
     assert dates(None, "2023-09") == "Sep 2023"
     assert dates(None, None) == ""
 
@@ -102,7 +102,7 @@ def test_dates_and_months_are_available(tmp_path: Path) -> None:
     rendered = render(
         tmp_path, r"\VAR{dates(start, end)}; \VAR{start|month}", start="2024-03", end=None
     )
-    assert rendered == "Mar 2024 -- Present; Mar 2024"
+    assert rendered == "Mar 2024 - Present; Mar 2024"
 
 
 def test_printing_a_missing_value_is_an_error(tmp_path: Path) -> None:

@@ -76,11 +76,11 @@ def month(value: YearMonth) -> str:
 
 
 def dates(start: YearMonth | None, end: YearMonth | None) -> str:
-    """A date range as a resume shows it: "Mar 2024 -- Present". The template's font sets "--" as
-    an en dash."""
+    """A date range as a resume shows it: "Mar 2024 - Present", with an ASCII hyphen
+    (requirement FR-WRT-6)."""
     if start is None:
         return month(end) if end else ""
-    return f"{month(start)} -- {month(end) if end else 'Present'}"
+    return f"{month(start)} - {month(end) if end else 'Present'}"
 
 
 def latex_environment(templates: Path) -> SandboxedEnvironment:
