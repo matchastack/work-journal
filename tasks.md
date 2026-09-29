@@ -23,7 +23,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 | Milestone | Tasks | Status |
 |---|---|---|
 | M0: Documents | T-000 | ☑ |
-| M1: Engine and command line | T-001 – T-024 (T-007 dropped) | ◐ |
+| M1: Engine and command line | T-001 – T-024 and T-054 (T-007 dropped) | ◐ |
 | M2: Journal loop | T-025 – T-053 | ☐ |
 | M3: Quality and habit | Epics (at the end of this file) | — |
 | M4: Open to others | Epics (at the end of this file) | — |
@@ -128,7 +128,7 @@ As the owner, I want every number in generated text checked against my facts, so
 - [x] Unit tests cover every rule, including LaTeX-escaped input (`15\%`).
 
 ### T-006 · Import master resume from LaTeX
-**Status:** ◐ · **Size:** M · **Depends on:** T-003, T-005 · **Requirements:** FR-IMP-1, FR-IMP-3, FR-IMP-4, FR-IMP-5, FR-WRT-6, NFR-PRIV-1 · **PR:** [#7](https://github.com/matchastack/work-journal/pull/7)
+**Status:** ☑ · **Size:** M · **Depends on:** T-003, T-005 · **Requirements:** FR-IMP-1, FR-IMP-3, FR-IMP-4, FR-IMP-5, FR-WRT-6, NFR-PRIV-1 · **PR:** [#7](https://github.com/matchastack/work-journal/pull/7)
 
 As the owner, I want my master resume converted into the profile format, so that the app starts from everything I've already written.
 
@@ -367,6 +367,18 @@ As the owner, I want LinkedIn text generated from my profile, and only for what 
 - [ ] Output is compared with the last "done" snapshot, and only changed sections are listed.
 - [ ] Every sentence is verified.
 - [ ] `wj linkedin` prints the pack.
+
+### T-054 · ASCII characters everywhere
+**Status:** ◐ · **Size:** S · **Depends on:** T-006 · **Requirements:** FR-WRT-6 · **PR:** [#19](https://github.com/matchastack/work-journal/pull/19)
+
+As the owner, I want everything the app writes to use ASCII characters, so that files, resumes and pages never carry look-alikes such as the en dash.
+
+- [ ] Rules in `app/text.py` replace typographic dashes, quotes, ellipses, spaces, invisible characters and symbols with their ASCII versions, in every string of every schema model.
+- [ ] Letters with accents and currency signs stay.
+- [ ] Code writes ASCII itself, for example "..." when it shortens text.
+- [ ] The import's profile, facts and report are pure ASCII.
+- [ ] Rendered output follows the same rule: resume and portfolio date ranges, page titles and separators (in the PRs that add them).
+- [ ] Tests.
 
 ---
 
