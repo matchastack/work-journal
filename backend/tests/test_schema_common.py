@@ -1,5 +1,5 @@
 import pytest
-from pydantic import TypeAdapter, ValidationError
+from pydantic import Field, TypeAdapter, ValidationError
 
 from app.schema.common import Id, Model, Note, Tag, YearMonth
 
@@ -7,6 +7,13 @@ from app.schema.common import Id, Model, Note, Tag, YearMonth
 class Example(Model):
     start_date: YearMonth
     item_id: Id
+
+
+class Wrapper(Model):
+    title: str
+    phrases: tuple[str, ...] = ()
+    by_role: dict[str, str] = Field(default_factory=dict)
+    note: Note | None = None
 
 
 @pytest.mark.parametrize("value", ["st_backend", "q_st_scale", "role-1", "a"])
@@ -54,3 +61,22 @@ def test_models_are_frozen_and_reject_unknown_fields() -> None:
 def test_note_rejects_empty_text() -> None:
     with pytest.raises(ValidationError):
         Note(text="   ")
+
+
+def test_stored_text_gets_plain_characters_everywhere() -> None:
+    """The owner wants no en dashes in stored text, whatever produced it (see app/text.py)."""
+    dash = "\N{EN DASH}"
+    wrapper = Wrapper(
+        title=f"2{dash}3 hours",
+        phrases=(f"a {dash} b",),
+        by_role={"data": f"keep {dash} lead"},
+        note=Note(text=f"x{dash}y"),
+    )
+    assert wrapper.title == "2-3 hours"
+    assert wrapper.phrases == ("a - b",)
+    assert wrapper.by_role == {"data": "keep - lead"}
+    assert wrapper.note == Note(text="x-y")
+    from_json = Wrapper.model_validate_json(
+        f'{{"title": "4{dash}6", "note": {{"text": "{dash}"}}}}'
+    )
+    assert (from_json.title, from_json.note) == ("4-6", Note(text="-"))
