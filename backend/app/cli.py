@@ -1,14 +1,18 @@
 """The `wj` command-line tool. Later tasks add commands for rendering and tailoring."""
 
 import json
+from datetime import date, datetime
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
 from app import __version__
+from app.extraction import extract_facts
 from app.importers.master_resume import MasterResumeError, import_master_resume
+from app.llm.client import LLMCallError, LLMClient, LLMConfigError
 from app.schema.export import write_json_schemas
+from app.schema.profile import Profile
 
 LOCAL_DIR = Path(__file__).resolve().parents[2] / "local"
 """The repository's git-ignored folder for personal data (`backend/app/cli.py` is two below)."""
@@ -20,6 +24,11 @@ cli.add_typer(schema_cli, name="schema")
 cli.add_typer(import_cli, name="import")
 
 
+def _llm_client() -> LLMClient:
+    """The Claude client the commands use (tests replace it with a fake)."""
+    return LLMClient.from_settings()
+
+
 @cli.callback()
 def main() -> None:
     """Work Journal command-line tool."""
@@ -29,6 +38,47 @@ def main() -> None:
 def version() -> None:
     """Print the installed version."""
     typer.echo(__version__)
+
+
+@cli.command()
+def extract(
+    note: Annotated[
+        Path, typer.Argument(help="The journal note, as plain text.", exists=True, dir_okay=False)
+    ],
+    profile: Annotated[
+        Path, typer.Option(help="The profile the facts link to.", exists=True, dir_okay=False)
+    ] = LOCAL_DIR / "profile.json",
+    written: Annotated[
+        datetime | None,
+        typer.Option(
+            "--date", formats=["%Y-%m-%d"], help="The day the note was written. Default: today."
+        ),
+    ] = None,
+) -> None:
+    """Extract the facts in a journal note and print them as JSON.
+
+    Calls the standard-tier model. A fact with a number the note doesn't give is left out.
+    """
+    try:
+        extraction = extract_facts(
+            note.read_text(encoding="utf-8"),
+            Profile.model_validate_json(profile.read_text(encoding="utf-8")),
+            _llm_client(),
+            written=written.date() if written else date.today(),
+        )
+    except LLMConfigError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from None
+    except LLMCallError as error:
+        typer.echo(f"The note couldn't be read: {error}", err=True)
+        raise typer.Exit(1) from None
+    facts = [fact.model_dump(mode="json", exclude_none=True) for fact in extraction.facts]
+    typer.echo(json.dumps(facts, indent=2, ensure_ascii=False))
+    for dropped in extraction.dropped:
+        reasons = "; ".join(dropped.reasons)
+        typer.echo(f'Left out "{dropped.statement}": {reasons}', err=True)
+    for message in extraction.notes:
+        typer.echo(f"Note: {message}", err=True)
 
 
 @schema_cli.command("export")
