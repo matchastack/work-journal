@@ -40,6 +40,7 @@ Run these from `backend/` (uv project, Python 3.12):
 | Install dependencies | `uv sync` |
 | Run the API locally (auto-reload) | `uv run uvicorn app.main:app --reload`, then open `/healthz` or `/docs` |
 | Run the command-line tool | `uv run wj --help` |
+| Extract the facts in a journal note (needs the LLM settings) | `uv run wj extract <file>` |
 | Lint | `uv run ruff check .` |
 | Format | `uv run ruff format .` |
 | Type-check | `uv run pyright` |
