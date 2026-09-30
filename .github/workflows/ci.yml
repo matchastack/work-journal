@@ -17,6 +17,22 @@ jobs:
     name: Backend checks
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: work_journal
+          POSTGRES_DB: work_journal
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U work_journal"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://work_journal@localhost:5432/work_journal
     defaults:
       run:
         working-directory: backend
