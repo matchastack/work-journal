@@ -39,6 +39,8 @@ Run these from `backend/` (uv project, Python 3.12):
 |---|---|
 | Install dependencies | `uv sync` |
 | Run the API locally (auto-reload) | `uv run uvicorn app.main:app --reload`, then open `/healthz` or `/docs` |
+| Start Postgres for local development | `docker compose up -d` (repo root); set `DATABASE_URL` and `TEST_DATABASE_URL` as `compose.yml` says |
+| Apply database migrations | `uv run alembic upgrade head` (after changing `app/db/models.py`: `uv run alembic revision --autogenerate --rev-id <next> -m "<change>"`) |
 | Run the command-line tool | `uv run wj --help` |
 | Build the portfolio page (after editing its template, run `scripts/build-portfolio-css.sh`) | `uv run wj portfolio build --out /tmp/site` |
 | Lint | `uv run ruff check .` |
@@ -54,6 +56,7 @@ Add a dependency with `uv add <package>` (or `uv add --dev <package>` for tools)
 | Path | Contents |
 |---|---|
 | `backend/` | FastAPI app, engine and the `wj` command-line tool (from T-001) |
+| `backend/migrations/` | Alembic migrations for `app/db/models.py` |
 | `backend/templates/` | LaTeX resume template and portfolio templates |
 | `frontend/` | React web app (from T-039) |
 | `local/` | **Git-ignored** personal data: the imported profile and private evaluations. Never commit it. |
@@ -97,6 +100,7 @@ The full list is in requirements §8.
 - **Never commit personal data.** That means no real resume content, journal text, names, contact details or employers, whether in code, fixtures, docs, commit messages or PR descriptions. Real data lives in the database or in `local/`.
 - **Secrets live only in environment variables.** `.env.example` lists names, never values.
 - **Never log journal or fact text.**
+- **Store journal and fact text in `EncryptedText` columns** (`app/db/crypto.py`), never plain ones. `wj keys new` and `wj keys rotate` manage the keys.
 - **LaTeX:** escape every value, keep shell-escape off, and use a timeout and a temporary directory.
 - **The Telegram webhook** must verify the secret-token header.
 
