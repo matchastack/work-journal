@@ -10,6 +10,7 @@ dependencies = [
     "fastapi>=0.141.1",
     "jinja2>=3.1.6",
     "pydantic-settings>=2.15.0",
+    "pypdf>=6.19.0",
     "sqlalchemy[asyncio]>=2.1.1",
     "typer>=0.27.2",
     "uvicorn[standard]>=0.54.0",
@@ -42,7 +43,10 @@ venv = ".venv"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--import-mode=importlib -m 'not llm'"
-markers = ["llm: calls the real Claude API; opt in with `pytest -m llm`"]
+markers = [
+    "llm: calls the real Claude API; opt in with `pytest -m llm`",
+    "latex: compiles with latexmk and pdfLaTeX; skipped where TeX isn't installed, except in CI",
+]
 
 [dependency-groups]
 dev = [
