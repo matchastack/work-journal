@@ -14,7 +14,7 @@ from app.schema.changes import (
     UpdateField,
     change_op_adapter,
 )
-from app.schema.variant import Variant
+from app.schema.variant import TitleChoice, Variant
 
 
 def test_variant_defaults_to_a_one_page_resume() -> None:
@@ -34,6 +34,27 @@ def test_master_variant_has_no_page_limit() -> None:
     variant = Variant(id="master", name="Master", max_pages=None)
     assert variant.max_pages is None
     assert variant.role_type is None
+
+
+def test_variant_chooses_titles_and_hides_contact_details() -> None:
+    variant = Variant.model_validate(
+        {
+            "id": "v",
+            "name": "V",
+            "titles": [{"roleId": "northwind", "title": "Backend Engineer"}],
+            "hidden": ["phone"],
+        }
+    )
+    assert variant.titles == (TitleChoice(role_id="northwind", title="Backend Engineer"),)
+    assert variant.hidden == ("phone",)
+    with pytest.raises(ValidationError):
+        Variant.model_validate({"id": "v", "name": "V", "hidden": ["salary"]})
+
+
+def test_variant_rejects_two_titles_for_one_role() -> None:
+    choices = (TitleChoice(role_id="a", title="X"), TitleChoice(role_id="a", title="Y"))
+    with pytest.raises(ValidationError, match="title twice"):
+        Variant(id="v", name="V", titles=choices)
 
 
 OPS: list[tuple[dict[str, Any], type]] = [

@@ -27,6 +27,11 @@ class Settings(BaseSettings):
 
     app_env: Literal["development", "test", "production"] = "development"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+    database_url: SecretStr | None = None
+    """PostgreSQL, e.g. `postgresql+asyncpg://work_journal@localhost:5432/work_journal` with
+    `compose.yml`. A plain `postgresql://` URL also works."""
+    data_encryption_key: SecretStr | None = None
+    """Keys for journal and fact text: `id:key` pairs, the current key first (app/db/crypto.py)."""
 
     anthropic_api_key: SecretStr | None = None
     """The Claude API key. Without it, the Anthropic SDK looks for its other credentials."""

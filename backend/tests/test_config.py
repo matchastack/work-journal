@@ -60,6 +60,14 @@ def test_env_example_lists_every_setting_without_values() -> None:
     assert all(value == "" for value in entries.values())
 
 
+def test_the_database_url_stays_out_of_reprs(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", "postgresql://app:not-a-real-password@db:5432/app")
+    settings = Settings()
+    assert "not-a-real-password" not in repr(settings)
+    assert settings.database_url is not None
+    assert settings.database_url.get_secret_value().endswith("@db:5432/app")
+
+
 def test_llm_settings_are_unset_by_default() -> None:
     settings = Settings()
     assert settings.anthropic_api_key is None
