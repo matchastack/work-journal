@@ -24,7 +24,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 |---|---|---|
 | M0: Documents | T-000 | ☑ |
 | M1: Engine and command line | T-001 – T-024 (T-007 dropped) | ◐ |
-| M2: Journal loop | T-025 – T-053 | ☐ |
+| M2: Journal loop | T-025 – T-053 | ◐ |
 | M3: Quality and habit | Epics (at the end of this file) | — |
 | M4: Open to others | Epics (at the end of this file) | — |
 
@@ -375,7 +375,7 @@ As the owner, I want LinkedIn text generated from my profile, and only for what 
 The goal of M2: the Telegram bot, background jobs and web app running on Railway for the owner.
 
 ### T-025 · Database foundation
-**Status:** ◐ · **Size:** M · **Depends on:** T-001 · **Requirements:** NFR-MAINT-1 · **PR:** [#14](https://github.com/matchastack/work-journal/pull/14)
+**Status:** ☑ · **Size:** M · **Depends on:** T-001 · **Requirements:** NFR-MAINT-1 · **PR:** [#14](https://github.com/matchastack/work-journal/pull/14)
 
 As a developer, I want PostgreSQL, migrations and test fixtures in place, so that features can store data safely.
 
@@ -386,7 +386,7 @@ As a developer, I want PostgreSQL, migrations and test fixtures in place, so tha
 - [x] `/healthz` also checks the database.
 
 ### T-026 · Column encryption
-**Status:** ◐ · **Size:** S · **Depends on:** T-025 · **Requirements:** FR-JRN-4, NFR-SEC-2 · **PR:** [#15](https://github.com/matchastack/work-journal/pull/15)
+**Status:** ☑ · **Size:** S · **Depends on:** T-025 · **Requirements:** FR-JRN-4, NFR-SEC-2 · **PR:** [#15](https://github.com/matchastack/work-journal/pull/15)
 
 As the owner, I want my journal text encrypted in the database, so that a leaked dump or backup can't be read.
 
