@@ -2,12 +2,12 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-09-28 · T-010 LaTeX renderer · [#11](https://github.com/matchastack/work-journal/pull/11)
-**Changed:** added resume rendering. Values are escaped into LaTeX templates, compiled in a sandbox (no shell escape, no file access outside a temporary folder, 30 s timeout) and cut to fit the page limit, lowest-value bullets first. Adds `wj render`, a plain default template, TeX Live in CI, and Jinja2 and pypdf.
+## 2026-09-28 · T-010 LaTeX renderer, T-011 Owner's resume template · [#11](https://github.com/matchastack/work-journal/pull/11)
+**Changed:** added resume rendering. Values are escaped into LaTeX templates, compiled in a sandbox (no shell escape, no file access outside a temporary folder, 30 s timeout) and cut to fit the page limit, lowest-value bullets first. The default template is your layout, without comments or personal content. Adds `wj render`, TeX Live with `cm-super` in CI, and Jinja2 and pypdf.
 
 **Verify:**
 - CI is green on #11
-- `uv run wj render --profile tests/fixtures/profile.json` writes the master PDF, and it reads well
+- `uv run wj render` on your imported profile looks like your own PDF. Checked: the 2 pages match yours pixel for pixel, except that date ranges use an ASCII hyphen
 - The cut order is how you'd cut by hand
 
 ## 2026-09-28 · T-026 Column encryption · [#15](https://github.com/matchastack/work-journal/pull/15)

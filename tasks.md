@@ -200,14 +200,14 @@ As the owner, I want resumes rendered safely from data through LaTeX, so that PD
 - [x] The required TeX Live packages are documented and installed in CI.
 
 ### T-011 · Owner's resume template
-**Status:** ☐ · **Size:** S · **Depends on:** T-006, T-010 · **Requirements:** FR-RES-1, FR-RES-6 · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-006, T-010 · **Requirements:** FR-RES-1, FR-RES-6 · **PR:** [#11](https://github.com/matchastack/work-journal/pull/11) (with T-010, at the owner's request)
 
 As the owner, I want my own LaTeX template used for every resume, so that generated PDFs look exactly like the ones I send today.
 
-- [ ] The template's preamble and macros are unchanged; the document body is generated from the profile.
-- [ ] All personal content is removed from the committed template, and Jake Gutierrez's MIT license credit is included.
-- [ ] `wj render` produces the full multi-page master document, and a tailored resume (T-020) fits one page.
-- [ ] Manual check: the rendered master matches the compiled uploaded master for all active content. Screenshots or a checklist go in the change log.
+- [x] The template's preamble and macros are unchanged; the document body is generated from the profile.
+- [x] All personal content is removed from the committed template, and Jake Gutierrez's MIT license credit is included.
+- [x] `wj render` produces the full multi-page master document, and a tailored resume (T-020) fits one page. Checked here by cutting the master to one page; T-020 does the same for each tailored resume.
+- [x] Manual check: the rendered master matches the compiled uploaded master for all active content. Screenshots or a checklist go in the change log.
 
 ### T-012 · LLM client
 **Status:** ☐ · **Size:** M · **Depends on:** T-001 · **Requirements:** NFR-COST-1, NFR-REL-2, NFR-MAINT-2, NFR-PRIV-2 · **PR:** —
