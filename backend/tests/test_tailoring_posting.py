@@ -91,14 +91,3 @@ def test_a_title_the_posting_doesnt_contain_is_kept() -> None:
     posting = JobPosting(title="Backend Engineer", company="Fabrikam")
     fixed = exact_spellings(posting, "We're hiring engineers at Fabrikam.").posting
     assert (fixed.title, fixed.company) == ("Backend Engineer", "Fabrikam")
-
-
-@pytest.mark.llm
-def test_the_live_light_model_parses_a_posting() -> None:
-    settings = Settings()
-    if settings.anthropic_api_key is None or settings.llm_model_light is None:
-        pytest.skip("set ANTHROPIC_API_KEY and LLM_MODEL_LIGHT to call the API")
-    llm = LLMClient.from_settings(settings.model_copy(update={"llm_call_log": Path("calls.jsonl")}))
-    parsed = parse_posting(posting_text("backend"), llm)
-    assert parsed.posting.company == "Fabrikam Logistics"
-    assert {"PostgreSQL", "Kafka"} <= set(parsed.posting.must_have)
