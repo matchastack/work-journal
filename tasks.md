@@ -166,11 +166,11 @@ As the owner, I want variants to pick the right bullets, coursework, skills and 
 - [x] Golden tests run against the fictional fixture.
 
 ### T-009 · Consistency linter and resume rules
-**Status:** ☐ · **Size:** M · **Depends on:** T-005, T-008 · **Requirements:** R1, R2, R3, R4, R9, R10, FR-PRF-6 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-005, T-008 · **Requirements:** R1, R2, R3, R4, R9, R10, FR-PRF-6 · **PR:** [#20](https://github.com/matchastack/work-journal/pull/20)
 
 As the owner, I want my profile and every rendered resume checked against my rules, so that mistakes I've made before can't come back.
 
-- [ ] `wj lint` reports:
+- [x] `wj lint` reports:
   - inconsistent date formats
   - skill names that don't use the preferred spelling
   - duplicate bullets
@@ -179,9 +179,9 @@ As the owner, I want my profile and every rendered resume checked against my rul
   - skills on the gaps list, or unconfirmed skills marked verify-before-shipping (R1, R3)
   - titles that aren't approved variants (R9)
   - breaches of the education rules (R10)
-- [ ] Each finding has a rule ID, a severity (error or warning) and a location.
-- [ ] Errors block rendering a sendable resume; warnings don't.
-- [ ] There are tests for each rule.
+- [x] Each finding has a rule ID, a severity (error or warning) and a location.
+- [x] Errors block rendering a sendable resume; warnings don't.
+- [x] There are tests for each rule.
 
 ### T-010 · LaTeX renderer
 **Status:** ☐ · **Size:** M · **Depends on:** T-008 · **Requirements:** FR-RES-2, FR-RES-3, FR-RES-4, FR-RES-5, FR-RES-7, R6, NFR-SEC-3, NFR-PERF-2 · **PR:** —
@@ -320,6 +320,7 @@ As the owner, I want a one-page resume tailored to a posting from my master prof
   - an optional summary variant and the placement of the skills section
 - [ ] Approved swaps are used first. The writer is asked for a new phrasing only when no swap fits, and new phrasings are verified and marked for approval.
 - [ ] The resume rules (T-009) and the verifier pass, and the result is fitted to one page (T-010).
+- [ ] A skill marked verify-before-shipping is listed only once you confirm it for this resume (`wj tailor --confirm <skill>`); otherwise the T-009 check blocks the render.
 - [ ] `wj tailor <posting-file>` writes the PDF.
 - [ ] Tests use the fake client, plus an opt-in evaluation on fictional postings.
 
@@ -590,6 +591,7 @@ As the owner, I want to paste a posting and get a tailored resume I can adjust, 
 
 - [ ] Paste a posting to see the parsed requirements, then a tailored draft with the coverage report, verifier findings, rule findings and ATS check.
 - [ ] Approve new phrasings (they're saved as swaps), adjust swap choices and re-render.
+- [ ] Confirm each skill marked verify-before-shipping that the draft lists, or drop it (R3).
 - [ ] Download the PDF. The application is logged, and the history list shows the posting, date and PDF.
 - [ ] Tests.
 

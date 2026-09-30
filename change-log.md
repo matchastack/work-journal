@@ -2,6 +2,14 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-09-30 · T-009 Consistency linter and resume rules · [#20](https://github.com/matchastack/work-journal/pull/20)
+**Changed:** added `wj lint`, which checks the master profile against the resume rules (R1-R4, R9, R10) and for mixed date formats, misspelt skill names and duplicate bullets, and a check that stops a tailored resume with rule errors from rendering.
+
+**Verify:**
+- CI is green on #20
+- `uv run wj lint` on your profile gives the counts in the PR, and each finding points at the right item
+- The education rules it reads, and the one it lists as not checked, match what you meant
+
 ## 2026-09-28 · T-008 Variant selection · [#8](https://github.com/matchastack/work-journal/pull/8)
 **Changed:** added variant selection: from the master profile, each variant picks its roles, bullets, title, coursework, skills preset, summary and contact details by role type, never showing benched or planned items and always keeping load-bearing roles. Only the master document is predefined (OQ-6): one-page resumes are tailored to each posting.
 
