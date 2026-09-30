@@ -39,6 +39,8 @@ Run these from `backend/` (uv project, Python 3.12):
 |---|---|
 | Install dependencies | `uv sync` |
 | Run the API locally (auto-reload) | `uv run uvicorn app.main:app --reload`, then open `/healthz` or `/docs` |
+| Start Postgres for local development | `docker compose up -d` (repo root); set `DATABASE_URL` and `TEST_DATABASE_URL` as `compose.yml` says |
+| Apply database migrations | `uv run alembic upgrade head` (after changing `app/db/models.py`: `uv run alembic revision --autogenerate --rev-id <next> -m "<change>"`) |
 | Run the command-line tool | `uv run wj --help` |
 | Lint | `uv run ruff check .` |
 | Format | `uv run ruff format .` |
@@ -53,6 +55,7 @@ Add a dependency with `uv add <package>` (or `uv add --dev <package>` for tools)
 | Path | Contents |
 |---|---|
 | `backend/` | FastAPI app, engine and the `wj` command-line tool (from T-001) |
+| `backend/migrations/` | Alembic migrations for `app/db/models.py` |
 | `backend/templates/` | LaTeX resume template and portfolio templates |
 | `frontend/` | React web app (from T-039) |
 | `local/` | **Git-ignored** personal data: the imported profile and private evaluations. Never commit it. |
