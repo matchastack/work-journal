@@ -100,6 +100,7 @@ The full list is in requirements §8.
 - **Never commit personal data.** That means no real resume content, journal text, names, contact details or employers, whether in code, fixtures, docs, commit messages or PR descriptions. Real data lives in the database or in `local/`.
 - **Secrets live only in environment variables.** `.env.example` lists names, never values.
 - **Never log journal or fact text.**
+- **Store journal and fact text in `EncryptedText` columns** (`app/db/crypto.py`), never plain ones. `wj keys new` and `wj keys rotate` manage the keys.
 - **Pass IDs, never journal or fact text, as job arguments.** Procrastinate stores them as plain JSON and logs them.
 - **LaTeX:** escape every value, keep shell-escape off, and use a timeout and a temporary directory.
 - **The Telegram webhook** must verify the secret-token header.
