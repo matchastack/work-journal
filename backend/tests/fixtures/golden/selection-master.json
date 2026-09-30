@@ -1,0 +1,171 @@
+{
+  "variantId": "master",
+  "audience": "resume",
+  "contact": {
+    "name": "Casey Morgan",
+    "email": "casey@example.com",
+    "phone": "+1 555 0100",
+    "location": "Springfield, US",
+    "url": "https://example.com",
+    "profiles": [
+      {
+        "network": "GitHub",
+        "username": "casey-example",
+        "url": "https://github.com/casey-example"
+      }
+    ]
+  },
+  "summary": null,
+  "sections": [
+    "education",
+    "work",
+    "projects",
+    "skills"
+  ],
+  "education": [
+    {
+      "id": "springfield_state",
+      "institution": "Springfield State University",
+      "studyType": "Bachelor of Science",
+      "area": "Computer Science",
+      "honours": "Magna Cum Laude",
+      "location": null,
+      "startDate": "2020-08",
+      "endDate": "2024-05",
+      "courses": [
+        "Algorithms",
+        "Operating Systems",
+        "Databases",
+        "Distributed Systems",
+        "Statistics"
+      ],
+      "bullets": [
+        {
+          "id": "ss_minor",
+          "text": "Minor in Mathematics",
+          "strength": "medium",
+          "priority": 2
+        }
+      ],
+      "rules": [
+        "Show the minor after the major."
+      ]
+    }
+  ],
+  "work": [
+    {
+      "id": "northwind",
+      "organisation": "Northwind Traders",
+      "title": "Software Engineer",
+      "location": null,
+      "startDate": "2025-08",
+      "endDate": null,
+      "bullets": [
+        {
+          "id": "nw_orders",
+          "text": "Build and maintain Python services that process order events from a message queue.",
+          "strength": "high",
+          "priority": 1
+        },
+        {
+          "id": "nw_export",
+          "text": "Cut the nightly export job from 50 to 12 minutes by batching database writes.",
+          "strength": "high",
+          "priority": 2
+        }
+      ],
+      "priority": 1,
+      "loadBearing": true,
+      "duringEducation": false,
+      "sensitive": true
+    },
+    {
+      "id": "contoso",
+      "organisation": "Contoso Research",
+      "title": "Research Intern",
+      "location": null,
+      "startDate": "2024-01",
+      "endDate": "2024-06",
+      "bullets": [
+        {
+          "id": "ct_sensors",
+          "text": "Built a Python tool that labels sensor logs and flags anomalies for a reliability study.",
+          "strength": "medium",
+          "priority": 2
+        },
+        {
+          "id": "ct_datasets",
+          "text": "Surveyed 40 open datasets to choose benchmarks for the study.",
+          "strength": "low",
+          "priority": 3
+        }
+      ],
+      "priority": 2,
+      "loadBearing": false,
+      "duringEducation": true,
+      "sensitive": false
+    }
+  ],
+  "projects": [
+    {
+      "id": "recipe_box",
+      "name": "Recipe Box",
+      "keywords": [
+        "TypeScript",
+        "React",
+        "PostgreSQL"
+      ],
+      "url": "https://github.com/casey-example/recipe-box",
+      "startDate": "2023-06",
+      "endDate": "2023-09",
+      "bullets": [
+        {
+          "id": "rb_app",
+          "text": "Built a recipe-sharing web app with full-text search and image uploads, used by 300 people a month.",
+          "strength": "medium",
+          "priority": 2
+        }
+      ],
+      "priority": 2
+    }
+  ],
+  "skills": [
+    {
+      "label": "Languages",
+      "skills": [
+        "Python",
+        "TypeScript",
+        "SQL",
+        "Kotlin"
+      ]
+    },
+    {
+      "label": "Backend & APIs",
+      "skills": [
+        "FastAPI",
+        "Node.js"
+      ]
+    },
+    {
+      "label": "Frontend",
+      "skills": [
+        "React"
+      ]
+    },
+    {
+      "label": "Databases",
+      "skills": [
+        "PostgreSQL"
+      ]
+    },
+    {
+      "label": "Data",
+      "skills": [
+        "Apache Airflow"
+      ]
+    }
+  ],
+  "maxPages": null,
+  "template": "default",
+  "notes": []
+}

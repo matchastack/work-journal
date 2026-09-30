@@ -24,7 +24,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 |---|---|---|
 | M0: Documents | T-000 | ☑ |
 | M1: Engine and command line | T-001 – T-024 (T-007 dropped) | ◐ |
-| M2: Journal loop | T-025 – T-053 | ☐ |
+| M2: Journal loop | T-025 – T-053 | ◐ |
 | M3: Quality and habit | Epics (at the end of this file) | — |
 | M4: Open to others | Epics (at the end of this file) | — |
 
@@ -57,7 +57,7 @@ As the owner, I want the requirements, backlog, change log and Claude convention
 The goal of M1: everything the app does, usable from the `wj` command-line tool on local files. The owner's real data lives in the git-ignored `local/` folder.
 
 ### T-001 · Backend scaffold
-**Status:** ◐ · **Size:** S · **Depends on:** T-000 · **Requirements:** NFR-MAINT-1, NFR-SEC-1 · **PR:** [#2](https://github.com/matchastack/work-journal/pull/2)
+**Status:** ☑ · **Size:** S · **Depends on:** T-000 · **Requirements:** NFR-MAINT-1, NFR-SEC-1 · **PR:** [#2](https://github.com/matchastack/work-journal/pull/2)
 
 As a developer, I want a runnable Python project with the tooling in place, so that later tasks only add features.
 
@@ -70,7 +70,7 @@ As a developer, I want a runnable Python project with the tooling in place, so t
 - [x] The "Commands" section of `CLAUDE.md` is filled in.
 
 ### T-002 · CI pipeline
-**Status:** ◐ · **Size:** S · **Depends on:** T-001 · **Requirements:** NFR-MAINT-1 · **PR:** [#3](https://github.com/matchastack/work-journal/pull/3)
+**Status:** ☑ · **Size:** S · **Depends on:** T-001 · **Requirements:** NFR-MAINT-1 · **PR:** [#3](https://github.com/matchastack/work-journal/pull/3)
 
 As the owner, I want every PR checked automatically, so that I only review changes that already pass lint, types and tests.
 
@@ -80,7 +80,7 @@ As the owner, I want every PR checked automatically, so that I only review chang
 - [x] CI is green on this PR.
 
 ### T-003 · Core schemas
-**Status:** ◐ · **Size:** M · **Depends on:** T-001 · **Requirements:** FR-PRF-1, FR-PRF-4, FR-PRF-5, FR-PRF-6, FR-PRF-7, FR-PRF-8, FR-PRF-9, FR-PRF-10, FR-EXT-1, NFR-PRIV-1 · **PR:** [#4](https://github.com/matchastack/work-journal/pull/4)
+**Status:** ☑ · **Size:** M · **Depends on:** T-001 · **Requirements:** FR-PRF-1, FR-PRF-4, FR-PRF-5, FR-PRF-6, FR-PRF-7, FR-PRF-8, FR-PRF-9, FR-PRF-10, FR-EXT-1, NFR-PRIV-1 · **PR:** [#4](https://github.com/matchastack/work-journal/pull/4)
 
 As a developer, I want typed models for every core object, so that the engine, the API and LLM outputs share one definition.
 
@@ -98,42 +98,42 @@ As a developer, I want typed models for every core object, so that the engine, t
 - [x] A fixture profile for a fictional person (`backend/tests/fixtures/`) validates. Round-trip tests (load → dump → load) pass.
 
 ### T-004 · Profile operations
-**Status:** ☐ · **Size:** S · **Depends on:** T-003 · **Requirements:** FR-PRF-2, FR-PRF-3, FR-PRF-11, FR-REV-3, NFR-DATA-1 · **PR:** —
+**Status:** ☑ · **Size:** S · **Depends on:** T-003 · **Requirements:** FR-PRF-2, FR-PRF-3, FR-PRF-11, FR-REV-3, NFR-DATA-1 · **PR:** [#5](https://github.com/matchastack/work-journal/pull/5)
 
 As a developer, I want pure functions that apply change operations and compare profiles, so that AI proposals and manual edits change the profile in exactly the same way.
 
-- [ ] `apply(profile, ops) -> profile` supports every op in the `ChangeOp` union (T-003):
+- [x] `apply(profile, ops) -> profile` supports every op in the `ChangeOp` union (T-003):
   - AddBullet, EditBullet, SetBulletStatus, AddSwap
   - AddRole, AddEducation, AddProject
   - UpdateField, AddSkill, ResolveOpenQuestion
-- [ ] Ops address items by ID, and an unknown ID raises a clear error. Apply is atomic: either every op applies or none does.
-- [ ] `diff(a, b)` returns the changed items and fields in a readable structure.
-- [ ] Tests confirm that applying ops and then diffing shows exactly the applied changes.
+- [x] Ops address items by ID, and an unknown ID raises a clear error. Apply is atomic: either every op applies or none does.
+- [x] `diff(a, b)` returns the changed items and fields in a readable structure.
+- [x] Tests confirm that applying ops and then diffing shows exactly the applied changes.
 
 ### T-005 · Number checker
-**Status:** ☐ · **Size:** M · **Depends on:** T-003 · **Requirements:** FR-FID-1, FR-FID-2, FR-FID-3, FR-EXT-2 · **PR:** —
+**Status:** ☑ · **Size:** M · **Depends on:** T-003 · **Requirements:** FR-FID-1, FR-FID-2, FR-FID-3, FR-EXT-2 · **PR:** [#6](https://github.com/matchastack/work-journal/pull/6)
 
 As the owner, I want every number in generated text checked against my facts, so that nothing I publish or send misstates a metric.
 
-- [ ] It extracts:
-  - integers and decimals, including thousands separators ("1,000")
-  - percentages and multipliers ("6x")
+- [x] It extracts:
+  - integers and decimals, including thousands separators ("1,500")
+  - percentages and multipliers ("5x")
   - currency, durations and counts
-  - ranges ("2–3 hours", "8% to 2.1%")
-  - qualifiers ("about", "over", "up to", "200+")
-- [ ] It flags a number that isn't in the cited facts, a changed unit, or a stronger qualifier.
-- [ ] It accepts figures derived by code (percentage change, ratio, multiplier) and records the formula.
-- [ ] A metric that is in the facts but missing from the text is reported as a warning.
-- [ ] It can also parse metrics out of existing bullets, for import.
-- [ ] Unit tests cover every rule, including LaTeX-escaped input (`33\%`).
+  - ranges ("3–5 days", "12% to 4.5%")
+  - qualifiers ("about", "over", "up to", "300+")
+- [x] It flags a number that isn't in the cited facts, a changed unit, or a stronger qualifier.
+- [x] It accepts figures derived by code (percentage change, ratio, multiplier) and records the formula.
+- [x] A metric that is in the facts but missing from the text is reported as a warning.
+- [x] It can also parse metrics out of existing bullets, for import.
+- [x] Unit tests cover every rule, including LaTeX-escaped input (`15\%`).
 
 ### T-006 · Import master resume from LaTeX
-**Status:** ☐ · **Size:** M · **Depends on:** T-003, T-005 · **Requirements:** FR-IMP-1, FR-IMP-3, FR-IMP-4, FR-IMP-5, NFR-PRIV-1 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-003, T-005 · **Requirements:** FR-IMP-1, FR-IMP-3, FR-IMP-4, FR-IMP-5, FR-WRT-6, NFR-PRIV-1 · **PR:** [#7](https://github.com/matchastack/work-journal/pull/7)
 
 As the owner, I want my master resume converted into the profile format, so that the app starts from everything I've already written.
 
-- [ ] `wj import tex <path>` parses the template's macros into the profile: `\section`, `\resumeSubheading`, `\resumeSubheadingOneLine`, `\resumeProjectHeading`, `\resumeItem` and the skills lines.
-- [ ] Structured comments are mapped:
+- [x] `wj import tex <path>` parses the template's macros into the profile: `\section`, `\resumeSubheading`, `\resumeSubheadingOneLine`, `\resumeProjectHeading`, `\resumeItem` and the skills lines.
+- [x] Structured comments are mapped:
   - **Per bullet:** `ID`, `STRENGTH`, `VERIFIED`, `SWAPS` (with their context), `NEEDS` (open-question IDs) and `WARNING` / `NOTE` / `UPGRADE AVAILABLE` notes.
   - **Benched and planned items:** benched bullets (with reasons) and planned projects.
   - **Per role:** keep/cut notes and approved title variants.
@@ -141,11 +141,11 @@ As the owner, I want my master resume converted into the profile format, so that
   - **Summaries:** summary variants.
   - **Skills:** skills presets, proficiency tiers and the gaps list.
   - **Open questions.**
-- [ ] LaTeX markup is converted to plain text: `\%` → `%`, `\&` → `&`, `--` → en dash.
-- [ ] Each active bullet gets a linked fact, with metrics parsed by the number checker (T-005).
-- [ ] No LLM calls are made. Anything that can't be mapped is listed in an import report.
-- [ ] Output goes to `local/profile.json`, which git ignores. Nothing personal is committed.
-- [ ] Tests use a fictional `.tex` fixture that exercises every macro and comment tag.
+- [x] LaTeX markup is converted to plain text: `\%` → `%`, `\&` → `&`, `--` → en dash.
+- [x] Each active bullet gets a linked fact, with metrics parsed by the number checker (T-005).
+- [x] No LLM calls are made. Anything that can't be mapped is listed in an import report.
+- [x] Output goes to `local/profile.json`, which git ignores. Nothing personal is committed.
+- [x] Tests use a fictional `.tex` fixture that exercises every macro and comment tag.
 
 ### T-007 · Import master-resume.json and the application log
 **Status:** ✖ dropped · **Size:** — · **Depends on:** — · **Requirements:** FR-IMP-2 (dropped) · **PR:** —
@@ -153,17 +153,17 @@ As the owner, I want my master resume converted into the profile format, so that
 Dropped after OQ-1: the JSON twin isn't needed. The LaTeX master (T-006) holds everything the app needs, and the app's database replaces the JSON twin. Past applications aren't imported; the application log starts with the first tailored resume (T-021).
 
 ### T-008 · Variant selection
-**Status:** ☐ · **Size:** M · **Depends on:** T-003 · **Requirements:** FR-RES-5, FR-PRF-4, FR-PRF-5, FR-PRF-7, FR-PRF-8, FR-PRF-9, R7, R8 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-003 · **Requirements:** FR-RES-5, FR-PRF-4, FR-PRF-5, FR-PRF-7, FR-PRF-8, FR-PRF-9, R7, R8 · **PR:** [#8](https://github.com/matchastack/work-journal/pull/8)
 
-As the owner, I want named variants (such as backend or ML/AI) to pick the right bullets, coursework, skills and summary from the master profile, so that every resume is consistent without manual deleting.
+As the owner, I want variants to pick the right bullets, coursework, skills and summary from the master profile, so that every resume is consistent without manual deleting.
 
-- [ ] A variant selects roles, projects and bullets by role type (keep-for/cut-for and tags), status and priority. Benched and planned items are never selected.
-- [ ] Load-bearing roles are always included.
-- [ ] The variant chooses the coursework subset, the skills preset, the summary variant (or none) and the title variant.
-- [ ] Section order can be configured. The default is Education → Work Experience → Projects → Technical Skills.
-- [ ] Visibility is applied, for example showing or hiding the phone number per variant.
-- [ ] Default variants are created from the role types in the master profile (see OQ-6).
-- [ ] Golden tests run against the fictional fixture.
+- [x] A variant selects roles, projects and bullets by role type (keep-for/cut-for and tags), status and priority. Benched and planned items are never selected.
+- [x] Load-bearing roles are always included.
+- [x] The variant chooses the coursework subset, the skills preset, the summary variant (or none) and the title variant.
+- [x] Section order can be configured. The default is Education → Work Experience → Projects → Technical Skills.
+- [x] Visibility is applied, for example showing or hiding the phone number per variant.
+- [x] The only predefined variant is the full master document (OQ-6). One-page resumes are tailored to a posting (T-020).
+- [x] Golden tests run against the fictional fixture.
 
 ### T-009 · Consistency linter and resume rules
 **Status:** ☐ · **Size:** M · **Depends on:** T-005, T-008 · **Requirements:** R1, R2, R3, R4, R9, R10, FR-PRF-6 · **PR:** —
@@ -195,7 +195,7 @@ As the owner, I want resumes rendered safely from data through LaTeX, so that PD
   - the compile log is returned on failure
 - [ ] Page count and extractable text are checked with pypdf.
 - [ ] Cut-to-fit: while the resume is over the page limit, drop the lowest-value selected bullet and report what was cut. Load-bearing roles are never dropped, and fonts and margins are never shrunk.
-- [ ] Tests use a small fixture template. `wj render --variant <name>` writes the PDF.
+- [ ] Tests use a small fixture template. `wj render` writes the master PDF.
 - [ ] Tests cover escaping of `& % $ # _ { } ~ ^ \`.
 - [ ] The required TeX Live packages are documented and installed in CI.
 
@@ -206,7 +206,7 @@ As the owner, I want my own LaTeX template used for every resume, so that genera
 
 - [ ] The template's preamble and macros are unchanged; the document body is generated from the profile.
 - [ ] All personal content is removed from the committed template, and Jake Gutierrez's MIT license credit is included.
-- [ ] `wj render --variant master` produces the full multi-page master document, and a named variant produces one page.
+- [ ] `wj render` produces the full multi-page master document, and a tailored resume (T-020) fits one page.
 - [ ] Manual check: the rendered master matches the compiled uploaded master for all active content. Screenshots or a checklist go in the change log.
 
 ### T-012 · LLM client
@@ -375,7 +375,7 @@ As the owner, I want LinkedIn text generated from my profile, and only for what 
 The goal of M2: the Telegram bot, background jobs and web app running on Railway for the owner.
 
 ### T-025 · Database foundation
-**Status:** ◐ · **Size:** M · **Depends on:** T-001 · **Requirements:** NFR-MAINT-1 · **PR:** [#14](https://github.com/matchastack/work-journal/pull/14)
+**Status:** ☑ · **Size:** M · **Depends on:** T-001 · **Requirements:** NFR-MAINT-1 · **PR:** [#14](https://github.com/matchastack/work-journal/pull/14)
 
 As a developer, I want PostgreSQL, migrations and test fixtures in place, so that features can store data safely.
 
@@ -386,13 +386,13 @@ As a developer, I want PostgreSQL, migrations and test fixtures in place, so tha
 - [x] `/healthz` also checks the database.
 
 ### T-026 · Column encryption
-**Status:** ☐ · **Size:** S · **Depends on:** T-025 · **Requirements:** FR-JRN-4, NFR-SEC-2 · **PR:** —
+**Status:** ☑ · **Size:** S · **Depends on:** T-025 · **Requirements:** FR-JRN-4, NFR-SEC-2 · **PR:** [#15](https://github.com/matchastack/work-journal/pull/15)
 
 As the owner, I want my journal text encrypted in the database, so that a leaked dump or backup can't be read.
 
-- [ ] A SQLAlchemy column type encrypts and decrypts text with the key from `DATA_ENCRYPTION_KEY`, and stores a key ID for rotation.
-- [ ] `wj keys rotate` re-encrypts data with a new key.
-- [ ] Tests: ciphertext at rest, a clean round trip, and a clear failure with the wrong key.
+- [x] A SQLAlchemy column type encrypts and decrypts text with the key from `DATA_ENCRYPTION_KEY`, and stores a key ID for rotation.
+- [x] `wj keys rotate` re-encrypts data with a new key.
+- [x] Tests: ciphertext at rest, a clean round trip, and a clear failure with the wrong key.
 
 ### T-027 · Persistence for engine data, and loading the master profile
 **Status:** ☐ · **Size:** M · **Depends on:** T-003, T-025, T-026 · **Requirements:** FR-PRF-2, FR-PRF-3, FR-IMP-5, NFR-COST-1, NFR-DATA-1 · **PR:** —
@@ -576,9 +576,9 @@ As the owner, I want to manage the metadata that drives tailoring, so that my ma
 ### T-044 · Resumes page
 **Status:** ☐ · **Size:** M · **Depends on:** T-010, T-011, T-027, T-039 · **Requirements:** FR-RES-5, FR-RES-6 · **PR:** —
 
-As the owner, I want to preview and download each resume variant, so that I always have a current one-pager ready.
+As the owner, I want to preview and download my master resume and my tailored resumes, so that I always have a current version ready.
 
-- [ ] Lists the variants, including the master document, and lets me configure each variant's selection rules.
+- [ ] Lists the master document and every tailored resume, with a PDF preview and a download for each.
 - [ ] Shows a PDF preview, a page-count badge, the cut report and lint findings, with a download button.
 - [ ] Renders are cached by content hash.
 - [ ] Tests.
@@ -600,7 +600,7 @@ As the owner, I want my portfolio page served by the app and updated when I publ
 
 - [ ] `/p/<handle>` renders the published version with the built-in template. An unknown handle returns 404.
 - [ ] Publish and unpublish from the web app, with a preview of the draft first.
-- [ ] Visibility, open-to-work and noindex settings are respected. Resumes can be downloaded for the variants I choose.
+- [ ] Visibility, open-to-work and noindex settings are respected. The resumes I choose can be downloaded.
 - [ ] The page is cached. Tests: only the published version is shown, and hidden fields are absent.
 
 ### T-047 · LinkedIn page

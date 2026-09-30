@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     database_url: SecretStr | None = None
     """PostgreSQL, e.g. `postgresql+asyncpg://work_journal@localhost:5432/work_journal` with
     `compose.yml`. A plain `postgresql://` URL also works."""
+    data_encryption_key: SecretStr | None = None
+    """Keys for journal and fact text: `id:key` pairs, the current key first (app/db/crypto.py)."""
     app_url: str = "http://localhost:8000"
     """The app's public address. GitHub sends people back to `<app_url>/auth/callback`."""
     github_client_id: str | None = None

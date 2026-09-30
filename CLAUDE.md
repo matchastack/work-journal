@@ -77,6 +77,7 @@ Add a dependency with `uv add <package>` (or `uv add --dev <package>` for tools)
   - **Light (Haiku):** follow-up questions, summaries, triage and parsing job postings.
 - **Every call goes through `app/llm/client.py`.** Prompts are versioned files in `app/llm/prompts/`.
 - **Every generated sentence passes the verifier** before it's stored.
+- **Plain characters come from code, not prompts.** Schema models apply the rules in `app/text.py` to every string (for example, en dash to hyphen). To keep another character out of generated text, add a rule there.
 - **Tests:** unit tests use the fake client. Real API calls happen only in `pytest -m llm` and `wj eval`, never in default CI.
 - **Evaluations:** run the evaluation suite before changing a prompt or the routing, and report the numbers in the PR.
 - **Check the docs first:** before writing Claude API code, check the current SDK documentation (the `claude-api` skill) rather than relying on memory.
@@ -99,6 +100,7 @@ The full list is in requirements §8.
 - **Never commit personal data.** That means no real resume content, journal text, names, contact details or employers, whether in code, fixtures, docs, commit messages or PR descriptions. Real data lives in the database or in `local/`.
 - **Secrets live only in environment variables.** `.env.example` lists names, never values.
 - **Never log journal or fact text.**
+- **Store journal and fact text in `EncryptedText` columns** (`app/db/crypto.py`), never plain ones. `wj keys new` and `wj keys rotate` manage the keys.
 - **Pass IDs, never journal or fact text, as job arguments.** Procrastinate stores them as plain JSON and logs them.
 - **Routes that act for the signed-in user take `user: CurrentUser`** (`app/auth/sessions.py`). It also checks the CSRF header on requests that change something.
 - **LaTeX:** escape every value, keep shell-escape off, and use a timeout and a temporary directory.
