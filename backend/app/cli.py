@@ -19,7 +19,12 @@ from app.db.crypto import (
 from app.db.engine import create_engine, session_factory
 from app.db.models import Base
 from app.importers.master_resume import MasterResumeError, import_master_resume
+from app.render.compile import CompileError
+from app.render.fit import FitError
+from app.render.resume import RenderError, render_resume
 from app.schema.export import write_json_schemas
+from app.schema.profile import Profile
+from app.selection import MASTER_VARIANT, select
 
 LOCAL_DIR = Path(__file__).resolve().parents[2] / "local"
 """The repository's git-ignored folder for personal data (`backend/app/cli.py` is two below)."""
@@ -42,6 +47,40 @@ def main() -> None:
 def version() -> None:
     """Print the installed version."""
     typer.echo(__version__)
+
+
+@cli.command()
+def render(
+    profile: Annotated[
+        Path, typer.Option(help="The profile to render.", exists=True, dir_okay=False)
+    ] = LOCAL_DIR / "profile.json",
+    out: Annotated[
+        Path,
+        typer.Option(help="Where to write the PDF."),
+    ] = LOCAL_DIR / "resumes" / "master.pdf",
+) -> None:
+    """Render the profile's full master document as a PDF. One-page resumes are tailored to a
+    posting instead (OQ-6)."""
+    loaded = Profile.model_validate_json(profile.read_text(encoding="utf-8"))
+    selection = select(loaded, MASTER_VARIANT)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        rendered = render_resume(selection)
+    except CompileError as error:
+        log = out.with_suffix(".log")
+        log.write_text(error.log, encoding="utf-8")
+        typer.echo(f"{error}. The full log is in {log}.", err=True)
+        raise typer.Exit(1) from None
+    except (RenderError, FitError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from None
+    out.write_bytes(rendered.pdf)
+    pages = f"{rendered.pages} page{'' if rendered.pages == 1 else 's'}"
+    typer.echo(f"Wrote {out} ({pages}).")
+    for note in selection.notes:
+        typer.echo(f"Note: {note}")
+    for warning in rendered.warnings:
+        typer.echo(f"Warning: {warning}", err=True)
 
 
 @schema_cli.command("export")

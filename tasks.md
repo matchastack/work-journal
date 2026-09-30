@@ -184,30 +184,30 @@ As the owner, I want my profile and every rendered resume checked against my rul
 - [ ] There are tests for each rule.
 
 ### T-010 · LaTeX renderer
-**Status:** ☐ · **Size:** M · **Depends on:** T-008 · **Requirements:** FR-RES-2, FR-RES-3, FR-RES-4, FR-RES-5, FR-RES-7, R6, NFR-SEC-3, NFR-PERF-2 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-008 · **Requirements:** FR-RES-2, FR-RES-3, FR-RES-4, FR-RES-5, FR-RES-7, R6, NFR-SEC-3, NFR-PERF-2 · **PR:** [#11](https://github.com/matchastack/work-journal/pull/11)
 
 As the owner, I want resumes rendered safely from data through LaTeX, so that PDFs are consistent and unusual text can't break them.
 
-- [ ] A Jinja environment with LaTeX-safe delimiters (`\VAR{}`, `\BLOCK{}`, `\#{}`), which escapes every value automatically.
-- [ ] Compiles with `latexmk -pdf` (pdfLaTeX):
+- [x] A Jinja environment with LaTeX-safe delimiters (`\VAR{}`, `\BLOCK{}`, `\#{}`), which escapes every value automatically.
+- [x] Compiles with `latexmk -pdf` (pdfLaTeX):
   - shell-escape off and restricted file access
   - a 30 s timeout and an isolated temporary directory
   - the compile log is returned on failure
-- [ ] Page count and extractable text are checked with pypdf.
-- [ ] Cut-to-fit: while the resume is over the page limit, drop the lowest-value selected bullet and report what was cut. Load-bearing roles are never dropped, and fonts and margins are never shrunk.
-- [ ] Tests use a small fixture template. `wj render` writes the master PDF.
-- [ ] Tests cover escaping of `& % $ # _ { } ~ ^ \`.
-- [ ] The required TeX Live packages are documented and installed in CI.
+- [x] Page count and extractable text are checked with pypdf.
+- [x] Cut-to-fit: while the resume is over the page limit, drop the lowest-value selected bullet and report what was cut. Load-bearing roles are never dropped, and fonts and margins are never shrunk.
+- [x] Tests use a small fixture template. `wj render` writes the master PDF.
+- [x] Tests cover escaping of `& % $ # _ { } ~ ^ \`.
+- [x] The required TeX Live packages are documented and installed in CI.
 
 ### T-011 · Owner's resume template
-**Status:** ☐ · **Size:** S · **Depends on:** T-006, T-010 · **Requirements:** FR-RES-1, FR-RES-6 · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-006, T-010 · **Requirements:** FR-RES-1, FR-RES-6 · **PR:** [#11](https://github.com/matchastack/work-journal/pull/11) (with T-010, at the owner's request)
 
 As the owner, I want my own LaTeX template used for every resume, so that generated PDFs look exactly like the ones I send today.
 
-- [ ] The template's preamble and macros are unchanged; the document body is generated from the profile.
-- [ ] All personal content is removed from the committed template, and Jake Gutierrez's MIT license credit is included.
-- [ ] `wj render` produces the full multi-page master document, and a tailored resume (T-020) fits one page.
-- [ ] Manual check: the rendered master matches the compiled uploaded master for all active content. Screenshots or a checklist go in the change log.
+- [x] The template's preamble and macros are unchanged; the document body is generated from the profile.
+- [x] All personal content is removed from the committed template, and Jake Gutierrez's MIT license credit is included.
+- [x] `wj render` produces the full multi-page master document, and a tailored resume (T-020) fits one page. Checked here by cutting the master to one page; T-020 does the same for each tailored resume.
+- [x] Manual check: the rendered master matches the compiled uploaded master for all active content. Screenshots or a checklist go in the change log.
 
 ### T-012 · LLM client
 **Status:** ☐ · **Size:** M · **Depends on:** T-001 · **Requirements:** NFR-COST-1, NFR-REL-2, NFR-MAINT-2, NFR-PRIV-2 · **PR:** —
