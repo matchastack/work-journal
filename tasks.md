@@ -128,7 +128,7 @@ As the owner, I want every number in generated text checked against my facts, so
 - [x] Unit tests cover every rule, including LaTeX-escaped input (`15\%`).
 
 ### T-006 · Import master resume from LaTeX
-**Status:** ◐ · **Size:** M · **Depends on:** T-003, T-005 · **Requirements:** FR-IMP-1, FR-IMP-3, FR-IMP-4, FR-IMP-5, FR-WRT-6, NFR-PRIV-1 · **PR:** [#7](https://github.com/matchastack/work-journal/pull/7)
+**Status:** ☑ · **Size:** M · **Depends on:** T-003, T-005 · **Requirements:** FR-IMP-1, FR-IMP-3, FR-IMP-4, FR-IMP-5, FR-WRT-6, NFR-PRIV-1 · **PR:** [#7](https://github.com/matchastack/work-journal/pull/7)
 
 As the owner, I want my master resume converted into the profile format, so that the app starts from everything I've already written.
 
@@ -153,7 +153,7 @@ As the owner, I want my master resume converted into the profile format, so that
 Dropped after OQ-1: the JSON twin isn't needed. The LaTeX master (T-006) holds everything the app needs, and the app's database replaces the JSON twin. Past applications aren't imported; the application log starts with the first tailored resume (T-021).
 
 ### T-008 · Variant selection
-**Status:** ◐ · **Size:** M · **Depends on:** T-003 · **Requirements:** FR-RES-5, FR-PRF-4, FR-PRF-5, FR-PRF-7, FR-PRF-8, FR-PRF-9, R7, R8 · **PR:** [#8](https://github.com/matchastack/work-journal/pull/8)
+**Status:** ☑ · **Size:** M · **Depends on:** T-003 · **Requirements:** FR-RES-5, FR-PRF-4, FR-PRF-5, FR-PRF-7, FR-PRF-8, FR-PRF-9, R7, R8 · **PR:** [#8](https://github.com/matchastack/work-journal/pull/8)
 
 As the owner, I want variants to pick the right bullets, coursework, skills and summary from the master profile, so that every resume is consistent without manual deleting.
 
