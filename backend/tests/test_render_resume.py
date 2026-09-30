@@ -36,8 +36,8 @@ def test_contact_items_in_resume_order() -> None:
         ),
     )
     assert contact_items(contact) == [
-        ("casey@example.com", "mailto:casey@example.com"),
         ("+1 555 0100", None),
+        ("casey@example.com", "mailto:casey@example.com"),
         ("Springfield, US", None),
         ("example.com", "https://www.example.com/"),
         ("github.com/casey-example", "https://github.com/casey-example"),
@@ -57,6 +57,25 @@ def test_the_default_template_renders_each_default_variant(variant: Variant) -> 
         assert role.organisation in rendered.text
         for bullet in role.bullets:
             assert bullet.text[:30] in " ".join(rendered.text.split())
+
+
+@pytest.mark.latex
+def test_the_default_template_is_the_owners_layout() -> None:
+    text = " ".join(render_resume(selection()).text.split())
+    headings = ["Education", "Work Experience", "Projects", "Technical Skills"]
+    assert [text.find(heading) for heading in headings] == sorted(
+        text.find(heading) for heading in headings
+    )
+    for line in (
+        "+1 555 0100 | casey@example.com | Springfield, US | example.com | github.com/casey",
+        "Springfield State University Aug 2020 - May 2024",
+        "Bachelor of Science in Computer Science, Magna Cum Laude",
+        "Relevant coursework: Algorithms, Operating Systems",
+        "Software Engineer, Northwind Traders Aug 2025 - Present",
+        "Recipe Box (TypeScript, React, PostgreSQL) Jun 2023 - Sep 2023",
+        "Languages: Python, TypeScript, SQL, Kotlin",
+    ):
+        assert line in text
 
 
 @pytest.mark.latex

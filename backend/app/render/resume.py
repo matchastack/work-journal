@@ -86,10 +86,10 @@ def render_resume(
 def contact_items(contact: Contact) -> list[tuple[str, str | None]]:
     """The contact line as (text, link) pairs, in the order a resume shows them."""
     items: list[tuple[str, str | None]] = []
-    if contact.email:
-        items.append((contact.email, f"mailto:{contact.email}"))
     if contact.phone:
         items.append((contact.phone, None))
+    if contact.email:
+        items.append((contact.email, f"mailto:{contact.email}"))
     if contact.location:
         items.append((contact.location, None))
     if contact.url:
