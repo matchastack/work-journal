@@ -42,6 +42,7 @@ Run these from `backend/` (uv project, Python 3.12):
 | Start Postgres for local development | `docker compose up -d` (repo root); set `DATABASE_URL` and `TEST_DATABASE_URL` as `compose.yml` says |
 | Apply database migrations | `uv run alembic upgrade head` (after changing `app/db/models.py`: `uv run alembic revision --autogenerate --rev-id <next> -m "<change>"`) |
 | Run the command-line tool | `uv run wj --help` |
+| Render the master resume (needs TeX Live: `backend/templates/README.md`) | `uv run wj render` |
 | Lint | `uv run ruff check .` |
 | Format | `uv run ruff format .` |
 | Type-check | `uv run pyright` |
