@@ -250,4 +250,4 @@ def _identity_key(before: list[Any], after: list[Any]) -> str | None:
 
 def _short(value: Any, width: int) -> str:
     text = json.dumps(value, ensure_ascii=False)
-    return text if len(text) <= width else text[: width - 1] + "…"
+    return text if len(text) <= width else text[: width - 3] + "..."

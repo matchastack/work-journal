@@ -2,6 +2,13 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-09-29 · T-054 ASCII characters everywhere · [#19](https://github.com/matchastack/work-journal/pull/19)
+**Changed:** the rules in `app/text.py` now give every common typographic character its ASCII version (dashes, quotes, the ellipsis, spaces and symbols), and code writes "..." when it shortens text. FR-WRT-6 covers everything the app writes.
+
+**Verify:**
+- CI is green on #19
+- Importing your file gives the same counts as before, and all three output files are pure ASCII
+- The table in the PR matches how you want each character written
 ## 2026-09-28 · T-010 LaTeX renderer, T-011 Owner's resume template · [#11](https://github.com/matchastack/work-journal/pull/11)
 **Changed:** added resume rendering. Values are escaped into LaTeX templates, compiled in a sandbox (no shell escape, no file access outside a temporary folder, 30 s timeout) and cut to fit the page limit, lowest-value bullets first. The default template is your layout, without comments or personal content. Adds `wj render`, TeX Live with `cm-super` in CI, and Jinja2 and pypdf.
 
