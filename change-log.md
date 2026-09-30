@@ -8,6 +8,12 @@ One short entry per pull request, newest first: what changed and what to verify.
 **Verify:**
 - CI is green on #14
 - With `docker compose up -d` and `DATABASE_URL` set, `uv run alembic upgrade head` works and `/healthz` shows `"database": "ok"`
+## 2026-09-28 · T-008 Variant selection · [#8](https://github.com/matchastack/work-journal/pull/8)
+**Changed:** added variant selection: from the master profile, each variant picks its roles, bullets, title, coursework, skills preset, summary and contact details by role type, never showing benched or planned items and always keeping load-bearing roles. Only the master document is predefined (OQ-6): one-page resumes are tailored to each posting.
+
+**Verify:**
+- CI is green on #8
+- The golden files for the master document, and for the backend and data selections that tailoring will build on, look right
 
 ## 2026-09-28 · T-006 Import master resume from LaTeX · [#7](https://github.com/matchastack/work-journal/pull/7)
 **Changed:** added `wj import tex`, which turns the master resume's template commands and structured comments into a profile, one fact per active bullet and a report of what to check and what wasn't imported, all written to the git-ignored `local/` folder.
