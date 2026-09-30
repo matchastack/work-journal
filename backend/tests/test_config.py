@@ -58,3 +58,11 @@ def test_env_example_lists_every_setting_without_values() -> None:
     entries = dict(line.split("=", 1) for line in lines if re.match(r"^[A-Z][A-Z0-9_]*=", line))
     assert set(entries) == {name.upper() for name in Settings.model_fields}
     assert all(value == "" for value in entries.values())
+
+
+def test_the_database_url_stays_out_of_reprs(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", "postgresql://app:not-a-real-password@db:5432/app")
+    settings = Settings()
+    assert "not-a-real-password" not in repr(settings)
+    assert settings.database_url is not None
+    assert settings.database_url.get_secret_value().endswith("@db:5432/app")
