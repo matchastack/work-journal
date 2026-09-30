@@ -2,6 +2,13 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-09-28 · T-023 Portfolio page · [#13](https://github.com/matchastack/work-journal/pull/13)
+**Changed:** added the portfolio page, built as static HTML in the style of your site. It shows public, active content only, with project tabs by role type, link previews and JSON-LD. Adds `wj portfolio build`, Tailwind's standalone CLI, and accessibility checks in Chromium, which CI runs.
+
+**Verify:**
+- CI is green on #13
+- The page built from your profile reads like your site and shows nothing you'd keep off the web
+- Tabs following your keep-for tags suits you
 ## 2026-09-29 · T-054 ASCII characters everywhere · [#19](https://github.com/matchastack/work-journal/pull/19)
 **Changed:** the rules in `app/text.py` now give every common typographic character its ASCII version (dashes, quotes, the ellipsis, spaces and symbols), and code writes "..." when it shortens text. FR-WRT-6 covers everything the app writes.
 

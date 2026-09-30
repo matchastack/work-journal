@@ -344,18 +344,18 @@ As the owner, I want each PDF checked the way an applicant-tracking system reads
 - [ ] Tests on fixture PDFs.
 
 ### T-023 · Portfolio template and static build
-**Status:** ☐ · **Size:** M · **Depends on:** T-008 · **Requirements:** FR-PRT-2, FR-PRT-4, FR-PRT-6, FR-PRT-8, NFR-A11Y-1 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-008 · **Requirements:** FR-PRT-2, FR-PRT-4, FR-PRT-6, FR-PRT-8, NFR-A11Y-1 · **PR:** [#13](https://github.com/matchastack/work-journal/pull/13)
 
 As the owner, I want my profile rendered as a portfolio page in the style of my current site, so that visitors see my up-to-date work.
 
-- [ ] Jinja2 templates with the sections: hero, about/education, experience, projects with category tabs, skills, contact and resume downloads.
+- [x] Jinja2 templates with the sections: hero, about/education, experience, projects with category tabs, skills, contact and resume downloads.
   - Tailwind is built with the standalone CLI.
   - A little JavaScript handles the tabs and the mobile menu.
-- [ ] The web variant shows active bullets only. The phone number is hidden by default, and benched and planned items are never shown.
-- [ ] Open Graph tags and JSON-LD `Person` data.
-- [ ] `wj portfolio build --out <dir>` writes static HTML.
-- [ ] An automated accessibility check (axe-core) finds no serious issues, and the layout works at a 360 px width.
-- [ ] Snapshot tests run against the fictional fixture.
+- [x] The web variant shows active bullets only. The phone number is hidden by default, and benched and planned items are never shown.
+- [x] Open Graph tags and JSON-LD `Person` data.
+- [x] `wj portfolio build --out <dir>` writes static HTML.
+- [x] An automated accessibility check (axe-core) finds no serious issues, and the layout works at a 360 px width.
+- [x] Snapshot tests run against the fictional fixture.
 
 ### T-024 · LinkedIn pack generator
 **Status:** ☐ · **Size:** M · **Depends on:** T-017 · **Requirements:** FR-LIN-1, FR-LIN-2, FR-LIN-4 · **PR:** —

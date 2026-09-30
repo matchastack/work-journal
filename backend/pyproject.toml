@@ -50,7 +50,9 @@ markers = [
 
 [dependency-groups]
 dev = [
+    "axe-playwright-python>=0.1.8",
     "httpx2>=2.13.1",
+    "playwright>=1.63.0",
     "pyright>=1.1.414",
     "pytest>=9.1.1",
     "ruff>=0.16.9",

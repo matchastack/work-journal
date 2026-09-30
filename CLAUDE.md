@@ -42,11 +42,12 @@ Run these from `backend/` (uv project, Python 3.12):
 | Start Postgres for local development | `docker compose up -d` (repo root); set `DATABASE_URL` and `TEST_DATABASE_URL` as `compose.yml` says |
 | Apply database migrations | `uv run alembic upgrade head` (after changing `app/db/models.py`: `uv run alembic revision --autogenerate --rev-id <next> -m "<change>"`) |
 | Run the command-line tool | `uv run wj --help` |
+| Build the portfolio page (after editing its template, run `scripts/build-portfolio-css.sh`) | `uv run wj portfolio build --out /tmp/site` |
 | Render the master resume (needs TeX Live: `backend/templates/README.md`) | `uv run wj render` |
 | Lint | `uv run ruff check .` |
 | Format | `uv run ruff format .` |
 | Type-check | `uv run pyright` |
-| Tests | `uv run pytest` (tests that call the real Claude API: `uv run pytest -m llm`) |
+| Tests | `uv run pytest` (tests that call the real Claude API: `uv run pytest -m llm`; browser tests need `uv run playwright install chromium`) |
 | **All checks before pushing** | `uv run ruff check . && uv run ruff format --check . && uv run pyright && uv run pytest` (CI runs the same checks on every PR and on `main`: `.github/workflows/ci.yml`) |
 
 Add a dependency with `uv add <package>` (or `uv add --dev <package>` for tools), and commit `pyproject.toml` together with `uv.lock`.
