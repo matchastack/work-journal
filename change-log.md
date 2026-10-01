@@ -2,6 +2,14 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-01 · T-015 Claim verifier · [#23](https://github.com/matchastack/work-journal/pull/23)
+**Changed:** added the verifier every generated sentence must pass. It runs the number check, a standard-tier claim check, the style check and the resume rules. The claim check catches inflated ownership, an added tool, team size, outcome or scope, a broken honesty boundary or gaps-list skill, and a posting term that isn't a synonym. Text that fails is written once more with the findings as feedback, then flagged. Its report holds no fact text.
+
+**Verify:**
+- CI is green on #23
+- With your key, `uv run pytest -m llm tests/test_verifier_live.py` passes (14 tests)
+- The issues the claim check names, listed in the PR, are what you'd want flagged
+
 ## 2026-09-28 · T-012 LLM client · [#9](https://github.com/matchastack/work-journal/pull/9)
 **Changed:** added the client every Claude call goes through: routing each task to a tier's model from the environment, versioned prompt files, prompt caching, validated structured output with one retry, refusal and error handling, and a call log with tokens and cost but no text. Adds the `anthropic` SDK.
 
