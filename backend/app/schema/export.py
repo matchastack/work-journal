@@ -11,6 +11,7 @@ from app.schema.fact import Fact
 from app.schema.jobs import Application, JobPosting
 from app.schema.profile import Profile
 from app.schema.variant import Variant
+from app.schema.verification import VerifierReport
 
 JSON_SCHEMA_DIALECT = "https://json-schema.org/draft/2020-12/schema"
 
@@ -21,6 +22,7 @@ SCHEMA_TYPES: dict[str, tuple[str, Any]] = {
     "change-op": ("ChangeOp", ChangeOp),
     "job-posting": ("JobPosting", JobPosting),
     "application": ("Application", Application),
+    "verifier-report": ("VerifierReport", VerifierReport),
 }
 """File name stem -> (schema title, model or type)."""
 
