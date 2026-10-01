@@ -85,5 +85,5 @@ def test_format_changes_marks_each_kind() -> None:
         '+ skills[Go]: {"name": "Go"}',
         '- projects[old]: {"id": "old"}',
         '~ basics.label: "A" -> "B"',
-        '~ basics.summary: "xxxxxxxxxxxxxxxxxx… -> null',
+        '~ basics.summary: "xxxxxxxxxxxxxxxx... -> null',
     ]

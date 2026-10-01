@@ -1,0 +1,20 @@
+% A tiny page, so a few bullets overflow it: for testing cut-to-fit.
+\documentclass{article}
+\usepackage[paperwidth=4in, paperheight=1.8in, margin=0.2in]{geometry}
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\begin{document}
+\textbf{\VAR{selection.contact.name}}\par
+\BLOCK{for role in selection.work}
+\textit{\VAR{role.organisation}}\par
+\BLOCK{for bullet in role.bullets}
+- \VAR{bullet.text}\par
+\BLOCK{endfor}
+\BLOCK{endfor}
+\BLOCK{for project in selection.projects}
+\textit{\VAR{project.name}}\par
+\BLOCK{for bullet in project.bullets}
+- \VAR{bullet.text}\par
+\BLOCK{endfor}
+\BLOCK{endfor}
+\end{document}
