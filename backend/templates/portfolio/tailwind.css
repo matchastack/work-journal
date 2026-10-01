@@ -1,0 +1,5 @@
+/* The portfolio's styles. Rebuild portfolio.css after changing the template:
+   scripts/build-portfolio-css.sh (Tailwind's standalone CLI, no Node needed). */
+@import "tailwindcss" source(none);
+@source "index.html";
+@source "static/portfolio.js";
