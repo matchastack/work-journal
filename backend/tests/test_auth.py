@@ -116,6 +116,48 @@ def test_on_a_local_http_address_the_state_cookie_is_not_secure() -> None:
     assert github.requests == [], "the browser goes to GitHub, not the app"
 
 
+@pytest.mark.parametrize(
+    ("app_url", "started_at"),
+    [
+        ("http://localhost:8000", "http://127.0.0.1:8000"),
+        ("http://127.0.0.1:8000", "http://localhost:8000"),
+    ],
+)
+def test_a_local_sign_in_moves_to_the_app_urls_host_first(app_url: str, started_at: str) -> None:
+    """GitHub sends the browser back to APP_URL, and `localhost` and `127.0.0.1` keep separate
+    cookies. A sign-in started on the other host, such as the address uvicorn prints, would
+    come back without its state cookie, so it starts again on APP_URL's host."""
+    github = FakeGitHub()
+    with TestClient(app_for(github, app_url=app_url), base_url=started_at) as client:
+        moved = client.get("/auth/login", follow_redirects=False)
+        assert moved.status_code == 303
+        assert moved.headers["location"] == f"{app_url}/auth/login"
+        assert moved.headers.get_list("set-cookie") == []
+        response = client.get(moved.headers["location"], follow_redirects=False)
+    assert urlsplit(response.headers["location"]).netloc == "github.com"
+    assert sets_cookie(response, "wj_oauth")
+
+
+def test_a_local_sign_in_through_a_proxy_on_another_port_is_not_moved() -> None:
+    """The web app's dev server passes requests on with the API's own address as the host, so
+    moving them to APP_URL would send the browser round in a loop."""
+    github = FakeGitHub()
+    proxied = app_for(github, app_url="http://127.0.0.1:5173")
+    with TestClient(proxied, base_url="http://localhost:8000") as client:
+        response, query = start(client)
+    assert urlsplit(response.headers["location"]).netloc == "github.com"
+    assert query["redirect_uri"] == "http://127.0.0.1:5173/auth/callback"
+
+
+def test_over_https_a_sign_in_starts_on_any_host() -> None:
+    """Behind a proxy, the app may see another host than APP_URL's; that's fine over HTTPS."""
+    github = FakeGitHub()
+    with TestClient(app_for(github), base_url="https://internal.example") as client:
+        response, query = start(client)
+    assert urlsplit(response.headers["location"]).netloc == "github.com"
+    assert query["redirect_uri"] == "https://journal.example.com/auth/callback"
+
+
 def test_each_sign_in_gets_its_own_state() -> None:
     github = FakeGitHub()
     with TestClient(app_for(github), base_url=BROWSER) as client:
