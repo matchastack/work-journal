@@ -1,5 +1,6 @@
 """The commands' --db and --user options, where no database is needed."""
 
+import re
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -11,6 +12,8 @@ from app.cli import cli
 from app.config import get_settings
 
 PROFILE = Path(__file__).parent / "fixtures" / "profile.json"
+ANSI_STYLE = re.compile(r"\x1b\[[0-9;]*m")
+"""In GitHub Actions, Typer colors the options named in usage errors."""
 runner = CliRunner()
 
 
@@ -32,13 +35,13 @@ def test_db_needs_a_database_url() -> None:
 def test_user_goes_with_db() -> None:
     result = runner.invoke(cli, ["lint", "--profile", str(PROFILE), "--user", "casey"])
     assert result.exit_code == 2
-    assert "goes with --db" in result.stderr
+    assert "goes with --db" in ANSI_STYLE.sub("", result.stderr)
 
 
 def test_a_profile_file_and_the_database_dont_mix() -> None:
     result = runner.invoke(cli, ["render", "--profile", str(PROFILE), "--db"])
     assert result.exit_code == 2
-    assert "use either --profile or --db" in result.stderr
+    assert "use either --profile or --db" in ANSI_STYLE.sub("", result.stderr)
 
 
 def test_a_missing_default_profile_suggests_the_import(
@@ -47,4 +50,6 @@ def test_a_missing_default_profile_suggests_the_import(
     monkeypatch.setattr(cli_module, "LOCAL_DIR", tmp_path)
     result = runner.invoke(cli, ["lint"])
     assert result.exit_code == 2
-    assert "does not exist; import your resume with `wj import tex`" in result.stderr
+    assert "does not exist; import your resume with `wj import tex`" in ANSI_STYLE.sub(
+        "", result.stderr
+    )
