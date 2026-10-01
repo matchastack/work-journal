@@ -166,7 +166,7 @@ As the owner, I want variants to pick the right bullets, coursework, skills and 
 - [x] Golden tests run against the fictional fixture.
 
 ### T-009 · Consistency linter and resume rules
-**Status:** ◐ · **Size:** M · **Depends on:** T-005, T-008 · **Requirements:** R1, R2, R3, R4, R9, R10, FR-PRF-6 · **PR:** [#20](https://github.com/matchastack/work-journal/pull/20)
+**Status:** ☑ · **Size:** M · **Depends on:** T-005, T-008 · **Requirements:** R1, R2, R3, R4, R9, R10, FR-PRF-6 · **PR:** [#20](https://github.com/matchastack/work-journal/pull/20)
 
 As the owner, I want my profile and every rendered resume checked against my rules, so that mistakes I've made before can't come back.
 
