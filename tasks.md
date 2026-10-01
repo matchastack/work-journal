@@ -23,7 +23,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 | Milestone | Tasks | Status |
 |---|---|---|
 | M0: Documents | T-000 | ☑ |
-| M1: Engine and command line | T-001 – T-024 (T-007 dropped) | ◐ |
+| M1: Engine and command line | T-001 – T-024 and T-054 (T-007 dropped) | ◐ |
 | M2: Journal loop | T-025 – T-053 | ◐ |
 | M3: Quality and habit | Epics (at the end of this file) | — |
 | M4: Open to others | Epics (at the end of this file) | — |
@@ -128,7 +128,7 @@ As the owner, I want every number in generated text checked against my facts, so
 - [x] Unit tests cover every rule, including LaTeX-escaped input (`15\%`).
 
 ### T-006 · Import master resume from LaTeX
-**Status:** ◐ · **Size:** M · **Depends on:** T-003, T-005 · **Requirements:** FR-IMP-1, FR-IMP-3, FR-IMP-4, FR-IMP-5, FR-WRT-6, NFR-PRIV-1 · **PR:** [#7](https://github.com/matchastack/work-journal/pull/7)
+**Status:** ☑ · **Size:** M · **Depends on:** T-003, T-005 · **Requirements:** FR-IMP-1, FR-IMP-3, FR-IMP-4, FR-IMP-5, FR-WRT-6, NFR-PRIV-1 · **PR:** [#7](https://github.com/matchastack/work-journal/pull/7)
 
 As the owner, I want my master resume converted into the profile format, so that the app starts from everything I've already written.
 
@@ -184,30 +184,30 @@ As the owner, I want my profile and every rendered resume checked against my rul
 - [ ] There are tests for each rule.
 
 ### T-010 · LaTeX renderer
-**Status:** ☐ · **Size:** M · **Depends on:** T-008 · **Requirements:** FR-RES-2, FR-RES-3, FR-RES-4, FR-RES-5, FR-RES-7, R6, NFR-SEC-3, NFR-PERF-2 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-008 · **Requirements:** FR-RES-2, FR-RES-3, FR-RES-4, FR-RES-5, FR-RES-7, R6, NFR-SEC-3, NFR-PERF-2 · **PR:** [#11](https://github.com/matchastack/work-journal/pull/11)
 
 As the owner, I want resumes rendered safely from data through LaTeX, so that PDFs are consistent and unusual text can't break them.
 
-- [ ] A Jinja environment with LaTeX-safe delimiters (`\VAR{}`, `\BLOCK{}`, `\#{}`), which escapes every value automatically.
-- [ ] Compiles with `latexmk -pdf` (pdfLaTeX):
+- [x] A Jinja environment with LaTeX-safe delimiters (`\VAR{}`, `\BLOCK{}`, `\#{}`), which escapes every value automatically.
+- [x] Compiles with `latexmk -pdf` (pdfLaTeX):
   - shell-escape off and restricted file access
   - a 30 s timeout and an isolated temporary directory
   - the compile log is returned on failure
-- [ ] Page count and extractable text are checked with pypdf.
-- [ ] Cut-to-fit: while the resume is over the page limit, drop the lowest-value selected bullet and report what was cut. Load-bearing roles are never dropped, and fonts and margins are never shrunk.
-- [ ] Tests use a small fixture template. `wj render` writes the master PDF.
-- [ ] Tests cover escaping of `& % $ # _ { } ~ ^ \`.
-- [ ] The required TeX Live packages are documented and installed in CI.
+- [x] Page count and extractable text are checked with pypdf.
+- [x] Cut-to-fit: while the resume is over the page limit, drop the lowest-value selected bullet and report what was cut. Load-bearing roles are never dropped, and fonts and margins are never shrunk.
+- [x] Tests use a small fixture template. `wj render` writes the master PDF.
+- [x] Tests cover escaping of `& % $ # _ { } ~ ^ \`.
+- [x] The required TeX Live packages are documented and installed in CI.
 
 ### T-011 · Owner's resume template
-**Status:** ☐ · **Size:** S · **Depends on:** T-006, T-010 · **Requirements:** FR-RES-1, FR-RES-6 · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-006, T-010 · **Requirements:** FR-RES-1, FR-RES-6 · **PR:** [#11](https://github.com/matchastack/work-journal/pull/11) (with T-010, at the owner's request)
 
 As the owner, I want my own LaTeX template used for every resume, so that generated PDFs look exactly like the ones I send today.
 
-- [ ] The template's preamble and macros are unchanged; the document body is generated from the profile.
-- [ ] All personal content is removed from the committed template, and Jake Gutierrez's MIT license credit is included.
-- [ ] `wj render` produces the full multi-page master document, and a tailored resume (T-020) fits one page.
-- [ ] Manual check: the rendered master matches the compiled uploaded master for all active content. Screenshots or a checklist go in the change log.
+- [x] The template's preamble and macros are unchanged; the document body is generated from the profile.
+- [x] All personal content is removed from the committed template, and Jake Gutierrez's MIT license credit is included.
+- [x] `wj render` produces the full multi-page master document, and a tailored resume (T-020) fits one page. Checked here by cutting the master to one page; T-020 does the same for each tailored resume.
+- [x] Manual check: the rendered master matches the compiled uploaded master for all active content. Screenshots or a checklist go in the change log.
 
 ### T-012 · LLM client
 **Status:** ☐ · **Size:** M · **Depends on:** T-001 · **Requirements:** NFR-COST-1, NFR-REL-2, NFR-MAINT-2, NFR-PRIV-2 · **PR:** —
@@ -344,18 +344,18 @@ As the owner, I want each PDF checked the way an applicant-tracking system reads
 - [ ] Tests on fixture PDFs.
 
 ### T-023 · Portfolio template and static build
-**Status:** ☐ · **Size:** M · **Depends on:** T-008 · **Requirements:** FR-PRT-2, FR-PRT-4, FR-PRT-6, FR-PRT-8, NFR-A11Y-1 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-008 · **Requirements:** FR-PRT-2, FR-PRT-4, FR-PRT-6, FR-PRT-8, NFR-A11Y-1 · **PR:** [#13](https://github.com/matchastack/work-journal/pull/13)
 
 As the owner, I want my profile rendered as a portfolio page in the style of my current site, so that visitors see my up-to-date work.
 
-- [ ] Jinja2 templates with the sections: hero, about/education, experience, projects with category tabs, skills, contact and resume downloads.
+- [x] Jinja2 templates with the sections: hero, about/education, experience, projects with category tabs, skills, contact and resume downloads.
   - Tailwind is built with the standalone CLI.
   - A little JavaScript handles the tabs and the mobile menu.
-- [ ] The web variant shows active bullets only. The phone number is hidden by default, and benched and planned items are never shown.
-- [ ] Open Graph tags and JSON-LD `Person` data.
-- [ ] `wj portfolio build --out <dir>` writes static HTML.
-- [ ] An automated accessibility check (axe-core) finds no serious issues, and the layout works at a 360 px width.
-- [ ] Snapshot tests run against the fictional fixture.
+- [x] The web variant shows active bullets only. The phone number is hidden by default, and benched and planned items are never shown.
+- [x] Open Graph tags and JSON-LD `Person` data.
+- [x] `wj portfolio build --out <dir>` writes static HTML.
+- [x] An automated accessibility check (axe-core) finds no serious issues, and the layout works at a 360 px width.
+- [x] Snapshot tests run against the fictional fixture.
 
 ### T-024 · LinkedIn pack generator
 **Status:** ☐ · **Size:** M · **Depends on:** T-017 · **Requirements:** FR-LIN-1, FR-LIN-2, FR-LIN-4 · **PR:** —
@@ -367,6 +367,18 @@ As the owner, I want LinkedIn text generated from my profile, and only for what 
 - [ ] Output is compared with the last "done" snapshot, and only changed sections are listed.
 - [ ] Every sentence is verified.
 - [ ] `wj linkedin` prints the pack.
+
+### T-054 · ASCII characters everywhere
+**Status:** ◐ · **Size:** S · **Depends on:** T-006 · **Requirements:** FR-WRT-6 · **PR:** [#19](https://github.com/matchastack/work-journal/pull/19)
+
+As the owner, I want everything the app writes to use ASCII characters, so that files, resumes and pages never carry look-alikes such as the en dash.
+
+- [ ] Rules in `app/text.py` replace typographic dashes, quotes, ellipses, spaces, invisible characters and symbols with their ASCII versions, in every string of every schema model.
+- [ ] Letters with accents and currency signs stay.
+- [ ] Code writes ASCII itself, for example "..." when it shortens text.
+- [ ] The import's profile, facts and report are pure ASCII.
+- [ ] Rendered output follows the same rule: resume and portfolio date ranges, page titles and separators (in the PRs that add them).
+- [ ] Tests.
 
 ---
 

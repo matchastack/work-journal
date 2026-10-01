@@ -1,60 +1,74 @@
 name: CI
 
 on:
-  pull_request:
-  push:
-    branches: [main]
+    pull_request:
+    push:
+        branches: [main]
 
 permissions:
-  contents: read
+    contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    group: ci-${{ github.ref }}
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  backend:
-    name: Backend checks
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    services:
-      postgres:
-        image: postgres:16
+    backend:
+        name: Backend checks
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        services:
+            postgres:
+                image: postgres:16
+                env:
+                    POSTGRES_USER: work_journal
+                    POSTGRES_DB: work_journal
+                    POSTGRES_HOST_AUTH_METHOD: trust
+                ports:
+                    - 5432:5432
+                options: >-
+                    --health-cmd "pg_isready -U work_journal"
+                    --health-interval 5s
+                    --health-timeout 5s
+                    --health-retries 10
         env:
-          POSTGRES_USER: work_journal
-          POSTGRES_DB: work_journal
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U work_journal"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      TEST_DATABASE_URL: postgresql+asyncpg://work_journal@localhost:5432/work_journal
-    defaults:
-      run:
-        working-directory: backend
-    steps:
-      - uses: actions/checkout@v6
+            TEST_DATABASE_URL: postgresql+asyncpg://work_journal@localhost:5432/work_journal
+        defaults:
+            run:
+                working-directory: backend
+        steps:
+            - uses: actions/checkout@v6
 
-      - uses: astral-sh/setup-uv@v10.1.0
-        with:
-          enable-cache: true
-          cache-dependency-glob: backend/uv.lock
+            - uses: astral-sh/setup-uv@v10.1.0
+              with:
+                  enable-cache: true
+                  cache-dependency-glob: backend/uv.lock
 
-      - name: Install dependencies
-        run: uv sync --locked
+            - name: Install dependencies
+              run: uv sync --locked
 
-      - name: Lint
-        run: uv run ruff check .
+            - name: Install Chromium (for the portfolio's browser tests)
+              run: uv run playwright install --with-deps chromium
 
-      - name: Check formatting
-        run: uv run ruff format --check .
+            - name: Check the portfolio CSS matches its template
+              run: |
+                  scripts/build-portfolio-css.sh
+                  git diff --exit-code templates/portfolio/static/portfolio.css
 
-      - name: Type-check
-        run: uv run pyright
+            - name: Install TeX Live (see backend/templates/README.md)
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y --no-install-recommends \
+                    latexmk texlive-latex-base texlive-latex-extra texlive-fonts-recommended cm-super
 
-      - name: Test (excluding tests marked llm)
-        run: uv run pytest
+            - name: Lint
+              run: uv run ruff check .
+
+            - name: Check formatting
+              run: uv run ruff format --check .
+
+            - name: Type-check
+              run: uv run pyright
+
+            - name: Test (excluding tests marked llm)
+              run: uv run pytest

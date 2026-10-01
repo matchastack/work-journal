@@ -8,9 +8,11 @@ dependencies = [
     "asyncpg>=0.31.0",
     "cryptography>=50.0.1",
     "fastapi>=0.141.1",
+    "jinja2>=3.1.6",
     "procrastinate>=3.10.0",
     "psycopg[binary]>=3.3.6",
     "pydantic-settings>=2.15.0",
+    "pypdf>=6.19.0",
     "sqlalchemy[asyncio]>=2.1.1",
     "typer>=0.27.2",
     "uvicorn[standard]>=0.54.0",
@@ -43,11 +45,16 @@ venv = ".venv"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--import-mode=importlib -m 'not llm'"
-markers = ["llm: calls the real Claude API; opt in with `pytest -m llm`"]
+markers = [
+    "llm: calls the real Claude API; opt in with `pytest -m llm`",
+    "latex: compiles with latexmk and pdfLaTeX; skipped where TeX isn't installed, except in CI",
+]
 
 [dependency-groups]
 dev = [
+    "axe-playwright-python>=0.1.8",
     "httpx2>=2.13.1",
+    "playwright>=1.63.0",
     "pyright>=1.1.414",
     "pytest>=9.1.1",
     "ruff>=0.16.9",
