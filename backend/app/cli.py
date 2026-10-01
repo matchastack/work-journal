@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 from datetime import date
 from pathlib import Path
 from typing import Annotated
@@ -20,6 +21,7 @@ from app.db.crypto import (
 from app.db.engine import create_engine, session_factory
 from app.db.models import Base
 from app.importers.master_resume import MasterResumeError, import_master_resume
+from app.jobs import run_worker
 from app.portfolio.build import Download, build_portfolio
 from app.render.compile import CompileError
 from app.render.fit import FitError
@@ -52,6 +54,19 @@ def main() -> None:
 def version() -> None:
     """Print the installed version."""
     typer.echo(__version__)
+
+
+@cli.command()
+def worker(
+    concurrency: Annotated[int, typer.Option(min=1, help="How many jobs to run at once.")] = 1,
+) -> None:
+    """Run the background worker: queued jobs and scheduled tasks, until Ctrl-C."""
+    settings = get_settings()
+    if settings.database_url is None:
+        typer.echo("Set DATABASE_URL to the database that holds the jobs.", err=True)
+        raise typer.Exit(1)
+    logging.basicConfig(level=settings.log_level, format="%(levelname)s %(name)s: %(message)s")
+    asyncio.run(run_worker(concurrency))
 
 
 @cli.command()
