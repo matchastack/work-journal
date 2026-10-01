@@ -20,54 +20,47 @@ def codes(check: StyleCheck) -> list[tuple[str, str]]:
 
 
 @pytest.mark.parametrize(
-    ("text", "current"),
+    "text",
     [
-        ("Built a caching layer in Go that cut p95 latency from 180 ms to 60 ms.", False),
-        ("Build internal tools in Python that save the support team 5 hours a week.", True),
-        ("Leads code reviews for a team of 6 engineers.", True),
+        "Built a caching layer in Go that cut p95 latency from 180 ms to 60 ms.",
+        "Led code reviews for a team of 6 engineers.",
     ],
 )
-def test_a_good_bullet_has_no_findings(text: str, current: bool) -> None:
-    check = check_resume_bullet(text, current=current)
+def test_a_good_bullet_has_no_findings(text: str) -> None:
+    check = check_resume_bullet(text)
     assert check.findings == ()
     assert check.ok
 
 
 @pytest.mark.parametrize(
-    ("text", "current", "message"),
-    [
-        ("Built the billing service.", True, "the current role use the present tense"),
-        ("Build the billing service.", False, "past roles use the past tense"),
-        ("Leads the platform team.", False, "past roles use the past tense"),
-    ],
+    "text", ["Build the billing service.", "Leads the platform team.", "Builds internal tools."]
 )
-def test_the_tense_must_match_the_role(text: str, current: bool, message: str) -> None:
-    check = check_resume_bullet(text, current=current)
+def test_resume_bullets_use_the_past_tense(text: str) -> None:
+    """A bullet describes work done, so the bullets of the role you're in now use the past tense
+    too: the owner's decision on #10."""
+    check = check_resume_bullet(text)
     assert codes(check) == [("error", "wrong_tense")]
-    assert message in check.findings[0].message
+    assert "resume bullets use the past tense" in check.findings[0].message
     assert not check.ok
 
 
-@pytest.mark.parametrize("current", [True, False])
-def test_verbs_spelled_the_same_in_both_tenses_pass(current: bool) -> None:
-    check = check_resume_bullet("Cut build times by 40% by caching dependencies.", current=current)
+def test_verbs_spelled_the_same_in_both_tenses_pass() -> None:
+    check = check_resume_bullet("Cut build times by 40% by caching dependencies.")
     assert check.findings == ()
 
 
 def test_an_ing_opening_is_a_warning() -> None:
-    check = check_resume_bullet("Building a feature store for the ranking team.", current=True)
+    check = check_resume_bullet("Building a feature store for the ranking team.")
     assert codes(check) == [("warning", "wrong_tense")]
     assert check.ok
 
 
 def test_an_unknown_ed_word_is_taken_as_past_tense() -> None:
-    text = "Terraformed the staging environment."
-    assert check_resume_bullet(text, current=False).findings == ()
-    assert codes(check_resume_bullet(text, current=True)) == [("warning", "wrong_tense")]
+    assert check_resume_bullet("Terraformed the staging environment.").findings == ()
 
 
 def test_a_word_the_verb_list_doesnt_know_is_a_warning() -> None:
-    check = check_resume_bullet("Kubernetes clusters moved to the new region.", current=False)
+    check = check_resume_bullet("Kubernetes clusters moved to the new region.")
     assert codes(check) == [("warning", "not_action_verb")]
     assert '"Kubernetes" may not be an action verb' in check.findings[0].message
 
@@ -83,7 +76,7 @@ def test_a_word_the_verb_list_doesnt_know_is_a_warning() -> None:
     ],
 )
 def test_openings_that_are_clearly_not_verbs_are_errors(text: str) -> None:
-    check = check_resume_bullet(text, current=False)
+    check = check_resume_bullet(text)
     assert codes(check) == [("error", "not_action_verb")]
 
 
@@ -91,19 +84,19 @@ def test_openings_that_are_clearly_not_verbs_are_errors(text: str) -> None:
 
 
 def test_first_person_pronouns_are_errors() -> None:
-    check = check_resume_bullet("Built our deploy pipeline so we could ship daily.", current=False)
+    check = check_resume_bullet("Built our deploy pipeline so we could ship daily.")
     assert codes(check) == [("error", "first_person")]
     assert check.findings[0].message == 'Uses first-person pronouns ("our", "we").'
 
 
 def test_a_pronoun_opening_breaks_two_rules() -> None:
-    check = check_resume_bullet("I built the deploy pipeline.", current=False)
+    check = check_resume_bullet("I built the deploy pipeline.")
     assert codes(check) == [("error", "not_action_verb"), ("error", "first_person")]
 
 
 def test_terms_that_contain_pronoun_letters_pass() -> None:
     text = "Tuned I/O scheduling for US customers in us-east-1 with the R&I group."
-    assert check_resume_bullet(text, current=False).findings == ()
+    assert check_resume_bullet(text).findings == ()
 
 
 # Resume bullets: length
@@ -115,7 +108,7 @@ def test_a_two_line_bullet_fits() -> None:
         "checkout latency from 900 ms to 250 ms and letting the team ship payment changes daily."
     )
     assert estimate_lines(text) == 2
-    assert check_resume_bullet(text, current=False).findings == ()
+    assert check_resume_bullet(text).findings == ()
 
 
 def test_a_bullet_over_two_lines_is_too_long() -> None:
@@ -125,7 +118,7 @@ def test_a_bullet_over_two_lines_is_too_long() -> None:
         "instead of weekly, with no downtime during the migration and a rollback plan for every "
         "step."
     )
-    check = check_resume_bullet(text, current=False)
+    check = check_resume_bullet(text)
     assert codes(check) == [("error", "too_long")]
     assert check.findings[0].message == (
         "Takes about 3 lines at the template's width; the limit is 2."
@@ -144,9 +137,7 @@ def test_line_estimates_follow_the_characters_and_the_layout() -> None:
 def test_a_custom_line_limit() -> None:
     text = "Built the billing service in Go, with retries and a dead-letter queue."
     one_line = BulletLayout(line_width_pt=200, font_size_pt=10, max_lines=1)
-    assert codes(check_resume_bullet(text, current=False, layout=one_line)) == [
-        ("error", "too_long")
-    ]
+    assert codes(check_resume_bullet(text, layout=one_line)) == [("error", "too_long")]
 
 
 # Words to avoid (every style)
@@ -164,20 +155,20 @@ def test_a_custom_line_limit() -> None:
     ],
 )
 def test_avoided_words_match_any_form_and_case(text: str, used: str) -> None:
-    check = check_resume_bullet(text, current=False, avoid=["leverage", "utilize", "In order to"])
+    check = check_resume_bullet(text, avoid=["leverage", "utilize", "In order to"])
     assert codes(check) == [("error", "avoided_word")]
     assert check.findings[0].message == f'Uses "{used}", which is on your list of words to avoid.'
 
 
 def test_avoided_words_match_whole_words_only() -> None:
     text = "Reused the caching layer because it was cheap to run."
-    assert check_resume_bullet(text, current=False, avoid=["use", "ache"]).findings == ()
+    assert check_resume_bullet(text, avoid=["use", "ache"]).findings == ()
 
 
 def test_each_avoided_word_is_reported() -> None:
     text = "Leveraged synergies to utilize spare capacity."
     avoid = ["leverage", "synergy", "utilize", "robust"]
-    check = check_resume_bullet(text, current=False, avoid=avoid)
+    check = check_resume_bullet(text, avoid=avoid)
     assert codes(check) == [("error", "avoided_word")] * 3
 
 

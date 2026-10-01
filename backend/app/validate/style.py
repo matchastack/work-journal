@@ -1,8 +1,8 @@
 """Style checker: the wording rules for resume bullets and LinkedIn text (FR-WRT-1, 2 and 4).
 
 Deterministic, no LLM. A resume bullet must:
-- start with an action verb, in the present tense for the current role and the past tense
-  otherwise;
+- start with an action verb in the past tense, as a bullet describes work done, so this holds
+  for the current role too;
 - use no first-person pronouns;
 - fit in 2 lines at the template's width, estimated from the font's character widths.
 
@@ -102,18 +102,16 @@ _JOINERS = frozenset("/&-")
 def check_resume_bullet(
     text: str,
     *,
-    current: bool,
     avoid: Sequence[str] = (),
     layout: BulletLayout = TEMPLATE_LAYOUT,
 ) -> StyleCheck:
     """Check a work or project bullet, given as plain text the way the profile stores it.
 
-    Education lines such as honours don't open with a verb, so they aren't checked here.
-    `current` is True for a bullet of the current role, which takes the present tense. `avoid` is
-    the owner's list of words to avoid.
+    Education lines such as honours don't open with a verb, so they aren't checked here. `avoid`
+    is the owner's list of words to avoid.
     """
     findings = [
-        *_opening(text, current),
+        *_opening(text),
         *_first_person(text),
         *_length(text, layout),
         *_avoided(text, avoid),
@@ -159,9 +157,8 @@ def _width(text: str, layout: BulletLayout) -> float:
     return sum(_WIDTHS.get(char, _DEFAULT_WIDTH) for char in text) * layout.font_size_pt / 1000
 
 
-def _opening(text: str, current: bool) -> list[StyleFinding]:
-    """The first word must be an action verb in the role's tense."""
-    tense = "present" if current else "past"
+def _opening(text: str) -> list[StyleFinding]:
+    """The first word must be an action verb in the past tense."""
     start = text.lstrip()
     match = _FIRST_WORD.match(start)
     if match is None:
@@ -171,32 +168,27 @@ def _opening(text: str, current: bool) -> list[StyleFinding]:
     word = match[0]
     form = verb_form(word)
     if form is None:
-        return _unknown_opening(word, tense)
+        return _unknown_opening(word)
     if form == "gerund":
-        return [_warning("wrong_tense", f'Starts with "{word}"; {_TENSE_RULE[tense]}.')]
-    if form in ("either", tense):
+        return [_warning("wrong_tense", f'Starts with "{word}"; {_PAST_TENSE}.')]
+    if form in ("either", "past"):
         return []
-    return [_error("wrong_tense", f'"{word}" is in the {form} tense; {_TENSE_RULE[tense]}.')]
+    return [_error("wrong_tense", f'"{word}" is in the {form} tense; {_PAST_TENSE}.')]
 
 
-def _unknown_opening(word: str, tense: str) -> list[StyleFinding]:
+def _unknown_opening(word: str) -> list[StyleFinding]:
     """A first word the verb list doesn't know, judged by its shape."""
     lowered = word.casefold()
     if lowered in _NOT_VERBS or lowered.endswith("ly"):
         return [_error("not_action_verb", f'Starts with "{word}" rather than an action verb.')]
     if lowered.endswith("ed"):  # most likely a past-tense verb
-        if tense == "past":
-            return []
-        return [_warning("wrong_tense", f'"{word}" looks past tense; {_TENSE_RULE[tense]}.')]
+        return []
     if lowered.endswith("ing"):
-        return [_warning("wrong_tense", f'Starts with "{word}"; {_TENSE_RULE[tense]}.')]
+        return [_warning("wrong_tense", f'Starts with "{word}"; {_PAST_TENSE}.')]
     return [_warning("not_action_verb", f'"{word}" may not be an action verb.')]
 
 
-_TENSE_RULE = {
-    "present": "bullets for the current role use the present tense",
-    "past": "bullets for past roles use the past tense",
-}
+_PAST_TENSE = "resume bullets use the past tense, as they describe work done"
 
 
 def _first_person(text: str) -> list[StyleFinding]:
