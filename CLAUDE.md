@@ -42,10 +42,12 @@ Run these from `backend/` (uv project, Python 3.12):
 | Start Postgres for local development | `docker compose up -d` (repo root); set `DATABASE_URL` and `TEST_DATABASE_URL` as `compose.yml` says |
 | Apply database migrations | `uv run alembic upgrade head` (after changing `app/db/models.py`: `uv run alembic revision --autogenerate --rev-id <next> -m "<change>"`) |
 | Run the command-line tool | `uv run wj --help` |
+| Build the portfolio page (after editing its template, run `scripts/build-portfolio-css.sh`) | `uv run wj portfolio build --out /tmp/site` |
+| Render the master resume (needs TeX Live: `backend/templates/README.md`) | `uv run wj render` |
 | Lint | `uv run ruff check .` |
 | Format | `uv run ruff format .` |
 | Type-check | `uv run pyright` |
-| Tests | `uv run pytest` (tests that call the real Claude API: `uv run pytest -m llm`) |
+| Tests | `uv run pytest` (tests that call the real Claude API: `uv run pytest -m llm`; browser tests need `uv run playwright install chromium`) |
 | **All checks before pushing** | `uv run ruff check . && uv run ruff format --check . && uv run pyright && uv run pytest` (CI runs the same checks on every PR and on `main`: `.github/workflows/ci.yml`) |
 
 Add a dependency with `uv add <package>` (or `uv add --dev <package>` for tools), and commit `pyproject.toml` together with `uv.lock`.
@@ -76,7 +78,7 @@ Add a dependency with `uv add <package>` (or `uv add --dev <package>` for tools)
   - **Light (Haiku):** follow-up questions, summaries, triage and parsing job postings.
 - **Every call goes through `app/llm/client.py`.** Prompts are versioned files in `app/llm/prompts/`.
 - **Every generated sentence passes the verifier** before it's stored.
-- **Plain characters come from code, not prompts.** Schema models apply the rules in `app/text.py` to every string (for example, en dash to hyphen). To keep another character out of generated text, add a rule there.
+- **ASCII characters come from code, not prompts.** Schema models apply the rules in `app/text.py` to every string (for example, en dash to hyphen and ellipsis to three dots), and code and templates write ASCII too. To keep another character out of generated text, add a rule there.
 - **Tests:** unit tests use the fake client. Real API calls happen only in `pytest -m llm` and `wj eval`, never in default CI.
 - **Evaluations:** run the evaluation suite before changing a prompt or the routing, and report the numbers in the PR.
 - **Check the docs first:** before writing Claude API code, check the current SDK documentation (the `claude-api` skill) rather than relying on memory.

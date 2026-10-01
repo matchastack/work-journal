@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from datetime import date
 from pathlib import Path
 from typing import Annotated
 
@@ -20,7 +21,13 @@ from app.db.engine import create_engine, session_factory
 from app.db.models import Base
 from app.importers.master_resume import MasterResumeError, import_master_resume
 from app.llm.client import LLMCallError, LLMClient, LLMConfigError
+from app.portfolio.build import Download, build_portfolio
+from app.render.compile import CompileError
+from app.render.fit import FitError
+from app.render.resume import RenderError, render_resume
 from app.schema.export import write_json_schemas
+from app.schema.profile import Profile
+from app.selection import MASTER_VARIANT, select
 from app.tailoring.posting import parse_posting
 
 LOCAL_DIR = Path(__file__).resolve().parents[2] / "local"
@@ -30,9 +37,11 @@ cli = typer.Typer(help="Work Journal command-line tool.", no_args_is_help=True)
 schema_cli = typer.Typer(help="JSON Schemas for the core data models.", no_args_is_help=True)
 posting_cli = typer.Typer(help="Job postings to tailor resumes to.", no_args_is_help=True)
 keys_cli = typer.Typer(help="The keys that encrypt journal and fact text.", no_args_is_help=True)
+portfolio_cli = typer.Typer(help="The portfolio page.", no_args_is_help=True)
 import_cli = typer.Typer(help="Import existing resume data.", no_args_is_help=True)
 cli.add_typer(schema_cli, name="schema")
 cli.add_typer(posting_cli, name="posting")
+cli.add_typer(portfolio_cli, name="portfolio")
 cli.add_typer(keys_cli, name="keys")
 cli.add_typer(import_cli, name="import")
 
@@ -51,6 +60,40 @@ def main() -> None:
 def version() -> None:
     """Print the installed version."""
     typer.echo(__version__)
+
+
+@cli.command()
+def render(
+    profile: Annotated[
+        Path, typer.Option(help="The profile to render.", exists=True, dir_okay=False)
+    ] = LOCAL_DIR / "profile.json",
+    out: Annotated[
+        Path,
+        typer.Option(help="Where to write the PDF."),
+    ] = LOCAL_DIR / "resumes" / "master.pdf",
+) -> None:
+    """Render the profile's full master document as a PDF. One-page resumes are tailored to a
+    posting instead (OQ-6)."""
+    loaded = Profile.model_validate_json(profile.read_text(encoding="utf-8"))
+    selection = select(loaded, MASTER_VARIANT)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        rendered = render_resume(selection)
+    except CompileError as error:
+        log = out.with_suffix(".log")
+        log.write_text(error.log, encoding="utf-8")
+        typer.echo(f"{error}. The full log is in {log}.", err=True)
+        raise typer.Exit(1) from None
+    except (RenderError, FitError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from None
+    out.write_bytes(rendered.pdf)
+    pages = f"{rendered.pages} page{'' if rendered.pages == 1 else 's'}"
+    typer.echo(f"Wrote {out} ({pages}).")
+    for note in selection.notes:
+        typer.echo(f"Note: {note}")
+    for warning in rendered.warnings:
+        typer.echo(f"Warning: {warning}", err=True)
 
 
 @schema_cli.command("export")
@@ -84,6 +127,37 @@ def parse_posting_file(
     if parsed.dropped:
         dropped = ", ".join(f'"{term}"' for term in parsed.dropped)
         typer.echo(f"Left out terms the posting doesn't contain: {dropped}", err=True)
+
+
+@portfolio_cli.command("build")
+def build_portfolio_page(
+    out: Annotated[Path, typer.Option(help="The folder to write the page to.")],
+    profile: Annotated[
+        Path, typer.Option(help="The profile to publish.", exists=True, dir_okay=False)
+    ] = LOCAL_DIR / "profile.json",
+    site_url: Annotated[
+        str | None, typer.Option(help="The page's public address, for link previews.")
+    ] = None,
+    resume: Annotated[
+        list[str] | None,
+        typer.Option(help='A resume to offer, as "Label=path/to/resume.pdf". Repeat for more.'),
+    ] = None,
+) -> None:
+    """Build the portfolio page as static HTML from the profile's public content."""
+    downloads: list[Download] = []
+    for entry in resume or []:
+        label, separator, path = entry.partition("=")
+        if not separator or not label.strip() or not Path(path).is_file():
+            raise typer.BadParameter(
+                f"{entry!r} isn't Label=path/to/resume.pdf, with an existing file",
+                param_hint="--resume",
+            )
+        downloads.append(Download(label=label.strip(), source=Path(path)))
+    loaded = Profile.model_validate_json(profile.read_text(encoding="utf-8"))
+    page = build_portfolio(
+        loaded, out, year=date.today().year, site_url=site_url, downloads=downloads
+    )
+    typer.echo(f"Wrote {page}")
 
 
 @keys_cli.command("new")

@@ -212,7 +212,7 @@ def host(url: str) -> str:
 
 
 def snippet(text: str, width: int = 70) -> str:
-    return text if len(text) <= width else text[: width - 1].rstrip() + "\u2026"
+    return text if len(text) <= width else text[: width - 3].rstrip() + "..."
 
 
 def quote(text: str) -> str:

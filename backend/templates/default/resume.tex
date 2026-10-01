@@ -1,0 +1,203 @@
+% Based on Jake Gutierrez's resume template (https://github.com/jakegut/resume, MIT License),
+% itself based on https://github.com/sb2nov/resume.
+\documentclass[letterpaper,11pt]{article}
+
+\usepackage{latexsym}
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage{marvosym}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\input{glyphtounicode}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+\addtolength{\oddsidemargin}{-0.5in}
+\addtolength{\evensidemargin}{-0.5in}
+\addtolength{\textwidth}{1in}
+\addtolength{\topmargin}{-.5in}
+\addtolength{\textheight}{1.0in}
+
+\urlstyle{same}
+
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+
+\titleformat{\section}{
+\vspace{-4pt}\scshape\raggedright\large
+}{}{0em}{}[\color{black}\titlerule \vspace{-5pt}]
+
+\pdfgentounicode=1
+
+\newcommand{\resumeItem}[1]{
+  \item\small{
+    {#1 \vspace{-2pt}}
+  }
+}
+
+\newcommand{\resumeSubheading}[4]{
+  \vspace{-2pt}\item
+  \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
+    \textbf{#1} & #2 \\
+    \textit{\small#3} & \textit{\small #4} \\
+  \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeSubheadingOneLine}[2]{
+  \vspace{-2pt}\item
+  \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
+    \textbf{#1} & #2 \\
+  \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeProjectHeading}[2]{
+  \item
+  \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
+    \small#1 & #2 \\
+  \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeItemListStart}{
+  \begin{itemize}[
+    leftmargin=0.25in,
+    label=\raisebox{0.25ex}{\tiny\textbullet}
+  ]
+}
+
+\newcommand{\resumeItemListEnd}{
+  \end{itemize}\vspace{-5pt}
+}
+
+\newcommand{\resumeSubHeadingListStart}{
+  \begin{itemize}[leftmargin=0.15in, label={}]
+}
+
+\newcommand{\resumeSubHeadingListEnd}{
+  \end{itemize}
+}
+
+\begin{document}
+
+\begin{center}
+  \textbf{\Huge \scshape \VAR{selection.contact.name}} \\ \vspace{1pt}
+  \small
+\BLOCK{for text, link in contact}
+\BLOCK{if not loop.first}
+  $|$
+\BLOCK{endif}
+\BLOCK{if link}
+  \href{\VAR{link|url}}{\VAR{text}}
+\BLOCK{else}
+  \VAR{text}
+\BLOCK{endif}
+\BLOCK{endfor}
+\end{center}
+\BLOCK{for section in selection.sections}
+\BLOCK{if section == "summary" and selection.summary}
+
+\section{Summary}
+{\small
+  \VAR{selection.summary}
+\par}
+\BLOCK{elif section == "education" and selection.education}
+
+\section{Education}
+
+\resumeSubHeadingListStart
+
+\BLOCK{for school in selection.education}
+  \resumeSubheading
+    {\VAR{school.institution}}{\VAR{dates(school.start_date, school.end_date)}}
+    {\VAR{school.study_type} in \VAR{school.area}\BLOCK{if school.honours}, \VAR{school.honours}\BLOCK{endif}}{}
+\BLOCK{if school.bullets or school.courses}
+      \resumeItemListStart
+\BLOCK{for bullet in school.bullets}
+        \resumeItem{\VAR{bullet.text}}
+
+\BLOCK{endfor}
+\BLOCK{if school.courses}
+        \resumeItem{
+          Relevant coursework: \VAR{school.courses|join(", ")}
+        }
+\BLOCK{endif}
+      \resumeItemListEnd
+\BLOCK{endif}
+
+\BLOCK{endfor}
+\resumeSubHeadingListEnd
+\BLOCK{elif section == "work" and selection.work}
+
+\section{Work Experience}
+
+\resumeSubHeadingListStart
+
+\BLOCK{for role in selection.work}
+  \resumeSubheadingOneLine
+    {\VAR{role.title}, \VAR{role.organisation}}{\VAR{dates(role.start_date, role.end_date)}}
+
+\BLOCK{if role.bullets}
+  \resumeItemListStart
+
+\BLOCK{for bullet in role.bullets}
+    \resumeItem{
+      \VAR{bullet.text}
+    }
+
+\BLOCK{endfor}
+  \resumeItemListEnd
+
+\BLOCK{endif}
+\BLOCK{endfor}
+\resumeSubHeadingListEnd
+\BLOCK{elif section == "projects" and selection.projects}
+
+\section{Projects}
+
+\resumeSubHeadingListStart
+
+\BLOCK{for project in selection.projects}
+  \resumeProjectHeading
+    {\BLOCK{if project.url}\href{\VAR{project.url|url}}{\textbf{\VAR{project.name}}}\BLOCK{else}\textbf{\VAR{project.name}}\BLOCK{endif}\BLOCK{if project.keywords} \emph{(\VAR{project.keywords|join(", ")})}\BLOCK{endif}}
+    {\VAR{dates(project.start_date, project.end_date)}}
+
+\BLOCK{if project.bullets}
+  \resumeItemListStart
+
+\BLOCK{for bullet in project.bullets}
+    \resumeItem{
+      \VAR{bullet.text}
+    }
+
+\BLOCK{endfor}
+  \resumeItemListEnd
+
+\BLOCK{endif}
+\BLOCK{endfor}
+\resumeSubHeadingListEnd
+\BLOCK{elif section == "skills" and selection.skills}
+
+\section{Technical Skills}
+
+\begin{itemize}[leftmargin=0.15in, label={}]
+  \small{
+    \item{
+\BLOCK{for line in selection.skills}
+      \textbf{\VAR{line.label}}{: \VAR{line.skills|join(", ")}} \\
+
+\BLOCK{endfor}
+    }
+  }
+\end{itemize}
+\BLOCK{endif}
+\BLOCK{endfor}
+
+\end{document}
