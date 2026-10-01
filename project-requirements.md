@@ -223,8 +223,8 @@ Priority: **M** = Must (v1) · **S** = Should (v1 if time allows) · **C** = Cou
 
 | ID | Requirement | Pri | Acceptance criteria |
 |---|---|---|---|
-| FR-WRT-1 | **Resume/HR style.** Starts with an action verb. Uses present tense for the current role and past tense otherwise. Follows "what + how + measurable result". No pronouns. At most 2 lines at the template's width. | M | The style check passes. |
-| FR-WRT-2 | **LinkedIn style.** First person and slightly narrative, within LinkedIn's length limits. | M | |
+| FR-WRT-1 | **Resume/HR style.** Starts with an action verb in the past tense: a bullet describes work done, so this holds for the current role too. Follows "what + how + measurable result". No pronouns. At most 2 lines at the template's width. | M | The style check passes. |
+| FR-WRT-2 | **LinkedIn style.** First person and slightly narrative, within LinkedIn's length limits. Text about the current role may use the present or the past tense; text about past roles uses the past tense. | M | |
 | FR-WRT-3 | **Job-posting style.** Uses the posting's vocabulary where it is true, and leads with the most relevant facts. | M | |
 | FR-WRT-4 | The owner's style notes (words to avoid, preferences) apply to every style. | M | |
 | FR-WRT-5 | New phrasings the owner approves are saved as swaps on the bullet, so they can be reused. | M | |
