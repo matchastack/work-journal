@@ -29,6 +29,7 @@ from app.render.resume import RenderError, render_resume
 from app.schema.export import write_json_schemas
 from app.schema.profile import Profile
 from app.selection import MASTER_VARIANT, select
+from app.validate.lint import format_report, lint_profile
 
 LOCAL_DIR = Path(__file__).resolve().parents[2] / "local"
 """The repository's git-ignored folder for personal data (`backend/app/cli.py` is two below)."""
@@ -66,6 +67,22 @@ def worker(
         raise typer.Exit(1)
     logging.basicConfig(level=settings.log_level, format="%(levelname)s %(name)s: %(message)s")
     asyncio.run(run_worker(concurrency))
+
+
+@cli.command()
+def lint(
+    profile: Annotated[
+        Path, typer.Option(help="The profile to check.", exists=True, dir_okay=False)
+    ] = LOCAL_DIR / "profile.json",
+) -> None:
+    """Check the profile against the resume rules and for inconsistencies.
+
+    Exits with status 1 when there are errors, which would block a sendable resume.
+    """
+    report = lint_profile(Profile.model_validate_json(profile.read_text(encoding="utf-8")))
+    typer.echo(format_report(report))
+    if report.errors:
+        raise typer.Exit(1)
 
 
 @cli.command()
