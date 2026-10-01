@@ -2,12 +2,15 @@
 
 import asyncio
 from logging.config import fileConfig
+from typing import Literal
 
 from alembic import context
+from alembic.autogenerate.api import AutogenContext
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.config import get_settings
+from app.db.crypto import EncryptedText
 from app.db.engine import async_url
 from app.db.models import Base
 
@@ -31,12 +34,20 @@ def include_name(name: str | None, type_: str, parent_names: object) -> bool:
     return type_ != "table" or name in Base.metadata.tables
 
 
+def render_item(type_: str, obj: object, autogen_context: AutogenContext) -> str | Literal[False]:
+    """Write encrypted columns into new migrations as what the database stores: bytes."""
+    if type_ == "type" and isinstance(obj, EncryptedText):
+        return "sa.LargeBinary()"
+    return False
+
+
 def run_migrations(connection: Connection) -> None:
     context.configure(
         connection=connection,
         target_metadata=Base.metadata,
         compare_type=True,
         include_name=include_name,
+        render_item=render_item,
     )
     with context.begin_transaction():
         context.run_migrations()

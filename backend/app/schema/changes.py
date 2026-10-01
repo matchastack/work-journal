@@ -102,3 +102,8 @@ ChangeOp = Annotated[
 
 change_op_adapter: TypeAdapter[ChangeOp] = TypeAdapter(ChangeOp)
 """Validates and serialises a single change operation."""
+
+Author = Literal["owner", "ai"]
+"""Who made a change: the owner by hand, or the AI with the owner's approval (FR-PRF-2)."""
+OpStatus = Literal["proposed", "accepted", "rejected"]
+ChangeSetStatus = Literal["proposed", "applied", "rejected"]
