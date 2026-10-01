@@ -61,7 +61,7 @@ Keeping all of this current depends on remembering to do it, and on remembering 
 | G3 | Keep outputs current | Proposals are ready within 2 minutes of an entry closing; a published change shows on the portfolio page immediately |
 | G4 | Trustworthy wording | 0 altered or invented numbers, titles, dates or technologies in anything published or sent. Every bullet traces back to a fact. |
 | G5 | Fast tailoring | A verified one-page tailored resume within 3 minutes of pasting a job posting |
-| G6 | One source of truth | Resume variants, tailored resumes, the portfolio page and the LinkedIn pack all come from the same master profile |
+| G6 | One source of truth | The master resume, tailored resumes, the portfolio page and the LinkedIn pack all come from the same master profile |
 | G7 | Affordable | LLM cost around US$2/month for regular journaling plus about US$0.50 per tailored resume; hosting at most US$15/month |
 
 ## 3. Scope
@@ -128,7 +128,7 @@ See milestones M3 and M4 in [§14](#14-milestones).
   1. Weekly, or when the owner sends `/refresh`, the app proposes changes to the master profile. The bot says how many there are.
   2. The owner opens the Inbox. Each change shows a before/after diff, its sources and a verifier report.
   3. The owner accepts, edits or rejects each change. Accepting creates a new version.
-  4. Publishing updates the portfolio page, and the resume variants re-render.
+  4. Publishing updates the portfolio page, and the master resume re-renders.
 - **J3 — Tailor.**
   1. The owner pastes a job posting.
   2. The app selects bullets and uses approved swaps where one fits. Where none fits, it offers a new verified phrasing.
@@ -228,6 +228,7 @@ Priority: **M** = Must (v1) · **S** = Should (v1 if time allows) · **C** = Cou
 | FR-WRT-3 | **Job-posting style.** Uses the posting's vocabulary where it is true, and leads with the most relevant facts. | M | |
 | FR-WRT-4 | The owner's style notes (words to avoid, preferences) apply to every style. | M | |
 | FR-WRT-5 | New phrasings the owner approves are saved as swaps on the bullet, so they can be reused. | M | |
+| FR-WRT-6 | Everything the app writes uses the ASCII version of a character where one exists: dashes, quotes, ellipses, spaces and symbols such as the multiplication sign. This covers stored text, reports, rendered resumes and pages, and the web app. Rules in code make the replacement, for imported, generated and typed text alike, rather than instructions in LLM prompts. Letters and currency signs without an ASCII version stay. | M | The import's output is pure ASCII, and rendered date ranges use a hyphen. |
 
 ### 7.8 LaTeX resumes (FR-RES)
 
@@ -237,7 +238,7 @@ Priority: **M** = Must (v1) · **S** = Should (v1 if time allows) · **C** = Cou
 | FR-RES-2 | Every value is LaTeX-escaped automatically. | M | Tests cover `& % $ # _ { } ~ ^ \`. |
 | FR-RES-3 | Compilation runs with shell-escape off, restricted file access, a timeout and an isolated temporary directory. | M | |
 | FR-RES-4 | Each render reports its page count and checks that the text can be extracted. | M | |
-| FR-RES-5 | Named variants render on demand and after each accepted change. | M | |
+| FR-RES-5 | The master resume renders on demand and after each accepted change. There are no predefined one-page variants: every one-page resume is tailored to a posting (FR-TLR). | M | |
 | FR-RES-6 | The whole master profile can render as the full, multi-page master document for review. | S | |
 | FR-RES-7 | A resume is fitted to one page by cutting the lowest-value content first. The font is never shrunk below 10 pt and margins never below 0.5 in. | M | |
 
@@ -266,7 +267,7 @@ Priority: **M** = Must (v1) · **S** = Should (v1 if time allows) · **C** = Cou
 | FR-PRT-4 | Each field has a visibility setting, and the phone number is hidden by default. Benched and planned items never show. | M | |
 | FR-PRT-5 | An "open to work" toggle, and an option to hide the page from search engines. | M | |
 | FR-PRT-6 | Open Graph tags and JSON-LD `Person` structured data. | M | |
-| FR-PRT-7 | Visitors can download the resume variants the owner chooses. | S | |
+| FR-PRT-7 | Visitors can download the resumes the owner chooses. | S | |
 | FR-PRT-8 | Meets WCAG 2.1 AA and is responsive down to a 360 px width. | M | An automated accessibility check reports no serious issues. |
 | FR-PRT-9 | Custom domains, more templates, and export to GitHub Pages or JSON Resume. | C | M4 |
 
@@ -325,7 +326,7 @@ Priority: **M** = Must (v1) · **S** = Should (v1 if time allows) · **C** = Cou
 
 ## 8. Resume rules
 
-These rules come from the owner's own master-resume practice. Code enforces them for every **sendable** resume: tailored resumes and named variants. The full master document is exempt from R6, because it spans several pages by design.
+These rules come from the owner's own master-resume practice. Code enforces them for every **sendable** resume, which means every tailored resume. The full master document is exempt from R6, because it spans several pages by design.
 
 | ID | Rule | How it's enforced |
 |---|---|---|
@@ -474,4 +475,4 @@ Telegram ──webhook──▶ FastAPI "web" service ──▶ PostgreSQL ◀�
 | OQ-3 | What should the portfolio handle (`/p/<handle>`) and the app's domain be? | T-046, T-051 | Open |
 | OQ-4 | Is the default reminder time right: Friday 18:00, Asia/Singapore? | T-035 | Open |
 | OQ-5 | Which application-log fields matter to you, beyond what FR-TLR-8 lists (e.g. contacts, outcome)? | T-021 | Open |
-| OQ-6 | Should the named resume variants be the role types from your master resume (backend/full stack, ML/AI, identity/security, systems)? | T-008 | Open |
+| OQ-6 | Should the named resume variants be the role types from your master resume (backend/full stack, ML/AI, identity/security, systems)? | T-008 | **Answered on #8:** no. Only the master document is predefined. Every one-page resume is tailored to a posting, from the points that suit it best (T-020). |
