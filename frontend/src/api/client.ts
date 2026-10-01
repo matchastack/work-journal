@@ -2,8 +2,12 @@ import createClient, { type Middleware } from "openapi-fetch";
 
 import type { paths } from "./schema";
 
-/** The cookie and header of the CSRF check in `backend/app/auth/sessions.py`. */
-export const CSRF_COOKIE = "__Host-wj_csrf";
+/**
+ * The cookies and header of the CSRF check in `backend/app/auth/sessions.py`. The token is in
+ * `__Host-wj_csrf` over HTTPS, and in `wj_csrf` on a local http:// address, where the cookie
+ * can't be Secure.
+ */
+export const CSRF_COOKIES = ["__Host-wj_csrf", "wj_csrf"] as const;
 export const CSRF_HEADER = "X-CSRF-Token";
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -18,10 +22,21 @@ export function readCookie(name: string, cookies: string = document.cookie): str
   return undefined;
 }
 
+/** The session's CSRF token, from whichever CSRF cookie the API set. */
+export function csrfToken(cookies: string = document.cookie): string | undefined {
+  for (const name of CSRF_COOKIES) {
+    const token = readCookie(name, cookies);
+    if (token !== undefined) {
+      return token;
+    }
+  }
+  return undefined;
+}
+
 /** Sends the session's CSRF token with every request that changes something. */
 export const sendCsrfToken: Middleware = {
   onRequest({ request }) {
-    const token = readCookie(CSRF_COOKIE);
+    const token = csrfToken();
     if (token !== undefined && !SAFE_METHODS.has(request.method)) {
       request.headers.set(CSRF_HEADER, token);
     }

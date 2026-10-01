@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { api, CSRF_HEADER, readCookie } from "./client";
+import { api, CSRF_HEADER, csrfToken, readCookie } from "./client";
 
 describe("readCookie", () => {
   it("finds a cookie among others", () => {
@@ -11,6 +11,14 @@ describe("readCookie", () => {
   it("returns undefined for a missing cookie", () => {
     expect(readCookie("b", "a=1; bb=2")).toBeUndefined();
     expect(readCookie("b", "")).toBeUndefined();
+  });
+});
+
+describe("csrfToken", () => {
+  it("reads the token from the HTTPS cookie, or from the local http:// one", () => {
+    expect(csrfToken("__Host-wj_csrf=secure; other=1")).toBe("secure");
+    expect(csrfToken("other=1; wj_csrf=local")).toBe("local");
+    expect(csrfToken("other=1")).toBeUndefined();
   });
 });
 
