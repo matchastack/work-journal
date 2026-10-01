@@ -26,8 +26,8 @@ from app.render.fit import FitError
 from app.render.resume import RenderError, render_resume
 from app.schema.export import write_json_schemas
 from app.schema.profile import Profile
-from app.validate.lint import format_report, lint_profile
 from app.selection import MASTER_VARIANT, select
+from app.validate.lint import format_report, lint_profile
 
 LOCAL_DIR = Path(__file__).resolve().parents[2] / "local"
 """The repository's git-ignored folder for personal data (`backend/app/cli.py` is two below)."""
@@ -68,7 +68,8 @@ def lint(
     typer.echo(format_report(report))
     if report.errors:
         raise typer.Exit(1)
-    
+
+
 @cli.command()
 def render(
     profile: Annotated[
