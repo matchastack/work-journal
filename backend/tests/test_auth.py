@@ -23,10 +23,12 @@ NO_DATABASE = SecretStr("postgresql+asyncpg://nobody@127.0.0.1:9/nowhere")
 """Never connected to: these tests finish before any query."""
 
 
-def app_for(github: FakeGitHub, *, configured: bool = True) -> FastAPI:
+def app_for(
+    github: FakeGitHub, *, configured: bool = True, app_url: str = "https://journal.example.com"
+) -> FastAPI:
     settings = Settings(
         database_url=NO_DATABASE,
-        app_url="https://journal.example.com",
+        app_url=app_url,
         github_client_id=github.client_id if configured else None,
         github_client_secret=SecretStr(github.client_secret) if configured else None,
         allowed_github_logins=frozenset({OWNER}),
@@ -99,6 +101,18 @@ def test_login_sends_the_browser_to_github_with_state_and_pkce() -> None:
     assert (cookie["httponly"], cookie["secure"], cookie["samesite"]) == (True, True, "lax")
     assert (cookie["path"], cookie["max-age"]) == ("/", "600")
     assert response.headers["cache-control"] == "no-store"
+
+
+def test_on_a_local_http_address_the_state_cookie_is_not_secure() -> None:
+    """Browsers such as Safari keep no Secure cookie from http://localhost, so there the cookie
+    goes without Secure and the `__Host-` prefix, which needs Secure."""
+    github = FakeGitHub()
+    local = "http://localhost:8000"
+    with TestClient(app_for(github, app_url=local), base_url=local) as client:
+        response, query = start(client)
+    assert query["redirect_uri"] == "http://localhost:8000/auth/callback"
+    cookie = set_cookie(response, "wj_oauth")
+    assert (cookie["httponly"], cookie["secure"], cookie["samesite"]) == (True, "", "lax")
     assert github.requests == [], "the browser goes to GitHub, not the app"
 
 
