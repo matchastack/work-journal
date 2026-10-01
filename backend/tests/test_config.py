@@ -97,6 +97,29 @@ def test_the_app_url_must_be_a_web_address(monkeypatch: pytest.MonkeyPatch, url:
         Settings()
 
 
+@pytest.mark.parametrize(
+    ("url", "https"),
+    [
+        ("https://journal.example.com", True),
+        ("http://localhost:5173", False),
+        ("http://127.0.0.1:8000", False),
+        ("http://[::1]:8000", False),
+    ],
+)
+def test_only_this_computer_may_use_plain_http(
+    monkeypatch: pytest.MonkeyPatch, url: str, https: bool
+) -> None:
+    monkeypatch.setenv("APP_URL", url)
+    assert Settings().https is https
+
+
+def test_another_host_must_use_https(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without HTTPS, session cookies couldn't be Secure."""
+    monkeypatch.setenv("APP_URL", "http://journal.example.com")
+    with pytest.raises(ValidationError, match="must use https://, except on this computer"):
+        Settings()
+
+
 def test_the_github_client_secret_stays_out_of_reprs(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GITHUB_CLIENT_SECRET", "not-a-real-secret")
     settings = Settings()

@@ -9,6 +9,10 @@ Signing in gives the browser two cookies:
 
 Both are Secure and SameSite=Lax. With the `__Host-` prefix, browsers accept them only from this
 host over HTTPS, so a neighbouring subdomain can't plant its own.
+
+On this computer, the app may run on plain http://localhost. Browsers such as Safari keep no Secure
+cookie from there, so the cookies go without Secure and the prefix: `wj_session` and `wj_csrf`
+(`cookie_name`).
 """
 
 import hashlib
@@ -79,19 +83,41 @@ async def delete_expired_sessions(db: AsyncSession) -> None:
     await db.execute(delete(UserSession).where(UserSession.expires_at <= func.now()))
 
 
-def set_session_cookies(response: Response, token: str, csrf_token: str) -> None:
+def cookie_name(name: str, settings: Settings) -> str:
+    """A cookie's name: `name` over HTTPS, and without its `__Host-` prefix on plain http, where
+    the cookie can't be Secure."""
+    return name if settings.https else name.removeprefix("__Host-")
+
+
+def set_session_cookies(
+    response: Response, token: str, csrf_token: str, settings: Settings
+) -> None:
     max_age = int(SESSION_LIFETIME.total_seconds())
+    secure = settings.https
     response.set_cookie(
-        SESSION_COOKIE, token, max_age=max_age, secure=True, httponly=True, samesite="lax"
+        cookie_name(SESSION_COOKIE, settings),
+        token,
+        max_age=max_age,
+        secure=secure,
+        httponly=True,
+        samesite="lax",
     )
     response.set_cookie(
-        CSRF_COOKIE, csrf_token, max_age=max_age, secure=True, httponly=False, samesite="lax"
+        cookie_name(CSRF_COOKIE, settings),
+        csrf_token,
+        max_age=max_age,
+        secure=secure,
+        httponly=False,
+        samesite="lax",
     )
 
 
-def clear_session_cookies(response: Response) -> None:
-    response.delete_cookie(SESSION_COOKIE, secure=True, httponly=True, samesite="lax")
-    response.delete_cookie(CSRF_COOKIE, secure=True, samesite="lax")
+def clear_session_cookies(response: Response, settings: Settings) -> None:
+    secure = settings.https
+    response.delete_cookie(
+        cookie_name(SESSION_COOKIE, settings), secure=secure, httponly=True, samesite="lax"
+    )
+    response.delete_cookie(cookie_name(CSRF_COOKIE, settings), secure=secure, samesite="lax")
 
 
 def check_csrf(request: Request, session: UserSession) -> None:
@@ -103,7 +129,7 @@ def check_csrf(request: Request, session: UserSession) -> None:
 async def current_user(request: Request, db: Db, settings: AppSettings) -> User:
     """The signed-in user, still on the allowlist. Requests that change something must also
     carry the session's CSRF token."""
-    token = request.cookies.get(SESSION_COOKIE)
+    token = request.cookies.get(cookie_name(SESSION_COOKIE, settings))
     found = await find_session(db, token) if token else None
     if found is None or not is_allowed(found.user.github_login, settings):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not signed in")
