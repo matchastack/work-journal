@@ -23,10 +23,15 @@ BROWSER = "https://testserver"
 OWNER = "casey-example"
 
 
-def app_for(database_url: str, github: FakeGitHub, *allowed: str) -> FastAPI:
+def app_for(
+    database_url: str,
+    github: FakeGitHub,
+    *allowed: str,
+    app_url: str = "https://journal.example.com",
+) -> FastAPI:
     settings = Settings(
         database_url=SecretStr(database_url),
-        app_url="https://journal.example.com",
+        app_url=app_url,
         github_client_id=github.client_id,
         github_client_secret=SecretStr(github.client_secret),
         allowed_github_logins=frozenset(allowed or {OWNER}),
@@ -187,3 +192,18 @@ def test_taking_a_login_off_the_allowlist_signs_it_out(database_url: str) -> Non
         token = client.cookies[SESSION_COOKIE]
     assert me_with(database_url, github, token).status_code == 200
     assert me_with(database_url, github, token, allowed="someone-else").status_code == 401
+
+
+def test_signing_in_works_on_a_local_http_address(database_url: str) -> None:
+    """Browsers such as Safari keep no Secure cookie from http://localhost, and the test client
+    behaves the same way. So locally the sign-in cookies go without Secure and `__Host-`."""
+    github = FakeGitHub()
+    local = "http://localhost:8000"
+    with TestClient(app_for(database_url, github, app_url=local), base_url=local) as client:
+        response = github.sign_in(client, 3201, OWNER)
+        assert response.status_code == 303, response.text
+        assert client.get("/auth/me").status_code == 200
+        csrf = client.cookies["wj_csrf"]
+        assert client.post("/auth/logout", headers={CSRF_HEADER: csrf}).status_code == 204
+    session = set_cookie(response, "wj_session")
+    assert (session["secure"], session["httponly"], session["samesite"]) == ("", True, "lax")
