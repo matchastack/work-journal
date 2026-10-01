@@ -17,6 +17,28 @@ One short entry per pull request, newest first: what changed and what to verify.
 - CI is green on #16
 - `uv run wj worker` starts and logs a heartbeat within 15 minutes
 
+## 2026-09-28 · T-023 Portfolio page · [#13](https://github.com/matchastack/work-journal/pull/13)
+**Changed:** added the portfolio page, built as static HTML in the style of your site. It shows public, active content only, with project tabs by role type, link previews and JSON-LD. Adds `wj portfolio build`, Tailwind's standalone CLI, and accessibility checks in Chromium, which CI runs.
+
+**Verify:**
+- CI is green on #13
+- The page built from your profile reads like your site and shows nothing you'd keep off the web
+- Tabs following your keep-for tags suits you
+## 2026-09-29 · T-054 ASCII characters everywhere · [#19](https://github.com/matchastack/work-journal/pull/19)
+**Changed:** the rules in `app/text.py` now give every common typographic character its ASCII version (dashes, quotes, the ellipsis, spaces and symbols), and code writes "..." when it shortens text. FR-WRT-6 covers everything the app writes.
+
+**Verify:**
+- CI is green on #19
+- Importing your file gives the same counts as before, and all three output files are pure ASCII
+- The table in the PR matches how you want each character written
+## 2026-09-28 · T-010 LaTeX renderer, T-011 Owner's resume template · [#11](https://github.com/matchastack/work-journal/pull/11)
+**Changed:** added resume rendering. Values are escaped into LaTeX templates, compiled in a sandbox (no shell escape, no file access outside a temporary folder, 30 s timeout) and cut to fit the page limit, lowest-value bullets first. The default template is your layout, without comments or personal content. Adds `wj render`, TeX Live with `cm-super` in CI, and Jinja2 and pypdf.
+
+**Verify:**
+- CI is green on #11
+- `uv run wj render` on your imported profile looks like your own PDF. Checked: the 2 pages match yours pixel for pixel, except that date ranges use an ASCII hyphen
+- The cut order is how you'd cut by hand
+
 ## 2026-09-28 · T-026 Column encryption · [#15](https://github.com/matchastack/work-journal/pull/15)
 **Changed:** added `EncryptedText`, a column type that stores text as AES-256-GCM ciphertext under keys from `DATA_ENCRYPTION_KEY`, with `wj keys new` and `wj keys rotate`. Journal and fact tables will use it. Adds `cryptography`.
 
@@ -30,6 +52,7 @@ One short entry per pull request, newest first: what changed and what to verify.
 **Verify:**
 - CI is green on #14
 - With `docker compose up -d` and `DATABASE_URL` set, `uv run alembic upgrade head` works and `/healthz` shows `"database": "ok"`
+
 ## 2026-09-28 · T-008 Variant selection · [#8](https://github.com/matchastack/work-journal/pull/8)
 **Changed:** added variant selection: from the master profile, each variant picks its roles, bullets, title, coursework, skills preset, summary and contact details by role type, never showing benched or planned items and always keeping load-bearing roles. Only the master document is predefined (OQ-6): one-page resumes are tailored to each posting.
 
