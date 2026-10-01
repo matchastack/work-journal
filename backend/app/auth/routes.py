@@ -6,6 +6,7 @@ import uuid
 from functools import partial
 from html import escape
 from typing import Annotated
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -70,8 +71,11 @@ GitHub = Annotated[GitHubOAuth, Depends(github_oauth)]
 
 
 @router.get("/login", response_class=RedirectResponse, status_code=status.HTTP_303_SEE_OTHER)
-async def login(github: GitHub, settings: AppSettings) -> Response:
+async def login(request: Request, github: GitHub, settings: AppSettings) -> Response:
     """Start signing in: send the browser to GitHub with a new `state` and PKCE challenge."""
+    if _another_local_name(request, settings):
+        target = f"{settings.app_url}/auth/login"
+        return RedirectResponse(target, status.HTTP_303_SEE_OTHER, headers=NO_STORE)
     state, verifier = secrets.token_urlsafe(32), secrets.token_urlsafe(48)
     response = RedirectResponse(
         github.authorize_url(state, verifier), status.HTTP_303_SEE_OTHER, headers=NO_STORE
@@ -187,6 +191,22 @@ async def _finish(
     response = RedirectResponse("/", status.HTTP_303_SEE_OTHER, headers=NO_STORE)
     set_session_cookies(response, token, session.csrf_token, settings)
     return response
+
+
+def _another_local_name(request: Request, settings: Settings) -> bool:
+    """Whether the browser reached this server on this computer by another name than APP_URL's,
+    such as `127.0.0.1:8000`, which uvicorn prints, for `localhost:8000`.
+
+    The two names keep separate cookies, and GitHub sends the browser back to APP_URL, so the
+    sign-in would come back without its state cookie. A request on another port comes through a
+    proxy, such as the web app's dev server, so it's left alone.
+    """
+    app_url = urlsplit(settings.app_url)
+    return (
+        not settings.https
+        and request.url.port == app_url.port
+        and request.url.hostname != app_url.hostname
+    )
 
 
 async def _upsert_user(db: AsyncSession, account: GitHubAccount) -> uuid.UUID:
