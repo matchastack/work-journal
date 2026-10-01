@@ -26,8 +26,18 @@ def database_url() -> str:
     return async_url(url)
 
 
+def include_name(name: str | None, type_: str, parent_names: object) -> bool:
+    """Compare only the app's own tables, not Procrastinate's (migration 0002)."""
+    return type_ != "table" or name in Base.metadata.tables
+
+
 def run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=Base.metadata, compare_type=True)
+    context.configure(
+        connection=connection,
+        target_metadata=Base.metadata,
+        compare_type=True,
+        include_name=include_name,
+    )
     with context.begin_transaction():
         context.run_migrations()
 
