@@ -221,7 +221,7 @@ As a developer, I want one client for every Claude call, so that routing, retrie
 - [ ] Tests use a fake client. `pytest -m llm` makes real calls only when an API key is set.
 
 ### T-013 · Style checker
-**Status:** ◐ · **Size:** S · **Depends on:** T-003 · **Requirements:** FR-WRT-1, FR-WRT-2, FR-WRT-4 · **PR:** [#10](https://github.com/matchastack/work-journal/pull/10)
+**Status:** ☑ · **Size:** S · **Depends on:** T-003 · **Requirements:** FR-WRT-1, FR-WRT-2, FR-WRT-4 · **PR:** [#10](https://github.com/matchastack/work-journal/pull/10)
 
 As the owner, I want wording rules checked by code, so that every bullet follows the same style.
 
