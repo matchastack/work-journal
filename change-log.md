@@ -2,6 +2,13 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-01 · T-027 Persistence for engine data · [#22](https://github.com/matchastack/work-journal/pull/22)
+**Changed:** added database tables and repositories for profile versions (immutable), change sets, encrypted facts, variants, postings, applications, PDFs and LLM calls; `wj db load-profile` to load your imported resume as version 1; and `--db` on `wj lint`, `wj render`, `wj portfolio build` and `wj import tex`. Your first sign-in claims the user that `load-profile` created.
+
+**Verify:**
+- CI is green on #22
+- With local Postgres and `DATA_ENCRYPTION_KEY` set: after `uv run alembic upgrade head`, `uv run wj db load-profile --user <your GitHub username>` loads your import, and `uv run wj render --db` gives the same PDF as `uv run wj render`
+
 ## 2026-09-28 · T-029 GitHub sign-in with an allowlist · [#17](https://github.com/matchastack/work-journal/pull/17)
 **Changed:** added sign-in with GitHub (`state` and PKCE), limited to `ALLOWED_GITHUB_LOGINS`. It uses server-side sessions in HTTP-only, Secure, SameSite=Lax cookies, a CSRF token that every change must send back, and `/auth/me` and `/auth/logout`. Migration `0003` adds GitHub identities and a `sessions` table. `httpx2` becomes a runtime dependency.
 
