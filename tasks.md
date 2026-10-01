@@ -227,7 +227,7 @@ As the owner, I want wording rules checked by code, so that every bullet follows
 
 - [x] Resume style checks:
   - starts with an action verb
-  - tense matches the role: present for the current role, past otherwise
+  - the past tense, for the current role too (a bullet describes work done)
   - no first-person pronouns
   - a length limit of about 2 lines at the template's width
 - [x] LinkedIn style: character limits for each section.

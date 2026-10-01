@@ -3,12 +3,12 @@
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
 ## 2026-09-28 · T-013 Style checker · [#10](https://github.com/matchastack/work-journal/pull/10)
-**Changed:** added the style checker. Resume bullets must open with an action verb in the role's tense, use no first-person pronouns and fit in 2 lines at the template's width. LinkedIn text must fit each section's limit, and every style avoids your words to avoid.
+**Changed:** added the style checker. Resume bullets must open with an action verb in the past tense, even for the current role, use no first-person pronouns and fit in 2 lines at the template's width. LinkedIn text must fit each section's limit, and every style avoids your words to avoid.
 
 **Verify:**
 - CI is green on #10
 - A few of your own bullets get the findings you'd expect
-- Whether current-role bullets must use the present tense (see the PR)
+- A bullet in the present tense is flagged, even for your current role
 
 ## 2026-09-30 · T-009 Consistency linter and resume rules · [#20](https://github.com/matchastack/work-journal/pull/20)
 **Changed:** added `wj lint`, which checks the master profile against the resume rules (R1-R4, R9, R10) and for mixed date formats, misspelt skill names and duplicate bullets, and a check that stops a tailored resume with rule errors from rendering.
