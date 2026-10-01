@@ -422,7 +422,7 @@ As the owner, I want my imported profile and all engine data stored in the datab
 - [ ] Migration tests. Restoring a version creates a new version.
 
 ### T-028 · Background jobs
-**Status:** ◐ · **Size:** S · **Depends on:** T-025 · **Requirements:** NFR-REL-1 · **PR:** [#16](https://github.com/matchastack/work-journal/pull/16)
+**Status:** ☑ · **Size:** S · **Depends on:** T-025 · **Requirements:** NFR-REL-1 · **PR:** [#16](https://github.com/matchastack/work-journal/pull/16)
 
 As a developer, I want a durable job queue with scheduled tasks, so that slow work and timers don't block requests.
 
