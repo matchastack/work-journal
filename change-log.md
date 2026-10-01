@@ -10,6 +10,14 @@ One short entry per pull request, newest first: what changed and what to verify.
 - The task tiers in `backend/app/llm/routing.py` are the ones you want
 - Optional, with a key: `uv run pytest -m llm` passes
 
+## 2026-09-30 · T-009 Consistency linter and resume rules · [#20](https://github.com/matchastack/work-journal/pull/20)
+**Changed:** added `wj lint`, which checks the master profile against the resume rules (R1-R4, R9, R10) and for mixed date formats, misspelt skill names and duplicate bullets, and a check that stops a tailored resume with rule errors from rendering.
+
+**Verify:**
+- CI is green on #20
+- `uv run wj lint` on your profile gives the counts in the PR, and each finding points at the right item
+- The education rules it reads, and the one it lists as not checked, match what you meant
+
 ## 2026-09-28 · T-023 Portfolio page · [#13](https://github.com/matchastack/work-journal/pull/13)
 **Changed:** added the portfolio page, built as static HTML in the style of your site. It shows public, active content only, with project tabs by role type, link previews and JSON-LD. Adds `wj portfolio build`, Tailwind's standalone CLI, and accessibility checks in Chromium, which CI runs.
 
