@@ -184,7 +184,7 @@ As the owner, I want my profile and every rendered resume checked against my rul
 - [x] There are tests for each rule.
 
 ### T-010 · LaTeX renderer
-**Status:** ◐ · **Size:** M · **Depends on:** T-008 · **Requirements:** FR-RES-2, FR-RES-3, FR-RES-4, FR-RES-5, FR-RES-7, R6, NFR-SEC-3, NFR-PERF-2 · **PR:** [#11](https://github.com/matchastack/work-journal/pull/11)
+**Status:** ☑ · **Size:** M · **Depends on:** T-008 · **Requirements:** FR-RES-2, FR-RES-3, FR-RES-4, FR-RES-5, FR-RES-7, R6, NFR-SEC-3, NFR-PERF-2 · **PR:** [#11](https://github.com/matchastack/work-journal/pull/11)
 
 As the owner, I want resumes rendered safely from data through LaTeX, so that PDFs are consistent and unusual text can't break them.
 
@@ -200,7 +200,7 @@ As the owner, I want resumes rendered safely from data through LaTeX, so that PD
 - [x] The required TeX Live packages are documented and installed in CI.
 
 ### T-011 · Owner's resume template
-**Status:** ◐ · **Size:** S · **Depends on:** T-006, T-010 · **Requirements:** FR-RES-1, FR-RES-6 · **PR:** [#11](https://github.com/matchastack/work-journal/pull/11) (with T-010, at the owner's request)
+**Status:** ☑ · **Size:** S · **Depends on:** T-006, T-010 · **Requirements:** FR-RES-1, FR-RES-6 · **PR:** [#11](https://github.com/matchastack/work-journal/pull/11) (with T-010, at the owner's request)
 
 As the owner, I want my own LaTeX template used for every resume, so that generated PDFs look exactly like the ones I send today.
 
@@ -345,7 +345,7 @@ As the owner, I want each PDF checked the way an applicant-tracking system reads
 - [ ] Tests on fixture PDFs.
 
 ### T-023 · Portfolio template and static build
-**Status:** ◐ · **Size:** M · **Depends on:** T-008 · **Requirements:** FR-PRT-2, FR-PRT-4, FR-PRT-6, FR-PRT-8, NFR-A11Y-1 · **PR:** [#13](https://github.com/matchastack/work-journal/pull/13)
+**Status:** ☑ · **Size:** M · **Depends on:** T-008 · **Requirements:** FR-PRT-2, FR-PRT-4, FR-PRT-6, FR-PRT-8, NFR-A11Y-1 · **PR:** [#13](https://github.com/matchastack/work-journal/pull/13)
 
 As the owner, I want my profile rendered as a portfolio page in the style of my current site, so that visitors see my up-to-date work.
 
@@ -370,7 +370,7 @@ As the owner, I want LinkedIn text generated from my profile, and only for what 
 - [ ] `wj linkedin` prints the pack.
 
 ### T-054 · ASCII characters everywhere
-**Status:** ◐ · **Size:** S · **Depends on:** T-006 · **Requirements:** FR-WRT-6 · **PR:** [#19](https://github.com/matchastack/work-journal/pull/19)
+**Status:** ☑ · **Size:** S · **Depends on:** T-006 · **Requirements:** FR-WRT-6 · **PR:** [#19](https://github.com/matchastack/work-journal/pull/19)
 
 As the owner, I want everything the app writes to use ASCII characters, so that files, resumes and pages never carry look-alikes such as the en dash.
 
