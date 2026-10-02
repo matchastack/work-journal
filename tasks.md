@@ -22,7 +22,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 
 | Milestone | Tasks | Status |
 |---|---|---|
-| M0: Documents | T-000 | ☑ |
+| M0: Documents | T-000 and T-055 | ◐ |
 | M1: Engine and command line | T-001 – T-024 and T-054 (T-007 dropped) | ◐ |
 | M2: Journal loop | T-025 – T-053 | ◐ |
 | M3: Quality and habit | Epics (at the end of this file) | — |
@@ -49,6 +49,15 @@ As the owner, I want the requirements, backlog, change log and Claude convention
 - [x] `CLAUDE.md` covers the workflow, branch naming, conventions, LLM rules and data rules.
 - [x] A PR template is added and the README is expanded.
 - [x] No personal data is committed.
+
+### T-055 · Refresh on demand
+**Status:** ◐ · **Size:** S · **Depends on:** T-000 · **Requirements:** FR-REV-6, FR-REV-7, FR-RES-5, FR-PRT-3, FR-LIN-1, FR-REM-6 · **PR:** [#24](https://github.com/matchastack/work-journal/pull/24)
+
+As the owner, I want my profile and outputs updated only when I ask, so that small, frequent journal entries build up and become one update when I need it, such as before a job hunt.
+
+- [x] The requirements say that profile changes are proposed only on `/refresh`, and that applying them updates every output in one step. Nothing runs on a schedule or when an entry closes.
+- [x] Capture stays automatic per entry: storage, the follow-up question, extraction and the summary reply.
+- [x] T-038 becomes the refresh, and the tasks that mention synthesis or output updates follow it.
 
 ---
 
