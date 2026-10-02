@@ -288,3 +288,10 @@ def test_from_settings_needs_no_network(tmp_path: Path) -> None:
     settings = Settings(anthropic_api_key=key, llm_call_log=tmp_path / "calls.jsonl")
     assert isinstance(LLMClient.from_settings(settings), LLMClient)
     assert not settings.llm_call_log.exists()
+
+
+def test_from_settings_logs_to_the_log_it_is_given(tmp_path: Path) -> None:
+    settings = Settings(llm_model_light="light-model", llm_call_log=tmp_path / "calls.jsonl")
+    log = MemoryCallLog()
+    client = LLMClient.from_settings(settings, log)
+    assert client._log is log  # pyright: ignore[reportPrivateUsage]

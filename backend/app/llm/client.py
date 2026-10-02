@@ -171,13 +171,16 @@ class LLMClient:
         self._log = log
 
     @classmethod
-    def from_settings(cls, settings: Settings | None = None) -> "LLMClient":
-        """A client for the real API, logging calls to the JSONL file in the settings."""
+    def from_settings(
+        cls, settings: Settings | None = None, log: CallLog | None = None
+    ) -> "LLMClient":
+        """A client for the real API. It logs calls to `log`, such as a user's
+        `DatabaseCallLog`, or else to the JSONL file in the settings."""
         settings = settings or get_settings()
         key = settings.anthropic_api_key
         api_key = key.get_secret_value() if key else None
         sdk = Anthropic(api_key=api_key, max_retries=SDK_MAX_RETRIES)
-        return cls(settings, sdk.beta.messages, JsonlCallLog(settings.llm_call_log))
+        return cls(settings, sdk.beta.messages, log or JsonlCallLog(settings.llm_call_log))
 
     def call[T: BaseModel](
         self,
