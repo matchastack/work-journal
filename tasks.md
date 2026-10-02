@@ -217,7 +217,7 @@ As a developer, I want one client for every Claude call, so that routing, retrie
 - [x] Each task is routed to a tier (heavy, standard or light, as in requirements §10). Model IDs come from environment variables.
 - [x] Structured outputs are parsed into Pydantic models, and invalid output is retried once.
 - [x] Stable prefixes use prompt caching. Refusals and transient errors are handled.
-- [x] Prompts load from versioned files. Each call records task, model, prompt version, tokens, cost and latency (to JSONL until the database exists). Journal text is never logged.
+- [x] Prompts load from versioned files. Each call records task, model, prompt version, tokens, cost and latency (to the `llm_calls` table, or to JSONL from the command line). Journal text is never logged.
 - [x] Tests use a fake client. `pytest -m llm` makes real calls only when an API key is set.
 
 ### T-013 · Style checker
@@ -408,18 +408,18 @@ As the owner, I want my journal text encrypted in the database, so that a leaked
 - [x] Tests: ciphertext at rest, a clean round trip, and a clear failure with the wrong key.
 
 ### T-027 · Persistence for engine data, and loading the master profile
-**Status:** ☐ · **Size:** M · **Depends on:** T-003, T-025, T-026 · **Requirements:** FR-PRF-2, FR-PRF-3, FR-IMP-5, NFR-COST-1, NFR-DATA-1 · **PR:** —
+**Status:** ☑ · **Size:** M · **Depends on:** T-003, T-025, T-026 · **Requirements:** FR-PRF-2, FR-PRF-3, FR-IMP-5, NFR-COST-1, NFR-DATA-1 · **PR:** [#22](https://github.com/matchastack/work-journal/pull/22)
 
 As the owner, I want my imported profile and all engine data stored in the database, so that the app works from one durable source.
 
-- [ ] Tables and repositories for:
+- [x] Tables and repositories for:
   - profile versions (immutable JSONB)
   - facts, change sets and ops, variants
   - job postings, applications
   - artifacts (PDF bytes keyed by hash) and `llm_calls`
-- [ ] `wj db load-profile local/profile.json --user <login>` loads the imported master profile as version 1. This is the "convert to database format" step for the owner's resume.
-- [ ] Engine commands can read and write the database with `--db`, instead of local files.
-- [ ] Migration tests. Restoring a version creates a new version.
+- [x] `wj db load-profile local/profile.json --user <login>` loads the imported master profile as version 1. This is the "convert to database format" step for the owner's resume.
+- [x] Engine commands can read and write the database with `--db`, instead of local files.
+- [x] Migration tests. Restoring a version creates a new version.
 
 ### T-028 · Background jobs
 **Status:** ☑ · **Size:** S · **Depends on:** T-025 · **Requirements:** NFR-REL-1 · **PR:** [#16](https://github.com/matchastack/work-journal/pull/16)

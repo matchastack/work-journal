@@ -60,7 +60,8 @@ class Settings(BaseSettings):
     llm_heavy_fallback: bool = True
     """Let the API rerun a refused heavy-tier request on its recommended fallback model."""
     llm_call_log: Path = LOCAL_DIR / "llm-calls.jsonl"
-    """Where each LLM call's task, model, tokens and cost are logged, until the database exists."""
+    """Where the command line logs each LLM call's task, model, tokens and cost. The app logs them
+    to the `llm_calls` table."""
     web_dist_dir: Path = REPOSITORY / "frontend" / "dist"
     """The built web app (`npm run build` in `frontend/`), served at `/` when it exists."""
 

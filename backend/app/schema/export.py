@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import TypeAdapter
 
-from app.schema.changes import ChangeOp
+from app.schema.changes import ChangeOp, ChangeSet
 from app.schema.fact import Fact
 from app.schema.jobs import Application, JobPosting
 from app.schema.profile import Profile
@@ -19,6 +19,7 @@ SCHEMA_TYPES: dict[str, tuple[str, Any]] = {
     "fact": ("Fact", Fact),
     "variant": ("Variant", Variant),
     "change-op": ("ChangeOp", ChangeOp),
+    "change-set": ("ChangeSet", ChangeSet),
     "job-posting": ("JobPosting", JobPosting),
     "application": ("Application", Application),
 }
