@@ -8,7 +8,7 @@ Constraint names follow `NAMING_CONVENTION`, so migrations can refer to them.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, MetaData, String, func
+from sqlalchemy import BigInteger, DateTime, ForeignKey, LargeBinary, MetaData, String, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -32,6 +32,29 @@ class User(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, server_default=func.gen_random_uuid())
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    github_id: Mapped[int | None] = mapped_column(BigInteger, unique=True)
+    """The GitHub account's number, which stays the same when its username changes."""
+    github_login: Mapped[str | None] = mapped_column(String(39))
+    """The GitHub username at the latest sign-in."""
+
+
+class UserSession(Base):
+    """A signed-in browser.
+
+    The browser's cookie holds a random token, and only the token's SHA-256 hash is stored here,
+    so a copy of the database can't be used to sign in.
+    """
+
+    __tablename__ = "sessions"
+
+    token_hash: Mapped[bytes] = mapped_column(LargeBinary, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    csrf_token: Mapped[str] = mapped_column(String(64))
+    """Requests that change something must repeat it in a header (`app/auth/sessions.py`)."""
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class Setting(Base):
