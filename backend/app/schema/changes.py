@@ -102,3 +102,31 @@ ChangeOp = Annotated[
 
 change_op_adapter: TypeAdapter[ChangeOp] = TypeAdapter(ChangeOp)
 """Validates and serialises a single change operation."""
+
+Author = Literal["owner", "ai"]
+"""Who made a change: the owner by hand, or the AI with the owner's approval (FR-PRF-2)."""
+OpStatus = Literal["proposed", "accepted", "rejected"]
+ChangeSetStatus = Literal["proposed", "applied", "rejected"]
+
+
+class ReviewedOp(Model):
+    """One operation in a change set, with the owner's decision on it (FR-REV-2)."""
+
+    op: ChangeOp
+    status: OpStatus = "proposed"
+    reason: str | None = None
+    """Why the owner rejected it. Rejection reasons become style notes (FR-REV-4)."""
+    verifier_report: dict[str, JsonValue] | None = None
+    """What the verifier found (FR-FID-8)."""
+
+
+class ChangeSet(Model):
+    """Operations proposed together and reviewed together. Its accepted operations are applied
+    as one new profile version (FR-REV-3)."""
+
+    author: Author
+    ops: tuple[ReviewedOp, ...] = Field(min_length=1)
+    summary: str | None = None
+    base_version: int | None = Field(default=None, ge=1)
+    """The profile version the operations were proposed against."""
+    status: ChangeSetStatus = "proposed"

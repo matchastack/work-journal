@@ -43,6 +43,7 @@ Run these from `backend/` (uv project, Python 3.12):
 | Apply database migrations | `uv run alembic upgrade head` (after changing `app/db/models.py`: `uv run alembic revision --autogenerate --rev-id <next> -m "<change>"`) |
 | Run the background worker (jobs and scheduled tasks in `app/jobs.py`) | `uv run wj worker` (needs `DATABASE_URL`) |
 | Run the command-line tool | `uv run wj --help` |
+| Load the imported profile into the database as version 1 (then `wj lint`, `wj render` and `wj portfolio build` take `--db`) | `uv run wj db load-profile --user <github-login>` |
 | Check the profile against the resume rules | `uv run wj lint` |
 | Build the portfolio page (after editing its template, run `scripts/build-portfolio-css.sh`) | `uv run wj portfolio build --out /tmp/site` |
 | Render the master resume (needs TeX Live: `backend/templates/README.md`) | `uv run wj render` |
