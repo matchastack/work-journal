@@ -217,7 +217,7 @@ As a developer, I want one client for every Claude call, so that routing, retrie
 - [x] Each task is routed to a tier (heavy, standard or light, as in requirements §10). Model IDs come from environment variables.
 - [x] Structured outputs are parsed into Pydantic models, and invalid output is retried once.
 - [x] Stable prefixes use prompt caching. Refusals and transient errors are handled.
-- [x] Prompts load from versioned files. Each call records task, model, prompt version, tokens, cost and latency (to JSONL until the database exists). Journal text is never logged.
+- [x] Prompts load from versioned files. Each call records task, model, prompt version, tokens, cost and latency (to the `llm_calls` table, or to JSONL from the command line). Journal text is never logged.
 - [x] Tests use a fake client. `pytest -m llm` makes real calls only when an API key is set.
 
 ### T-013 · Style checker
