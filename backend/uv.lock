@@ -1526,6 +1526,7 @@ dependencies = [
     { name = "asyncpg" },
     { name = "cryptography" },
     { name = "fastapi" },
+    { name = "httpx2" },
     { name = "jinja2" },
     { name = "procrastinate" },
     { name = "psycopg", extra = ["binary"] },
@@ -1539,7 +1540,6 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "axe-playwright-python" },
-    { name = "httpx2" },
     { name = "playwright" },
     { name = "pyright" },
     { name = "pytest" },
@@ -1553,6 +1553,7 @@ requires-dist = [
     { name = "asyncpg", specifier = ">=0.31.0" },
     { name = "cryptography", specifier = ">=50.0.1" },
     { name = "fastapi", specifier = ">=0.141.1" },
+    { name = "httpx2", specifier = ">=2.13.1" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "procrastinate", specifier = ">=3.10.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.6" },
@@ -1566,7 +1567,6 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "axe-playwright-python", specifier = ">=0.1.8" },
-    { name = "httpx2", specifier = ">=2.13.1" },
     { name = "playwright", specifier = ">=1.63.0" },
     { name = "pyright", specifier = ">=1.1.414" },
     { name = "pytest", specifier = ">=9.1.1" },
