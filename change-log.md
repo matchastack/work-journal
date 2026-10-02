@@ -2,6 +2,14 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-09-28 · T-029 GitHub sign-in with an allowlist · [#17](https://github.com/matchastack/work-journal/pull/17)
+**Changed:** added sign-in with GitHub (`state` and PKCE), limited to `ALLOWED_GITHUB_LOGINS`. It uses server-side sessions in HTTP-only, Secure, SameSite=Lax cookies, a CSRF token that every change must send back, and `/auth/me` and `/auth/logout`. Migration `0003` adds GitHub identities and a `sessions` table. `httpx2` becomes a runtime dependency.
+
+**Verify:**
+- CI is green on #17
+- With a GitHub OAuth app whose callback is `http://localhost:8000/auth/callback`, signing in at `/auth/login` works for your username, and `/auth/me` shows it
+- A username that isn't on the allowlist sees the "This journal is private" page
+
 ## 2026-09-28 · T-028 Background jobs · [#16](https://github.com/matchastack/work-journal/pull/16)
 **Changed:** added a Procrastinate job queue on Postgres, with retries and exponential backoff, cron schedules, an example job, a 15-minute heartbeat, and `wj worker`. Adds Procrastinate and psycopg.
 

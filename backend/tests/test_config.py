@@ -66,3 +66,63 @@ def test_the_database_url_stays_out_of_reprs(monkeypatch: pytest.MonkeyPatch) ->
     assert "not-a-real-password" not in repr(settings)
     assert settings.database_url is not None
     assert settings.database_url.get_secret_value().endswith("@db:5432/app")
+
+
+def test_allowed_github_logins_are_a_list_in_lowercase(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ALLOWED_GITHUB_LOGINS", "Ada-L, lin99 ,,grace")
+    assert Settings().allowed_github_logins == {"ada-l", "lin99", "grace"}
+
+
+def test_nobody_is_allowed_by_default() -> None:
+    assert Settings().allowed_github_logins == frozenset()
+
+
+@pytest.mark.parametrize("login", ["-ada", "@ada", "ada@example.com", "x" * 40])
+def test_malformed_github_logins_are_rejected(monkeypatch: pytest.MonkeyPatch, login: str) -> None:
+    monkeypatch.setenv("ALLOWED_GITHUB_LOGINS", f"ada,{login}")
+    with pytest.raises(ValidationError, match="not GitHub usernames"):
+        Settings()
+
+
+def test_the_app_url_loses_its_trailing_slash(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert Settings().app_url == "http://localhost:8000"
+    monkeypatch.setenv("APP_URL", "https://journal.example.com/")
+    assert Settings().app_url == "https://journal.example.com"
+
+
+@pytest.mark.parametrize("url", ["journal.example.com", "ftp://example.com", "https://"])
+def test_the_app_url_must_be_a_web_address(monkeypatch: pytest.MonkeyPatch, url: str) -> None:
+    monkeypatch.setenv("APP_URL", url)
+    with pytest.raises(ValidationError, match="http"):
+        Settings()
+
+
+@pytest.mark.parametrize(
+    ("url", "https"),
+    [
+        ("https://journal.example.com", True),
+        ("http://localhost:5173", False),
+        ("http://127.0.0.1:8000", False),
+        ("http://[::1]:8000", False),
+    ],
+)
+def test_only_this_computer_may_use_plain_http(
+    monkeypatch: pytest.MonkeyPatch, url: str, https: bool
+) -> None:
+    monkeypatch.setenv("APP_URL", url)
+    assert Settings().https is https
+
+
+def test_another_host_must_use_https(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without HTTPS, session cookies couldn't be Secure."""
+    monkeypatch.setenv("APP_URL", "http://journal.example.com")
+    with pytest.raises(ValidationError, match="must use https://, except on this computer"):
+        Settings()
+
+
+def test_the_github_client_secret_stays_out_of_reprs(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GITHUB_CLIENT_SECRET", "not-a-real-secret")
+    settings = Settings()
+    assert "not-a-real-secret" not in repr(settings)
+    assert settings.github_client_secret is not None
+    assert settings.github_client_secret.get_secret_value() == "not-a-real-secret"
