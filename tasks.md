@@ -512,7 +512,7 @@ As the owner, I want the bot to ask me the open questions from my master resume,
 
 - [ ] A reminder can include one open question, most valuable first. Value is the strength of the bullets the question blocks.
 - [ ] The answer is stored as a fact linked to the question.
-- [ ] The next synthesis proposes the upgraded bullet, and the question is marked answered when the owner accepts.
+- [ ] The next refresh proposes the upgraded bullet, and the question is marked answered when the owner accepts.
 - [ ] Tests.
 
 ### T-037 · Catch-up interview
@@ -522,17 +522,20 @@ As the owner, I want a short guided interview on first use, so that the months s
 
 - [ ] It runs once after linking, or on `/catchup`, using the standard tier.
 - [ ] It asks one question at a time, up to about 10, about roles, projects, achievements and skills since the profile was last updated.
-- [ ] Answers become entries, then facts, then a change set.
+- [ ] Answers become entries, then facts. When the interview ends, the bot offers `/refresh` to turn them into proposed changes.
 - [ ] The owner can stop at any time and resume later.
 
-### T-038 · Weekly synthesis, /refresh and notification
-**Status:** ☐ · **Size:** S · **Depends on:** T-018, T-027, T-028, T-033 · **Requirements:** FR-REM-6, FR-REV-1 · **PR:** —
+### T-038 · Refresh: proposals on demand and output updates
+**Status:** ☐ · **Size:** M · **Depends on:** T-010, T-018, T-024, T-027, T-028, T-033 · **Requirements:** FR-REV-6, FR-REV-7, FR-REM-6, FR-RES-5, FR-LIN-1 · **PR:** —
 
-As the owner, I want proposals prepared weekly or on demand, with a heads-up in Telegram, so that I review in batches.
+As the owner, I want my profile and every output updated only when I ask, so that months of small journal entries become one review when I need current outputs.
 
-- [ ] Profile synthesis runs weekly on new facts, and also on `/refresh`.
-- [ ] The bot sends "N updates proposed → Review" with a link. Nothing is sent when there are no proposals.
-- [ ] Tests.
+- [ ] `/refresh` queues profile synthesis on the facts added or edited since the last refresh. Nothing runs on a schedule or when an entry closes.
+- [ ] The bot sends "N updates proposed → Review" with a link, or says there's nothing new.
+- [ ] An output-update job runs when the owner applies a refresh's changes (T-040): it re-renders the master resume, regenerates the LinkedIn pack, and moves the portfolio page to the new version if it's published.
+- [ ] A refresh with no new facts still runs the output update, so edits made in the web app reach the outputs.
+- [ ] Tailored resumes already made are not changed.
+- [ ] Tests use the fake LLM client.
 
 ### T-039 · Web app scaffold
 **Status:** ◐ · **Size:** M · **Depends on:** T-029 · **Requirements:** NFR-MAINT-1, NFR-A11Y-1 · **PR:** [#18](https://github.com/matchastack/work-journal/pull/18)
@@ -552,7 +555,7 @@ As the owner, I want to review each proposed change with its sources and checks,
 
 - [ ] Lists pending change sets. Each op shows a word-level before/after diff, source facts (linked to their journal entries), the outputs it affects and the verifier report.
 - [ ] Accept, edit (re-verified) or reject each op, with an optional reason. Bulk accept is available.
-- [ ] Applying the accepted ops creates a new profile version. Rejection reasons are saved as style notes.
+- [ ] Applying the accepted ops creates a new profile version and starts the output update (T-038). Rejection reasons are saved as style notes.
 - [ ] Works with the keyboard. Tests for the API and components.
 
 ### T-041 · Journal page
@@ -591,7 +594,7 @@ As the owner, I want to manage the metadata that drives tailoring, so that my ma
 
 As the owner, I want to preview and download my master resume and my tailored resumes, so that I always have a current version ready.
 
-- [ ] Lists the master document and every tailored resume, with a PDF preview and a download for each.
+- [ ] Lists the master document from the latest refresh and every tailored resume, with a PDF preview and a download for each.
 - [ ] Shows a PDF preview, a page-count badge, the cut report and lint findings, with a download button.
 - [ ] Renders are cached by content hash.
 - [ ] Tests.
@@ -610,10 +613,10 @@ As the owner, I want to paste a posting and get a tailored resume I can adjust, 
 ### T-046 · Public portfolio page and publishing
 **Status:** ☐ · **Size:** M · **Depends on:** T-023, T-027, T-039 · **Requirements:** FR-PRT-1, FR-PRT-3, FR-PRT-4, FR-PRT-5, FR-PRT-7, FR-SET-3, NFR-PERF-2 · **Needs:** OQ-3 · **PR:** —
 
-As the owner, I want my portfolio page served by the app and updated when I publish, so that my public profile is always current.
+As the owner, I want my portfolio page served by the app and updated when I refresh, so that my public profile is current whenever I need it.
 
 - [ ] `/p/<handle>` renders the published version with the built-in template. An unknown handle returns 404.
-- [ ] Publish and unpublish from the web app, with a preview of the draft first.
+- [ ] Publish and unpublish from the web app, with a preview first. While it's published, the page shows the version from the latest refresh (T-038).
 - [ ] Visibility, open-to-work and noindex settings are respected. The resumes I choose can be downloaded.
 - [ ] The page is cached. Tests: only the published version is shown, and hidden fields are absent.
 
@@ -622,7 +625,7 @@ As the owner, I want my portfolio page served by the app and updated when I publ
 
 As the owner, I want a checklist of LinkedIn sections to paste, so that LinkedIn stays in step with my resume.
 
-- [ ] Shows only the changed sections, each with a copy button and a character counter.
+- [ ] Shows the pack from the latest refresh, only the changed sections, each with a copy button and a character counter.
 - [ ] "Mark done" stores a snapshot.
 - [ ] Tests.
 
