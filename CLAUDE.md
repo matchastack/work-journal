@@ -105,6 +105,7 @@ The full list is in requirements §8.
 - **Never log journal or fact text.**
 - **Store journal and fact text in `EncryptedText` columns** (`app/db/crypto.py`), never plain ones. `wj keys new` and `wj keys rotate` manage the keys.
 - **Pass IDs, never journal or fact text, as job arguments.** Procrastinate stores them as plain JSON and logs them.
+- **Routes that act for the signed-in user take `user: CurrentUser`** (`app/auth/sessions.py`). It also checks the CSRF header on requests that change something.
 - **LaTeX:** escape every value, keep shell-escape off, and use a timeout and a temporary directory.
 - **The Telegram webhook** must verify the secret-token header.
 
