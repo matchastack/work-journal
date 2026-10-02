@@ -2,6 +2,13 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-01 · T-027 Persistence for engine data · [#22](https://github.com/matchastack/work-journal/pull/22)
+**Changed:** added database tables and repositories for profile versions (immutable), change sets, encrypted facts, variants, postings, applications, PDFs and LLM calls; `wj db load-profile` to load your imported resume as version 1; and `--db` on `wj lint`, `wj render`, `wj portfolio build` and `wj import tex`. Your first sign-in claims the user that `load-profile` created.
+
+**Verify:**
+- CI is green on #22
+- With local Postgres and `DATA_ENCRYPTION_KEY` set: after `uv run alembic upgrade head`, `uv run wj db load-profile --user <your GitHub username>` loads your import, and `uv run wj render --db` gives the same PDF as `uv run wj render`
+
 ## 2026-09-28 · T-039 Web app scaffold · [#18](https://github.com/matchastack/work-journal/pull/18)
 **Changed:** added the React web app in `frontend/` (Vite, strict TypeScript, Tailwind, React Router, TanStack Query). It has an API client typed from the OpenAPI schema (`wj openapi`), a sign-in page, and a signed-in layout with navigation to every page. FastAPI serves the build, and CI runs ESLint, tsc, Vitest and the build.
 

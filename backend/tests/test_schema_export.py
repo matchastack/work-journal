@@ -11,6 +11,7 @@ EXPECTED_FILES = {
     "fact.schema.json",
     "variant.schema.json",
     "change-op.schema.json",
+    "change-set.schema.json",
     "job-posting.schema.json",
     "application.schema.json",
 }

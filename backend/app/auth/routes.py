@@ -10,6 +10,7 @@ from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse, RedirectResponse
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -211,7 +212,27 @@ def _another_local_name(request: Request, settings: Settings) -> bool:
 
 async def _upsert_user(db: AsyncSession, account: GitHubAccount) -> uuid.UUID:
     """The user for this GitHub account, created at the first sign-in. The username is updated,
-    as GitHub lets people change it; the account number stays the same."""
+    as GitHub lets people change it; the account number stays the same.
+
+    `wj db load-profile` can create the user before anyone signs in, with just the username.
+    The first sign-in with that username claims it, so the loaded profile is the account's.
+    """
+    known = await db.scalar(select(User.id).where(User.github_id == account.id))
+    if known is None:
+        waiting = await db.scalar(
+            select(User.id)
+            .where(User.github_id.is_(None), func.lower(User.github_login) == account.login.lower())
+            .order_by(User.created_at)
+            .limit(1)
+            .with_for_update()
+        )
+        if waiting is not None:
+            await db.execute(
+                update(User)
+                .where(User.id == waiting)
+                .values(github_id=account.id, github_login=account.login)
+            )
+            return waiting
     query = (
         insert(User)
         .values(github_id=account.id, github_login=account.login)
