@@ -23,6 +23,7 @@ from app.db.models import Base
 from app.importers.master_resume import MasterResumeError, import_master_resume
 from app.jobs import run_worker
 from app.llm.client import LLMCallError, LLMClient, LLMConfigError
+from app.main import create_app
 from app.portfolio.build import Download, build_portfolio
 from app.render.compile import CompileError
 from app.render.fit import FitError
@@ -76,6 +77,21 @@ def worker(
         raise typer.Exit(1)
     logging.basicConfig(level=settings.log_level, format="%(levelname)s %(name)s: %(message)s")
     asyncio.run(run_worker(concurrency))
+
+
+@cli.command()
+def openapi(
+    out: Annotated[
+        Path | None, typer.Argument(help="File to write. Without one, prints the schema.")
+    ] = None,
+) -> None:
+    """Write the API's OpenAPI schema, which `frontend/` turns into its API types."""
+    schema = json.dumps(create_app().openapi(), indent=2, ensure_ascii=False) + "\n"
+    if out is None:
+        typer.echo(schema, nl=False)
+        return
+    out.write_text(schema, encoding="utf-8")
+    typer.echo(f"Wrote {out}")
 
 
 @cli.command()

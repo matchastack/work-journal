@@ -22,6 +22,14 @@ uv run pytest    # run the tests
 uv run wj --help # the command-line tool
 ```
 
+The web app lives in `frontend/` and needs Node.js 22.22 or later. From `frontend/`:
+
+```sh
+npm ci           # install dependencies
+npm run dev      # the web app at http://localhost:5173, using the API on port 8000
+npm test         # run the tests
+```
+
 The full list of commands is in [CLAUDE.md](CLAUDE.md#commands).
 
 ## Documents
