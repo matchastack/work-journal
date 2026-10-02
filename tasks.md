@@ -408,7 +408,7 @@ As the owner, I want my journal text encrypted in the database, so that a leaked
 - [x] Tests: ciphertext at rest, a clean round trip, and a clear failure with the wrong key.
 
 ### T-027 · Persistence for engine data, and loading the master profile
-**Status:** ◐ · **Size:** M · **Depends on:** T-003, T-025, T-026 · **Requirements:** FR-PRF-2, FR-PRF-3, FR-IMP-5, NFR-COST-1, NFR-DATA-1 · **PR:** [#22](https://github.com/matchastack/work-journal/pull/22)
+**Status:** ☑ · **Size:** M · **Depends on:** T-003, T-025, T-026 · **Requirements:** FR-PRF-2, FR-PRF-3, FR-IMP-5, NFR-COST-1, NFR-DATA-1 · **PR:** [#22](https://github.com/matchastack/work-journal/pull/22)
 
 As the owner, I want my imported profile and all engine data stored in the database, so that the app works from one durable source.
 
