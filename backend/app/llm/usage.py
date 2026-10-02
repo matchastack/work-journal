@@ -1,15 +1,21 @@
 """The record of each LLM call: task, model, prompt version, tokens, cost and latency.
 
-Records hold no journal text, prompts or outputs (NFR-PRIV-2). They go to a JSONL file until
-the database's `llm_calls` table exists (NFR-COST-1).
+Records hold no journal text, prompts or outputs (NFR-PRIV-2). The app saves them to the
+database's `llm_calls` table (NFR-COST-1); the command line, which has no user, appends them to a
+JSONL file.
 """
 
 import json
+import threading
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Literal, Protocol
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.store import record_llm_call
 from app.llm.routing import Task, Tier
 from app.schema.common import Model
 
@@ -88,6 +94,31 @@ class JsonlCallLog:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open("a", encoding="utf-8") as file:
             file.write(json.dumps(call.model_dump(mode="json")) + "\n")
+
+
+class DatabaseCallLog:
+    """Keeps one user's call records until `save` writes them to the `llm_calls` table.
+
+    The client is synchronous and the database isn't, so a job collects the records of its calls
+    and saves them in a `finally`, so that the calls of a job that fails are counted too.
+    """
+
+    def __init__(self, user_id: uuid.UUID) -> None:
+        self.user_id = user_id
+        self._pending: list[CallRecord] = []
+        self._lock = threading.Lock()
+
+    def record(self, call: CallRecord) -> None:
+        with self._lock:
+            self._pending.append(call)
+
+    async def save(self, session: AsyncSession) -> int:
+        """Write the records kept so far, and return how many there were."""
+        with self._lock:
+            calls, self._pending = self._pending, []
+        for call in calls:
+            await record_llm_call(session, self.user_id, call.model_dump(by_alias=False))
+        return len(calls)
 
 
 @dataclass

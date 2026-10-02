@@ -17,7 +17,8 @@ def test_every_table_belongs_to_a_user() -> None:
         assert "user_id" in table.c, f"{table.name} has no user_id"
         user_id = table.c.user_id
         assert not user_id.nullable, f"{table.name}.user_id can be empty"
-        assert {key.target_fullname for key in user_id.foreign_keys} == {"users.id"}
+        # It can also be part of a key to another table, such as an application's PDF.
+        assert "users.id" in {key.target_fullname for key in user_id.foreign_keys}
 
 
 async def new_user(session: AsyncSession) -> User:

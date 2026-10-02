@@ -10,7 +10,7 @@ import httpx2
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
-from sqlalchemy import Executable, select, update
+from sqlalchemy import Executable, insert, select, update
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.auth.fake import FakeGitHub
@@ -192,6 +192,21 @@ def test_taking_a_login_off_the_allowlist_signs_it_out(database_url: str) -> Non
         token = client.cookies[SESSION_COOKIE]
     assert me_with(database_url, github, token).status_code == 200
     assert me_with(database_url, github, token, allowed="someone-else").status_code == 401
+
+
+def test_the_first_sign_in_claims_a_user_made_ahead_of_it(database_url: str) -> None:
+    """`wj db load-profile --user` can make the user before anyone signs in, with just the
+    username; the profile loaded for it must end up with the GitHub account."""
+    [made] = run(database_url, insert(User).values(github_login="Casey-Early").returning(User.id))
+    github = FakeGitHub()
+    with TestClient(app_for(database_url, github, "casey-early"), base_url=BROWSER) as client:
+        github.sign_in(client, 3101, "casey-early")
+        me = client.get("/auth/me").json()
+        github.sign_in(client, 3101, "casey-early")
+        again = client.get("/auth/me").json()
+    assert me == again == {"id": str(made.id), "githubLogin": "casey-early"}
+    [user] = run(database_url, select(User).where(User.id == made.id))
+    assert user.github_id == 3101
 
 
 def test_signing_in_works_on_a_local_http_address(database_url: str) -> None:
