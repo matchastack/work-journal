@@ -535,7 +535,7 @@ As the owner, I want proposals prepared weekly or on demand, with a heads-up in 
 - [ ] Tests.
 
 ### T-039 · Web app scaffold
-**Status:** ☐ · **Size:** M · **Depends on:** T-029 · **Requirements:** NFR-MAINT-1, NFR-A11Y-1 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-029 · **Requirements:** NFR-MAINT-1, NFR-A11Y-1 · **PR:** [#18](https://github.com/matchastack/work-journal/pull/18)
 
 As a developer, I want the React app set up with typed API access and sign-in, so that pages can be added one at a time.
 
