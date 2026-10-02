@@ -13,12 +13,13 @@ from urllib.parse import urlsplit
 from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
+REPOSITORY = Path(__file__).resolve().parents[2]
 GITHUB_LOGIN = re.compile(r"^[a-z0-9][a-z0-9-]{0,38}$")
 """A GitHub username in lowercase: up to 39 letters, digits and hyphens, not starting with one."""
 LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 """Addresses on this computer, the only ones the app may be served from without HTTPS."""
 
-LOCAL_DIR = Path(__file__).resolve().parents[2] / "local"
+LOCAL_DIR = REPOSITORY / "local"
 """The repository's git-ignored folder for personal and runtime data."""
 
 
@@ -60,6 +61,8 @@ class Settings(BaseSettings):
     """Let the API rerun a refused heavy-tier request on its recommended fallback model."""
     llm_call_log: Path = LOCAL_DIR / "llm-calls.jsonl"
     """Where each LLM call's task, model, tokens and cost are logged, until the database exists."""
+    web_dist_dir: Path = REPOSITORY / "frontend" / "dist"
+    """The built web app (`npm run build` in `frontend/`), served at `/` when it exists."""
 
     @field_validator("app_url")
     @classmethod
