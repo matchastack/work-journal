@@ -9,6 +9,14 @@ One short entry per pull request, newest first: what changed and what to verify.
 - CI is green on #22
 - With local Postgres and `DATA_ENCRYPTION_KEY` set: after `uv run alembic upgrade head`, `uv run wj db load-profile --user <your GitHub username>` loads your import, and `uv run wj render --db` gives the same PDF as `uv run wj render`
 
+## 2026-09-28 · T-039 Web app scaffold · [#18](https://github.com/matchastack/work-journal/pull/18)
+**Changed:** added the React web app in `frontend/` (Vite, strict TypeScript, Tailwind, React Router, TanStack Query). It has an API client typed from the OpenAPI schema (`wj openapi`), a sign-in page, and a signed-in layout with navigation to every page. FastAPI serves the build, and CI runs ESLint, tsc, Vitest and the build.
+
+**Verify:**
+- CI is green on #18, including the new **Frontend checks** job
+- After `npm run build` in `frontend/`, http://localhost:8000/ shows the sign-in page, and signing in opens the inbox
+- Keyboard only: Tab reaches "Skip to content", then every navigation link
+
 ## 2026-09-28 · T-029 GitHub sign-in with an allowlist · [#17](https://github.com/matchastack/work-journal/pull/17)
 **Changed:** added sign-in with GitHub (`state` and PKCE), limited to `ALLOWED_GITHUB_LOGINS`. It uses server-side sessions in HTTP-only, Secure, SameSite=Lax cookies, a CSRF token that every change must send back, and `/auth/me` and `/auth/logout`. Migration `0003` adds GitHub identities and a `sessions` table. `httpx2` becomes a runtime dependency.
 
