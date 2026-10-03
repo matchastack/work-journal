@@ -30,6 +30,7 @@ from app.db.store import (
     save_variant,
     store_artifact,
 )
+from app.llm.usage import CallRecord, DatabaseCallLog
 from app.schema.fact import ChangeValue, Fact, Metric
 from app.schema.jobs import Application, JobPosting
 from app.schema.variant import Variant
@@ -169,3 +170,35 @@ async def test_llm_calls_are_logged_with_their_cost(session: AsyncSession, user:
     await record_llm_call(session, user, call)
     await record_llm_call(session, user, {**call, "cost_usd": None, "outcome": "refusal"})
     assert await llm_cost_usd(session, user) == Decimal("0.0054")
+
+
+async def test_the_llm_clients_call_log_saves_to_the_database(
+    session: AsyncSession, user: uuid.UUID
+) -> None:
+    """The client's records are kept until a job saves them for its user."""
+    call = CallRecord(
+        at=datetime(2026, 10, 2, 9, 0, tzinfo=UTC),
+        task="fact_extraction",
+        tier="standard",
+        model="model-standard",
+        served_by="model-standard",
+        prompt="fact_extraction/v1",
+        outcome="ok",
+        attempts=1,
+        input_tokens=1200,
+        output_tokens=300,
+        cache_read_tokens=4000,
+        cost_usd=0.0066,
+        latency_ms=2100,
+        request_id="req_1",
+    )
+    log = DatabaseCallLog(user)
+    log.record(call)
+    log.record(call.model_copy(update={"outcome": "refusal", "cost_usd": None}))
+    assert await log.save(session) == 2
+    assert await log.save(session) == 0, "saved records aren't saved twice"
+    assert await llm_cost_usd(session, user) == Decimal("0.0066")
+    rows = await session.execute(
+        text("SELECT outcome, cache_read_tokens, request_id FROM llm_calls ORDER BY id")
+    )
+    assert rows.all() == [("ok", 4000, "req_1"), ("refusal", 4000, "req_1")]

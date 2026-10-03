@@ -5,6 +5,7 @@ description = "Turn Telegram journal entries into an up-to-date resume, portfoli
 requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.20.0",
+    "anthropic>=1.8.0",
     "asyncpg>=0.31.0",
     "cryptography>=50.0.1",
     "fastapi>=0.141.1",

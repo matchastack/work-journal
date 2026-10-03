@@ -2,6 +2,14 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-09-28 · T-012 LLM client · [#9](https://github.com/matchastack/work-journal/pull/9)
+**Changed:** added the client every Claude call goes through: routing each task to a tier's model from the environment, versioned prompt files, prompt caching, validated structured output with one retry, refusal and error handling, and a call log with tokens and cost but no text, saved to the `llm_calls` table (or to a JSONL file from the command line). Adds the `anthropic` SDK.
+
+**Verify:**
+- CI is green on #9
+- The task tiers in `backend/app/llm/routing.py` are the ones you want
+- Optional, with a key: `uv run pytest -m llm` passes
+
 ## 2026-10-02 · T-055 Refresh on demand · [#24](https://github.com/matchastack/work-journal/pull/24)
 **Changed:** the requirements and tasks now say that the profile, the master resume, the portfolio page and the LinkedIn pack change only when you send `/refresh` and apply the reviewed changes. Weekly synthesis is gone; journal entries are still captured and summarised as they arrive.
 

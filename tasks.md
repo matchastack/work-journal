@@ -22,7 +22,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 
 | Milestone | Tasks | Status |
 |---|---|---|
-| M0: Documents | T-000 and T-055 | ◐ |
+| M0: Documents | T-000 and T-055 | ☑ |
 | M1: Engine and command line | T-001 – T-024 and T-054 (T-007 dropped) | ◐ |
 | M2: Journal loop | T-025 – T-053 | ◐ |
 | M3: Quality and habit | Epics (at the end of this file) | — |
@@ -51,7 +51,7 @@ As the owner, I want the requirements, backlog, change log and Claude convention
 - [x] No personal data is committed.
 
 ### T-055 · Refresh on demand
-**Status:** ◐ · **Size:** S · **Depends on:** T-000 · **Requirements:** FR-REV-6, FR-REV-7, FR-RES-5, FR-PRT-3, FR-LIN-1, FR-REM-6 · **PR:** [#24](https://github.com/matchastack/work-journal/pull/24)
+**Status:** ☑ · **Size:** S · **Depends on:** T-000 · **Requirements:** FR-REV-6, FR-REV-7, FR-RES-5, FR-PRT-3, FR-LIN-1, FR-REM-6 · **PR:** [#24](https://github.com/matchastack/work-journal/pull/24)
 
 As the owner, I want my profile and outputs updated only when I ask, so that small, frequent journal entries build up and become one update when I need it, such as before a job hunt.
 
@@ -219,15 +219,15 @@ As the owner, I want my own LaTeX template used for every resume, so that genera
 - [x] Manual check: the rendered master matches the compiled uploaded master for all active content. Screenshots or a checklist go in the change log.
 
 ### T-012 · LLM client
-**Status:** ☐ · **Size:** M · **Depends on:** T-001 · **Requirements:** NFR-COST-1, NFR-REL-2, NFR-MAINT-2, NFR-PRIV-2 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-001 · **Requirements:** NFR-COST-1, NFR-REL-2, NFR-MAINT-2, NFR-PRIV-2 · **PR:** [#9](https://github.com/matchastack/work-journal/pull/9)
 
 As a developer, I want one client for every Claude call, so that routing, retries, caching, refusals and cost logging behave the same everywhere.
 
-- [ ] Each task is routed to a tier (heavy, standard or light, as in requirements §10). Model IDs come from environment variables.
-- [ ] Structured outputs are parsed into Pydantic models, and invalid output is retried once.
-- [ ] Stable prefixes use prompt caching. Refusals and transient errors are handled.
-- [ ] Prompts load from versioned files. Each call records task, model, prompt version, tokens, cost and latency (to JSONL until the database exists). Journal text is never logged.
-- [ ] Tests use a fake client. `pytest -m llm` makes real calls only when an API key is set.
+- [x] Each task is routed to a tier (heavy, standard or light, as in requirements §10). Model IDs come from environment variables.
+- [x] Structured outputs are parsed into Pydantic models, and invalid output is retried once.
+- [x] Stable prefixes use prompt caching. Refusals and transient errors are handled.
+- [x] Prompts load from versioned files. Each call records task, model, prompt version, tokens, cost and latency (to the `llm_calls` table, or to JSONL from the command line). Journal text is never logged.
+- [x] Tests use a fake client. `pytest -m llm` makes real calls only when an API key is set.
 
 ### T-013 · Style checker
 **Status:** ☑ · **Size:** S · **Depends on:** T-003 · **Requirements:** FR-WRT-1, FR-WRT-2, FR-WRT-4 · **PR:** [#10](https://github.com/matchastack/work-journal/pull/10)
@@ -417,7 +417,7 @@ As the owner, I want my journal text encrypted in the database, so that a leaked
 - [x] Tests: ciphertext at rest, a clean round trip, and a clear failure with the wrong key.
 
 ### T-027 · Persistence for engine data, and loading the master profile
-**Status:** ◐ · **Size:** M · **Depends on:** T-003, T-025, T-026 · **Requirements:** FR-PRF-2, FR-PRF-3, FR-IMP-5, NFR-COST-1, NFR-DATA-1 · **PR:** [#22](https://github.com/matchastack/work-journal/pull/22)
+**Status:** ☑ · **Size:** M · **Depends on:** T-003, T-025, T-026 · **Requirements:** FR-PRF-2, FR-PRF-3, FR-IMP-5, NFR-COST-1, NFR-DATA-1 · **PR:** [#22](https://github.com/matchastack/work-journal/pull/22)
 
 As the owner, I want my imported profile and all engine data stored in the database, so that the app works from one durable source.
 
@@ -431,7 +431,7 @@ As the owner, I want my imported profile and all engine data stored in the datab
 - [x] Migration tests. Restoring a version creates a new version.
 
 ### T-028 · Background jobs
-**Status:** ◐ · **Size:** S · **Depends on:** T-025 · **Requirements:** NFR-REL-1 · **PR:** [#16](https://github.com/matchastack/work-journal/pull/16)
+**Status:** ☑ · **Size:** S · **Depends on:** T-025 · **Requirements:** NFR-REL-1 · **PR:** [#16](https://github.com/matchastack/work-journal/pull/16)
 
 As a developer, I want a durable job queue with scheduled tasks, so that slow work and timers don't block requests.
 
@@ -441,7 +441,7 @@ As a developer, I want a durable job queue with scheduled tasks, so that slow wo
 - [x] The worker is documented in `CLAUDE.md`.
 
 ### T-029 · GitHub sign-in with an allowlist
-**Status:** ◐ · **Size:** M · **Depends on:** T-025 · **Requirements:** FR-AUTH-1, FR-AUTH-2, NFR-SEC-4 · **PR:** [#17](https://github.com/matchastack/work-journal/pull/17)
+**Status:** ☑ · **Size:** M · **Depends on:** T-025 · **Requirements:** FR-AUTH-1, FR-AUTH-2, NFR-SEC-4 · **PR:** [#17](https://github.com/matchastack/work-journal/pull/17)
 
 As the owner, I want to sign in with GitHub and nobody else to get in, so that my data stays private.
 
@@ -547,7 +547,7 @@ As the owner, I want my profile and every output updated only when I ask, so tha
 - [ ] Tests use the fake LLM client.
 
 ### T-039 · Web app scaffold
-**Status:** ◐ · **Size:** M · **Depends on:** T-029 · **Requirements:** NFR-MAINT-1, NFR-A11Y-1 · **PR:** [#18](https://github.com/matchastack/work-journal/pull/18)
+**Status:** ☑ · **Size:** M · **Depends on:** T-029 · **Requirements:** NFR-MAINT-1, NFR-A11Y-1 · **PR:** [#18](https://github.com/matchastack/work-journal/pull/18)
 
 As a developer, I want the React app set up with typed API access and sign-in, so that pages can be added one at a time.
 
@@ -690,6 +690,8 @@ As the owner, I want errors and LLM costs visible, so that problems and spending
 - [ ] Sentry for the API and the worker, with journal text scrubbed.
 - [ ] Structured JSON logs that never contain journal text.
 - [ ] A monthly LLM cost view in Settings, broken down by task and tier.
+
+**Revisit with a Console organization:** the cost view's figures are estimates from the per-tier prices (`LLM_PRICE_*`). The billed cost comes only from the Usage and Cost Admin API's cost report: US dollars per day, by model and token type. That API needs a Console organization and an Admin API key, and individual accounts can't use it. Once the owner has an organization, compare the estimates with the billed cost, and keep the Admin key off the server (decided in the review of #9).
 
 ### T-053 · End-to-end tests and staging checklist
 **Status:** ☐ · **Size:** M · **Depends on:** T-040, T-046, T-051 · **Requirements:** FR-REV-3, FR-PRT-3 · **PR:** —

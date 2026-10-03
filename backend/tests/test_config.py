@@ -126,3 +126,29 @@ def test_the_github_client_secret_stays_out_of_reprs(monkeypatch: pytest.MonkeyP
     assert "not-a-real-secret" not in repr(settings)
     assert settings.github_client_secret is not None
     assert settings.github_client_secret.get_secret_value() == "not-a-real-secret"
+
+
+def test_llm_settings_are_unset_by_default() -> None:
+    settings = Settings()
+    assert settings.anthropic_api_key is None
+    assert (settings.llm_model_heavy, settings.llm_model_standard, settings.llm_model_light) == (
+        None,
+        None,
+        None,
+    )
+    assert settings.llm_price_heavy is None
+    assert settings.llm_heavy_fallback is True
+    assert settings.llm_call_log.parent.name == "local"
+
+
+def test_llm_prices_are_read_as_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LLM_PRICE_STANDARD", "[2, 10]")
+    assert Settings().llm_price_standard == (2, 10)
+
+
+def test_the_api_key_stays_out_of_reprs(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-not-a-real-key")
+    settings = Settings()
+    assert "sk-not-a-real-key" not in repr(settings)
+    assert settings.anthropic_api_key is not None
+    assert settings.anthropic_api_key.get_secret_value() == "sk-not-a-real-key"

@@ -19,6 +19,9 @@ GITHUB_LOGIN = re.compile(r"^[a-z0-9][a-z0-9-]{0,38}$")
 LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 """Addresses on this computer, the only ones the app may be served from without HTTPS."""
 
+LOCAL_DIR = REPOSITORY / "local"
+"""The repository's git-ignored folder for personal and runtime data."""
+
 
 class Settings(BaseSettings):
     """Settings shared by the API, the worker and the `wj` command-line tool."""
@@ -44,6 +47,21 @@ class Settings(BaseSettings):
     github_client_secret: SecretStr | None = None
     allowed_github_logins: Annotated[frozenset[str], NoDecode] = frozenset()
     """GitHub usernames that may sign in, in lowercase. Empty means nobody can."""
+    anthropic_api_key: SecretStr | None = None
+    """The Claude API key. Without it, the Anthropic SDK looks for its other credentials."""
+    llm_model_heavy: str | None = None
+    """The model ID for heavy tasks (requirements §10). Model IDs are never hardcoded."""
+    llm_model_standard: str | None = None
+    llm_model_light: str | None = None
+    llm_price_heavy: tuple[float, float] | None = None
+    """USD per million input and output tokens, as JSON such as `[5, 25]`, for cost logging."""
+    llm_price_standard: tuple[float, float] | None = None
+    llm_price_light: tuple[float, float] | None = None
+    llm_heavy_fallback: bool = True
+    """Let the API rerun a refused heavy-tier request on its recommended fallback model."""
+    llm_call_log: Path = LOCAL_DIR / "llm-calls.jsonl"
+    """Where the command line logs each LLM call's task, model, tokens and cost. The app logs them
+    to the `llm_calls` table."""
     web_dist_dir: Path = REPOSITORY / "frontend" / "dist"
     """The built web app (`npm run build` in `frontend/`), served at `/` when it exists."""
 
