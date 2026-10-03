@@ -1,0 +1,15 @@
+{
+  "title": "Senior Backend Engineer, Payments",
+  "company": "Fabrikam Logistics",
+  "seniority": "Senior",
+  "mustHave": ["Python", "Go", "PostgreSQL", "Kafka", "CI/CD", "Terraform"],
+  "niceToHave": ["payments", "ledgers", "Kubernetes", "gRPC"],
+  "responsibilities": [
+    "Design and build APIs for invoicing and carrier payouts",
+    "Own services from design to on-call",
+    "Improve reliability and observability",
+    "Mentor engineers"
+  ],
+  "keyTerms": ["APIs", "event-driven systems", "infrastructure as code", "observability"],
+  "url": "https://careers.example.com/fabrikam/backend-payments"
+}
