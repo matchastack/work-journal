@@ -22,7 +22,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 
 | Milestone | Tasks | Status |
 |---|---|---|
-| M0: Documents | T-000 and T-055 | ◐ |
+| M0: Documents | T-000 and T-055 | ☑ |
 | M1: Engine and command line | T-001 – T-024 and T-054 (T-007 dropped) | ◐ |
 | M2: Journal loop | T-025 – T-053 | ◐ |
 | M3: Quality and habit | Epics (at the end of this file) | — |
@@ -51,7 +51,7 @@ As the owner, I want the requirements, backlog, change log and Claude convention
 - [x] No personal data is committed.
 
 ### T-055 · Refresh on demand
-**Status:** ◐ · **Size:** S · **Depends on:** T-000 · **Requirements:** FR-REV-6, FR-REV-7, FR-RES-5, FR-PRT-3, FR-LIN-1, FR-REM-6 · **PR:** [#24](https://github.com/matchastack/work-journal/pull/24)
+**Status:** ☑ · **Size:** S · **Depends on:** T-000 · **Requirements:** FR-REV-6, FR-REV-7, FR-RES-5, FR-PRT-3, FR-LIN-1, FR-REM-6 · **PR:** [#24](https://github.com/matchastack/work-journal/pull/24)
 
 As the owner, I want my profile and outputs updated only when I ask, so that small, frequent journal entries build up and become one update when I need it, such as before a job hunt.
 
