@@ -48,8 +48,9 @@ Keeping all of this current depends on remembering to do it, and on remembering 
 
 **Work Journal** replaces that manual upkeep:
 - The owner sends short, informal messages about their work to a Telegram bot.
-- The app turns them into a structured, versioned career profile.
-- From that profile it keeps every output current: resumes, tailored resumes, a hosted portfolio page and LinkedIn text.
+- The app extracts facts from each entry and keeps them all in one database, the brag bank.
+- When the owner asks (`/refresh`), for example before a job hunt, the app turns the facts gathered since the last refresh into changes to a structured, versioned career profile. Once the owner has reviewed them, it updates every output from that profile: the master resume, the hosted portfolio page and the LinkedIn text. Tailored resumes are made on demand, one per job posting.
+- Nothing is updated on a schedule: journaling is small and frequent, and refreshing is occasional.
 - It never changes the meaning or the numbers of what the owner said, and never publishes anything without the owner's approval.
 
 ## 2. Goals and success measures
@@ -58,7 +59,7 @@ Keeping all of this current depends on remembering to do it, and on remembering 
 |---|---|---|
 | G1 | Capture work while it's fresh | The owner journals at least once every 2 weeks, measured over 3 months |
 | G2 | Low effort | Writing an entry takes under 2 minutes, with no formatting and no other step needed |
-| G3 | Keep outputs current | Proposals are ready within 2 minutes of an entry closing; a published change shows on the portfolio page immediately |
+| G3 | Current outputs on demand | Proposals are ready within 5 minutes of `/refresh`; once the owner applies them, every output shows the new version immediately |
 | G4 | Trustworthy wording | 0 altered or invented numbers, titles, dates or technologies in anything published or sent. Every bullet traces back to a fact. |
 | G5 | Fast tailoring | A verified one-page tailored resume within 3 minutes of pasting a job posting |
 | G6 | One source of truth | The master resume, tailored resumes, the portfolio page and the LinkedIn pack all come from the same master profile |
@@ -113,7 +114,8 @@ See milestones M3 and M4 in [§14](#14-milestones).
 | **Variant** | A rule set that turns the master profile into one output. It covers selection, order, title choice, coursework subset, skills preset, summary, visibility, page limit and template. |
 | **Change set** | A group of proposed operations on the master profile. Each operation cites the facts it came from and carries a verifier report. |
 | **Verifier** | The check every generated sentence must pass before a person sees it: numbers, claims, style and resume rules. |
-| **Publish** | Making a profile version live on the portfolio page. |
+| **Refresh** | An on-demand run, started with `/refresh`. It proposes profile changes from the facts gathered since the last refresh, and once the owner has applied them, it updates every output from the new version. |
+| **Publish** | Turning the portfolio page on. While it's on, it shows the version from the latest refresh. |
 | **Application** | A tailored resume made for one job posting, logged with everything used to make it. |
 | **Open question** | A missing detail that blocks a stronger bullet, such as the scale of a system or a root cause. The bot asks these over time. |
 
@@ -124,11 +126,11 @@ See milestones M3 and M4 in [§14](#14-milestones).
   2. The bot stores the message.
   3. If impact, numbers or ownership are unclear, the bot may ask **one** follow-up question.
   4. When the entry closes, the app extracts facts, and the bot replies with a one-to-three-line summary of what it understood.
-- **J2 — Review and publish.**
-  1. Weekly, or when the owner sends `/refresh`, the app proposes changes to the master profile. The bot says how many there are.
+- **J2 — Refresh.** Only when the owner asks; nothing in this journey runs on a schedule or when an entry closes.
+  1. The owner sends `/refresh`. The app proposes changes to the master profile from the facts gathered since the last refresh. The bot says how many there are, or that there's nothing new.
   2. The owner opens the Inbox. Each change shows a before/after diff, its sources and a verifier report.
-  3. The owner accepts, edits or rejects each change. Accepting creates a new version.
-  4. Publishing updates the portfolio page, and the master resume re-renders.
+  3. The owner accepts, edits or rejects each change.
+  4. Applying the accepted changes creates a new version and updates every output from it: the master resume re-renders, the LinkedIn pack is regenerated, and the portfolio page moves to the new version if it's published.
 - **J3 — Tailor.**
   1. The owner pastes a job posting.
   2. The app selects bullets and uses approved swaps where one fits. Where none fits, it offers a new verified phrasing.
@@ -137,7 +139,7 @@ See milestones M3 and M4 in [§14](#14-milestones).
 - **J4 — Catch up.**
   1. On first use, the bot runs a short interview about what has happened since the master resume was last updated.
   2. After that, it works through open questions a little at a time.
-- **J5 — LinkedIn.** The owner opens the LinkedIn page and sees only the sections that changed. They copy each one into LinkedIn and mark it done.
+- **J5 — LinkedIn.** After a refresh, the owner opens the LinkedIn page and sees only the sections that changed. They copy each one into LinkedIn and mark it done.
 - **J6 — Maintain.** The owner edits the master profile directly. For example: fix wording, bench a bullet, add a swap or answer an open question. These edits create versions like any other change.
 
 ## 7. Functional requirements
@@ -205,6 +207,8 @@ Priority: **M** = Must (v1) · **S** = Should (v1 if time allows) · **C** = Cou
 | FR-REV-3 | Accepted operations are applied atomically as one new profile version. | M | |
 | FR-REV-4 | Rejection reasons feed into future prompts as style notes. | S | |
 | FR-REV-5 | Single operations can be approved or rejected inline in Telegram. | C | M3 |
+| FR-REV-6 | Profile changes are proposed only on demand, when the owner sends `/refresh`. Nothing is proposed on a schedule or when an entry closes. | M | A refresh covers the facts added or edited since the last refresh. Until then, facts wait in the brag bank. |
+| FR-REV-7 | Applying a refresh's accepted changes updates every output from the new version, in one step: the master resume re-renders, the LinkedIn pack is regenerated, and the portfolio page moves to the new version if it's published. Outputs are never updated on a schedule or when an entry closes. | M | Owner edits in the web app reach the outputs at the next refresh. A refresh with no new facts still brings every output up to date with the latest version. Tailored resumes already made are not changed. |
 
 ### 7.6 Fidelity verifier (FR-FID)
 
@@ -238,7 +242,7 @@ Priority: **M** = Must (v1) · **S** = Should (v1 if time allows) · **C** = Cou
 | FR-RES-2 | Every value is LaTeX-escaped automatically. | M | Tests cover `& % $ # _ { } ~ ^ \`. |
 | FR-RES-3 | Compilation runs with shell-escape off, restricted file access, a timeout and an isolated temporary directory. | M | |
 | FR-RES-4 | Each render reports its page count and checks that the text can be extracted. | M | |
-| FR-RES-5 | The master resume renders on demand and after each accepted change. There are no predefined one-page variants: every one-page resume is tailored to a posting (FR-TLR). | M | |
+| FR-RES-5 | The master resume re-renders as part of a refresh (FR-REV-7). There are no predefined one-page variants: every one-page resume is tailored to a posting (FR-TLR). | M | |
 | FR-RES-6 | The whole master profile can render as the full, multi-page master document for review. | S | |
 | FR-RES-7 | A resume is fitted to one page by cutting the lowest-value content first. The font is never shrunk below 10 pt and margins never below 0.5 in. | M | |
 
@@ -263,7 +267,7 @@ Priority: **M** = Must (v1) · **S** = Should (v1 if time allows) · **C** = Cou
 |---|---|---|---|
 | FR-PRT-1 | A public page at `/p/<handle>`, rendered on the server from the latest *published* version. | M | An unknown handle returns 404. |
 | FR-PRT-2 | The built-in template has these sections: hero, about/education, experience, projects with category tabs, skills, contact and resume downloads. | M | |
-| FR-PRT-3 | Drafts never show. Publishing updates the page immediately. | M | |
+| FR-PRT-3 | Drafts never show. While the page is published, it shows the version from the latest refresh (FR-REV-7). The owner can publish or unpublish it at any time, and publishing takes effect immediately. | M | |
 | FR-PRT-4 | Each field has a visibility setting, and the phone number is hidden by default. Benched and planned items never show. | M | |
 | FR-PRT-5 | An "open to work" toggle, and an option to hide the page from search engines. | M | |
 | FR-PRT-6 | Open Graph tags and JSON-LD `Person` structured data. | M | |
@@ -275,7 +279,7 @@ Priority: **M** = Must (v1) · **S** = Should (v1 if time allows) · **C** = Cou
 
 | ID | Requirement | Pri | Acceptance criteria |
 |---|---|---|---|
-| FR-LIN-1 | Generate LinkedIn text from the master profile: the headline (≤ 220 characters), About (≤ 2,600) and each position description (≤ 2,000). | M | |
+| FR-LIN-1 | Generate LinkedIn text from the master profile: the headline (≤ 220 characters), About (≤ 2,600) and each position description (≤ 2,000). The pack is regenerated as part of a refresh (FR-REV-7). | M | |
 | FR-LIN-2 | Show only the sections that changed since they were last marked done. | M | |
 | FR-LIN-3 | Each section has a copy button and a character counter. "Mark done" stores a snapshot. | M | |
 | FR-LIN-4 | LinkedIn titles come from the role's approved title variants. A title that differs from the most recent application's title is flagged. | S | |
@@ -290,7 +294,7 @@ Priority: **M** = Must (v1) · **S** = Should (v1 if time allows) · **C** = Cou
 | FR-REM-3 | Reminder buttons "Nothing this week" and "Remind me tomorrow". `/pause` stops reminders and `/resume` restarts them. | M | |
 | FR-REM-4 | A first-run catch-up interview covers the time since the profile was last updated. | M | |
 | FR-REM-5 | The bot asks open questions over time: at most one per reminder, most valuable first. | M | |
-| FR-REM-6 | When proposals are ready, the bot says so ("N updates proposed → Review") with a link. | M | |
+| FR-REM-6 | When a refresh's proposals are ready, the bot says so ("N updates proposed → Review") with a link, or says there's nothing new. | M | |
 | FR-REM-7 | A monthly recap, and a brag-doc export for performance reviews. | C | M3 |
 
 ### 7.13 Settings (FR-SET)
@@ -401,7 +405,7 @@ At list prices in September 2026: about US$2/month for regular journaling, plus 
 | C5 | The resume template needs pdfLaTeX (it uses `\pdfgentounicode`). |
 | C6 | Hosting is on Railway (Singapore region). Costs are estimates. |
 | A1 | The owner provides `master-resume.tex` (received). The JSON twin isn't needed (OQ-1). Past applications aren't imported; the app's application log starts with the first tailored resume. |
-| A2 | The owner reviews proposals at least once a month. |
+| A2 | The owner refreshes only when they need current outputs, such as before a job hunt, so refreshes may be months apart. |
 
 ## 12. Risks and mitigations
 
@@ -412,6 +416,7 @@ At list prices in September 2026: about US$2/month for regular journaling, plus 
 | Confidential details leak into public outputs | Employment or legal risk | A confidential-terms blocklist (M2), sensitive-role rules (R5) and an LLM detector (M3) |
 | A data breach | Personal data exposed | Column encryption, a 7-day limit on raw updates, secrets management, and an allowlist for login |
 | Errors in the template or LaTeX break rendering | No resumes | Escaping, a smoke render in CI, and page and text checks |
+| A refresh covers months of facts at once | A long review | Bulk accept in the Inbox, and the verifier on every proposed sentence so the owner can review quickly |
 | LLM costs creep up | Budget overrun | Model routing, prompt caching, the cost log and a monthly view |
 | The Telegram API changes | Capture breaks | A thin adapter around the bot library, and integration tests with recorded payloads |
 

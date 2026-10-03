@@ -2,7 +2,7 @@
 
 Keep your resume, portfolio page and LinkedIn up to date by journaling your work in Telegram.
 
-You send short, informal messages about your work to a Telegram bot. Work Journal turns them into a structured, versioned career profile, and from it generates:
+You send short, informal messages about your work to a Telegram bot, and Work Journal keeps the facts in them. When you need current outputs, such as before a job hunt, you send `/refresh`: it turns the new facts into a structured, versioned career profile, and from it generates:
 - LaTeX resumes
 - one-page resumes tailored to specific job postings
 - a hosted portfolio page
