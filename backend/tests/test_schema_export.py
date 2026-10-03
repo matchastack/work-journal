@@ -14,6 +14,7 @@ EXPECTED_FILES = {
     "change-set.schema.json",
     "job-posting.schema.json",
     "application.schema.json",
+    "verifier-report.schema.json",
 }
 
 
