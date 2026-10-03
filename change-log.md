@@ -18,6 +18,13 @@ One short entry per pull request, newest first: what changed and what to verify.
 - The task tiers in `backend/app/llm/routing.py` are the ones you want
 - Optional, with a key: `uv run pytest -m llm` passes
 
+## 2026-10-02 · T-055 Refresh on demand · [#24](https://github.com/matchastack/work-journal/pull/24)
+**Changed:** the requirements and tasks now say that the profile, the master resume, the portfolio page and the LinkedIn pack change only when you send `/refresh` and apply the reviewed changes. Weekly synthesis is gone; journal entries are still captured and summarised as they arrive.
+
+**Verify:**
+- J2 and FR-REV-6 / FR-REV-7 in `project-requirements.md` match the flow you want
+- A published portfolio page following each applied refresh, without a separate publish step, suits you
+
 ## 2026-10-01 · T-027 Persistence for engine data · [#22](https://github.com/matchastack/work-journal/pull/22)
 **Changed:** added database tables and repositories for profile versions (immutable), change sets, encrypted facts, variants, postings, applications, PDFs and LLM calls; `wj db load-profile` to load your imported resume as version 1; and `--db` on `wj lint`, `wj render`, `wj portfolio build` and `wj import tex`. Your first sign-in claims the user that `load-profile` created.
 

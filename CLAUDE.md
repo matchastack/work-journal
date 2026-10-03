@@ -4,7 +4,7 @@ Guidance for Claude Code sessions in this repository. It's kept short; the detai
 
 ## What this is
 
-Work Journal turns informal Telegram journal messages into a structured, versioned career profile. From that profile it generates LaTeX resumes, resumes tailored to job postings, a hosted portfolio page and LinkedIn update text. The owner approves every change.
+Work Journal turns informal Telegram journal messages into facts. Only when the owner sends `/refresh`, it turns new facts into changes to a structured, versioned career profile, and updates the LaTeX resume, the hosted portfolio page and the LinkedIn update text from it. Resumes tailored to job postings are made on demand. The owner approves every change.
 
 | Document | Purpose |
 |---|---|
