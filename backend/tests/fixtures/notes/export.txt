@@ -1,0 +1,1 @@
+finally got the nightly export down from ~50 min to 12!! batching the db writes did it. took most of the week tbh

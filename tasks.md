@@ -244,15 +244,15 @@ As the owner, I want wording rules checked by code, so that every bullet follows
 - [x] Each finding has a severity, and there are tests for each rule.
 
 ### T-014 · Fact extraction
-**Status:** ☐ · **Size:** M · **Depends on:** T-005, T-012 · **Requirements:** FR-EXT-1, FR-EXT-2, FR-CAP-8 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-005, T-012 · **Requirements:** FR-EXT-1, FR-EXT-2, FR-CAP-8 · **PR:** [#21](https://github.com/matchastack/work-journal/pull/21)
 
 As the owner, I want my informal notes turned into structured facts, so that meaning and numbers are captured without me formatting anything.
 
-- [ ] A standard-tier prompt returns facts with a statement, kind, metrics, ownership, tools, outcome and date, linked to an existing role or project (or a proposed new one).
-- [ ] Facts containing numbers that aren't in the entry are dropped (by the T-005 checker).
-- [ ] Text unrelated to work produces no facts.
-- [ ] `wj extract <file>` prints the facts as JSON.
-- [ ] Unit tests use the fake client, plus an opt-in evaluation on casual entries for a fictional person.
+- [x] A standard-tier prompt returns facts with a statement, kind, metrics, ownership, tools, outcome and date, linked to an existing role or project (or a proposed new one).
+- [x] Facts containing numbers that aren't in the entry are dropped (by the T-005 checker).
+- [x] Text unrelated to work produces no facts.
+- [x] `wj extract <file>` prints the facts as JSON.
+- [x] Unit tests use the fake client, plus an opt-in evaluation on casual entries for a fictional person.
 
 ### T-015 · Claim verifier
 **Status:** ☐ · **Size:** M · **Depends on:** T-005, T-009, T-012, T-013 · **Requirements:** FR-FID-4, FR-FID-5, FR-FID-6, FR-FID-7, FR-FID-8, R1, R3 · **PR:** —
