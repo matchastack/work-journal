@@ -464,14 +464,14 @@ As the owner, I want every message I send the bot saved safely the moment it arr
 - [x] Tests with recorded update payloads: new, duplicate, edited and unlinked.
 
 ### T-031 · Telegram account linking
-**Status:** ☐ · **Size:** S · **Depends on:** T-029, T-030 · **Requirements:** FR-CAP-3, FR-SET-1 · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-029, T-030 · **Requirements:** FR-CAP-3, FR-SET-1 · **PR:** [#27](https://github.com/matchastack/work-journal/pull/27)
 
 As the owner, I want to link my Telegram chat to my account in one tap, so that the bot knows the messages are mine.
 
-- [ ] An API call creates a one-time token (15-minute expiry) and returns the deep link.
-- [ ] `/start <token>` links the chat. Reused or expired tokens are rejected.
-- [ ] A confirmation message is sent in Telegram, and the link status is available through the API.
-- [ ] Tests.
+- [x] An API call creates a one-time token (15-minute expiry) and returns the deep link.
+- [x] `/start <token>` links the chat. Reused or expired tokens are rejected.
+- [x] A confirmation message is sent in Telegram, and the link status is available through the API.
+- [x] Tests.
 
 ### T-032 · Entry grouping
 **Status:** ☐ · **Size:** S · **Depends on:** T-030 · **Requirements:** FR-CAP-4, FR-CAP-7 · **PR:** —
