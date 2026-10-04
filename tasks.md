@@ -672,15 +672,17 @@ As a developer, I want one production image, so that the web service and the wor
 - [ ] Runs as a non-root user, with a health check.
 - [ ] CI builds the image and renders the fixture resume inside it.
 
-### T-051 · Railway deployment
-**Status:** ☐ · **Size:** M · **Depends on:** T-050 · **Requirements:** NFR-SEC-1 · **Needs:** OQ-3 · **PR:** —
+### T-051 · Vercel deployment
+**Status:** ◐ · **Size:** M · **Depends on:** T-028, T-030 · **Requirements:** NFR-SEC-1, NFR-REL-1, NFR-PERF-1 · **Needs:** OQ-3 · **PR:** [#28](https://github.com/matchastack/work-journal/pull/28)
 
-As the owner, I want the app deployed and updated automatically, so that it's always running the latest merged code.
+As the owner, I want the app deployed for free and updated automatically, so that the bot is always listening and runs the latest merged code.
 
-- [ ] `web` and `worker` services run from the image, with managed Postgres and `alembic upgrade head` before each deploy.
-- [ ] Environment variables are documented (no values in git). A custom domain is set, and the Telegram webhook is set on deploy.
-- [ ] Railway deploys `main` only after CI passes.
-- [ ] A deployment runbook in `docs/deploy.md`.
+- [x] Vercel runs the FastAPI app as one function, serving the API, sign-in, the webhook, the tick, `/healthz`, the portfolio pages and the built web app.
+- [x] `POST /internal/tick` checks a bearer secret. It defers the scheduled tasks that are due, then runs queued jobs for about 20 s, and retries jobs that stalled. `wj tick` does the same from the command line.
+- [x] A free scheduler (cron-job.org) calls the tick every 15 minutes, so Neon's free plan isn't kept awake.
+- [x] Postgres is on Neon's free plan, and each production build runs `alembic upgrade head` before the new deployment goes live.
+- [x] Environment variables are documented without values, and `wj telegram set-webhook` points Telegram at the deployed webhook.
+- [x] A deployment runbook in `docs/deploy.md`.
 
 ### T-052 · Observability
 **Status:** ☐ · **Size:** S · **Depends on:** T-051 · **Requirements:** NFR-OBS-1, NFR-COST-2, NFR-PRIV-2 · **PR:** —
