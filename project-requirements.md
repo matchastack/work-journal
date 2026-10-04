@@ -63,7 +63,7 @@ Keeping all of this current depends on remembering to do it, and on remembering 
 | G4 | Trustworthy wording | 0 altered or invented numbers, titles, dates or technologies in anything published or sent. Every bullet traces back to a fact. |
 | G5 | Fast tailoring | A verified one-page tailored resume within 3 minutes of pasting a job posting |
 | G6 | One source of truth | The master resume, tailored resumes, the portfolio page and the LinkedIn pack all come from the same master profile |
-| G7 | Affordable | LLM cost around US$2/month for regular journaling plus about US$0.50 per tailored resume; hosting at most US$15/month |
+| G7 | Affordable | LLM cost around US$2/month for regular journaling plus about US$0.50 per tailored resume; hosting free (Vercel and Neon free plans) |
 
 ## 3. Scope
 
@@ -154,7 +154,7 @@ Priority: **M** = Must (v1) · **S** = Should (v1 if time allows) · **C** = Cou
 | FR-CAP-2 | Only linked chats are accepted. | M | An unlinked chat gets a short "link your account in the web app" reply, and its message is not stored as a journal message. |
 | FR-CAP-3 | Account linking uses a one-time deep link (`t.me/<bot>?start=<token>`) shown in the web app. | M | The token works once and expires after 15 minutes. Linking is confirmed in the chat and in Settings. |
 | FR-CAP-4 | Messages are grouped into entries. An entry closes after 30 minutes without a message, or on `/done`. | M | The timeout can be configured. `/done` closes the entry immediately. |
-| FR-CAP-5 | When an entry closes, the bot replies with a one-to-three-line summary of the facts it understood. | M | The summary is sent within 60 s of closing (p95). |
+| FR-CAP-5 | When an entry closes, the bot replies with a one-to-three-line summary of the facts it understood. | M | The summary is sent within 2 minutes of closing (p95); background jobs run on the minute tick (§13). |
 | FR-CAP-6 | The bot asks at most one follow-up question per entry, when impact, metrics or ownership are unclear. | M | Never more than one question per entry. A Skip button is offered, and the answer joins the same entry. |
 | FR-CAP-7 | Commands: `/start`, `/done`, `/skip`, `/refresh`, `/catchup`, `/pause`, `/resume`, `/help`. | M | `/help` lists every command. |
 | FR-CAP-8 | Chit-chat and messages unrelated to work are recognised and don't become facts. | S | A triage label is stored with each entry. |
@@ -403,7 +403,7 @@ At list prices in September 2026: about US$2/month for regular journaling, plus 
 | C3 | Telegram's Bot API can't fetch chat history, so updates must be stored as they arrive. Bots are not told when a message is deleted. |
 | C4 | v1 has one user, the owner. The data model is ready for more: every row belongs to a user. |
 | C5 | The resume template needs pdfLaTeX (it uses `\pdfgentounicode`). |
-| C6 | Hosting is on Railway (Singapore region). Costs are estimates. |
+| C6 | Hosting is free: Vercel's Hobby plan (for personal, non-commercial use) runs the app, and Neon's free plan holds Postgres. Neither runs an always-on process, and Vercel's free scheduler runs only once a day, so a free external scheduler (cron-job.org) calls the app every minute (§13). Vercel can't run LaTeX, so resumes render on the owner's machine for now (`wj render --db`). |
 | A1 | The owner provides `master-resume.tex` (received). The JSON twin isn't needed (OQ-1). Past applications aren't imported; the app's application log starts with the first tailored resume. |
 | A2 | The owner refreshes only when they need current outputs, such as before a job hunt, so refreshes may be months apart. |
 
@@ -418,38 +418,42 @@ At list prices in September 2026: about US$2/month for regular journaling, plus 
 | Errors in the template or LaTeX break rendering | No resumes | Escaping, a smoke render in CI, and page and text checks |
 | A refresh covers months of facts at once | A long review | Bulk accept in the Inbox, and the verifier on every proposed sentence so the owner can review quickly |
 | LLM costs creep up | Budget overrun | Model routing, prompt caching, the cost log and a monthly view |
-| The Telegram API changes | Capture breaks | A thin adapter around the bot library, and integration tests with recorded payloads |
+| The Telegram API changes | Capture breaks | A thin client for the few Bot API methods used, and tests with recorded payloads |
+| A free plan changes, or ticks stop | Jobs run late, or the app has to move | Jobs wait in Postgres and run on the next tick. The app runs anywhere Python and Postgres do, with `wj worker` in place of the tick. |
 
 ## 13. Architecture overview
 
 ```
-Telegram ──webhook──▶ FastAPI "web" service ──▶ PostgreSQL ◀── "worker" service (Procrastinate)
-                        │        │                                  │           │
-        React web app ◀─┘        └─▶ public portfolio page          ▼           ▼
-                                                               Claude API   LaTeX (latexmk)
+Telegram ──webhook──▶ ┌─────────────────────────────────┐ ──▶ PostgreSQL (Neon):
+                      │ FastAPI app (a Vercel function) │     data and the job queue
+cron-job.org ──tick─▶ │ API, webhook, tick, portfolio   │ ──▶ Claude API
+  (every minute)      └─────────────────────────────────┘
+React web app: static files on Vercel, calling the API
+Owner's machine: the `wj` commands, including `wj render --db` (LaTeX)
 ```
 
 | Component | Responsibility |
 |---|---|
-| `web` service | API, the webhook, the React web app (served as built files) and public portfolio pages |
-| `worker` service | Extraction, synthesis, reminders, rendering and purges |
-| PostgreSQL | All data. Profile versions are stored as immutable JSONB snapshots, and PDFs as bytes keyed by content hash. |
+| FastAPI app (a Vercel function) | API, the Telegram webhook, the tick and public portfolio pages |
+| Static hosting (Vercel) | The React web app's built files |
+| Tick (`/internal/tick`) | Called every minute by a free scheduler, with a secret. It defers the scheduled tasks that are due, then runs queued jobs (extraction, synthesis, reminders and purges) for about 20 s. Locally, `wj worker` does the same without stopping. |
+| PostgreSQL (Neon) | All data and the job queue. Profile versions are stored as immutable JSONB snapshots, and PDFs as bytes keyed by content hash. |
 | Claude API | Extraction, writing, verification, synthesis and tailoring, routed by tier (§10) |
-| TeX Live | Resume rendering, with only the packages the template needs |
+| TeX Live | Resume rendering on the owner's machine (`wj render --db`), until rendering moves to a host that can run it |
 
 ### Stack
 
 | Layer | Choice |
 |---|---|
 | Backend | Python 3.12, FastAPI, Pydantic v2, async SQLAlchemy 2 with Alembic; uv, ruff, pyright, pytest |
-| Jobs | Procrastinate (a Postgres-backed queue with scheduled tasks) |
+| Jobs | Procrastinate (a Postgres-backed queue with scheduled tasks), run by the tick in production and by `wj worker` locally |
 | LLM | Anthropic Python SDK, with structured outputs, prompt caching and the Batches API |
-| Telegram | python-telegram-bot |
+| Telegram | The Bot API over HTTPS with `httpx2`, through a thin client for the few methods used |
 | Resume | Jinja2 with LaTeX-safe delimiters, latexmk/pdfLaTeX, pypdf |
 | Portfolio page | Jinja2 rendered on the server, with Tailwind built by the standalone CLI |
 | Web app | React, Vite, TypeScript, Tailwind, TanStack Query, React Router; API types generated with `openapi-typescript` |
 | Auth | GitHub OAuth with an allowlist |
-| Hosting | Railway: `web` and `worker` services from one Docker image, plus managed Postgres; Sentry for errors |
+| Hosting | Vercel Hobby (the FastAPI function and the static web app), Neon's free Postgres, and cron-job.org for the minute tick; Sentry for errors |
 
 ### Main tables
 
@@ -477,7 +481,7 @@ Telegram ──webhook──▶ FastAPI "web" service ──▶ PostgreSQL ◀�
 |---|---|---|---|
 | OQ-1 | Is `master-resume.json` (the JSON twin with bullet IDs, open questions and the application log) needed? | T-007 | **Resolved 2026-09-27: no.** The LaTeX master has everything the app needs, and the database replaces the JSON twin. FR-IMP-2 and T-007 are dropped. |
 | OQ-2 | May I commit the template skeleton? That means Jake's Resume preamble and macros (MIT-licensed, credited) plus your one-line subheading macro, with **all personal content removed**. | T-011 | **Resolved 2026-09-27: yes.** |
-| OQ-3 | What should the portfolio handle (`/p/<handle>`) and the app's domain be? | T-046, T-051 | Open |
+| OQ-3 | What should the portfolio handle (`/p/<handle>`) and the app's domain be? | T-046, T-051 | **Partly answered 2026-10-04:** the app runs at Vercel's free `<project>.vercel.app` address until the owner picks a domain. The handle is still open. |
 | OQ-4 | Is the default reminder time right: Friday 18:00, Asia/Singapore? | T-035 | Open |
 | OQ-5 | Which application-log fields matter to you, beyond what FR-TLR-8 lists (e.g. contacts, outcome)? | T-021 | Open |
 | OQ-6 | Should the named resume variants be the role types from your master resume (backend/full stack, ML/AI, identity/security, systems)? | T-008 | **Answered on #8:** no. Only the master document is predefined. Every one-page resume is tailored to a posting, from the points that suit it best (T-020). |
