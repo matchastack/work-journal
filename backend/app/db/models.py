@@ -26,6 +26,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -321,6 +322,34 @@ class TelegramUpdate(Base):
     """The update as Telegram sent it, as JSON."""
 
 
+class JournalEntry(Base):
+    """Messages grouped into one journal entry (FR-CAP-4). A user has at most one open entry; it
+    closes after a quiet spell (`closed_by` is `quiet`) or on `/done` (`done`), and stays closed."""
+
+    __tablename__ = "journal_entries"
+    __table_args__ = (
+        CheckConstraint("closed_by IN ('quiet', 'done')", name="closed_by"),
+        CheckConstraint("(closed_at IS NULL) = (closed_by IS NULL)", name="closed"),
+        Index(
+            "uq_journal_entries_one_open",
+            "user_id",
+            unique=True,
+            postgresql_where=text("closed_at IS NULL"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, server_default=func.gen_random_uuid())
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    """When its first message was sent."""
+    last_message_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    closed_by: Mapped[Literal["quiet", "done"] | None] = mapped_column(String(8))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class JournalMessage(Base):
     """A message in the journal, from the owner's linked chat (FR-JRN-1). An edit in Telegram
     changes its text and keeps the earlier one (FR-JRN-3)."""
@@ -338,6 +367,10 @@ class JournalMessage(Base):
     chat_id: Mapped[int] = mapped_column(BigInteger)
     message_id: Mapped[int] = mapped_column(BigInteger)
     """Telegram's number for the message, unique within its chat."""
+    entry_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("journal_entries.id", ondelete="CASCADE"), index=True
+    )
+    """The entry the message belongs to. The bot's own messages belong to none."""
     sender: Mapped[Literal["owner", "bot"]] = mapped_column(String(8))
     text: Mapped[str] = mapped_column(EncryptedText("journal_messages.text"))
     sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
