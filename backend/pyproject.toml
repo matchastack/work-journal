@@ -30,6 +30,13 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
 
+[tool.vercel]
+# Vercel's FastAPI support (docs/deploy.md): the app, and the build step that adds the web app.
+entrypoint = "app.main:app"
+
+[tool.vercel.scripts]
+vercel-build = "sh scripts/vercel-build.sh"
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"

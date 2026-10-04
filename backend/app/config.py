@@ -14,6 +14,8 @@ from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 REPOSITORY = Path(__file__).resolve().parents[2]
+BACKEND = Path(__file__).resolve().parents[1]
+"""The `backend/` folder, wherever it runs: on Vercel it's the function's root."""
 GITHUB_LOGIN = re.compile(r"^[a-z0-9][a-z0-9-]{0,38}$")
 """A GitHub username in lowercase: up to 39 letters, digits and hyphens, not starting with one."""
 LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
@@ -69,11 +71,17 @@ class Settings(BaseSettings):
     telegram_webhook_secret: SecretStr | None = None
     """A random secret Telegram sends with every webhook request, so the app can tell the request
     is Telegram's (NFR-SEC-4): 1 to 256 letters, digits, `_` and `-`."""
-    web_dist_dir: Path = REPOSITORY / "frontend" / "dist"
-    """The built web app (`npm run build` in `frontend/`), served at `/` when it exists."""
     tick_secret: SecretStr | None = None
     """The secret the scheduler sends to `/internal/tick` as `Authorization: Bearer <secret>`.
     Without it, the tick refuses every request."""
+    web_dist_dir: Path = REPOSITORY / "frontend" / "dist"
+    """The built web app (`npm run build` in `frontend/`), served at `/` when it exists. A
+    relative path is inside `backend/`, as `webapp` is on Vercel (`scripts/vercel-build.sh`)."""
+
+    @field_validator("web_dist_dir")
+    @classmethod
+    def inside_backend_when_relative(cls, value: Path) -> Path:
+        return value if value.is_absolute() else BACKEND / value
 
     @field_validator("telegram_webhook_secret")
     @classmethod
