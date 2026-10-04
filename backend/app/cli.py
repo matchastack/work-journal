@@ -45,6 +45,7 @@ from app.tailoring.posting import parse_posting
 from app.telegram.api import BotApi, TelegramError
 from app.telegram.linking import deep_link, new_link_token
 from app.telegram.polling import poll
+from app.tick import TICK_BUDGET_S, tick
 from app.validate.lint import format_report, lint_profile
 
 LOCAL_DIR = Path(__file__).resolve().parents[2] / "local"
@@ -110,6 +111,22 @@ def worker(
         raise typer.Exit(1)
     logging.basicConfig(level=settings.log_level, format="%(levelname)s %(name)s: %(message)s")
     asyncio.run(run_worker(concurrency))
+
+
+@cli.command("tick")
+def tick_once(
+    budget: Annotated[
+        float, typer.Option(min=0, help="Seconds to start queued jobs for, as the app's tick does.")
+    ] = TICK_BUDGET_S,
+) -> None:
+    """Run one tick of background work: due scheduled tasks, stalled jobs, then queued jobs."""
+    settings = get_settings()
+    if settings.database_url is None:
+        typer.echo("Set DATABASE_URL to the database that holds the jobs.", err=True)
+        raise typer.Exit(1)
+    logging.basicConfig(level=settings.log_level, format="%(levelname)s %(name)s: %(message)s")
+    retried = asyncio.run(tick(budget_s=budget))
+    typer.echo(f"Tick done; {retried or 0} stalled job(s) retried.")
 
 
 @cli.command()

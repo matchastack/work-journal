@@ -71,6 +71,9 @@ class Settings(BaseSettings):
     is Telegram's (NFR-SEC-4): 1 to 256 letters, digits, `_` and `-`."""
     web_dist_dir: Path = REPOSITORY / "frontend" / "dist"
     """The built web app (`npm run build` in `frontend/`), served at `/` when it exists."""
+    tick_secret: SecretStr | None = None
+    """The secret the scheduler sends to `/internal/tick` as `Authorization: Bearer <secret>`.
+    Without it, the tick refuses every request."""
 
     @field_validator("telegram_webhook_secret")
     @classmethod
