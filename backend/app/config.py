@@ -19,6 +19,8 @@ GITHUB_LOGIN = re.compile(r"^[a-z0-9][a-z0-9-]{0,38}$")
 LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 """Addresses on this computer, the only ones the app may be served from without HTTPS."""
 
+WEBHOOK_SECRET = re.compile(r"^[A-Za-z0-9_-]{1,256}$")
+"""The characters and length Telegram allows in a webhook's secret token."""
 LOCAL_DIR = REPOSITORY / "local"
 """The repository's git-ignored folder for personal and runtime data."""
 
@@ -62,8 +64,20 @@ class Settings(BaseSettings):
     llm_call_log: Path = LOCAL_DIR / "llm-calls.jsonl"
     """Where the command line logs each LLM call's task, model, tokens and cost. The app logs them
     to the `llm_calls` table."""
+    telegram_bot_token: SecretStr | None = None
+    """The bot's token from Telegram's @BotFather."""
+    telegram_webhook_secret: SecretStr | None = None
+    """A random secret Telegram sends with every webhook request, so the app can tell the request
+    is Telegram's (NFR-SEC-4): 1 to 256 letters, digits, `_` and `-`."""
     web_dist_dir: Path = REPOSITORY / "frontend" / "dist"
     """The built web app (`npm run build` in `frontend/`), served at `/` when it exists."""
+
+    @field_validator("telegram_webhook_secret")
+    @classmethod
+    def telegram_secret_format(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is not None and not WEBHOOK_SECRET.match(value.get_secret_value()):
+            raise ValueError("must be 1 to 256 letters, digits, '_' and '-'")
+        return value
 
     @field_validator("app_url")
     @classmethod
