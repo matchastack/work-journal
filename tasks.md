@@ -474,14 +474,14 @@ As the owner, I want to link my Telegram chat to my account in one tap, so that 
 - [x] Tests.
 
 ### T-032 · Entry grouping
-**Status:** ☐ · **Size:** S · **Depends on:** T-030 · **Requirements:** FR-CAP-4, FR-CAP-7 · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-030 · **Requirements:** FR-CAP-4, FR-CAP-7 · **PR:** [#29](https://github.com/matchastack/work-journal/pull/29)
 
 As the owner, I want my messages grouped into journal entries automatically, so that I can send several short messages about one thing.
 
-- [ ] A message joins the open entry. A new entry starts after 30 minutes of quiet; the timeout can be configured.
-- [ ] A scheduled job closes quiet entries, and `/done` closes an entry immediately.
-- [ ] `/help` lists the commands.
-- [ ] Tests for the edge cases: a gap of exactly 30 minutes, and edits to a closed entry.
+- [x] A message joins the open entry. A new entry starts after 30 minutes of quiet; the timeout can be configured.
+- [x] A scheduled job closes quiet entries, and `/done` closes an entry immediately.
+- [x] `/help` lists the commands.
+- [x] Tests for the edge cases: a gap of exactly 30 minutes, and edits to a closed entry.
 
 ### T-033 · Extraction on entry close, and summary reply
 **Status:** ☐ · **Size:** M · **Depends on:** T-014, T-027, T-032 · **Requirements:** FR-CAP-5, FR-EXT-1, FR-CAP-8 · **PR:** —
