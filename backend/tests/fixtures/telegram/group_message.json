@@ -1,0 +1,10 @@
+{
+  "update_id": 870005,
+  "message": {
+    "message_id": 7,
+    "from": {"id": 4242, "is_bot": false, "first_name": "Casey", "username": "casey_example"},
+    "chat": {"id": -1001234567890, "title": "Example team", "type": "supergroup"},
+    "date": 1791104580,
+    "text": "Shipped the queue change to everyone."
+  }
+}

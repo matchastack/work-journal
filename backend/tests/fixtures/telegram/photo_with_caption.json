@@ -1,0 +1,13 @@
+{
+  "update_id": 870003,
+  "message": {
+    "message_id": 32,
+    "from": {"id": 4242, "is_bot": false, "first_name": "Casey", "username": "casey_example"},
+    "chat": {"id": 4242, "first_name": "Casey", "username": "casey_example", "type": "private"},
+    "date": 1791104460,
+    "photo": [
+      {"file_id": "AgACAgQAAxkBAAMg-example", "file_unique_id": "AQADe-example", "file_size": 1230, "width": 90, "height": 51}
+    ],
+    "caption": "The dashboard after the queue change."
+  }
+}

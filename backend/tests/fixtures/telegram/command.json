@@ -1,0 +1,11 @@
+{
+  "update_id": 870004,
+  "message": {
+    "message_id": 33,
+    "from": {"id": 4242, "is_bot": false, "first_name": "Casey", "username": "casey_example"},
+    "chat": {"id": 4242, "first_name": "Casey", "username": "casey_example", "type": "private"},
+    "date": 1791104520,
+    "text": "/help",
+    "entities": [{"offset": 0, "length": 5, "type": "bot_command"}]
+  }
+}

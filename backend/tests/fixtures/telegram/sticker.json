@@ -1,0 +1,10 @@
+{
+  "update_id": 870006,
+  "message": {
+    "message_id": 34,
+    "from": {"id": 4242, "is_bot": false, "first_name": "Casey", "username": "casey_example"},
+    "chat": {"id": 4242, "first_name": "Casey", "username": "casey_example", "type": "private"},
+    "date": 1791104640,
+    "sticker": {"file_id": "CAACAgIAAxkBAAMh-example", "file_unique_id": "AgADe-example", "type": "regular", "width": 512, "height": 512, "is_animated": false, "is_video": false}
+  }
+}

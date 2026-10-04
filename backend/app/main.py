@@ -14,6 +14,7 @@ from app.auth import github
 from app.auth.routes import router as auth_router
 from app.config import Settings, get_settings
 from app.db.engine import DatabaseStatus, check_database, create_engine, session_factory
+from app.telegram.webhook import router as telegram_router
 from app.web import add_web_app
 
 router = APIRouter()
@@ -61,6 +62,7 @@ def create_app(
     api.state.settings = settings
     api.include_router(router)
     api.include_router(auth_router)
+    api.include_router(telegram_router)
     add_web_app(api, settings.web_dist_dir)
     return api
 
