@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.db.engine import create_engine, session_factory, with_query
+from app.telegram.entries import close_quiet_entries
 from app.telegram.journal import purge_updates
 
 logger = logging.getLogger(__name__)
@@ -70,6 +71,17 @@ async def purge_telegram_updates(timestamp: int) -> None:
     async with database() as session:
         count = await purge_updates(session, before=before)
     logger.info("deleted %d raw Telegram updates", count)
+
+
+@jobs.periodic(cron="* * * * *")
+@jobs.task(name="close_quiet_entries", retry=RETRY)
+async def close_quiet_entries_task(timestamp: int) -> None:
+    """Close the journal entries that have gone quiet (FR-CAP-4). Due every minute, so it runs on
+    every tick, and every minute under `wj worker`."""
+    timeout = timedelta(minutes=get_settings().entry_timeout_minutes)
+    async with database() as session:
+        closed = await close_quiet_entries(session, datetime.fromtimestamp(timestamp, UTC), timeout)
+    logger.info("closed %d quiet journal entries", len(closed))
 
 
 @asynccontextmanager

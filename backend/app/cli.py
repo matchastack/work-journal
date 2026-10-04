@@ -6,7 +6,7 @@ import logging
 import uuid
 from collections.abc import AsyncGenerator, Coroutine, Sequence
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -496,7 +496,8 @@ async def _poll(database_url: str) -> int:
     engine = create_engine(database_url)
     try:
         async with _telegram_http() as http:
-            return await poll(_bot_api(http), session_factory(engine))
+            entry_timeout = timedelta(minutes=get_settings().entry_timeout_minutes)
+            return await poll(_bot_api(http), session_factory(engine), entry_timeout=entry_timeout)
     finally:
         await engine.dispose()
 

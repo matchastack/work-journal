@@ -6,11 +6,13 @@ turns the webhook off first; `wj telegram set-webhook` turns it back on.
 
 import json
 import logging
+from datetime import timedelta
 
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.telegram.api import POLL_TIMEOUT_S, BotApi
+from app.telegram.entries import DEFAULT_TIMEOUT
 from app.telegram.journal import handle_update
 
 logger = logging.getLogger(__name__)
@@ -22,6 +24,7 @@ async def poll(
     *,
     rounds: int | None = None,
     timeout: int = POLL_TIMEOUT_S,
+    entry_timeout: timedelta = DEFAULT_TIMEOUT,
 ) -> int:
     """Journal the bot's updates as the webhook would, and send its replies. Asks Telegram
     `rounds` times, or until cancelled. Returns how many updates it handled."""
@@ -38,7 +41,9 @@ async def poll(
             offset = update_id + 1
             async with sessions() as session, session.begin():
                 try:
-                    reply = await handle_update(session, json.dumps(update))
+                    reply = await handle_update(
+                        session, json.dumps(update), entry_timeout=entry_timeout
+                    )
                 except ValidationError:
                     logger.warning("Telegram sent an update the bot can't read; it was skipped")
                     continue

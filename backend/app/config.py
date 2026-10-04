@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
-from pydantic import SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 REPOSITORY = Path(__file__).resolve().parents[2]
@@ -71,6 +71,9 @@ class Settings(BaseSettings):
     telegram_webhook_secret: SecretStr | None = None
     """A random secret Telegram sends with every webhook request, so the app can tell the request
     is Telegram's (NFR-SEC-4): 1 to 256 letters, digits, `_` and `-`."""
+    entry_timeout_minutes: Annotated[int, Field(ge=1)] = 30
+    """Minutes of quiet after which a journal entry closes, and the next message starts a new one
+    (FR-CAP-4)."""
     tick_secret: SecretStr | None = None
     """The secret the scheduler sends to `/internal/tick` as `Authorization: Bearer <secret>`.
     Without it, the tick refuses every request."""

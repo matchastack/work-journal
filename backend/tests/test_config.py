@@ -154,6 +154,15 @@ def test_the_api_key_stays_out_of_reprs(monkeypatch: pytest.MonkeyPatch) -> None
     assert settings.anthropic_api_key.get_secret_value() == "sk-not-a-real-key"
 
 
+def test_the_entry_timeout_is_at_least_a_minute(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert Settings().entry_timeout_minutes == 30
+    monkeypatch.setenv("ENTRY_TIMEOUT_MINUTES", "45")
+    assert Settings().entry_timeout_minutes == 45
+    monkeypatch.setenv("ENTRY_TIMEOUT_MINUTES", "0")
+    with pytest.raises(ValidationError, match="greater than or equal to 1"):
+        Settings()
+
+
 def test_telegram_secrets_stay_out_of_reprs(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123456:token-value")
     monkeypatch.setenv("TELEGRAM_WEBHOOK_SECRET", "webhook-secret_1")

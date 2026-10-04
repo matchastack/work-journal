@@ -59,12 +59,17 @@ def test_retries_back_off_exponentially_then_stop() -> None:
 
 
 def test_the_scheduled_tasks_and_when_they_run() -> None:
-    """The heartbeat every 15 minutes, and the purge of raw updates daily (FR-JRN-2)."""
+    """The heartbeat every 15 minutes, quiet entries closed every minute (FR-CAP-4), and raw
+    updates purged daily (FR-JRN-2)."""
     scheduled = {
         periodic.task.name: periodic.cron
         for periodic in jobs.periodic_registry.periodic_tasks.values()
     }
-    assert scheduled == {"heartbeat": "*/15 * * * *", "purge_telegram_updates": "17 3 * * *"}
+    assert scheduled == {
+        "heartbeat": "*/15 * * * *",
+        "close_quiet_entries": "* * * * *",
+        "purge_telegram_updates": "17 3 * * *",
+    }
 
 
 @pytest.mark.parametrize(

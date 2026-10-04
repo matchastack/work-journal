@@ -2,20 +2,21 @@
 
 `handle_update` is shared by the webhook and by `wj telegram poll`. It stores the raw update
 first, so nothing is lost, then the journal message in it. Only private chats linked to a user
-become journal messages. `/start <token>` from a link to the bot links a chat
-(`app/telegram/linking.py`); any other unlinked chat is told how to link itself. Message text is
-never logged.
+become journal messages, grouped into entries (`app/telegram/entries.py`). `/start <token>` from
+a link to the bot links a chat (`app/telegram/linking.py`); any other unlinked chat is told how
+to link itself. Message text is never logged.
 """
 
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import JournalMessage, JournalMessageEdit, TelegramLink, TelegramUpdate
+from app.telegram.entries import DEFAULT_TIMEOUT, entry_for
 from app.telegram.linking import link_chat, start_token
 from app.telegram.updates import Message, Update
 
@@ -37,7 +38,9 @@ class Reply:
         return {"method": "sendMessage", "chat_id": self.chat_id, "text": self.text}
 
 
-async def handle_update(session: AsyncSession, payload: str) -> Reply | None:
+async def handle_update(
+    session: AsyncSession, payload: str, *, entry_timeout: timedelta = DEFAULT_TIMEOUT
+) -> Reply | None:
     """Store an update from Telegram, given as the JSON it arrived as, and the journal message in
     it. Returns the bot's reply, if any. An update Telegram sent before is ignored.
 
@@ -47,7 +50,7 @@ async def handle_update(session: AsyncSession, payload: str) -> Reply | None:
     if not await _store_raw(session, update.update_id, payload):
         return None
     if update.message is not None:
-        return await _new_message(session, update.message)
+        return await _new_message(session, update.message, entry_timeout)
     if update.edited_message is not None:
         await _edit(session, update.edited_message)
     return None
@@ -79,7 +82,9 @@ async def _chat_owner(session: AsyncSession, chat_id: int) -> uuid.UUID | None:
     return await session.scalar(statement)
 
 
-async def _new_message(session: AsyncSession, message: Message) -> Reply | None:
+async def _new_message(
+    session: AsyncSession, message: Message, entry_timeout: timedelta
+) -> Reply | None:
     if message.chat.type != "private":
         return None
     if message.text is not None and (token := start_token(message.text)) is not None:
@@ -90,12 +95,14 @@ async def _new_message(session: AsyncSession, message: Message) -> Reply | None:
     body = message.body
     if body is None or body.startswith("/"):
         return None
+    entry_id = await entry_for(session, owner, message.sent_at, entry_timeout)
     statement = (
         insert(JournalMessage)
         .values(
             user_id=owner,
             chat_id=message.chat.id,
             message_id=message.message_id,
+            entry_id=entry_id,
             sender="owner",
             text=body,
             sent_at=message.sent_at,
