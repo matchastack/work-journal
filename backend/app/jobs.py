@@ -10,17 +10,25 @@ migration that applies its new SQL files.
 """
 
 import logging
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import procrastinate
 from psycopg_pool import AsyncConnectionPool
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.db.engine import create_engine, session_factory
+from app.telegram.journal import purge_updates
 
 logger = logging.getLogger(__name__)
 
 RETRY = procrastinate.RetryStrategy(max_attempts=5, exponential_wait=4)
 """Up to 5 retries after a failure, 4 s, 16 s, 64 s, 256 s and 1,024 s later (23 minutes in all)."""
+UPDATE_RETENTION = timedelta(days=7)
+"""How long raw Telegram updates are kept (FR-JRN-2)."""
 
 
 def psycopg_url(url: str) -> str:
@@ -49,6 +57,30 @@ async def echo(message: str) -> str:
 async def heartbeat(timestamp: int) -> None:
     """Runs every 15 minutes, so a recent success in the job table shows the worker is alive."""
     logger.info("worker heartbeat")
+
+
+@jobs.periodic(cron="17 3 * * *")
+@jobs.task(name="purge_telegram_updates", retry=RETRY)
+async def purge_telegram_updates(timestamp: int) -> None:
+    """Delete raw Telegram updates kept for more than 7 days, daily at 03:17 UTC (FR-JRN-2)."""
+    before = datetime.fromtimestamp(timestamp, UTC) - UPDATE_RETENTION
+    async with database() as session:
+        count = await purge_updates(session, before=before)
+    logger.info("deleted %d raw Telegram updates", count)
+
+
+@asynccontextmanager
+async def database() -> AsyncGenerator[AsyncSession]:
+    """A database session for one job, committed when the block ends without an error."""
+    url = get_settings().database_url
+    if url is None:
+        raise RuntimeError("set DATABASE_URL to run background jobs")
+    engine = create_engine(url.get_secret_value())
+    try:
+        async with session_factory(engine)() as session, session.begin():
+            yield session
+    finally:
+        await engine.dispose()
 
 
 async def run_worker(concurrency: int = 1) -> None:

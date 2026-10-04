@@ -1,7 +1,15 @@
+import random
+from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
+
 import pytest
 from psycopg_pool import AsyncConnectionPool
+from sqlalchemy import func, select
 
-from app.jobs import echo, jobs, psycopg_url
+from app.config import get_settings
+from app.db.crypto import KeyRing, new_key, use_key_ring
+from app.db.models import TelegramUpdate
+from app.jobs import database, echo, jobs, psycopg_url, purge_telegram_updates
 
 pytestmark = pytest.mark.anyio
 
@@ -17,3 +25,27 @@ async def test_the_worker_runs_a_job_from_postgres(database_url: str) -> None:
     finally:
         await pool.close()
     assert job.status == "succeeded"
+
+
+@pytest.fixture
+def database_settings(database_url: str, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Jobs read DATABASE_URL from the settings, as the worker does."""
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    get_settings.cache_clear()
+    use_key_ring(KeyRing.parse(new_key("k1")))
+    yield
+    use_key_ring(None)
+    get_settings.cache_clear()
+
+
+@pytest.mark.usefixtures("database_settings")
+async def test_the_daily_purge_deletes_updates_kept_for_more_than_a_week() -> None:
+    now = datetime(2026, 10, 12, 3, 17, tzinfo=UTC)
+    update_id = random.SystemRandom().randrange(10**9, 10**12)
+    async with database() as session:
+        received_at = now - timedelta(days=7, minutes=1)
+        session.add(TelegramUpdate(update_id=update_id, payload="{}", received_at=received_at))
+    await purge_telegram_updates(timestamp=int(now.timestamp()))
+    async with database() as session:
+        left = select(func.count()).where(TelegramUpdate.update_id == update_id)
+        assert await session.scalar(left) == 0

@@ -58,12 +58,13 @@ def test_retries_back_off_exponentially_then_stop() -> None:
     assert [retry_wait(attempts) for attempts in range(6)] == [4, 16, 64, 256, 1024, None]
 
 
-def test_the_heartbeat_runs_every_15_minutes() -> None:
+def test_the_scheduled_tasks_and_when_they_run() -> None:
+    """The heartbeat every 15 minutes, and the purge of raw updates daily (FR-JRN-2)."""
     scheduled = {
         periodic.task.name: periodic.cron
         for periodic in jobs.periodic_registry.periodic_tasks.values()
     }
-    assert scheduled == {"heartbeat": "*/15 * * * *"}
+    assert scheduled == {"heartbeat": "*/15 * * * *", "purge_telegram_updates": "17 3 * * *"}
 
 
 @pytest.mark.parametrize(
