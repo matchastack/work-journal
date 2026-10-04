@@ -104,6 +104,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/telegram/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Link Status
+         * @description Whether the user's Telegram chat is linked, and since when.
+         */
+        get: operations["link_status_api_telegram_link_get"];
+        put?: never;
+        /**
+         * New Link
+         * @description A one-time link to the bot that links the chat it's opened in, for 15 minutes.
+         */
+        post: operations["new_link_api_telegram_link_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -135,6 +159,23 @@ export interface components {
             id: string;
             /** Githublogin */
             githubLogin: string | null;
+        };
+        /** TelegramDeepLink */
+        TelegramDeepLink: {
+            /** Url */
+            url: string;
+            /**
+             * Expiresat
+             * Format: date-time
+             */
+            expiresAt: string;
+        };
+        /** TelegramLinkStatus */
+        TelegramLinkStatus: {
+            /** Linked */
+            linked: boolean;
+            /** Linkedat */
+            linkedAt: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -264,6 +305,46 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    link_status_api_telegram_link_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TelegramLinkStatus"];
+                };
+            };
+        };
+    };
+    new_link_api_telegram_link_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TelegramDeepLink"];
+                };
             };
         };
     };
