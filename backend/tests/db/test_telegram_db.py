@@ -30,7 +30,7 @@ from app.db.models import (
 from app.main import create_app
 from app.telegram.api import BotApi
 from app.telegram.entries import close_quiet_entries, entry_for
-from app.telegram.journal import LINK_HINT, purge_updates
+from app.telegram.journal import DONE, LINK_HINT, NOTHING_OPEN, UNKNOWN, help_text, purge_updates
 from app.telegram.linking import (
     ALREADY_LINKED,
     EXPIRED,
@@ -231,9 +231,10 @@ def test_only_text_and_captions_from_the_linked_chat_are_journaled(
 ) -> None:
     """A photo's caption is kept. Commands, stickers and group chats aren't journal messages."""
     link(database_url, chat_id)
-    for name in ("photo_with_caption", "command", "sticker", "group_message"):
+    for name in ("photo_with_caption", "sticker", "group_message"):
         response = post(client, update(name, chat_id))
         assert (response.status_code, response.content) == (200, b""), name
+    assert post(client, update("command", chat_id)).json()["text"].startswith("Send me notes")
     assert messages(database_url, chat_id) == [(32, "The dashboard after the queue change.", None)]
 
 
@@ -380,6 +381,42 @@ def test_messages_30_minutes_apart_start_a_new_entry(
     assert closed_at == [(datetime.fromtimestamp(NINE + 60 * 60 - 1, UTC),)]
 
 
+def test_done_closes_the_entry_at_once(client: TestClient, database_url: str, chat_id: int) -> None:
+    link(database_url, chat_id)
+    send(client, chat_id, 1, NINE)
+    assert send(client, chat_id, 2, NINE + 60, "/done") == DONE
+    assert send(client, chat_id, 3, NINE + 120, "/done") == NOTHING_OPEN
+    send(client, chat_id, 4, NINE + 180)
+    (_, first, how), (_, second, _) = entries(database_url, chat_id)
+    assert (how, first != second) == ("done", True), "the next message starts a new entry"
+    closed_at = run(database_url, select(JournalEntry.closed_at).where(JournalEntry.id == first))
+    assert closed_at == [(datetime.fromtimestamp(NINE + 60, UTC),)], "when /done was sent"
+
+
+@pytest.mark.parametrize("command", ["/help", "/help@wj_example_bot", "/start", "/HELP extra"])
+def test_help_lists_the_commands(
+    client: TestClient, database_url: str, chat_id: int, command: str
+) -> None:
+    """FR-CAP-7: `/help` lists every command. `/start` without a link token does too."""
+    link(database_url, chat_id)
+    answer = send(client, chat_id, 1, NINE, command)
+    assert answer == help_text(timedelta(minutes=30))
+    assert "30 minutes after the last one starts a new entry" in answer
+    assert "/done - close the current entry now" in answer
+    assert "/help - show this list" in answer
+    assert entries(database_url, chat_id) == []
+
+
+def test_an_unknown_command_is_not_journaled(
+    client: TestClient, database_url: str, chat_id: int
+) -> None:
+    """A note that happens to start with "/" isn't lost silently: the answer says so."""
+    link(database_url, chat_id)
+    answer = send(client, chat_id, 1, NINE, "/etc files moved to the new config store")
+    assert answer == f"{UNKNOWN}\n\n{help_text(timedelta(minutes=30))}"
+    assert messages(database_url, chat_id) == []
+
+
 def test_an_edit_to_a_closed_entry_changes_only_its_message(
     client: TestClient, database_url: str, chat_id: int
 ) -> None:
@@ -403,6 +440,7 @@ def test_the_timeout_can_be_configured(database_url: str, chat_id: int) -> None:
     with TestClient(create_app(settings)) as client:
         send(client, chat_id, 1, NINE)
         send(client, chat_id, 2, NINE + 5 * 60)
+        assert "5 minutes" in send(client, chat_id, 3, NINE + 6 * 60, "/help")
     (_, first, _), (_, second, _) = entries(database_url, chat_id)
     assert first != second
 
