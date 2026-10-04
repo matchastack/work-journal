@@ -2,6 +2,13 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-04 · T-056 Free hosting on Vercel and Neon · [#25](https://github.com/matchastack/work-journal/pull/25)
+**Changed:** the requirements and tasks now host the app on Vercel's and Neon's free plans. A free scheduler calls a protected tick every minute in place of an always-on worker, and resumes render on your machine for now.
+
+**Verify:**
+- C6 and §13 in `project-requirements.md` describe the hosting you want
+- A summary within 2 minutes of an entry closing suits you
+
 ## 2026-09-28 · T-019 Job-posting parser · [#12](https://github.com/matchastack/work-journal/pull/12)
 **Changed:** added the job-posting parser: a light-tier prompt breaks a pasted posting into title, company, seniority, skills, responsibilities and key terms. Code then checks every skill and term against the posting, so each keeps the posting's exact spelling. Adds `wj posting parse`.
 

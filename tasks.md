@@ -60,7 +60,7 @@ As the owner, I want my profile and outputs updated only when I ask, so that sma
 - [x] T-038 becomes the refresh, and the tasks that mention synthesis or output updates follow it.
 
 ### T-056 · Free hosting on Vercel and Neon
-**Status:** ◐ · **Size:** S · **Depends on:** T-000 · **Requirements:** FR-CAP-5, NFR-PERF-1, NFR-REL-1 · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-000 · **Requirements:** FR-CAP-5, NFR-PERF-1, NFR-REL-1 · **PR:** [#25](https://github.com/matchastack/work-journal/pull/25)
 
 As the owner, I want the app hosted for free, so that I can journal every day without a hosting bill.
 
