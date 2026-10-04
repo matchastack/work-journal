@@ -219,7 +219,7 @@ As the owner, I want my own LaTeX template used for every resume, so that genera
 - [x] Manual check: the rendered master matches the compiled uploaded master for all active content. Screenshots or a checklist go in the change log.
 
 ### T-012 · LLM client
-**Status:** ◐ · **Size:** M · **Depends on:** T-001 · **Requirements:** NFR-COST-1, NFR-REL-2, NFR-MAINT-2, NFR-PRIV-2 · **PR:** [#9](https://github.com/matchastack/work-journal/pull/9)
+**Status:** ☑ · **Size:** M · **Depends on:** T-001 · **Requirements:** NFR-COST-1, NFR-REL-2, NFR-MAINT-2, NFR-PRIV-2 · **PR:** [#9](https://github.com/matchastack/work-journal/pull/9)
 
 As a developer, I want one client for every Claude call, so that routing, retries, caching, refusals and cost logging behave the same everywhere.
 
@@ -308,7 +308,7 @@ As the owner, I want new facts turned into proposed profile changes, so that my 
 - [ ] Tests use the fake client, plus an opt-in evaluation.
 
 ### T-019 · Job-posting parser
-**Status:** ◐ · **Size:** S · **Depends on:** T-012 · **Requirements:** FR-TLR-1 · **PR:** [#12](https://github.com/matchastack/work-journal/pull/12)
+**Status:** ☑ · **Size:** S · **Depends on:** T-012 · **Requirements:** FR-TLR-1 · **PR:** [#12](https://github.com/matchastack/work-journal/pull/12)
 
 As the owner, I want a pasted posting broken into structured requirements, so that tailoring can match against them.
 
