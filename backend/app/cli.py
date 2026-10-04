@@ -41,6 +41,7 @@ from app.schema.export import write_json_schemas
 from app.schema.fact import Fact
 from app.schema.profile import Profile
 from app.selection import MASTER_VARIANT, select
+from app.tailoring.posting import parse_posting
 from app.validate.lint import format_report, lint_profile
 
 LOCAL_DIR = Path(__file__).resolve().parents[2] / "local"
@@ -48,11 +49,13 @@ LOCAL_DIR = Path(__file__).resolve().parents[2] / "local"
 
 cli = typer.Typer(help="Work Journal command-line tool.", no_args_is_help=True)
 schema_cli = typer.Typer(help="JSON Schemas for the core data models.", no_args_is_help=True)
-portfolio_cli = typer.Typer(help="The portfolio page.", no_args_is_help=True)
+posting_cli = typer.Typer(help="Job postings to tailor resumes to.", no_args_is_help=True)
 keys_cli = typer.Typer(help="The keys that encrypt journal and fact text.", no_args_is_help=True)
+portfolio_cli = typer.Typer(help="The portfolio page.", no_args_is_help=True)
 import_cli = typer.Typer(help="Import existing resume data.", no_args_is_help=True)
 db_cli = typer.Typer(help="Your data in the database (DATABASE_URL).", no_args_is_help=True)
 cli.add_typer(schema_cli, name="schema")
+cli.add_typer(posting_cli, name="posting")
 cli.add_typer(portfolio_cli, name="portfolio")
 cli.add_typer(keys_cli, name="keys")
 cli.add_typer(import_cli, name="import")
@@ -221,6 +224,30 @@ def export_schemas(
     """Write one JSON Schema file per core model (profile, fact, variant, ...)."""
     for path in write_json_schemas(out_dir):
         typer.echo(f"Wrote {path}")
+
+
+@posting_cli.command("parse")
+def parse_posting_file(
+    source: Annotated[
+        Path, typer.Argument(help="The posting, as plain text.", exists=True, dir_okay=False)
+    ],
+) -> None:
+    """Parse a job posting into its title, skills, responsibilities and key terms, as JSON.
+
+    Calls the light-tier model. Skills and terms keep the posting's exact spellings.
+    """
+    try:
+        parsed = parse_posting(source.read_text(encoding="utf-8"), _llm_client())
+    except LLMConfigError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from None
+    except LLMCallError as error:
+        typer.echo(f"The posting couldn't be parsed: {error}", err=True)
+        raise typer.Exit(1) from None
+    typer.echo(parsed.posting.model_dump_json(indent=2, exclude_none=True))
+    if parsed.dropped:
+        dropped = ", ".join(f'"{term}"' for term in parsed.dropped)
+        typer.echo(f"Left out terms the posting doesn't contain: {dropped}", err=True)
 
 
 @portfolio_cli.command("build")
