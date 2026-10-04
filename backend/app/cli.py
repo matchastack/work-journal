@@ -4,12 +4,13 @@ import asyncio
 import json
 import logging
 import uuid
-from collections.abc import AsyncGenerator, Sequence
+from collections.abc import AsyncGenerator, Coroutine, Sequence
 from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
+import httpx2
 import typer
 from pydantic import TypeAdapter
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,6 +42,8 @@ from app.schema.fact import Fact
 from app.schema.profile import Profile
 from app.selection import MASTER_VARIANT, select
 from app.tailoring.posting import parse_posting
+from app.telegram.api import BotApi, TelegramError
+from app.telegram.polling import poll
 from app.validate.lint import format_report, lint_profile
 
 LOCAL_DIR = Path(__file__).resolve().parents[2] / "local"
@@ -53,12 +56,14 @@ keys_cli = typer.Typer(help="The keys that encrypt journal and fact text.", no_a
 portfolio_cli = typer.Typer(help="The portfolio page.", no_args_is_help=True)
 import_cli = typer.Typer(help="Import existing resume data.", no_args_is_help=True)
 db_cli = typer.Typer(help="Your data in the database (DATABASE_URL).", no_args_is_help=True)
+telegram_cli = typer.Typer(help="The Telegram bot (TELEGRAM_BOT_TOKEN).", no_args_is_help=True)
 cli.add_typer(schema_cli, name="schema")
 cli.add_typer(posting_cli, name="posting")
 cli.add_typer(portfolio_cli, name="portfolio")
 cli.add_typer(keys_cli, name="keys")
 cli.add_typer(import_cli, name="import")
 cli.add_typer(db_cli, name="db")
+cli.add_typer(telegram_cli, name="telegram")
 
 DbOption = Annotated[
     bool, typer.Option("--db", help="Use the database (DATABASE_URL) instead of local files.")
@@ -75,6 +80,11 @@ _FACTS = TypeAdapter(list[Fact])
 def _llm_client() -> LLMClient:
     """The Claude client the commands use (tests replace it with a fake)."""
     return LLMClient.from_settings()
+
+
+def _telegram_http() -> httpx2.AsyncClient:
+    """The HTTP client for Telegram's Bot API (tests replace it with a stand-in for Telegram)."""
+    return httpx2.AsyncClient()
 
 
 @cli.callback()
@@ -378,6 +388,75 @@ async def _load(profile: Profile, facts: Sequence[Fact], login: str | None, *, c
         typer.echo(f"Nothing was loaded: {error}.", err=True)
         raise typer.Exit(1) from None
     return login or "the database's user"
+
+
+@telegram_cli.command("set-webhook")
+def set_telegram_webhook(
+    url: Annotated[
+        str | None,
+        typer.Option(help="Where Telegram sends updates. Default: APP_URL/telegram/webhook."),
+    ] = None,
+) -> None:
+    """Have Telegram send the bot's updates to the webhook, with TELEGRAM_WEBHOOK_SECRET."""
+    settings = get_settings()
+    secret = settings.telegram_webhook_secret
+    if secret is None:
+        typer.echo("Set TELEGRAM_WEBHOOK_SECRET to the same value the app has.", err=True)
+        raise typer.Exit(1)
+    target = url or f"{settings.app_url}/telegram/webhook"
+    if not target.startswith("https://"):
+        message = f"Telegram only sends updates to an https:// address, not {target}"
+        raise typer.BadParameter(message, param_hint="--url")
+    _run_telegram(_set_webhook(target, secret.get_secret_value()))
+    typer.echo(f"Telegram now sends the bot's updates to {target}")
+
+
+@telegram_cli.command("poll")
+def poll_telegram() -> None:
+    """Journal the bot's updates on this computer, without the webhook, until Ctrl-C.
+
+    It turns the webhook off first, because Telegram offers updates one way at a time. Turn it
+    back on afterwards with `wj telegram set-webhook`.
+    """
+    url = get_settings().database_url
+    if url is None:
+        typer.echo("Set DATABASE_URL to the database the journal goes into.", err=True)
+        raise typer.Exit(1)
+    typer.echo("Journaling the bot's updates here. Stop with Ctrl-C.")
+    try:
+        _run_telegram(_poll(url.get_secret_value()))
+    except KeyboardInterrupt:
+        typer.echo("Stopped. Run `wj telegram set-webhook` to turn the webhook back on.")
+
+
+def _run_telegram[T](work: Coroutine[Any, Any, T]) -> T:
+    try:
+        return asyncio.run(work)
+    except TelegramError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from None
+
+
+def _bot_api(http: httpx2.AsyncClient) -> BotApi:
+    token = get_settings().telegram_bot_token
+    if token is None:
+        typer.echo("Set TELEGRAM_BOT_TOKEN to the bot's token from @BotFather.", err=True)
+        raise typer.Exit(1)
+    return BotApi(token, http)
+
+
+async def _set_webhook(url: str, secret: str) -> None:
+    async with _telegram_http() as http:
+        await _bot_api(http).set_webhook(url, secret)
+
+
+async def _poll(database_url: str) -> int:
+    engine = create_engine(database_url)
+    try:
+        async with _telegram_http() as http:
+            return await poll(_bot_api(http), session_factory(engine))
+    finally:
+        await engine.dispose()
 
 
 def _read_profile(path: Path | None, db: bool, user: str | None) -> Profile:

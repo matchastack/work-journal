@@ -14,13 +14,15 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 from sqlalchemy import Executable, func, insert, select, text
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import Settings
 from app.db.crypto import KeyRing, new_key, use_key_ring
 from app.db.models import JournalMessage, JournalMessageEdit, TelegramLink, TelegramUpdate, User
 from app.main import create_app
+from app.telegram.api import BotApi
 from app.telegram.journal import LINK_HINT, purge_updates
+from app.telegram.polling import poll
 from app.telegram.webhook import SECRET_HEADER
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "telegram"
@@ -211,3 +213,39 @@ async def test_raw_updates_are_deleted_after_seven_days(session: AsyncSession) -
     assert await purge_updates(session, before=now - timedelta(days=7)) >= 1
     remaining = select(TelegramUpdate.update_id).where(TelegramUpdate.update_id.in_([old, recent]))
     assert list(await session.scalars(remaining)) == [recent]
+
+
+def test_polling_journals_updates_as_the_webhook_does(database_url: str, chat_id: int) -> None:
+    """`wj telegram poll`: the same storage, with replies sent through the Bot API."""
+    link(database_url, chat_id)
+    stranger = chat_id + 1
+    batch = [json.loads(update("message", chat_id)), json.loads(update("message", stranger))]
+    batches = [batch, []]
+    calls: list[tuple[str, dict[str, Any]]] = []
+
+    def handle(request: httpx2.Request) -> httpx2.Response:
+        method = request.url.path.rsplit("/", 1)[1]
+        calls.append((method, json.loads(request.content)))
+        result = batches.pop(0) if method == "getUpdates" else True
+        return httpx2.Response(200, json={"ok": True, "result": result})
+
+    async def run_poll() -> int:
+        engine = create_async_engine(database_url)
+        try:
+            async with httpx2.AsyncClient(transport=httpx2.MockTransport(handle)) as http:
+                api = BotApi(SecretStr("123456:test-token-not-real"), http)
+                sessions = async_sessionmaker(engine, expire_on_commit=False)
+                return await poll(api, sessions, rounds=2, timeout=0)
+        finally:
+            await engine.dispose()
+
+    assert asyncio.run(run_poll()) == 2
+    assert messages(database_url, chat_id) == [(31, NOTE, None)]
+    assert [method for method, _ in calls] == [
+        "deleteWebhook",
+        "getUpdates",
+        "sendMessage",
+        "getUpdates",
+    ]
+    assert calls[2][1] == {"chat_id": stranger, "text": LINK_HINT}
+    assert calls[3][1]["offset"] == batch[1]["update_id"] + 1, "confirms the updates handled"
