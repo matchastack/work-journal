@@ -1,0 +1,24 @@
+Senior Backend Engineer, Payments
+Fabrikam Logistics · Remote (US)
+
+About the role
+Fabrikam Logistics moves freight for 2,000 shippers. Our payments team builds the services that invoice shippers and pay carriers.
+
+What you'll do
+- Design and build APIs for invoicing and carrier payouts
+- Own services from design to on-call
+- Improve reliability and observability across the payments platform
+- Mentor engineers on the team
+
+What we're looking for
+- 5+ years building backend services
+- Strong Python or Go
+- Experience with PostgreSQL and event-driven systems (Kafka)
+- Familiarity with CI/CD and infrastructure as code (Terraform)
+
+Nice to have
+- Experience with payments or ledgers
+- Kubernetes
+- gRPC
+
+Apply at https://careers.example.com/fabrikam/backend-payments

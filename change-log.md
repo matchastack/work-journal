@@ -10,6 +10,14 @@ One short entry per pull request, newest first: what changed and what to verify.
 - With your key, `uv run pytest -m llm tests/test_verifier_live.py` passes (14 tests)
 - The issues the claim check names, listed in the PR, are what you'd want flagged
 
+## 2026-09-28 · T-019 Job-posting parser · [#12](https://github.com/matchastack/work-journal/pull/12)
+**Changed:** added the job-posting parser: a light-tier prompt breaks a pasted posting into title, company, seniority, skills, responsibilities and key terms. Code then checks every skill and term against the posting, so each keeps the posting's exact spelling. Adds `wj posting parse`.
+
+**Verify:**
+- CI is green on #12
+- The prompt's fields and rules suit tailoring
+- Optional, with a key: `uv run wj posting parse` on a real posting
+
 ## 2026-09-28 · T-012 LLM client · [#9](https://github.com/matchastack/work-journal/pull/9)
 **Changed:** added the client every Claude call goes through: routing each task to a tier's model from the environment, versioned prompt files, prompt caching, validated structured output with one retry, refusal and error handling, and a call log with tokens and cost but no text, saved to the `llm_calls` table (or to a JSONL file from the command line). Adds the `anthropic` SDK.
 

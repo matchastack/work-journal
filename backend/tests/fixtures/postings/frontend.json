@@ -1,0 +1,13 @@
+{
+  "title": "Frontend Developer (React)",
+  "company": "Wingtip Games",
+  "seniority": "mid-level",
+  "mustHave": ["React", "TypeScript", "WCAG 2.1", "REST APIs", "GraphQL"],
+  "niceToHave": ["Next.js", "WebGL"],
+  "responsibilities": [
+    "Build game menus, stores and account pages",
+    "Ship accessible, fast interfaces with designers",
+    "Write tests"
+  ],
+  "keyTerms": ["Jest", "Playwright", "accessibility", "browser games"]
+}
