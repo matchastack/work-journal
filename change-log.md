@@ -2,6 +2,13 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-04 · T-030 Telegram webhook and message storage · [#26](https://github.com/matchastack/work-journal/pull/26)
+**Changed:** added the Telegram webhook, which checks Telegram's secret header, keeps every raw update for 7 days and turns messages from a linked chat into encrypted journal messages (edits keep the earlier text). Also `wj telegram poll` to journal on your computer, and `wj telegram set-webhook`.
+
+**Verify:**
+- CI is green on #26
+- Optional, with a bot from @BotFather: `uv run wj telegram poll`, then message the bot; it answers with the linking hint (linking comes in T-031)
+
 ## 2026-09-28 · T-019 Job-posting parser · [#12](https://github.com/matchastack/work-journal/pull/12)
 **Changed:** added the job-posting parser: a light-tier prompt breaks a pasted posting into title, company, seniority, skills, responsibilities and key terms. Code then checks every skill and term against the posting, so each keeps the posting's exact spelling. Adds `wj posting parse`.
 
