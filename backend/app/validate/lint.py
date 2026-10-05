@@ -3,7 +3,8 @@
 `lint_profile(profile)` checks the master profile, as `wj lint` does. `check_sendable(selection,
 profile, confirmed)` checks what one sendable resume prints, that is, a resume tailored to a posting
 (OQ-6). `require_sendable` raises `NotSendable` when that finds errors: errors block rendering a
-sendable resume, and warnings don't.
+sendable resume, and warnings don't. `check_text(text, profile)` checks one new text before it joins
+the profile, for the verifier (T-015).
 
 Only what can be printed is checked, so benched, planned and private items are skipped (R8). Each
 finding has a rule ID, a severity and a location: a path like `work[northwind].highlights[nw_x]`,
@@ -91,7 +92,7 @@ def lint_profile(profile: Profile) -> LintReport:
         *_verify_before_shipping(content, profile.skills, confirmed=None),
         *_unknown_skills(content, profile),
         *_added_seniority(profile),
-        *_shared_metrics(content, _allowed_terms(profile)),
+        *_shared_metrics(content, allowed_terms(profile)),
         *_duplicates(content),
         *_spelling(content, profile.skills),
         *_dates(content),
@@ -136,7 +137,7 @@ def check_sendable(
         *_verify_before_shipping(content, profile.skills, confirmed=confirmed),
         *_unknown_skills(content, profile),
         *_unapproved_titles(selection, profile),
-        *_shared_metrics(content, _allowed_terms(profile)),
+        *_shared_metrics(content, allowed_terms(profile)),
         *_duplicates(content),
         *_spelling(content, profile.skills),
         *_dates(content),
@@ -172,6 +173,42 @@ def require_sendable(
     if not report.ok:
         raise NotSendable(report)
     return report
+
+
+TEXT = "text"
+"""The location of every finding from `check_text`: the text it checks."""
+
+
+def check_text(
+    text: str, profile: Profile, *, entry_id: str | None = None, replaces: str | None = None
+) -> LintReport:
+    """The resume rules one text can break, checked before the text joins the profile.
+
+    `entry_id` is the role, education entry or project the text is a bullet of, or None for text
+    that isn't a bullet, such as LinkedIn text. `replaces` is the ID of the bullet the text
+    replaces, if any. The text is checked as though it came after everything in the profile, so a
+    number or bullet it repeats is reported at the text (R4, duplicates). Only findings about the
+    text are kept, each located at `TEXT`.
+    """
+    content = _profile_content(profile)
+    where = _entry(profile, entry_id) if entry_id else None
+    replaced = f".highlights[{replaces}]"
+    kept = [item for item in content.texts if not (replaces and item.location.endswith(replaced))]
+    checked = _Text(TEXT, text, entry=where)
+    content = _Content((*kept, checked), content.terms)
+    findings = [
+        *_placeholders(content),
+        *_gaps(content, profile.skill_gaps),
+        *_verify_before_shipping(content, profile.skills, confirmed=None),
+        *_shared_metrics(content, allowed_terms(profile)),
+        *_duplicates(content),
+        *_spelling(content, profile.skills),
+        *_dates(content),
+    ]
+    for entry in profile.education:
+        if where == f"education[{entry.id}]" and _read_rules(entry.rules).no_gpa:
+            findings.extend(_gpa([checked]))
+    return LintReport(findings=_ordered(f for f in findings if f.location == TEXT))
 
 
 def format_report(report: LintReport) -> str:
@@ -311,6 +348,19 @@ def _selection_content(selection: Selection) -> _Content:
     for line in selection.skills:
         terms += [_Term(f"skills[{line.label}]", skill) for skill in line.skills]
     return _Content(tuple(texts), tuple(terms))
+
+
+def _entry(profile: Profile, entry_id: str) -> str:
+    """Where a role, education entry or project is, e.g. `work[northwind]`."""
+    entries = [
+        *(("work", role.id) for role in profile.work),
+        *(("education", entry.id) for entry in profile.education),
+        *(("projects", project.id) for project in profile.projects),
+    ]
+    for section, found in entries:
+        if found == entry_id:
+            return f"{section}[{entry_id}]"
+    raise ValueError(f"the profile has no role, education entry or project {entry_id!r}")
 
 
 def _printable(bullets: Iterable[Bullet]) -> list[Bullet]:
@@ -467,16 +517,16 @@ def _unapproved_titles(selection: Selection, profile: Profile) -> Iterator[Findi
             )
 
 
-def _allowed_terms(profile: Profile) -> list[str]:
-    """Skill names, so that the number in `Python 3` isn't read as a metric."""
+def allowed_terms(profile: Profile) -> list[str]:
+    """Skill names and tech stacks, so that the number in `Python 3` isn't read as a metric."""
     names = [spelling for skill in profile.skills for spelling in (skill.name, *skill.aliases)]
     return names + [keyword for project in profile.projects for keyword in project.keywords]
 
 
-def _shared_metrics(content: _Content, allowed_terms: Sequence[str]) -> Iterator[Finding]:
+def _shared_metrics(content: _Content, terms: Sequence[str]) -> Iterator[Finding]:
     first_seen: dict[tuple[object, ...], tuple[str | None, str]] = {}
     for text in content.bullets:
-        for quantity in find_quantities(text.text, allowed_terms):
+        for quantity in find_quantities(text.text, terms):
             key = (quantity.kind, quantity.values, quantity.unit)
             entry, location = first_seen.setdefault(key, (text.entry, text.location))
             if entry != text.entry:

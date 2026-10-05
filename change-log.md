@@ -9,6 +9,14 @@ One short entry per pull request, newest first: what changed and what to verify.
 - C6 and §13 in `project-requirements.md` describe the hosting you want
 - A summary within 2 minutes of an entry closing suits you
 
+## 2026-10-01 · T-015 Claim verifier · [#23](https://github.com/matchastack/work-journal/pull/23)
+**Changed:** added the verifier every generated sentence must pass. It runs the number check, a standard-tier claim check, the style check and the resume rules. The claim check catches inflated ownership, an added tool, team size, outcome or scope, a broken honesty boundary or gaps-list skill, and a posting term that isn't a synonym. Text that fails is written once more with the findings as feedback, then flagged. Its report holds no fact text.
+
+**Verify:**
+- CI is green on #23
+- With your key, `uv run pytest -m llm tests/test_verifier_live.py` passes (14 tests)
+- The issues the claim check names, listed in the PR, are what you'd want flagged
+
 ## 2026-09-30 · T-014 Fact extraction · [#21](https://github.com/matchastack/work-journal/pull/21)
 **Changed:** added fact extraction and `wj extract`: a standard-tier prompt turns an informal note into structured facts, and code drops any fact with a number the note doesn't give and removes tools the note doesn't name.
 

@@ -1,0 +1,40 @@
+[
+  {
+    "id": "fact_nw_export",
+    "statement": "Cut the nightly export job from 50 to 12 minutes by batching database writes.",
+    "kind": "accomplishment",
+    "metrics": [
+      {
+        "subject": "nightly export duration",
+        "value": {"kind": "change", "before": 50, "after": 12},
+        "unit": "minutes"
+      }
+    ],
+    "ownership": "owned",
+    "tools": ["PostgreSQL"],
+    "outcome": "The export now finishes before the morning reports run.",
+    "date": "2026-08",
+    "roleId": "northwind"
+  },
+  {
+    "id": "fact_nw_queue",
+    "statement": "Helped move order processing from a cron job to a message queue.",
+    "kind": "accomplishment",
+    "ownership": "contributed",
+    "tools": ["Python", "RabbitMQ"],
+    "date": "2026-06",
+    "roleId": "northwind"
+  },
+  {
+    "id": "fact_rb_app",
+    "statement": "Built a recipe-sharing web app with full-text search, used by 300 people a month.",
+    "kind": "project",
+    "metrics": [
+      {"subject": "monthly users", "value": {"kind": "single", "value": 300}, "unit": "people"}
+    ],
+    "ownership": "owned",
+    "tools": ["TypeScript", "React", "PostgreSQL"],
+    "date": "2025-11",
+    "projectId": "recipe_box"
+  }
+]
