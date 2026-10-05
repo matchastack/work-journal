@@ -255,7 +255,7 @@ As the owner, I want my informal notes turned into structured facts, so that mea
 - [x] Unit tests use the fake client, plus an opt-in evaluation on casual entries for a fictional person.
 
 ### T-015 · Claim verifier
-**Status:** ◐ · **Size:** M · **Depends on:** T-005, T-009, T-012, T-013 · **Requirements:** FR-FID-4, FR-FID-5, FR-FID-6, FR-FID-7, FR-FID-8, R1, R3 · **PR:** [#23](https://github.com/matchastack/work-journal/pull/23)
+**Status:** ☑ · **Size:** M · **Depends on:** T-005, T-009, T-012, T-013 · **Requirements:** FR-FID-4, FR-FID-5, FR-FID-6, FR-FID-7, FR-FID-8, R1, R3 · **PR:** [#23](https://github.com/matchastack/work-journal/pull/23)
 
 As the owner, I want every generated sentence checked for claims my facts don't support, so that professional wording never turns into exaggeration.
 
