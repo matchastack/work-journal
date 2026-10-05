@@ -219,7 +219,7 @@ As the owner, I want my own LaTeX template used for every resume, so that genera
 - [x] Manual check: the rendered master matches the compiled uploaded master for all active content. Screenshots or a checklist go in the change log.
 
 ### T-012 · LLM client
-**Status:** ◐ · **Size:** M · **Depends on:** T-001 · **Requirements:** NFR-COST-1, NFR-REL-2, NFR-MAINT-2, NFR-PRIV-2 · **PR:** [#9](https://github.com/matchastack/work-journal/pull/9)
+**Status:** ☑ · **Size:** M · **Depends on:** T-001 · **Requirements:** NFR-COST-1, NFR-REL-2, NFR-MAINT-2, NFR-PRIV-2 · **PR:** [#9](https://github.com/matchastack/work-journal/pull/9)
 
 As a developer, I want one client for every Claude call, so that routing, retries, caching, refusals and cost logging behave the same everywhere.
 
@@ -244,15 +244,15 @@ As the owner, I want wording rules checked by code, so that every bullet follows
 - [x] Each finding has a severity, and there are tests for each rule.
 
 ### T-014 · Fact extraction
-**Status:** ☐ · **Size:** M · **Depends on:** T-005, T-012 · **Requirements:** FR-EXT-1, FR-EXT-2, FR-CAP-8 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-005, T-012 · **Requirements:** FR-EXT-1, FR-EXT-2, FR-CAP-8 · **PR:** [#21](https://github.com/matchastack/work-journal/pull/21)
 
 As the owner, I want my informal notes turned into structured facts, so that meaning and numbers are captured without me formatting anything.
 
-- [ ] A standard-tier prompt returns facts with a statement, kind, metrics, ownership, tools, outcome and date, linked to an existing role or project (or a proposed new one).
-- [ ] Facts containing numbers that aren't in the entry are dropped (by the T-005 checker).
-- [ ] Text unrelated to work produces no facts.
-- [ ] `wj extract <file>` prints the facts as JSON.
-- [ ] Unit tests use the fake client, plus an opt-in evaluation on casual entries for a fictional person.
+- [x] A standard-tier prompt returns facts with a statement, kind, metrics, ownership, tools, outcome and date, linked to an existing role or project (or a proposed new one).
+- [x] Facts containing numbers that aren't in the entry are dropped (by the T-005 checker).
+- [x] Text unrelated to work produces no facts.
+- [x] `wj extract <file>` prints the facts as JSON.
+- [x] Unit tests use the fake client, plus an opt-in evaluation on casual entries for a fictional person.
 
 ### T-015 · Claim verifier
 **Status:** ☐ · **Size:** M · **Depends on:** T-005, T-009, T-012, T-013 · **Requirements:** FR-FID-4, FR-FID-5, FR-FID-6, FR-FID-7, FR-FID-8, R1, R3 · **PR:** —
@@ -308,7 +308,7 @@ As the owner, I want new facts turned into proposed profile changes, so that my 
 - [ ] Tests use the fake client, plus an opt-in evaluation.
 
 ### T-019 · Job-posting parser
-**Status:** ◐ · **Size:** S · **Depends on:** T-012 · **Requirements:** FR-TLR-1 · **PR:** [#12](https://github.com/matchastack/work-journal/pull/12)
+**Status:** ☑ · **Size:** S · **Depends on:** T-012 · **Requirements:** FR-TLR-1 · **PR:** [#12](https://github.com/matchastack/work-journal/pull/12)
 
 As the owner, I want a pasted posting broken into structured requirements, so that tailoring can match against them.
 

@@ -30,6 +30,14 @@ One short entry per pull request, newest first: what changed and what to verify.
 - CI is green on #26
 - Optional, with a bot from @BotFather: `uv run wj telegram poll`, then message the bot; it answers with the linking hint (linking comes in T-031)
 
+## 2026-09-30 · T-014 Fact extraction · [#21](https://github.com/matchastack/work-journal/pull/21)
+**Changed:** added fact extraction and `wj extract`: a standard-tier prompt turns an informal note into structured facts, and code drops any fact with a number the note doesn't give and removes tools the note doesn't name.
+
+**Verify:**
+- CI is green on #21
+- With your key, `uv run pytest -m llm tests/test_extraction_live.py` passes
+- `wj extract` on a note of your own gives facts that say only what the note says
+
 ## 2026-09-28 · T-019 Job-posting parser · [#12](https://github.com/matchastack/work-journal/pull/12)
 **Changed:** added the job-posting parser: a light-tier prompt breaks a pasted posting into title, company, seniority, skills, responsibilities and key terms. Code then checks every skill and term against the posting, so each keeps the posting's exact spelling. Adds `wj posting parse`.
 
