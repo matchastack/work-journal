@@ -99,6 +99,8 @@ From your computer, in `backend/.env`, set the same `DATABASE_URL`, `DATA_ENCRYP
 - The web app opens at `https://<project>.vercel.app`, and you can sign in.
 - Send the bot a message. In Neon's SQL Editor, `SELECT count(*) FROM journal_messages;` goes
   up by one. The text itself is stored encrypted.
+- Send a note about your work, then `/done`. Within a minute, the bot replies with the facts it
+  saved. In Neon, `SELECT task, outcome FROM llm_calls ORDER BY at DESC LIMIT 2;` shows the calls.
 - cron-job.org's history shows the tick answering 200.
 
 ## When something goes wrong
