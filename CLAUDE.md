@@ -98,7 +98,7 @@ Add a dependency with `npm install <package>` (or `npm install --save-dev <packa
   - **Standard (Sonnet):** extraction, writing, the claim verifier, the catch-up interview and the LinkedIn pack.
   - **Light (Haiku):** follow-up questions, summaries, triage and parsing job postings.
 - **Every call goes through `app/llm/client.py`.** Prompts are versioned files in `app/llm/prompts/`.
-- **Every generated sentence passes the verifier** before it's stored.
+- **Every generated sentence passes the verifier** (`app/validate/verifier.py`) before it's stored.
 - **ASCII characters come from code, not prompts.** Schema models apply the rules in `app/text.py` to every string (for example, en dash to hyphen and ellipsis to three dots), and code and templates write ASCII too. To keep another character out of generated text, add a rule there.
 - **Tests:** unit tests use the fake client. Real API calls happen only in `pytest -m llm` and `wj eval`, never in default CI.
 - **Evaluations:** run the evaluation suite before changing a prompt or the routing, and report the numbers in the PR.
