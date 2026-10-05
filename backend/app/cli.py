@@ -6,7 +6,7 @@ import logging
 import uuid
 from collections.abc import AsyncGenerator, Coroutine, Sequence
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -29,6 +29,7 @@ from app.db.models import Base
 from app.db.profiles import VersionError, latest_version, load_master_profile
 from app.db.store import save_facts
 from app.db.users import UnknownUserError, only_user, user_for_login
+from app.extraction import extract_facts
 from app.importers.master_resume import MasterResumeError, import_master_resume
 from app.jobs import run_worker
 from app.llm.client import LLMCallError, LLMClient, LLMConfigError
@@ -96,6 +97,47 @@ def main() -> None:
 def version() -> None:
     """Print the installed version."""
     typer.echo(__version__)
+
+
+@cli.command()
+def extract(
+    note: Annotated[
+        Path, typer.Argument(help="The journal note, as plain text.", exists=True, dir_okay=False)
+    ],
+    profile: Annotated[
+        Path, typer.Option(help="The profile the facts link to.", exists=True, dir_okay=False)
+    ] = LOCAL_DIR / "profile.json",
+    written: Annotated[
+        datetime | None,
+        typer.Option(
+            "--date", formats=["%Y-%m-%d"], help="The day the note was written. Default: today."
+        ),
+    ] = None,
+) -> None:
+    """Extract the facts in a journal note and print them as JSON.
+
+    Calls the standard-tier model. A fact with a number the note doesn't give is left out.
+    """
+    try:
+        extraction = extract_facts(
+            note.read_text(encoding="utf-8"),
+            Profile.model_validate_json(profile.read_text(encoding="utf-8")),
+            _llm_client(),
+            written=written.date() if written else date.today(),
+        )
+    except LLMConfigError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from None
+    except LLMCallError as error:
+        typer.echo(f"The note couldn't be read: {error}", err=True)
+        raise typer.Exit(1) from None
+    facts = [fact.model_dump(mode="json", exclude_none=True) for fact in extraction.facts]
+    typer.echo(json.dumps(facts, indent=2, ensure_ascii=False))
+    for dropped in extraction.dropped:
+        reasons = "; ".join(dropped.reasons)
+        typer.echo(f'Left out "{dropped.statement}": {reasons}', err=True)
+    for message in extraction.notes:
+        typer.echo(f"Note: {message}", err=True)
 
 
 @cli.command()
