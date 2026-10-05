@@ -11,6 +11,7 @@ from app.db.crypto import KeyRing, new_key, use_key_ring
 from app.db.models import (
     NOT_PER_USER,
     Base,
+    JournalEntry,
     JournalMessage,
     JournalMessageEdit,
     Setting,
@@ -163,3 +164,28 @@ async def test_deleting_a_message_deletes_its_earlier_texts(session: AsyncSessio
     await session.execute(delete(JournalMessage).where(JournalMessage.id == row.id))
     edits = select(func.count()).select_from(JournalMessageEdit)
     assert await session.scalar(edits.where(JournalMessageEdit.user_id == user.id)) == 0
+
+
+@pytest.mark.anyio
+async def test_only_a_closed_entry_is_processed_with_its_label(session: AsyncSession) -> None:
+    """An entry is processed once closed, with a triage label (FR-CAP-8), or else failed."""
+    user = await new_user(session)
+    at = datetime(2026, 10, 4, 9, 0, tzinfo=UTC)
+    opened = {"user_id": user.id, "opened_at": at, "last_message_at": at}
+    closed = {**opened, "closed_at": at, "closed_by": "done"}
+    refused = {
+        "still open": {**opened, "triage": "work", "processed_at": at},
+        "no label": {**closed, "processed_at": at},
+        "a label without processing": {**closed, "triage": "work"},
+        "an unknown label": {**closed, "triage": "chat", "processed_at": at},
+        "processed and failed": {**closed, "triage": "work", "processed_at": at, "failed_at": at},
+    }
+    for case, values in refused.items():
+        with pytest.raises(IntegrityError):
+            async with session.begin_nested():
+                await session.execute(insert(JournalEntry).values(values))
+            pytest.fail(case)
+    await session.execute(
+        insert(JournalEntry).values({**closed, "triage": "other", "processed_at": at})
+    )
+    await session.execute(insert(JournalEntry).values({**closed, "failed_at": at}))
