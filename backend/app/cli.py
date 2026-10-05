@@ -46,7 +46,7 @@ from app.tailoring.posting import parse_posting
 from app.telegram.api import BotApi, TelegramError
 from app.telegram.linking import deep_link, new_link_token
 from app.telegram.polling import poll
-from app.tick import TICK_BUDGET_S, tick
+from app.tick import TICK_BUDGET_S, extract_now, tick
 from app.validate.lint import format_report, lint_profile
 
 LOCAL_DIR = Path(__file__).resolve().parents[2] / "local"
@@ -539,7 +539,12 @@ async def _poll(database_url: str) -> int:
     try:
         async with _telegram_http() as http:
             entry_timeout = timedelta(minutes=get_settings().entry_timeout_minutes)
-            return await poll(_bot_api(http), session_factory(engine), entry_timeout=entry_timeout)
+            return await poll(
+                _bot_api(http),
+                session_factory(engine),
+                entry_timeout=entry_timeout,
+                after_close=extract_now,
+            )
     finally:
         await engine.dispose()
 

@@ -20,8 +20,9 @@ DEFAULT_TIMEOUT = timedelta(minutes=30)
 
 async def entry_for(
     session: AsyncSession, user_id: uuid.UUID, sent_at: datetime, timeout: timedelta
-) -> uuid.UUID:
-    """The entry a message sent at `sent_at` belongs to: the open one, or a new one."""
+) -> tuple[uuid.UUID, uuid.UUID | None]:
+    """The entry a message sent at `sent_at` belongs to: the open one, or a new one. Also returns
+    the entry the message closed, when the open one had gone quiet."""
     entry = await session.scalar(
         select(JournalEntry)
         .where(JournalEntry.user_id == user_id, JournalEntry.closed_at.is_(None))
@@ -30,25 +31,29 @@ async def entry_for(
     if entry is not None:
         if sent_at - entry.last_message_at < timeout:
             entry.last_message_at = max(entry.last_message_at, sent_at)
-            return entry.id
+            return entry.id, None
         entry.closed_at = entry.last_message_at + timeout
         entry.closed_by = "quiet"
         await session.flush()
+    closed = entry.id if entry is not None else None
     entry = JournalEntry(user_id=user_id, opened_at=sent_at, last_message_at=sent_at)
     session.add(entry)
     await session.flush()
-    return entry.id
+    return entry.id, closed
 
 
-async def close_open_entry(session: AsyncSession, user_id: uuid.UUID, at: datetime) -> bool:
-    """Close the user's open entry as of `at`, for `/done`. False when no entry was open."""
+async def close_open_entry(
+    session: AsyncSession, user_id: uuid.UUID, at: datetime
+) -> uuid.UUID | None:
+    """Close the user's open entry as of `at`, for `/done`. Returns it, or None when no entry was
+    open."""
     result = await session.execute(
         update(JournalEntry)
         .where(JournalEntry.user_id == user_id, JournalEntry.closed_at.is_(None))
         .values(closed_at=at, closed_by="done")
         .returning(JournalEntry.id)
     )
-    return result.scalar_one_or_none() is not None
+    return result.scalar_one_or_none()
 
 
 async def close_quiet_entries(

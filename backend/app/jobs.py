@@ -119,17 +119,20 @@ async def queue_extractions(session: AsyncSession) -> int:
         )
         .order_by(JournalEntry.closed_at)
     )
-    queued = 0
-    for entry_id in pending:
-        job = extract_entry.configure(
-            lock=f"journal_entry:{entry_id}", queueing_lock=f"extract_entry:{entry_id}"
-        )
-        try:
-            await job.defer_async(entry_id=str(entry_id))
-        except AlreadyEnqueued:
-            continue
-        queued += 1
-    return queued
+    return sum([await queue_extraction(entry_id) for entry_id in pending])
+
+
+async def queue_extraction(entry_id: uuid.UUID) -> bool:
+    """Queue `extract_entry` for one entry, unless it's queued already. Jobs for one entry run one
+    at a time. Returns whether it was queued."""
+    job = extract_entry.configure(
+        lock=f"journal_entry:{entry_id}", queueing_lock=f"extract_entry:{entry_id}"
+    )
+    try:
+        await job.defer_async(entry_id=str(entry_id))
+    except AlreadyEnqueued:
+        return False
+    return True
 
 
 async def run_extraction(

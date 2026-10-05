@@ -33,6 +33,7 @@ from app.llm.fake import FakeMessages, refusal, reply
 from app.llm.usage import CallLog, MemoryCallLog
 from app.telegram.api import TelegramError
 from app.telegram.processing import Processed, failure_text, process_entry
+from app.tick import extract_now
 from app.triage import TriageReply
 
 pytestmark = pytest.mark.anyio
@@ -391,6 +392,19 @@ async def test_the_worker_runs_the_job(
     assert done.status == "succeeded"
     assert [message["chat_id"] for message in telegram.sent] == [chat_id]
     assert await entry_state(entry_id) == ("other", True, False, 0)
+
+
+async def test_a_just_closed_entry_is_extracted_right_away(
+    committed: Committed, chat_id: int, claude: Callable[..., FakeMessages], telegram: Telegram
+) -> None:
+    """What the webhook runs after answering an update that closed an entry (FR-CAP-5): a tick
+    that first queues the entry, so the reply doesn't wait for the scheduler."""
+    _, entry_id = await committed(NOTE, FOLLOW_UP, chat_id=chat_id)
+    claude(reply(WORK), reply(EXTRACTED))
+    with jobs.replace_connector(InMemoryConnector()):
+        await extract_now(entry_id)
+    assert telegram.sent == [{"chat_id": chat_id, "text": expected_reply(entry_id)}]
+    assert await entry_state(entry_id) == ("work", True, False, 2)
 
 
 # --- Queueing closed entries ---------------------------------------------------------------------
