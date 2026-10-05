@@ -14,6 +14,7 @@ from typing import Literal
 
 from app.schema.common import Model
 from app.schema.fact import ChangeValue, Metric, Qualifier, RangeValue, SingleValue
+from app.schema.verification import Derivation
 from app.validate.quantities import (
     Interval,
     Quantity,
@@ -35,13 +36,6 @@ class NumberFinding(Model):
     severity: Literal["error", "warning"]
     code: FindingCode
     message: str
-
-
-class Derivation(Model):
-    """A figure in the text that code computed from a fact metric, and how."""
-
-    quantity: str
-    formula: str
 
 
 class NumberCheck(Model):

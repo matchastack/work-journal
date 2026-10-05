@@ -8,9 +8,11 @@ from app.schema.profile import Profile
 from app.schema.variant import Variant
 from app.selection import MASTER_VARIANT, Selection, select
 from app.validate.lint import (
+    TEXT,
     LintReport,
     NotSendable,
     check_sendable,
+    check_text,
     format_report,
     lint_profile,
     require_sendable,
@@ -306,6 +308,72 @@ def test_rules_code_cant_read_are_notes() -> None:
         "education[springfield_state].rules: rule 2 isn't checked: "
         '"Show the minor after the major."',
     )
+
+
+# --- One new text, for the verifier -----------------------------------------------------------
+
+
+def test_a_new_bullet_that_breaks_no_rule_has_no_findings() -> None:
+    text = "Cut failed order events by retrying them with backoff."
+    assert check_text(text, PROFILE, entry_id="northwind") == LintReport()
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("Cut hosting costs by XX%.", ("R2", "error", TEXT)),
+        ("Rewrote the order parser as a Rust-based service.", ("R3", "error", TEXT)),
+        ("Built an Android app for drivers in Kotlin.", ("R3", "warning", TEXT)),
+        ("Built NodeJS services for order events.", ("spelling", "warning", TEXT)),
+    ],
+)
+def test_a_new_text_breaks_the_rules_a_bullet_would(
+    text: str, expected: tuple[str, str, str]
+) -> None:
+    assert found(check_text(text, PROFILE, entry_id="northwind")) == [expected]
+    assert found(check_text(text, PROFILE)) == [expected], "text that isn't a bullet too"
+
+
+def test_a_number_from_another_entry_is_reported_at_the_new_text() -> None:
+    text = "Built a Python tool used by 300 people a month to label sensor logs."
+    report = check_text(text, PROFILE, entry_id="contoso")
+    assert found(report) == [("R4", "warning", TEXT)]
+    assert report.findings[0].message == (
+        '"300 people" also appears in projects[recipe_box].highlights[rb_app]; make sure both '
+        "are right"
+    )
+    assert check_text(text, PROFILE, entry_id="recipe_box").findings == (), "the same entry"
+    assert check_text(text, PROFILE).findings == (), "text that isn't a bullet"
+
+
+def test_a_new_bullet_that_repeats_one_is_a_duplicate_unless_it_replaces_it() -> None:
+    text = "Cut the nightly export job from 50 to 12 minutes by batching database writes."
+    report = check_text(text, PROFILE, entry_id="contoso")
+    assert found(report) == [("R4", "warning", TEXT), ("duplicates", "warning", TEXT)]
+    assert report.findings[1].message == "same text as work[northwind].highlights[nw_export]"
+    edit = check_text(text, PROFILE, entry_id="northwind", replaces="nw_export")
+    assert edit.findings == ()
+
+
+def test_a_gpa_in_a_new_education_bullet_breaks_a_never_print_gpa_rule() -> None:
+    text = "Graduated with a GPA of 3.9/4.0."
+    profile = with_education(["Never print GPA."])
+    assert found(check_text(text, profile, entry_id="springfield_state")) == [
+        ("R10", "error", TEXT)
+    ]
+    assert check_text(text, profile, entry_id="northwind").findings == ()
+
+
+def test_problems_elsewhere_in_the_profile_are_not_the_new_texts() -> None:
+    profile = edited(set_text("nw_orders", "Cut hosting costs by TODO."))
+    assert check_text("Labelled sensor logs for a study.", profile, entry_id="contoso") == (
+        LintReport()
+    )
+
+
+def test_a_new_bullet_needs_an_entry_the_profile_has() -> None:
+    with pytest.raises(ValueError, match="no role, education entry or project 'fabrikam'"):
+        check_text("Built a service.", PROFILE, entry_id="fabrikam")
 
 
 # --- Blocking and output ------------------------------------------------------------------------

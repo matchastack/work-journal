@@ -255,19 +255,19 @@ As the owner, I want my informal notes turned into structured facts, so that mea
 - [x] Unit tests use the fake client, plus an opt-in evaluation on casual entries for a fictional person.
 
 ### T-015 · Claim verifier
-**Status:** ☐ · **Size:** M · **Depends on:** T-005, T-009, T-012, T-013 · **Requirements:** FR-FID-4, FR-FID-5, FR-FID-6, FR-FID-7, FR-FID-8, R1, R3 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-005, T-009, T-012, T-013 · **Requirements:** FR-FID-4, FR-FID-5, FR-FID-6, FR-FID-7, FR-FID-8, R1, R3 · **PR:** [#23](https://github.com/matchastack/work-journal/pull/23)
 
 As the owner, I want every generated sentence checked for claims my facts don't support, so that professional wording never turns into exaggeration.
 
-- [ ] A standard-tier judge splits text into claims and marks each one supported, unsupported or contradicted by the cited facts.
-- [ ] It detects:
+- [x] A standard-tier judge splits text into claims and marks each one supported, unsupported or contradicted by the cited facts.
+- [x] It detects:
   - inflated ownership
   - added tools, team sizes, outcomes or scope
   - breaches of honesty boundaries or the gaps list
   - vocabulary from a posting that isn't a true synonym
-- [ ] The combined verifier runs the number check, claim check, style check and resume rules. A failure is regenerated once with feedback; if it still fails, it's flagged.
-- [ ] The report is stored as structured data.
-- [ ] Unit tests use the fake client. An opt-in evaluation uses known-bad examples, such as inflation and invented numbers.
+- [x] The combined verifier runs the number check, claim check, style check and resume rules. A failure is regenerated once with feedback; if it still fails, it's flagged.
+- [x] The report is stored as structured data.
+- [x] Unit tests use the fake client. An opt-in evaluation uses known-bad examples, such as inflation and invented numbers.
 
 ### T-016 · Evaluation harness
 **Status:** ☐ · **Size:** M · **Depends on:** T-014, T-015 · **Requirements:** NFR-MAINT-2 (and the evaluation bar in requirements §10) · **PR:** —
