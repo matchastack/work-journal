@@ -2,6 +2,13 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-04 · T-031 Telegram account linking · [#27](https://github.com/matchastack/work-journal/pull/27)
+**Changed:** a one-time link to the bot (15 minutes) links the Telegram chat it's opened in to your journal; linking a new chat moves the link. The web app's API can make the link and show the link status, and `wj telegram link` prints one.
+
+**Verify:**
+- CI is green on #27
+- Optional, with your bot: `uv run wj telegram link --user <your GitHub username>`, open the link in Telegram, and the bot answers "Linked."
+
 ## 2026-10-04 · T-030 Telegram webhook and message storage · [#26](https://github.com/matchastack/work-journal/pull/26)
 **Changed:** added the Telegram webhook, which checks Telegram's secret header, keeps every raw update for 7 days and turns messages from a linked chat into encrypted journal messages (edits keep the earlier text). Also `wj telegram poll` to journal on your computer, and `wj telegram set-webhook`.
 

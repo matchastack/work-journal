@@ -2,7 +2,8 @@
 
 `handle_update` is shared by the webhook and by `wj telegram poll`. It stores the raw update
 first, so nothing is lost, then the journal message in it. Only private chats linked to a user
-become journal messages; any other private chat is told how to link itself. Message text is
+become journal messages. `/start <token>` from a link to the bot links a chat
+(`app/telegram/linking.py`); any other unlinked chat is told how to link itself. Message text is
 never logged.
 """
 
@@ -15,6 +16,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import JournalMessage, JournalMessageEdit, TelegramLink, TelegramUpdate
+from app.telegram.linking import link_chat, start_token
 from app.telegram.updates import Message, Update
 
 LINK_HINT = (
@@ -80,6 +82,8 @@ async def _chat_owner(session: AsyncSession, chat_id: int) -> uuid.UUID | None:
 async def _new_message(session: AsyncSession, message: Message) -> Reply | None:
     if message.chat.type != "private":
         return None
+    if message.text is not None and (token := start_token(message.text)) is not None:
+        return Reply(message.chat.id, await link_chat(session, message.chat.id, token))
     owner = await _chat_owner(session, message.chat.id)
     if owner is None:
         return Reply(message.chat.id, LINK_HINT)

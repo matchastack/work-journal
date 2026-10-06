@@ -360,3 +360,20 @@ class JournalMessageEdit(Base):
     """The text before the edit."""
     replaced_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     """When the edit replaced it."""
+
+
+class TelegramLinkToken(Base):
+    """A one-time token in a link to the bot, which links the chat that opens it (FR-CAP-3).
+
+    Only the token's SHA-256 hash is stored, like a session's. It works once, until
+    `expires_at`.
+    """
+
+    __tablename__ = "telegram_link_tokens"
+
+    token_hash: Mapped[bytes] = mapped_column(LargeBinary, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

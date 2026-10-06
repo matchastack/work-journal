@@ -44,6 +44,7 @@ from app.schema.profile import Profile
 from app.selection import MASTER_VARIANT, select
 from app.tailoring.posting import parse_posting
 from app.telegram.api import BotApi, TelegramError
+from app.telegram.linking import deep_link, new_link_token
 from app.telegram.polling import poll
 from app.validate.lint import format_report, lint_profile
 
@@ -471,6 +472,22 @@ def poll_telegram() -> None:
         typer.echo("Stopped. Run `wj telegram set-webhook` to turn the webhook back on.")
 
 
+@telegram_cli.command("link")
+def link_telegram(
+    user: Annotated[
+        str | None,
+        typer.Option(help="Your GitHub username. Not needed while the database has one user."),
+    ] = None,
+) -> None:
+    """Print a one-time link that links your Telegram chat to your journal, for 15 minutes."""
+    if get_settings().database_url is None:
+        typer.echo("Set DATABASE_URL to the database your journal is in.", err=True)
+        raise typer.Exit(1)
+    url = _run_telegram(_new_link(user))
+    typer.echo("Open this link where you use Telegram, within 15 minutes:")
+    typer.echo(url)
+
+
 def _run_telegram[T](work: Coroutine[Any, Any, T]) -> T:
     try:
         return asyncio.run(work)
@@ -490,6 +507,14 @@ def _bot_api(http: httpx2.AsyncClient) -> BotApi:
 async def _set_webhook(url: str, secret: str) -> None:
     async with _telegram_http() as http:
         await _bot_api(http).set_webhook(url, secret)
+
+
+async def _new_link(login: str | None) -> str:
+    async with _telegram_http() as http:
+        bot = await _bot_api(http).get_me()
+    async with _database() as session:
+        token, _ = await new_link_token(session, await _user(session, login))
+    return deep_link(bot.username, token)
 
 
 async def _poll(database_url: str) -> int:

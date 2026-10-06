@@ -22,6 +22,13 @@ from app.db.models import JournalMessage, JournalMessageEdit, TelegramLink, Tele
 from app.main import create_app
 from app.telegram.api import BotApi
 from app.telegram.journal import LINK_HINT, purge_updates
+from app.telegram.linking import (
+    ALREADY_LINKED,
+    EXPIRED,
+    LINKED,
+    LINKED_ELSEWHERE,
+    new_link_token,
+)
 from app.telegram.polling import poll
 from app.telegram.webhook import SECRET_HEADER
 
@@ -69,10 +76,35 @@ def run(database_url: str, statement: Executable) -> list[Any]:
     return asyncio.run(execute())
 
 
-def link(database_url: str, chat_id: int) -> uuid.UUID:
+def new_user(database_url: str) -> uuid.UUID:
     [(user_id,)] = run(database_url, insert(User).returning(User.id))
+    return user_id
+
+
+def link(database_url: str, chat_id: int) -> uuid.UUID:
+    user_id = new_user(database_url)
     run(database_url, insert(TelegramLink).values(user_id=user_id, chat_id=chat_id))
     return user_id
+
+
+def link_token(database_url: str, user_id: uuid.UUID, *, made: datetime | None = None) -> str:
+    """A one-time token for a link to the bot, made now or at `made`."""
+
+    async def make() -> str:
+        engine = create_async_engine(database_url)
+        try:
+            async with async_sessionmaker(engine)() as session, session.begin():
+                token, _ = await new_link_token(session, user_id, now=made)
+                return token
+        finally:
+            await engine.dispose()
+
+    return asyncio.run(make())
+
+
+def owner_of(database_url: str, chat_id: int) -> uuid.UUID | None:
+    rows = run(database_url, select(TelegramLink.user_id).where(TelegramLink.chat_id == chat_id))
+    return rows[0][0] if rows else None
 
 
 def update(name: str, chat_id: int, **changes: Any) -> str:
@@ -249,3 +281,52 @@ def test_polling_journals_updates_as_the_webhook_does(database_url: str, chat_id
     ]
     assert calls[2][1] == {"chat_id": stranger, "text": LINK_HINT}
     assert calls[3][1]["offset"] == batch[1]["update_id"] + 1, "confirms the updates handled"
+
+
+def start(client: TestClient, chat_id: int, token: str) -> str:
+    """Open a link to the bot in the chat, and return the bot's answer."""
+    response = post(client, update("message", chat_id, text=f"/start {token}"))
+    return response.json()["text"]
+
+
+def test_a_link_to_the_bot_links_the_chat_once(
+    client: TestClient, database_url: str, chat_id: int
+) -> None:
+    """FR-CAP-3: the token works once, and the `/start` message isn't journaled."""
+    user_id = new_user(database_url)
+    token = link_token(database_url, user_id)
+    assert start(client, chat_id, token) == LINKED
+    assert owner_of(database_url, chat_id) == user_id
+    assert start(client, chat_id, token) == EXPIRED
+    post(client, update("message", chat_id))
+    assert messages(database_url, chat_id) == [(31, NOTE, None)]
+
+
+def test_a_link_expires_after_15_minutes(
+    client: TestClient, database_url: str, chat_id: int
+) -> None:
+    made = datetime.now(UTC) - timedelta(minutes=15, seconds=1)
+    token = link_token(database_url, new_user(database_url), made=made)
+    assert start(client, chat_id, token) == EXPIRED
+    assert owner_of(database_url, chat_id) is None
+
+
+def test_a_chat_linked_to_someone_else_stays_theirs(
+    client: TestClient, database_url: str, chat_id: int
+) -> None:
+    first = link(database_url, chat_id)
+    token = link_token(database_url, new_user(database_url))
+    assert start(client, chat_id, token) == LINKED_ELSEWHERE
+    assert owner_of(database_url, chat_id) == first
+
+
+def test_linking_another_chat_moves_the_link(
+    client: TestClient, database_url: str, chat_id: int
+) -> None:
+    """FR-SET-1: relinking. The old chat is then told how to link, like any other."""
+    user_id = link(database_url, chat_id)
+    assert start(client, chat_id, link_token(database_url, user_id)) == ALREADY_LINKED
+    new_chat = chat_id + 1
+    assert start(client, new_chat, link_token(database_url, user_id)) == LINKED
+    assert (owner_of(database_url, chat_id), owner_of(database_url, new_chat)) == (None, user_id)
+    assert post(client, update("message", chat_id)).json()["text"] == LINK_HINT

@@ -157,6 +157,48 @@
           }
         }
       }
+    },
+    "/api/telegram/link": {
+      "get": {
+        "tags": [
+          "telegram"
+        ],
+        "summary": "Link Status",
+        "description": "Whether the user's Telegram chat is linked, and since when.",
+        "operationId": "link_status_api_telegram_link_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelegramLinkStatus"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "telegram"
+        ],
+        "summary": "New Link",
+        "description": "A one-time link to the bot that links the chat it's opened in, for 15 minutes.",
+        "operationId": "new_link_api_telegram_link_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelegramDeepLink"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -227,6 +269,53 @@
           "githubLogin"
         ],
         "title": "Me"
+      },
+      "TelegramDeepLink": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expiresat"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "url",
+          "expiresAt"
+        ],
+        "title": "TelegramDeepLink"
+      },
+      "TelegramLinkStatus": {
+        "properties": {
+          "linked": {
+            "type": "boolean",
+            "title": "Linked"
+          },
+          "linkedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linkedat"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "linked",
+          "linkedAt"
+        ],
+        "title": "TelegramLinkStatus"
       },
       "ValidationError": {
         "properties": {
