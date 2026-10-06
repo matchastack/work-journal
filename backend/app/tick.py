@@ -1,8 +1,8 @@
 """One tick of background work, for hosting without an always-on worker (requirements §13).
 
-A free scheduler calls `POST /internal/tick` every 15 minutes, and `wj tick` does the same by
-hand. Not more often: each tick wakes the database, and Neon's free plan counts the hours it's
-awake. Each tick does what `wj worker` does without stopping, in bounded time:
+Vercel's cron calls `/internal/tick` once a day (`backend/vercel.json`), the most its free plan
+allows, and `wj tick` does the same by hand. Each tick does what `wj worker` does without
+stopping, in bounded time:
 
 1. It defers the scheduled tasks that are due. The database keeps a task from being deferred
    twice for the same time, so ticks may overlap or repeat.
@@ -21,13 +21,13 @@ from procrastinate.periodic import PeriodicDeferrer
 from app.jobs import jobs
 
 TICK_BUDGET_S = 20.0
-"""How long a tick starts new jobs: well inside the scheduler's 30 s wait for an answer."""
+"""How long a tick starts new jobs."""
 JOB_GRACE_S = 30.0
 """How long a job that started within the budget may still run. With the budget, this stays
 under the function's 60 s limit (`backend/vercel.json`)."""
-MISSED_SCHEDULE_S = 3600
-"""A scheduled task that ticks missed, for example while the scheduler was down, still runs if
-it was due within the last hour."""
+MISSED_SCHEDULE_S = 25 * 3600
+"""A scheduled task due within the last 25 hours still runs: the tick comes once a day, at any
+time within its hour, so each daily task runs once a day."""
 
 _running = asyncio.Lock()
 

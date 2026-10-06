@@ -74,8 +74,8 @@ class Settings(BaseSettings):
     entry_timeout_minutes: Annotated[int, Field(ge=1)] = 30
     """Minutes of quiet after which a journal entry closes, and the next message starts a new one
     (FR-CAP-4)."""
-    tick_secret: SecretStr | None = None
-    """The secret the scheduler sends to `/internal/tick` as `Authorization: Bearer <secret>`.
+    cron_secret: SecretStr | None = None
+    """The secret Vercel's cron sends to `/internal/tick` as `Authorization: Bearer <secret>`.
     Without it, the tick refuses every request."""
     web_dist_dir: Path = REPOSITORY / "frontend" / "dist"
     """The built web app (`npm run build` in `frontend/`), served at `/` when it exists. A

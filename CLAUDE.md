@@ -42,7 +42,7 @@ Run these from `backend/` (uv project, Python 3.12):
 | Start Postgres for local development | `docker compose up -d` (repo root); set `DATABASE_URL` and `TEST_DATABASE_URL` as `compose.yml` says |
 | Apply database migrations | `uv run alembic upgrade head` (after changing `app/db/models.py`: `uv run alembic revision --autogenerate --rev-id <next> -m "<change>"`) |
 | Run the background worker (jobs and scheduled tasks in `app/jobs.py`) | `uv run wj worker` (needs `DATABASE_URL`) |
-| Run one tick of background work, as the scheduler does on Vercel every 15 minutes (`app/tick.py`) | `uv run wj tick` (needs `DATABASE_URL`) |
+| Run one tick of background work, as Vercel's cron does once a day (`app/tick.py`) | `uv run wj tick` (needs `DATABASE_URL`) |
 | Run the command-line tool | `uv run wj --help` |
 | Load the imported profile into the database as version 1 (then `wj lint`, `wj render` and `wj portfolio build` take `--db`) | `uv run wj db load-profile --user <github-login>` |
 | Journal from Telegram on this computer, without the webhook (needs `TELEGRAM_BOT_TOKEN` and `DATABASE_URL`; turns the webhook off) | `uv run wj telegram poll` |
@@ -81,7 +81,7 @@ Add a dependency with `npm install <package>` (or `npm install --save-dev <packa
 | `backend/migrations/` | Alembic migrations for `app/db/models.py` |
 | `backend/templates/` | LaTeX resume template and portfolio templates |
 | `frontend/` | React web app: Vite, TypeScript, Tailwind, React Router and TanStack Query. `src/api/schema.d.ts` is generated. |
-| `docs/` | Runbooks: `deploy.md` sets up the free hosting (Vercel, Neon, cron-job.org) |
+| `docs/` | Runbooks: `deploy.md` sets up the free hosting (Vercel and Neon) |
 | `local/` | **Git-ignored** personal data: the imported profile and private evaluations. Never commit it. |
 
 ## Conventions
