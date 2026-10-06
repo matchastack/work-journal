@@ -3,7 +3,7 @@
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
 ## 2026-10-05 · T-033 Extraction on entry close, and summary reply · [#30](https://github.com/matchastack/work-journal/pull/30)
-**Changed:** when an entry closes, the bot triages it (light tier), saves the facts in an entry about work, and replies with the saved facts, up to three, and a link to the entry. It runs right after `/done`, and in the tick that closes a quiet entry. Failures are retried, and you're told when one finally fails.
+**Changed:** when an entry closes, the bot triages it (light tier), saves the facts in an entry about work, and replies with the saved facts, up to three, and a link to the entry. It runs right after `/done`, or, for an entry left without `/done`, in the daily tick that closes it. Failures are retried at the next tick, and you're told when one finally fails.
 
 **Verify:**
 - CI is green on #30

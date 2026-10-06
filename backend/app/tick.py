@@ -78,8 +78,9 @@ async def tick(
 async def extract_now(entry_id: uuid.UUID) -> None:
     """Queue a just-closed entry's extraction and run a tick, so the reply doesn't wait for the
     scheduler (FR-CAP-5). The webhook does this right after answering, and `wj telegram poll` too.
-    It's a shortcut: if a tick is already running in this process, or this one fails, the
-    scheduled sweep (`close_quiet_entries`) queues the entry instead."""
+    It's a shortcut: if a tick is already running in this process, or this one fails, the sweep
+    in the next tick (`close_quiet_entries`) queues the entry instead: the daily one, or the next
+    one an update starts."""
 
     async def queue() -> None:
         await queue_extraction(entry_id)
