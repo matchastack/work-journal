@@ -461,7 +461,7 @@ As the owner, I want to sign in with GitHub and nobody else to get in, so that m
 - [ ] Tests use a mocked GitHub API.
 
 ### T-030 · Telegram webhook and message storage
-**Status:** ◐ · **Size:** M · **Depends on:** T-026, T-028 · **Requirements:** FR-CAP-1, FR-CAP-2, FR-JRN-1, FR-JRN-2, FR-JRN-3, NFR-PERF-1, NFR-REL-1, NFR-SEC-4 · **PR:** [#26](https://github.com/matchastack/work-journal/pull/26)
+**Status:** ☑ · **Size:** M · **Depends on:** T-026, T-028 · **Requirements:** FR-CAP-1, FR-CAP-2, FR-JRN-1, FR-JRN-2, FR-JRN-3, NFR-PERF-1, NFR-REL-1, NFR-SEC-4 · **PR:** [#26](https://github.com/matchastack/work-journal/pull/26)
 
 As the owner, I want every message I send the bot saved safely the moment it arrives, so that nothing I journal is lost.
 
@@ -473,7 +473,7 @@ As the owner, I want every message I send the bot saved safely the moment it arr
 - [x] Tests with recorded update payloads: new, duplicate, edited and unlinked.
 
 ### T-031 · Telegram account linking
-**Status:** ◐ · **Size:** S · **Depends on:** T-029, T-030 · **Requirements:** FR-CAP-3, FR-SET-1 · **PR:** [#27](https://github.com/matchastack/work-journal/pull/27)
+**Status:** ☑ · **Size:** S · **Depends on:** T-029, T-030 · **Requirements:** FR-CAP-3, FR-SET-1 · **PR:** [#27](https://github.com/matchastack/work-journal/pull/27)
 
 As the owner, I want to link my Telegram chat to my account in one tap, so that the bot knows the messages are mine.
 
