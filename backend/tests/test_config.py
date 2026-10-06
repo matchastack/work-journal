@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from app.config import Settings
+from app.config import BACKEND, Settings
 
 ENV_EXAMPLE = Path(__file__).parent.parent / ".env.example"
 
@@ -171,3 +171,9 @@ def test_the_webhook_secret_uses_only_what_telegram_accepts(
     monkeypatch.setenv("TELEGRAM_WEBHOOK_SECRET", secret)
     with pytest.raises(ValidationError, match="1 to 256 letters"):
         Settings()
+
+
+def test_a_relative_web_app_folder_is_inside_backend(monkeypatch: pytest.MonkeyPatch) -> None:
+    """On Vercel, the build puts the web app in `backend/webapp`."""
+    monkeypatch.setenv("WEB_DIST_DIR", "webapp")
+    assert Settings().web_dist_dir == BACKEND / "webapp"

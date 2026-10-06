@@ -473,7 +473,7 @@ As the owner, I want every message I send the bot saved safely the moment it arr
 - [x] Tests with recorded update payloads: new, duplicate, edited and unlinked.
 
 ### T-031 · Telegram account linking
-**Status:** ◐ · **Size:** S · **Depends on:** T-029, T-030 · **Requirements:** FR-CAP-3, FR-SET-1 · **PR:** [#27](https://github.com/matchastack/work-journal/pull/27)
+**Status:** ☑ · **Size:** S · **Depends on:** T-029, T-030 · **Requirements:** FR-CAP-3, FR-SET-1 · **PR:** [#27](https://github.com/matchastack/work-journal/pull/27)
 
 As the owner, I want to link my Telegram chat to my account in one tap, so that the bot knows the messages are mine.
 
@@ -676,16 +676,16 @@ As the owner, I want confidential terms and sensitive-role details kept out of a
 **Dropped (T-056):** Vercel builds and runs the app without an image. Revisit if rendering moves to a host that runs containers; CI already renders the fixture resume with TeX Live.
 
 ### T-051 · Vercel deployment
-**Status:** ☐ · **Size:** M · **Depends on:** T-028, T-030 · **Requirements:** NFR-SEC-1, NFR-REL-1, NFR-PERF-1 · **Needs:** OQ-3 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-028, T-030 · **Requirements:** NFR-SEC-1, NFR-REL-1, NFR-PERF-1 · **Needs:** OQ-3 · **PR:** [#28](https://github.com/matchastack/work-journal/pull/28)
 
 As the owner, I want the app deployed for free and updated automatically, so that the bot is always listening and runs the latest merged code.
 
-- [ ] Vercel runs the FastAPI app as one function, serving the API, sign-in, the webhook, the tick, `/healthz`, the portfolio pages and the built web app.
-- [ ] `/internal/tick` checks a bearer secret (`CRON_SECRET`). It defers the scheduled tasks that are due, then runs queued jobs for about 20 s, and retries jobs that stalled. `wj tick` does the same from the command line.
-- [ ] Vercel's cron calls the tick once a day (`backend/vercel.json`), the most its free plan allows, so Neon's free plan isn't kept awake.
-- [ ] Postgres is on Neon's free plan, and each production build runs `alembic upgrade head` before the new deployment goes live.
-- [ ] Environment variables are documented without values, and `wj telegram set-webhook` points Telegram at the deployed webhook.
-- [ ] A deployment runbook in `docs/deploy.md`.
+- [x] Vercel runs the FastAPI app as one function, serving the API, sign-in, the webhook, the tick, `/healthz`, the portfolio pages and the built web app.
+- [x] `/internal/tick` checks a bearer secret (`CRON_SECRET`). It defers the scheduled tasks that are due, then runs queued jobs for about 20 s, and retries jobs that stalled. `wj tick` does the same from the command line.
+- [x] Vercel's cron calls the tick once a day (`backend/vercel.json`), the most its free plan allows, so Neon's free plan isn't kept awake.
+- [x] Postgres is on Neon's free plan, and each production build runs `alembic upgrade head` before the new deployment goes live.
+- [x] Environment variables are documented without values, and `wj telegram set-webhook` points Telegram at the deployed webhook.
+- [x] A deployment runbook in `docs/deploy.md`.
 
 ### T-052 · Observability
 **Status:** ☐ · **Size:** S · **Depends on:** T-051 · **Requirements:** NFR-OBS-1, NFR-COST-2, NFR-PRIV-2 · **PR:** —

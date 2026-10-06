@@ -20,7 +20,7 @@ from psycopg_pool import AsyncConnectionPool
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.db.engine import create_engine, session_factory
+from app.db.engine import create_engine, session_factory, with_query
 from app.telegram.journal import purge_updates
 
 logger = logging.getLogger(__name__)
@@ -32,8 +32,11 @@ UPDATE_RETENTION = timedelta(days=7)
 
 
 def psycopg_url(url: str) -> str:
-    """The database URL for psycopg, which the worker uses; the app itself uses asyncpg."""
-    return url.replace("postgresql+asyncpg://", "postgresql://", 1)
+    """The database URL for psycopg, which the worker uses; the app itself uses asyncpg. An
+    asyncpg-style `ssl` becomes libpq's `sslmode`."""
+    return with_query(
+        url.replace("postgresql+asyncpg://", "postgresql://", 1), rename={"ssl": "sslmode"}
+    )
 
 
 def _pool(**options: Any) -> AsyncConnectionPool:

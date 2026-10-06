@@ -2,6 +2,13 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-04 · T-051 Vercel deployment · [#28](https://github.com/matchastack/work-journal/pull/28)
+**Changed:** the app deploys to Vercel's free plan, with Postgres on Neon's: a protected tick, called once a day by Vercel's cron, runs scheduled tasks and queued jobs, and production builds build the web app and migrate the database. `docs/deploy.md` is the runbook.
+
+**Verify:**
+- CI is green on #28
+- Following `docs/deploy.md`, `/healthz` on the deployed app answers `"database":"ok"`, and a message to the bot reaches `journal_messages`
+
 ## 2026-10-04 · T-031 Telegram account linking · [#27](https://github.com/matchastack/work-journal/pull/27)
 **Changed:** a one-time link to the bot (15 minutes) links the Telegram chat it's opened in to your journal; linking a new chat moves the link. The web app's API can make the link and show the link status, and `wj telegram link` prints one.
 

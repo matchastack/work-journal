@@ -219,3 +219,6 @@ __marimo__/
 
 # Personal data: imported profile, private evaluations (never commit)
 local/
+
+# The web app as built for Vercel (backend/scripts/vercel-build.sh)
+backend/webapp/

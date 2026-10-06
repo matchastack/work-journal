@@ -72,6 +72,7 @@ def test_the_scheduled_tasks_and_when_they_run() -> None:
     [
         ("postgresql+asyncpg://app@db/app", "postgresql://app@db/app"),
         ("postgresql://app@db/app", "postgresql://app@db/app"),
+        ("postgresql+asyncpg://app@db/app?ssl=require", "postgresql://app@db/app?sslmode=require"),
     ],
 )
 def test_the_worker_connects_with_psycopg(url: str, expected: str) -> None:
