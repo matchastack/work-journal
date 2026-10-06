@@ -12,7 +12,8 @@ You set these up once, in this order. Your secrets go only into Vercel's setting
 `backend/.env`, never into git.
 
 These steps follow Vercel's Python builder (`@vercel/python` 21) and runtime (`vercel-runtime`
-0.23), read from their published packages. Check the first deploy against "Check it works" below.
+0.23), read from their published packages, and Neon's documentation as of October 2026. Check
+the first deploy against "Check it works" below.
 
 ## 1. Make the secrets
 
@@ -25,15 +26,32 @@ These steps follow Vercel's Python builder (`@vercel/python` 21) and runtime (`v
 
 ## 2. Create the database on Neon
 
-1. Sign up at [neon.com](https://neon.com) and create a project. Pick the region closest to you,
-   such as Singapore.
-2. Copy the project's connection string. Use the **direct** one (the host has no `-pooler`): the
-   app's drivers keep prepared statements, which a transaction pooler breaks. It looks like
-   `postgresql://user:password@ep-example-123456.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require`,
-   and the app takes it as it is.
+Sign up at [neon.com](https://neon.com) and click **New Project**. Fill in the form like this,
+then click **Create project**:
 
-The free plan sleeps the database after 5 idle minutes and counts the hours it's awake. The app
-wakes it only when you use the bot or the web app, and once a day for the tick.
+| Setting | Choose |
+|---|---|
+| **Project name** | Any name, such as `work-journal` |
+| **Region** | The one nearest you, such as **AWS Asia Pacific 1 (Singapore)**. Step 3 runs the app in the same place, since each request queries the database several times. |
+| **Postgres database** | On. Expand it and set **Postgres version** to **16**, the version the tests run on (`compose.yml` and CI). A project keeps the version it was created with. |
+| **Object storage**, **Functions**, **AI gateway** and **Neon Auth** | Off. The app keeps everything in Postgres, runs on Vercel, calls Claude itself and signs you in with GitHub. |
+
+Then copy the connection string:
+
+1. Click **Connect**. Keep the branch (`production`), database (`neondb`) and role
+   (`neondb_owner`) it shows.
+2. Turn **Connection pooling** off. You then get the **direct** connection string, whose host has
+   no `-pooler`. Neon advises a direct connection for migrations, which each production build
+   runs, and for `LISTEN`, which `wj worker` uses. One person's use stays far below the limit on
+   direct connections.
+3. Copy the string. It includes the password, and looks like
+   `postgresql://neondb_owner:password@ep-example-123456.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require`.
+   The app takes it as it is: it's `DATABASE_URL` in steps 3 and 6.
+
+On the free plan, the database sleeps after 5 idle minutes, and each project gets 100 CU-hours of
+compute a month (400 hours at the smallest size) and 1 GB of storage. The app wakes the database
+only when you use the bot or the web app, and once a day for the tick, so it stays well within
+both.
 
 ## 3. Create the app on Vercel
 
@@ -60,6 +78,10 @@ wakes it only when you use the bot or the web app, and once a day for the tick.
 
 4. Deploy. The build step (`backend/scripts/vercel-build.sh`) builds the web app and then
    migrates the database. If a migration fails, the build fails and nothing changes.
+5. **Run the app next to the database.** In the project's **Settings**, open **Functions**, and
+   under **Function Regions** pick the region nearest Neon's: **Singapore (`sin1`)** for Neon's
+   Singapore. Otherwise Vercel runs the app in Washington, D.C. (`iad1`), and every database
+   query makes the trip. Then redeploy.
 
 Each later merge to `main` deploys the same way.
 
@@ -116,3 +138,4 @@ deployment:
 | A command fails with `relation "..." does not exist` | The database is missing tables: run `uv run alembic upgrade head` (step 6). |
 | The bot stops receiving messages | `wj telegram poll` turns the webhook off; run `wj telegram set-webhook` again. |
 | The database is asleep or slow on the first request | Neon wakes in about a second; the next requests are quick. |
+| Every request is slow, not just the first | Vercel runs the app far from the database: set the function region (step 3), then redeploy. |
