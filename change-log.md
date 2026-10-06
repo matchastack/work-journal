@@ -23,6 +23,13 @@ One short entry per pull request, newest first: what changed and what to verify.
 - CI is green on #26
 - Optional, with a bot from @BotFather: `uv run wj telegram poll`, then message the bot; it answers with the linking hint (linking comes in T-031)
 
+## 2026-10-04 · T-056 Free hosting on Vercel and Neon · [#25](https://github.com/matchastack/work-journal/pull/25)
+**Changed:** the requirements and tasks now host the app on Vercel's and Neon's free plans. Vercel's cron calls a protected tick once a day in place of an always-on worker, and resumes render on your machine for now.
+
+**Verify:**
+- C6 and §13 in `project-requirements.md` describe the hosting you want
+- A summary within 2 minutes of an entry closing suits you
+
 ## 2026-10-01 · T-015 Claim verifier · [#23](https://github.com/matchastack/work-journal/pull/23)
 **Changed:** added the verifier every generated sentence must pass. It runs the number check, a standard-tier claim check, the style check and the resume rules. The claim check catches inflated ownership, an added tool, team size, outcome or scope, a broken honesty boundary or gaps-list skill, and a posting term that isn't a synonym. Text that fails is written once more with the findings as feedback, then flagged. Its report holds no fact text.
 

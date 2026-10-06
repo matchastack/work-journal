@@ -43,4 +43,4 @@ The full list of commands is in [CLAUDE.md](CLAUDE.md#commands).
 
 ## Planned stack
 
-FastAPI (Python) · React + TypeScript · PostgreSQL · Telegram bot · LaTeX · Claude API · Railway
+FastAPI (Python) · React + TypeScript · PostgreSQL · Telegram bot · LaTeX · Claude API · Vercel and Neon (free plans)
