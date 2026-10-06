@@ -3,7 +3,7 @@
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
 ## 2026-10-04 · T-051 Vercel deployment · [#28](https://github.com/matchastack/work-journal/pull/28)
-**Changed:** the app deploys to Vercel's free plan, with Postgres on Neon's: a protected tick, called every 15 minutes by cron-job.org, runs scheduled tasks and queued jobs, and production builds build the web app and migrate the database. `docs/deploy.md` is the runbook.
+**Changed:** the app deploys to Vercel's free plan, with Postgres on Neon's: a protected tick, called once a day by Vercel's cron, runs scheduled tasks and queued jobs, and production builds build the web app and migrate the database. `docs/deploy.md` is the runbook.
 
 **Verify:**
 - CI is green on #28
