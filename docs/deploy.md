@@ -83,12 +83,16 @@ Each run answers `{"retried": 0}` or similar.
 
 From your computer, in `backend/.env`, set the same `DATABASE_URL`, `DATA_ENCRYPTION_KEY`,
 `TELEGRAM_BOT_TOKEN` and `TELEGRAM_WEBHOOK_SECRET` as on Vercel, and
-`APP_URL=https://<project>.vercel.app`. Then, from `backend/`:
+`APP_URL=https://<project>.vercel.app`. Then, from `backend/`, on the same code as the
+deployment:
 
-1. Optional: `uv run wj db load-profile --user <your GitHub username>` loads your imported
+1. `uv run alembic upgrade head` creates any tables the database doesn't have yet. Each
+   production build does this too, so after a deploy it changes nothing; before one, the commands
+   below need it.
+2. Optional: `uv run wj db load-profile --user <your GitHub username>` loads your imported
    resume as profile version 1.
-2. `uv run wj telegram set-webhook` points Telegram at the deployed webhook.
-3. `uv run wj telegram link --user <your GitHub username>` prints a link. Open it in Telegram
+3. `uv run wj telegram set-webhook` points Telegram at the deployed webhook.
+4. `uv run wj telegram link --user <your GitHub username>` prints a link. Open it in Telegram
    within 15 minutes; the bot answers "Linked."
 
 ## Check it works
@@ -109,5 +113,6 @@ From your computer, in `backend/.env`, set the same `DATABASE_URL`, `DATA_ENCRYP
 | The build can't find `../frontend` | Turn on the Root Directory option that includes files outside it (step 3). |
 | The build says no FastAPI entrypoint was found | Root Directory must be `backend`. |
 | The tick answers 401 | Set `CRON_SECRET` in Vercel (step 3), then redeploy: Vercel sends it with each call. |
+| A command fails with `relation "..." does not exist` | The database is missing tables: run `uv run alembic upgrade head` (step 6). |
 | The bot stops receiving messages | `wj telegram poll` turns the webhook off; run `wj telegram set-webhook` again. |
 | The database is asleep or slow on the first request | Neon wakes in about a second; the next requests are quick. |
