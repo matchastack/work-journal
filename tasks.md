@@ -676,7 +676,7 @@ As the owner, I want confidential terms and sensitive-role details kept out of a
 **Dropped (T-056):** Vercel builds and runs the app without an image. Revisit if rendering moves to a host that runs containers; CI already renders the fixture resume with TeX Live.
 
 ### T-051 · Vercel deployment
-**Status:** ◐ · **Size:** M · **Depends on:** T-028, T-030 · **Requirements:** NFR-SEC-1, NFR-REL-1, NFR-PERF-1 · **Needs:** OQ-3 · **PR:** [#28](https://github.com/matchastack/work-journal/pull/28)
+**Status:** ☑ · **Size:** M · **Depends on:** T-028, T-030 · **Requirements:** NFR-SEC-1, NFR-REL-1, NFR-PERF-1 · **Needs:** OQ-3 · **PR:** [#28](https://github.com/matchastack/work-journal/pull/28)
 
 As the owner, I want the app deployed for free and updated automatically, so that the bot is always listening and runs the latest merged code.
 
