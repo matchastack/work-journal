@@ -22,7 +22,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 
 | Milestone | Tasks | Status |
 |---|---|---|
-| M0: Documents | T-000 and T-055 | ☑ |
+| M0: Documents | T-000, T-055 and T-056 | ◐ |
 | M1: Engine and command line | T-001 – T-024 and T-054 (T-007 dropped) | ◐ |
 | M2: Journal loop | T-025 – T-053 | ◐ |
 | M3: Quality and habit | Epics (at the end of this file) | — |
@@ -58,6 +58,15 @@ As the owner, I want my profile and outputs updated only when I ask, so that sma
 - [x] The requirements say that profile changes are proposed only on `/refresh`, and that applying them updates every output in one step. Nothing runs on a schedule or when an entry closes.
 - [x] Capture stays automatic per entry: storage, the follow-up question, extraction and the summary reply.
 - [x] T-038 becomes the refresh, and the tasks that mention synthesis or output updates follow it.
+
+### T-056 · Free hosting on Vercel and Neon
+**Status:** ◐ · **Size:** S · **Depends on:** T-000 · **Requirements:** FR-CAP-5, NFR-PERF-1, NFR-REL-1 · **PR:** [#25](https://github.com/matchastack/work-journal/pull/25)
+
+As the owner, I want the app hosted for free, so that I can journal every day without a hosting bill.
+
+- [x] The requirements host the app on Vercel's free plan and Postgres on Neon's free plan. Vercel's cron calls a protected tick once a day to run scheduled tasks and queued jobs, in place of an always-on worker; requests that queue jobs run them right after answering.
+- [x] Resumes render on the owner's machine until rendering moves to a host that can run LaTeX.
+- [x] T-051 becomes the Vercel deployment, T-050 (Docker image) is dropped, and T-030, T-032 and T-052 follow the tick.
 
 ---
 
@@ -394,7 +403,7 @@ As the owner, I want everything the app writes to use ASCII characters, so that 
 
 ## M2: Journal loop
 
-The goal of M2: the Telegram bot, background jobs and web app running on Railway for the owner.
+The goal of M2: the Telegram bot, background jobs and web app running on free hosting (Vercel and Neon) for the owner.
 
 ### T-025 · Database foundation
 **Status:** ☑ · **Size:** M · **Depends on:** T-001 · **Requirements:** NFR-MAINT-1 · **PR:** [#14](https://github.com/matchastack/work-journal/pull/14)
@@ -459,7 +468,7 @@ As the owner, I want every message I send the bot saved safely the moment it arr
 - [x] `POST /telegram/webhook` checks the secret-token header, returning 401 if it's wrong, and responds within 1 s.
 - [x] Raw updates are stored idempotently by `update_id`. Parsed messages are stored encrypted, and edits keep their history.
 - [x] An unlinked chat gets the linking hint, and nothing is stored as a journal message.
-- [x] A purge job deletes raw updates older than 7 days.
+- [x] A daily scheduled task, run by the tick in production, deletes raw updates older than 7 days.
 - [x] `wj telegram poll` for local development, and `wj telegram set-webhook`.
 - [x] Tests with recorded update payloads: new, duplicate, edited and unlinked.
 
@@ -479,7 +488,7 @@ As the owner, I want to link my Telegram chat to my account in one tap, so that 
 As the owner, I want my messages grouped into journal entries automatically, so that I can send several short messages about one thing.
 
 - [ ] A message joins the open entry. A new entry starts after 30 minutes of quiet; the timeout can be configured.
-- [ ] A scheduled job closes quiet entries, and `/done` closes an entry immediately.
+- [ ] A scheduled task, run by the daily tick, closes quiet entries, and `/done` closes an entry immediately.
 - [ ] `/help` lists the commands.
 - [ ] Tests for the edge cases: a gap of exactly 30 minutes, and edits to a closed entry.
 
@@ -662,24 +671,20 @@ As the owner, I want confidential terms and sensitive-role details kept out of a
 - [ ] Tests.
 
 ### T-050 · Docker image
-**Status:** ☐ · **Size:** M · **Depends on:** T-011, T-039 · **Requirements:** NFR-SEC-3 · **PR:** —
+**Status:** ✖ · **Size:** M · **Depends on:** T-011, T-039 · **Requirements:** NFR-SEC-3 · **PR:** —
 
-As a developer, I want one production image, so that the web service and the worker run the same tested build.
+**Dropped (T-056):** Vercel builds and runs the app without an image. Revisit if rendering moves to a host that runs containers; CI already renders the fixture resume with TeX Live.
 
-- [ ] A multi-stage build:
-  - Node builds the web app and the portfolio CSS.
-  - Python 3.12 slim adds a TeX Live subset (only the packages the template needs) and the uv dependencies.
-- [ ] Runs as a non-root user, with a health check.
-- [ ] CI builds the image and renders the fixture resume inside it.
+### T-051 · Vercel deployment
+**Status:** ☐ · **Size:** M · **Depends on:** T-028, T-030 · **Requirements:** NFR-SEC-1, NFR-REL-1, NFR-PERF-1 · **Needs:** OQ-3 · **PR:** —
 
-### T-051 · Railway deployment
-**Status:** ☐ · **Size:** M · **Depends on:** T-050 · **Requirements:** NFR-SEC-1 · **Needs:** OQ-3 · **PR:** —
+As the owner, I want the app deployed for free and updated automatically, so that the bot is always listening and runs the latest merged code.
 
-As the owner, I want the app deployed and updated automatically, so that it's always running the latest merged code.
-
-- [ ] `web` and `worker` services run from the image, with managed Postgres and `alembic upgrade head` before each deploy.
-- [ ] Environment variables are documented (no values in git). A custom domain is set, and the Telegram webhook is set on deploy.
-- [ ] Railway deploys `main` only after CI passes.
+- [ ] Vercel runs the FastAPI app as one function, serving the API, sign-in, the webhook, the tick, `/healthz`, the portfolio pages and the built web app.
+- [ ] `/internal/tick` checks a bearer secret (`CRON_SECRET`). It defers the scheduled tasks that are due, then runs queued jobs for about 20 s, and retries jobs that stalled. `wj tick` does the same from the command line.
+- [ ] Vercel's cron calls the tick once a day (`backend/vercel.json`), the most its free plan allows, so Neon's free plan isn't kept awake.
+- [ ] Postgres is on Neon's free plan, and each production build runs `alembic upgrade head` before the new deployment goes live.
+- [ ] Environment variables are documented without values, and `wj telegram set-webhook` points Telegram at the deployed webhook.
 - [ ] A deployment runbook in `docs/deploy.md`.
 
 ### T-052 · Observability
@@ -687,7 +692,7 @@ As the owner, I want the app deployed and updated automatically, so that it's al
 
 As the owner, I want errors and LLM costs visible, so that problems and spending don't surprise me.
 
-- [ ] Sentry for the API and the worker, with journal text scrubbed.
+- [ ] Sentry for the API and background jobs, with journal text scrubbed.
 - [ ] Structured JSON logs that never contain journal text.
 - [ ] A monthly LLM cost view in Settings, broken down by task and tier.
 
