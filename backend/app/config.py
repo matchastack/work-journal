@@ -71,8 +71,8 @@ class Settings(BaseSettings):
     telegram_webhook_secret: SecretStr | None = None
     """A random secret Telegram sends with every webhook request, so the app can tell the request
     is Telegram's (NFR-SEC-4): 1 to 256 letters, digits, `_` and `-`."""
-    tick_secret: SecretStr | None = None
-    """The secret the scheduler sends to `/internal/tick` as `Authorization: Bearer <secret>`.
+    cron_secret: SecretStr | None = None
+    """The secret Vercel's cron sends to `/internal/tick` as `Authorization: Bearer <secret>`.
     Without it, the tick refuses every request."""
     web_dist_dir: Path = REPOSITORY / "frontend" / "dist"
     """The built web app (`npm run build` in `frontend/`), served at `/` when it exists. A
