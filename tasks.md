@@ -473,7 +473,7 @@ As the owner, I want every message I send the bot saved safely the moment it arr
 - [x] Tests with recorded update payloads: new, duplicate, edited and unlinked.
 
 ### T-031 · Telegram account linking
-**Status:** ◐ · **Size:** S · **Depends on:** T-029, T-030 · **Requirements:** FR-CAP-3, FR-SET-1 · **PR:** [#27](https://github.com/matchastack/work-journal/pull/27)
+**Status:** ☑ · **Size:** S · **Depends on:** T-029, T-030 · **Requirements:** FR-CAP-3, FR-SET-1 · **PR:** [#27](https://github.com/matchastack/work-journal/pull/27)
 
 As the owner, I want to link my Telegram chat to my account in one tap, so that the bot knows the messages are mine.
 
