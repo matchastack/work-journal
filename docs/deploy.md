@@ -59,6 +59,12 @@ both.
    `matchastack/work-journal` as a new project.
 2. Set **Root Directory** to `backend`, and keep the option that includes files outside it in the
    build: the build step also builds `frontend/`. Vercel detects FastAPI.
+
+   Leave **Framework Settings** as Vercel fills them in, with no **Override** turned on.
+   `backend/pyproject.toml` gives Vercel the app and the build step, and Vercel installs the
+   dependencies from `uv.lock`. An install command would replace that install, and its
+   `requirements.txt` example doesn't exist here. A build command would replace the build step,
+   so the web app wouldn't be built and the database wouldn't be migrated.
 3. Add the **environment variables**, for **Production** only. Preview deployments of other
    branches then never touch your data.
 
@@ -132,6 +138,7 @@ deployment:
 |---|---|
 | The build can't find `../frontend` | Turn on the Root Directory option that includes files outside it (step 3). |
 | The build says no FastAPI entrypoint was found | Root Directory must be `backend`. |
+| The build fails on `requirements.txt`, or the web app or new tables are missing after a deploy | Turn off every **Override** in Framework Settings (step 3), then redeploy. |
 | The tick answers 401 | Set `CRON_SECRET` in Vercel (step 3), then redeploy: Vercel sends it with each call. |
 | A command fails with `relation "..." does not exist` | The database is missing tables: run `uv run alembic upgrade head` (step 6). |
 | The bot stops receiving messages | `wj telegram poll` turns the webhook off; run `wj telegram set-webhook` again. |
