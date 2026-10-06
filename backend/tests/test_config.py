@@ -152,3 +152,22 @@ def test_the_api_key_stays_out_of_reprs(monkeypatch: pytest.MonkeyPatch) -> None
     assert "sk-not-a-real-key" not in repr(settings)
     assert settings.anthropic_api_key is not None
     assert settings.anthropic_api_key.get_secret_value() == "sk-not-a-real-key"
+
+
+def test_telegram_secrets_stay_out_of_reprs(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123456:token-value")
+    monkeypatch.setenv("TELEGRAM_WEBHOOK_SECRET", "webhook-secret_1")
+    settings = Settings()
+    assert "token-value" not in repr(settings)
+    assert "webhook-secret_1" not in repr(settings)
+    assert settings.telegram_webhook_secret is not None
+    assert settings.telegram_webhook_secret.get_secret_value() == "webhook-secret_1"
+
+
+@pytest.mark.parametrize("secret", ["has space", "dot.dot", "x" * 257])
+def test_the_webhook_secret_uses_only_what_telegram_accepts(
+    monkeypatch: pytest.MonkeyPatch, secret: str
+) -> None:
+    monkeypatch.setenv("TELEGRAM_WEBHOOK_SECRET", secret)
+    with pytest.raises(ValidationError, match="1 to 256 letters"):
+        Settings()

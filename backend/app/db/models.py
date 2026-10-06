@@ -40,8 +40,9 @@ NAMING_CONVENTION = {
     "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
     "pk": "pk_%(table_name)s",
 }
-NOT_PER_USER = frozenset({"users"})
-"""Tables that don't belong to a user. Adding one needs a reason."""
+NOT_PER_USER = frozenset({"users", "telegram_updates"})
+"""Tables that don't belong to a user. Adding one needs a reason: `telegram_updates` keeps each
+raw update the moment it arrives, before anyone knows whose chat it came from (FR-JRN-1)."""
 
 
 class Base(DeclarativeBase):
@@ -288,3 +289,74 @@ class LlmCallRow(Base):
     latency_ms: Mapped[int]
     request_id: Mapped[str | None] = mapped_column(String(128))
     error: Mapped[str | None] = mapped_column(Text)
+
+
+class TelegramLink(Base):
+    """The Telegram chat a user journals from (FR-CAP-2, FR-CAP-3). Messages from chats that
+    aren't linked are never stored as journal messages."""
+
+    __tablename__ = "telegram_links"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    chat_id: Mapped[int] = mapped_column(BigInteger, unique=True)
+    """The private chat with the bot, which Telegram numbers the same as the person."""
+    linked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TelegramUpdate(Base):
+    """A raw update from Telegram, kept the moment it arrives (FR-JRN-1) and deleted after 7 days
+    (FR-JRN-2). Its `update_id` makes storing it idempotent: Telegram resends an update until the
+    webhook answers, and a resent one is ignored. The update holds message text, so it's
+    encrypted."""
+
+    __tablename__ = "telegram_updates"
+
+    update_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+    payload: Mapped[str] = mapped_column(EncryptedText("telegram_updates.payload"))
+    """The update as Telegram sent it, as JSON."""
+
+
+class JournalMessage(Base):
+    """A message in the journal, from the owner's linked chat (FR-JRN-1). An edit in Telegram
+    changes its text and keeps the earlier one (FR-JRN-3)."""
+
+    __tablename__ = "journal_messages"
+    __table_args__ = (
+        UniqueConstraint("chat_id", "message_id"),
+        CheckConstraint("sender IN ('owner', 'bot')", name="sender"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, server_default=func.gen_random_uuid())
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    chat_id: Mapped[int] = mapped_column(BigInteger)
+    message_id: Mapped[int] = mapped_column(BigInteger)
+    """Telegram's number for the message, unique within its chat."""
+    sender: Mapped[Literal["owner", "bot"]] = mapped_column(String(8))
+    text: Mapped[str] = mapped_column(EncryptedText("journal_messages.text"))
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    """When the text was last edited in Telegram, if it was."""
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class JournalMessageEdit(Base):
+    """A journal message's earlier text, kept when it was edited in Telegram (FR-JRN-3)."""
+
+    __tablename__ = "journal_message_edits"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    message_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("journal_messages.id", ondelete="CASCADE"), index=True
+    )
+    text: Mapped[str] = mapped_column(EncryptedText("journal_message_edits.text"))
+    """The text before the edit."""
+    replaced_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    """When the edit replaced it."""

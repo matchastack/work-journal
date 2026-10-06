@@ -60,7 +60,7 @@ As the owner, I want my profile and outputs updated only when I ask, so that sma
 - [x] T-038 becomes the refresh, and the tasks that mention synthesis or output updates follow it.
 
 ### T-056 · Free hosting on Vercel and Neon
-**Status:** ◐ · **Size:** S · **Depends on:** T-000 · **Requirements:** FR-CAP-5, NFR-PERF-1, NFR-REL-1 · **PR:** [#25](https://github.com/matchastack/work-journal/pull/25)
+**Status:** ☑ · **Size:** S · **Depends on:** T-000 · **Requirements:** FR-CAP-5, NFR-PERF-1, NFR-REL-1 · **PR:** [#25](https://github.com/matchastack/work-journal/pull/25)
 
 As the owner, I want the app hosted for free, so that I can journal every day without a hosting bill.
 
@@ -461,16 +461,16 @@ As the owner, I want to sign in with GitHub and nobody else to get in, so that m
 - [ ] Tests use a mocked GitHub API.
 
 ### T-030 · Telegram webhook and message storage
-**Status:** ☐ · **Size:** M · **Depends on:** T-026, T-028 · **Requirements:** FR-CAP-1, FR-CAP-2, FR-JRN-1, FR-JRN-2, FR-JRN-3, NFR-PERF-1, NFR-REL-1, NFR-SEC-4 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-026, T-028 · **Requirements:** FR-CAP-1, FR-CAP-2, FR-JRN-1, FR-JRN-2, FR-JRN-3, NFR-PERF-1, NFR-REL-1, NFR-SEC-4 · **PR:** [#26](https://github.com/matchastack/work-journal/pull/26)
 
 As the owner, I want every message I send the bot saved safely the moment it arrives, so that nothing I journal is lost.
 
-- [ ] `POST /telegram/webhook` checks the secret-token header, returning 401 if it's wrong, and responds within 1 s.
-- [ ] Raw updates are stored idempotently by `update_id`. Parsed messages are stored encrypted, and edits keep their history.
-- [ ] An unlinked chat gets the linking hint, and nothing is stored as a journal message.
-- [ ] A daily scheduled task, run by the tick in production, deletes raw updates older than 7 days.
-- [ ] `wj telegram poll` for local development, and `wj telegram set-webhook`.
-- [ ] Tests with recorded update payloads: new, duplicate, edited and unlinked.
+- [x] `POST /telegram/webhook` checks the secret-token header, returning 401 if it's wrong, and responds within 1 s.
+- [x] Raw updates are stored idempotently by `update_id`. Parsed messages are stored encrypted, and edits keep their history.
+- [x] An unlinked chat gets the linking hint, and nothing is stored as a journal message.
+- [x] A daily scheduled task, run by the tick in production, deletes raw updates older than 7 days.
+- [x] `wj telegram poll` for local development, and `wj telegram set-webhook`.
+- [x] Tests with recorded update payloads: new, duplicate, edited and unlinked.
 
 ### T-031 · Telegram account linking
 **Status:** ☐ · **Size:** S · **Depends on:** T-029, T-030 · **Requirements:** FR-CAP-3, FR-SET-1 · **PR:** —

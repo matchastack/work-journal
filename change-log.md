@@ -2,6 +2,13 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-04 · T-030 Telegram webhook and message storage · [#26](https://github.com/matchastack/work-journal/pull/26)
+**Changed:** added the Telegram webhook, which checks Telegram's secret header, keeps every raw update for 7 days and turns messages from a linked chat into encrypted journal messages (edits keep the earlier text). Also `wj telegram poll` to journal on your computer, and `wj telegram set-webhook`.
+
+**Verify:**
+- CI is green on #26
+- Optional, with a bot from @BotFather: `uv run wj telegram poll`, then message the bot; it answers with the linking hint (linking comes in T-031)
+
 ## 2026-10-04 · T-056 Free hosting on Vercel and Neon · [#25](https://github.com/matchastack/work-journal/pull/25)
 **Changed:** the requirements and tasks now host the app on Vercel's and Neon's free plans. Vercel's cron calls a protected tick once a day in place of an always-on worker, and resumes render on your machine for now.
 

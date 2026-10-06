@@ -1,0 +1,21 @@
+{
+  "update_id": 870001,
+  "message": {
+    "message_id": 31,
+    "from": {
+      "id": 4242,
+      "is_bot": false,
+      "first_name": "Casey",
+      "username": "casey_example",
+      "language_code": "en"
+    },
+    "chat": {
+      "id": 4242,
+      "first_name": "Casey",
+      "username": "casey_example",
+      "type": "private"
+    },
+    "date": 1791104400,
+    "text": "Moved the nightly export onto a queue today, it finishes in 12 minutes instead of 50."
+  }
+}
