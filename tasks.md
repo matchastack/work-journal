@@ -64,7 +64,7 @@ As the owner, I want my profile and outputs updated only when I ask, so that sma
 
 As the owner, I want the app hosted for free, so that I can journal every day without a hosting bill.
 
-- [x] The requirements host the app on Vercel's free plan and Postgres on Neon's free plan. A free scheduler calls a protected tick every 15 minutes to run scheduled tasks and queued jobs, in place of an always-on worker; requests that queue jobs run them right after answering.
+- [x] The requirements host the app on Vercel's free plan and Postgres on Neon's free plan. Vercel's cron calls a protected tick once a day to run scheduled tasks and queued jobs, in place of an always-on worker; requests that queue jobs run them right after answering.
 - [x] Resumes render on the owner's machine until rendering moves to a host that can run LaTeX.
 - [x] T-051 becomes the Vercel deployment, T-050 (Docker image) is dropped, and T-030, T-032 and T-052 follow the tick.
 
@@ -488,7 +488,7 @@ As the owner, I want to link my Telegram chat to my account in one tap, so that 
 As the owner, I want my messages grouped into journal entries automatically, so that I can send several short messages about one thing.
 
 - [ ] A message joins the open entry. A new entry starts after 30 minutes of quiet; the timeout can be configured.
-- [ ] A scheduled task, run by the tick every 15 minutes, closes quiet entries, and `/done` closes an entry immediately.
+- [ ] A scheduled task, run by the daily tick, closes quiet entries, and `/done` closes an entry immediately.
 - [ ] `/help` lists the commands.
 - [ ] Tests for the edge cases: a gap of exactly 30 minutes, and edits to a closed entry.
 
@@ -681,8 +681,8 @@ As the owner, I want confidential terms and sensitive-role details kept out of a
 As the owner, I want the app deployed for free and updated automatically, so that the bot is always listening and runs the latest merged code.
 
 - [ ] Vercel runs the FastAPI app as one function, serving the API, sign-in, the webhook, the tick, `/healthz`, the portfolio pages and the built web app.
-- [ ] `POST /internal/tick` checks a bearer secret. It defers the scheduled tasks that are due, then runs queued jobs for about 20 s, and retries jobs that stalled. `wj tick` does the same from the command line.
-- [ ] A free scheduler (cron-job.org) calls the tick every 15 minutes, so Neon's free plan isn't kept awake.
+- [ ] `/internal/tick` checks a bearer secret (`CRON_SECRET`). It defers the scheduled tasks that are due, then runs queued jobs for about 20 s, and retries jobs that stalled. `wj tick` does the same from the command line.
+- [ ] Vercel's cron calls the tick once a day (`backend/vercel.json`), the most its free plan allows, so Neon's free plan isn't kept awake.
 - [ ] Postgres is on Neon's free plan, and each production build runs `alembic upgrade head` before the new deployment goes live.
 - [ ] Environment variables are documented without values, and `wj telegram set-webhook` points Telegram at the deployed webhook.
 - [ ] A deployment runbook in `docs/deploy.md`.

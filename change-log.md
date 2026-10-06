@@ -3,7 +3,7 @@
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
 ## 2026-10-04 · T-056 Free hosting on Vercel and Neon · [#25](https://github.com/matchastack/work-journal/pull/25)
-**Changed:** the requirements and tasks now host the app on Vercel's and Neon's free plans. A free scheduler calls a protected tick every 15 minutes in place of an always-on worker, and resumes render on your machine for now.
+**Changed:** the requirements and tasks now host the app on Vercel's and Neon's free plans. Vercel's cron calls a protected tick once a day in place of an always-on worker, and resumes render on your machine for now.
 
 **Verify:**
 - C6 and §13 in `project-requirements.md` describe the hosting you want
