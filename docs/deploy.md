@@ -4,9 +4,8 @@ Work Journal runs on free plans (requirements C6 and §13):
 
 | Piece | Service | What it does |
 |---|---|---|
-| The app | Vercel, Hobby plan | The API, the Telegram webhook, the web app and the tick, as one Python function |
+| The app | Vercel, Hobby plan | The API, the Telegram webhook, the web app and the tick, as one Python function. Vercel's cron calls the tick once a day, to run scheduled tasks and queued jobs. |
 | Database | Neon, free plan | All data and the job queue |
-| Scheduler | cron-job.org | Calls the tick every 15 minutes, to run scheduled tasks and queued jobs |
 | Bot | Telegram | Sends your messages to the webhook |
 
 You set these up once, in this order. Your secrets go only into Vercel's settings and your own
@@ -19,8 +18,8 @@ These steps follow Vercel's Python builder (`@vercel/python` 21) and runtime (`v
 
 1. **The bot.** In Telegram, message [@BotFather](https://t.me/BotFather), send `/newbot` and
    follow its questions. It gives you the bot's token.
-2. **Two random secrets**, one for the webhook and one for the tick. On your computer:
-   `openssl rand -hex 32`, twice.
+2. **Two random secrets**, one for the webhook and one for Vercel's cron to call the tick with.
+   On your computer: `openssl rand -hex 32`, twice.
 3. **The encryption key** for journal text. From `backend/`: `uv run wj keys new`. Keep a copy
    somewhere safe: without it, the stored journal can't be read.
 
@@ -33,8 +32,8 @@ These steps follow Vercel's Python builder (`@vercel/python` 21) and runtime (`v
    `postgresql://user:password@ep-example-123456.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require`,
    and the app takes it as it is.
 
-The free plan sleeps the database after 5 idle minutes and counts the hours it's awake. That's
-why the tick runs every 15 minutes, not every minute.
+The free plan sleeps the database after 5 idle minutes and counts the hours it's awake. The app
+wakes it only when you use the bot or the web app, and once a day for the tick.
 
 ## 3. Create the app on Vercel
 
@@ -56,7 +55,7 @@ why the tick runs every 15 minutes, not every minute.
    | `ALLOWED_GITHUB_LOGINS` | your GitHub username |
    | `TELEGRAM_BOT_TOKEN` | from @BotFather |
    | `TELEGRAM_WEBHOOK_SECRET` | the first random secret |
-   | `TICK_SECRET` | the second random secret |
+   | `CRON_SECRET` | the second random secret; Vercel's cron sends it to the tick |
    | `ANTHROPIC_API_KEY`, `LLM_MODEL_HEAVY`, `LLM_MODEL_STANDARD`, `LLM_MODEL_LIGHT` | your Claude API key and model IDs; `backend/.env.example` describes each, and the optional prices |
 
 4. Deploy. The build step (`backend/scripts/vercel-build.sh`) builds the web app and then
@@ -70,16 +69,15 @@ Create an OAuth app at **GitHub, Settings, Developer settings, OAuth Apps**, wit
 `https://<project>.vercel.app/auth/callback`. Put its client ID and a new client secret into
 Vercel (step 3), then redeploy.
 
-## 5. Schedule the tick
+## 5. The daily tick
 
-At [cron-job.org](https://cron-job.org), create a job:
+There's nothing to set up: `backend/vercel.json` schedules it. Vercel's cron calls
+`/internal/tick` once a day, at some time between 19:00 and 20:00 UTC; once a day is the most its
+free plan allows. Vercel sends `CRON_SECRET` with each call, and the tick refuses any other
+caller. To run it at another time, change the hour in `vercel.json` (it's in UTC), for example to
+a few hours after you usually journal.
 
-- URL: `https://<project>.vercel.app/internal/tick`
-- Schedule: every 15 minutes
-- Request method: `POST`
-- Header: `Authorization` with the value `Bearer <TICK_SECRET>`
-
-Each run answers `{"retried": 0}` or similar. The job history shows any failure.
+Each run answers `{"retried": 0}` or similar.
 
 ## 6. Connect the bot and your chat
 
@@ -101,7 +99,8 @@ From your computer, in `backend/.env`, set the same `DATABASE_URL`, `DATA_ENCRYP
   up by one. The text itself is stored encrypted.
 - Send a note about your work, then `/done`. Within a minute, the bot replies with the facts it
   saved. In Neon, `SELECT task, outcome FROM llm_calls ORDER BY at DESC LIMIT 2;` shows the calls.
-- cron-job.org's history shows the tick answering 200.
+- Vercel lists the tick among the project's cron jobs, and the logs of each run show it
+  answering 200.
 
 ## When something goes wrong
 
@@ -109,6 +108,6 @@ From your computer, in `backend/.env`, set the same `DATABASE_URL`, `DATA_ENCRYP
 |---|---|
 | The build can't find `../frontend` | Turn on the Root Directory option that includes files outside it (step 3). |
 | The build says no FastAPI entrypoint was found | Root Directory must be `backend`. |
-| The tick answers 401 | The header must be exactly `Bearer ` followed by `TICK_SECRET`. |
+| The tick answers 401 | Set `CRON_SECRET` in Vercel (step 3), then redeploy: Vercel sends it with each call. |
 | The bot stops receiving messages | `wj telegram poll` turns the webhook off; run `wj telegram set-webhook` again. |
 | The database is asleep or slow on the first request | Neon wakes in about a second; the next requests are quick. |

@@ -50,8 +50,9 @@ async def test_a_tick_runs_the_queued_jobs(app: procrastinate.App) -> None:
 
 
 @pytest.mark.anyio
-async def test_a_tick_defers_each_scheduled_task_once_when_due(app: procrastinate.App) -> None:
-    """Ticks before, at and after a daily task's time run it once, even with one missed."""
+async def test_daily_ticks_run_a_daily_task_once_a_day(app: procrastinate.App) -> None:
+    """Vercel's cron ticks once a day, at any time within its hour, never at the task's own time.
+    A daily task due earlier in the day still runs, once, even when a tick comes twice."""
     ran: list[int] = []
 
     @app.periodic(cron="17 3 * * *")
@@ -60,9 +61,10 @@ async def test_a_tick_defers_each_scheduled_task_once_when_due(app: procrastinat
         ran.append(timestamp)
 
     due = datetime(2026, 10, 12, 3, 17, tzinfo=UTC).timestamp()
-    for minutes in (-1, 13, 14):
-        await tick(app, now=due + minutes * 60)
-    assert ran == [int(due)]
+    hour, day = 3600, 24 * 3600
+    for at in (due + 16 * hour, due + 16 * hour + 59 * 60, due + day + 15 * hour + 30 * 60):
+        await tick(app, now=at)
+    assert ran == [int(due), int(due + day)]
 
 
 @pytest.mark.anyio
@@ -149,7 +151,7 @@ async def test_extracting_a_closed_entry_right_away_never_fails(
     assert "secret" not in caplog.text
 
 
-# --- POST /internal/tick ------------------------------------------------------------------------
+# --- /internal/tick ------------------------------------------------------------------------------
 
 
 @pytest.fixture
@@ -163,11 +165,14 @@ def isolated(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[InMemo
         yield connector
 
 
-def post_tick(authorization: str | None, secret: str | None = SECRET) -> tuple[int, object]:
-    settings = Settings(tick_secret=SecretStr(secret) if secret else None)
+def call_tick(
+    authorization: str | None, secret: str | None = SECRET, method: str = "GET"
+) -> tuple[int, object]:
+    """Call the tick as Vercel's cron does: GET, with CRON_SECRET as a bearer token."""
+    settings = Settings(cron_secret=SecretStr(secret) if secret else None)
     headers = {} if authorization is None else {"Authorization": authorization}
     with TestClient(create_app(settings)) as client:
-        response = client.post("/internal/tick", headers=headers)
+        response = client.request(method, "/internal/tick", headers=headers)
     return response.status_code, response.json()
 
 
@@ -175,16 +180,18 @@ def post_tick(authorization: str | None, secret: str | None = SECRET) -> tuple[i
     ("authorization", "secret"),
     [(None, SECRET), ("Bearer wrong", SECRET), (SECRET, SECRET), ("Bearer ", None)],
 )
-def test_only_the_scheduler_may_tick(
+def test_only_the_cron_may_tick(
     isolated: InMemoryConnector, authorization: str | None, secret: str | None
 ) -> None:
-    status, _ = post_tick(authorization, secret)
+    status, _ = call_tick(authorization, secret)
     assert status == 401
 
 
-def test_the_scheduler_ticks_with_its_secret(isolated: InMemoryConnector) -> None:
+@pytest.mark.parametrize("method", ["GET", "POST"])
+def test_the_cron_ticks_with_its_secret(isolated: InMemoryConnector, method: str) -> None:
+    """Vercel's cron calls with GET; POST runs a tick by hand."""
     job_id = asyncio.run(_defer_echo())
-    assert post_tick(f"Bearer {SECRET}") == (200, {"retried": 0})
+    assert call_tick(f"Bearer {SECRET}", method=method) == (200, {"retried": 0})
     assert isolated.jobs[job_id]["status"] == "succeeded"
 
 
