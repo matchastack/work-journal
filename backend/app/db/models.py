@@ -324,12 +324,18 @@ class TelegramUpdate(Base):
 
 class JournalEntry(Base):
     """Messages grouped into one journal entry (FR-CAP-4). A user has at most one open entry; it
-    closes after a quiet spell (`closed_by` is `quiet`) or on `/done` (`done`), and stays closed."""
+    closes after a quiet spell (`closed_by` is `quiet`) or on `/done` (`done`), and stays closed.
+    Once closed, the bot triages it, saves its facts and replies (`processed_at`), or gives up
+    after its retries (`failed_at`)."""
 
     __tablename__ = "journal_entries"
     __table_args__ = (
         CheckConstraint("closed_by IN ('quiet', 'done')", name="closed_by"),
         CheckConstraint("(closed_at IS NULL) = (closed_by IS NULL)", name="closed"),
+        CheckConstraint("triage IN ('work', 'other')", name="triage"),
+        CheckConstraint("(triage IS NULL) = (processed_at IS NULL)", name="processed"),
+        CheckConstraint("processed_at IS NULL OR closed_at IS NOT NULL", name="processed_closed"),
+        CheckConstraint("processed_at IS NULL OR failed_at IS NULL", name="processed_or_failed"),
         Index(
             "uq_journal_entries_one_open",
             "user_id",
@@ -347,6 +353,13 @@ class JournalEntry(Base):
     last_message_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     closed_by: Mapped[Literal["quiet", "done"] | None] = mapped_column(String(8))
+    triage: Mapped[Literal["work", "other"] | None] = mapped_column(String(8))
+    """Whether the entry is about work (FR-CAP-8): only work gives facts."""
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    """When the bot finished with the closed entry: it was triaged, its facts were saved, and the
+    owner got a reply."""
+    failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    """When processing finally failed, after its retries. The bot doesn't try it again by itself."""
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

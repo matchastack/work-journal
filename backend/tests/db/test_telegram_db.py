@@ -55,6 +55,19 @@ def key_ring() -> Iterator[None]:
     use_key_ring(None)
 
 
+@pytest.fixture(autouse=True)
+def extracted(monkeypatch: pytest.MonkeyPatch) -> list[uuid.UUID]:
+    """The entries the webhook hands on for extraction right after answering (FR-CAP-5). The jobs
+    themselves are tested in `test_entry_processing_db.py`."""
+    entries: list[uuid.UUID] = []
+
+    async def record(entry_id: uuid.UUID) -> None:
+        entries.append(entry_id)
+
+    monkeypatch.setattr("app.telegram.webhook.extract_now", record)
+    return entries
+
+
 @pytest.fixture
 def client(database_url: str) -> Iterator[TestClient]:
     settings = Settings(
@@ -366,10 +379,11 @@ def send(client: TestClient, chat_id: int, message_id: int, at: int, text: str =
 
 
 def test_messages_30_minutes_apart_start_a_new_entry(
-    client: TestClient, database_url: str, chat_id: int
+    client: TestClient, database_url: str, chat_id: int, extracted: list[uuid.UUID]
 ) -> None:
     """A gap just under the timeout joins the entry; a gap of exactly 30 minutes starts a new
-    one, and closes the quiet one as of when it went quiet."""
+    one, and closes the quiet one as of when it went quiet. The closed one goes on to extraction
+    right away."""
     link(database_url, chat_id)
     send(client, chat_id, 1, NINE)
     send(client, chat_id, 2, NINE + 30 * 60 - 1)
@@ -379,9 +393,13 @@ def test_messages_30_minutes_apart_start_a_new_entry(
     assert (closed_by, still_open) == ("quiet", None)
     closed_at = run(database_url, select(JournalEntry.closed_at).where(JournalEntry.id == first))
     assert closed_at == [(datetime.fromtimestamp(NINE + 60 * 60 - 1, UTC),)]
+    assert extracted == [first]
 
 
-def test_done_closes_the_entry_at_once(client: TestClient, database_url: str, chat_id: int) -> None:
+def test_done_closes_the_entry_at_once(
+    client: TestClient, database_url: str, chat_id: int, extracted: list[uuid.UUID]
+) -> None:
+    """The closed entry goes on to extraction right after the answer (FR-CAP-5)."""
     link(database_url, chat_id)
     send(client, chat_id, 1, NINE)
     assert send(client, chat_id, 2, NINE + 60, "/done") == DONE
@@ -391,6 +409,7 @@ def test_done_closes_the_entry_at_once(client: TestClient, database_url: str, ch
     assert (how, first != second) == ("done", True), "the next message starts a new entry"
     closed_at = run(database_url, select(JournalEntry.closed_at).where(JournalEntry.id == first))
     assert closed_at == [(datetime.fromtimestamp(NINE + 60, UTC),)], "when /done was sent"
+    assert extracted == [first], "only the update that closed an entry hands it on"
 
 
 @pytest.mark.parametrize("command", ["/help", "/help@wj_example_bot", "/start", "/HELP extra"])
@@ -445,6 +464,37 @@ def test_the_timeout_can_be_configured(database_url: str, chat_id: int) -> None:
     assert first != second
 
 
+def test_polling_hands_on_the_entry_an_update_closes(database_url: str, chat_id: int) -> None:
+    """As with the webhook, `/done` while polling runs extraction right away (FR-CAP-5)."""
+    link(database_url, chat_id)
+    note = json.loads(update("message", chat_id, message_id=1, date=NINE))
+    done = json.loads(update("message", chat_id, message_id=2, date=NINE + 60, text="/done"))
+    batches = [[note, done], []]
+    handed_on: list[uuid.UUID] = []
+
+    def handle(request: httpx2.Request) -> httpx2.Response:
+        method = request.url.path.rsplit("/", 1)[1]
+        result = batches.pop(0) if method == "getUpdates" else True
+        return httpx2.Response(200, json={"ok": True, "result": result})
+
+    async def after_close(entry_id: uuid.UUID) -> None:
+        handed_on.append(entry_id)
+
+    async def run_poll() -> int:
+        engine = create_async_engine(database_url)
+        try:
+            async with httpx2.AsyncClient(transport=httpx2.MockTransport(handle)) as http:
+                api = BotApi(SecretStr("123456:test-token-not-real"), http)
+                sessions = async_sessionmaker(engine, expire_on_commit=False)
+                return await poll(api, sessions, rounds=2, timeout=0, after_close=after_close)
+        finally:
+            await engine.dispose()
+
+    assert asyncio.run(run_poll()) == 2
+    [(_, entry_id, how)] = entries(database_url, chat_id)
+    assert (handed_on, how) == ([entry_id], "done")
+
+
 @pytest.mark.anyio
 async def test_the_tick_closes_entries_that_went_quiet(session: AsyncSession) -> None:
     """At exactly the timeout an entry closes; a minute less, it stays open."""
@@ -456,8 +506,8 @@ async def test_the_tick_closes_entries_that_went_quiet(session: AsyncSession) ->
         session.add(user)
         await session.flush()
         users.append(user.id)
-    quiet = await entry_for(session, users[0], now - timeout, timeout)
-    recent = await entry_for(session, users[1], now - timeout + timedelta(minutes=1), timeout)
+    quiet, _ = await entry_for(session, users[0], now - timeout, timeout)
+    recent, _ = await entry_for(session, users[1], now - timeout + timedelta(minutes=1), timeout)
     closed = await close_quiet_entries(session, now, timeout)
     assert quiet in closed and recent not in closed
     states = await session.execute(

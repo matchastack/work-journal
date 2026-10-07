@@ -10,19 +10,28 @@ migration that applies its new SQL files.
 """
 
 import logging
-from collections.abc import AsyncGenerator
+import uuid
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import httpx2
 import procrastinate
+from procrastinate.exceptions import AlreadyEnqueued
 from psycopg_pool import AsyncConnectionPool
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.db.engine import create_engine, session_factory, with_query
+from app.db.models import JournalEntry
+from app.llm.client import LLMClient, LLMConfigError, LLMInvalidOutput, LLMRefusal
+from app.llm.usage import CallLog, DatabaseCallLog
+from app.telegram.api import BotApi, TelegramError
 from app.telegram.entries import close_quiet_entries
 from app.telegram.journal import purge_updates
+from app.telegram.processing import chat_of, entry_link, failure_text, process_entry
 
 logger = logging.getLogger(__name__)
 
@@ -76,12 +85,136 @@ async def purge_telegram_updates(timestamp: int) -> None:
 @jobs.periodic(cron="* * * * *")
 @jobs.task(name="close_quiet_entries", retry=RETRY)
 async def close_quiet_entries_task(timestamp: int) -> None:
-    """Close the journal entries that have gone quiet (FR-CAP-4). Due every minute, so it runs on
-    every tick, and every minute under `wj worker`."""
+    """Close the journal entries that have gone quiet (FR-CAP-4), then queue every closed entry
+    that isn't processed yet (FR-CAP-5). Due every minute, so it runs on every tick, and every
+    minute under `wj worker`."""
     timeout = timedelta(minutes=get_settings().entry_timeout_minutes)
     async with database() as session:
         closed = await close_quiet_entries(session, datetime.fromtimestamp(timestamp, UTC), timeout)
-    logger.info("closed %d quiet journal entries", len(closed))
+    async with database() as session:
+        queued = await queue_extractions(session)
+    logger.info("closed %d quiet journal entries; queued %d for extraction", len(closed), queued)
+
+
+@jobs.task(name="extract_entry", retry=RETRY, pass_context=True)
+async def extract_entry(context: procrastinate.JobContext, entry_id: str) -> None:
+    """Triage a closed journal entry, save its facts and reply to its owner (FR-CAP-5). The owner
+    is told when it finally fails."""
+    job = context.job
+    await run_extraction(
+        uuid.UUID(entry_id),
+        last_attempt=lambda error: RETRY.get_retry_decision(exception=error, job=job) is None,
+    )
+
+
+async def queue_extractions(session: AsyncSession) -> int:
+    """Queue `extract_entry` for each closed entry that's neither processed nor failed, unless
+    it's queued already. Jobs for one entry run one at a time. Returns how many were queued."""
+    pending = await session.scalars(
+        select(JournalEntry.id)
+        .where(
+            JournalEntry.closed_at.is_not(None),
+            JournalEntry.processed_at.is_(None),
+            JournalEntry.failed_at.is_(None),
+        )
+        .order_by(JournalEntry.closed_at)
+    )
+    return sum([await queue_extraction(entry_id) for entry_id in pending])
+
+
+async def queue_extraction(entry_id: uuid.UUID) -> bool:
+    """Queue `extract_entry` for one entry, unless it's queued already. Jobs for one entry run one
+    at a time. Returns whether it was queued."""
+    job = extract_entry.configure(
+        lock=f"journal_entry:{entry_id}", queueing_lock=f"extract_entry:{entry_id}"
+    )
+    try:
+        await job.defer_async(entry_id=str(entry_id))
+    except AlreadyEnqueued:
+        return False
+    return True
+
+
+async def run_extraction(
+    entry_id: uuid.UUID, *, last_attempt: Callable[[BaseException], bool]
+) -> None:
+    """Process the entry (`app/telegram/processing.py`) and send the reply before the result is
+    committed. A refusal or an unusable answer won't change on a retry, so it fails at once;
+    anything else is retried, and fails when `last_attempt` says this was the last try."""
+    async with database() as session:
+        user_id = await session.scalar(
+            select(JournalEntry.user_id).where(JournalEntry.id == entry_id)
+        )
+    if user_id is None:
+        return
+    log = DatabaseCallLog(user_id)
+    try:
+        async with database() as session:
+            processed = await process_entry(
+                session,
+                entry_id,
+                _llm_client(log),
+                now=datetime.now(UTC),
+                app_url=get_settings().app_url,
+            )
+            if processed is not None and processed.chat_id is not None:
+                await _send(processed.chat_id, processed.reply)
+    except (LLMRefusal, LLMInvalidOutput) as error:
+        await _give_up(entry_id, error)
+    except Exception as error:
+        if last_attempt(error):
+            await _give_up(entry_id, error)
+        raise
+    finally:
+        async with database() as session:
+            await log.save(session)
+
+
+async def _give_up(entry_id: uuid.UUID, error: BaseException) -> None:
+    """Mark the entry failed, so it isn't tried again, and tell its owner (T-033)."""
+    logger.warning("gave up on journal entry %s: %s", entry_id, type(error).__name__)
+    async with database() as session:
+        entry = await session.get(JournalEntry, entry_id, with_for_update=True)
+        if entry is None or entry.processed_at is not None:
+            return
+        entry.failed_at = datetime.now(UTC)
+        chat_id = await chat_of(session, entry.user_id)
+    if chat_id is None:
+        return
+    notice = failure_text(_reason(error), entry_link(get_settings().app_url, entry_id))
+    try:
+        await _send(chat_id, notice)
+    except TelegramError:
+        logger.warning("couldn't tell the owner that journal entry %s failed", entry_id)
+
+
+def _reason(error: BaseException) -> str:
+    if isinstance(error, LLMRefusal):
+        return "the model declined it"
+    if isinstance(error, LLMInvalidOutput):
+        return "the model's answer wasn't usable"
+    if isinstance(error, LLMConfigError):
+        return "the model settings are missing"
+    return "of an error that kept coming back"
+
+
+async def _send(chat_id: int, text: str) -> None:
+    token = get_settings().telegram_bot_token
+    if token is None:
+        logger.warning("TELEGRAM_BOT_TOKEN isn't set, so the bot can't reply")
+        return
+    async with _telegram_http() as http:
+        await BotApi(token, http).send_message(chat_id, text)
+
+
+def _llm_client(log: CallLog) -> LLMClient:
+    """The Claude client for one job, logging its calls to `log` (tests replace it with a fake)."""
+    return LLMClient.from_settings(log=log)
+
+
+def _telegram_http() -> httpx2.AsyncClient:
+    """The HTTP client for Telegram's Bot API (tests replace it with a stand-in for Telegram)."""
+    return httpx2.AsyncClient()
 
 
 @asynccontextmanager

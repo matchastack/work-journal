@@ -1,6 +1,7 @@
 """One tick of background work, with an in-memory job queue."""
 
 import asyncio
+import uuid
 from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
@@ -14,7 +15,7 @@ from pydantic import SecretStr
 from app.config import Settings
 from app.jobs import echo, jobs
 from app.main import create_app
-from app.tick import tick
+from app.tick import _running, extract_now, tick
 
 SECRET = "tick-secret"
 
@@ -102,6 +103,52 @@ async def test_a_job_whose_worker_stopped_is_run_again(
     assert await tick(app) == 1
     assert ran == [7]
     assert queue.jobs[job_id]["status"] == "succeeded"
+
+
+@pytest.mark.anyio
+async def test_a_ticks_first_step_queues_jobs_it_then_runs(app: procrastinate.App) -> None:
+    """`first` runs with the queue open, before anything else, so its jobs run in the same tick."""
+    ran: list[str] = []
+
+    @app.task(name="extract")
+    async def extract(entry: str) -> None:
+        ran.append(entry)
+
+    async def first() -> None:
+        await extract.defer_async(entry="e1")
+
+    assert await tick(app, first=first) == 0
+    assert ran == ["e1"]
+
+
+@pytest.mark.anyio
+async def test_while_a_tick_runs_another_does_nothing(app: procrastinate.App) -> None:
+    """Not even its first step: the ticks in a process share the queue's connection."""
+    started: list[bool] = []
+
+    async def first() -> None:
+        started.append(True)
+
+    async with _running:
+        assert await tick(app, first=first) is None
+    assert started == []
+
+
+@pytest.mark.anyio
+async def test_extracting_a_closed_entry_right_away_never_fails(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """It runs after the webhook has answered, as a shortcut: if it fails, the scheduled sweep
+    queues the entry instead. The log names the error's type, not its message."""
+
+    async def unreachable(entry_id: uuid.UUID) -> bool:
+        raise RuntimeError("could not connect: SELECT ... WHERE id = 'secret'")
+
+    monkeypatch.setattr("app.tick.queue_extraction", unreachable)
+    with jobs.replace_connector(InMemoryConnector()):
+        await extract_now(uuid.uuid4())
+    assert "RuntimeError" in caplog.text
+    assert "secret" not in caplog.text
 
 
 # --- /internal/tick ------------------------------------------------------------------------------

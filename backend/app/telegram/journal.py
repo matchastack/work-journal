@@ -54,22 +54,32 @@ class Reply:
         return {"method": "sendMessage", "chat_id": self.chat_id, "text": self.text}
 
 
+@dataclass(frozen=True)
+class Handled:
+    """What came of an update: the bot's reply, if any, and the entry it closed, if it closed
+    one, so that the jobs that follow can run right away (FR-CAP-5)."""
+
+    reply: Reply | None = None
+    closed: uuid.UUID | None = None
+
+
 async def handle_update(
     session: AsyncSession, payload: str, *, entry_timeout: timedelta = DEFAULT_TIMEOUT
-) -> Reply | None:
+) -> Handled:
     """Store an update from Telegram, given as the JSON it arrived as, and the journal message in
-    it. Returns the bot's reply, if any. An update Telegram sent before is ignored.
+    it. Returns the bot's reply, if any, and the entry the update closed. An update Telegram sent
+    before is ignored.
 
     Raises `pydantic.ValidationError` when the payload isn't an update.
     """
     update = Update.model_validate_json(payload)
     if not await _store_raw(session, update.update_id, payload):
-        return None
+        return Handled()
     if update.message is not None:
         return await _new_message(session, update.message, entry_timeout)
     if update.edited_message is not None:
         await _edit(session, update.edited_message)
-    return None
+    return Handled()
 
 
 async def purge_updates(session: AsyncSession, *, before: datetime) -> int:
@@ -100,21 +110,22 @@ async def _chat_owner(session: AsyncSession, chat_id: int) -> uuid.UUID | None:
 
 async def _new_message(
     session: AsyncSession, message: Message, entry_timeout: timedelta
-) -> Reply | None:
+) -> Handled:
+    chat_id = message.chat.id
     if message.chat.type != "private":
-        return None
+        return Handled()
     if message.text is not None and (token := start_token(message.text)) is not None:
-        return Reply(message.chat.id, await link_chat(session, message.chat.id, token))
-    owner = await _chat_owner(session, message.chat.id)
+        return Handled(Reply(chat_id, await link_chat(session, chat_id, token)))
+    owner = await _chat_owner(session, chat_id)
     if owner is None:
-        return Reply(message.chat.id, LINK_HINT)
+        return Handled(Reply(chat_id, LINK_HINT))
     body = message.body
     if body is None:
-        return None
+        return Handled()
     if body.startswith("/"):
-        answer = await _command(session, owner, body, message.sent_at, entry_timeout)
-        return Reply(message.chat.id, answer)
-    entry_id = await entry_for(session, owner, message.sent_at, entry_timeout)
+        answer, closed = await _command(session, owner, body, message.sent_at, entry_timeout)
+        return Handled(Reply(chat_id, answer), closed)
+    entry_id, closed = await entry_for(session, owner, message.sent_at, entry_timeout)
     statement = (
         insert(JournalMessage)
         .values(
@@ -129,7 +140,7 @@ async def _new_message(
         .on_conflict_do_nothing(index_elements=[JournalMessage.chat_id, JournalMessage.message_id])
     )
     await session.execute(statement)
-    return None
+    return Handled(closed=closed)
 
 
 async def _command(
@@ -138,16 +149,17 @@ async def _command(
     body: str,
     sent_at: datetime,
     entry_timeout: timedelta,
-) -> str:
-    """The bot's answer to a command sent at `sent_at`. `/done` closes the open entry as of then.
-    `/start` and `/help` get the list of commands, and so does an unknown command, with a note that
-    it wasn't journaled."""
+) -> tuple[str, uuid.UUID | None]:
+    """The bot's answer to a command sent at `sent_at`, and the entry it closed, if any. `/done`
+    closes the open entry as of then. `/start` and `/help` get the list of commands, and so does
+    an unknown command, with a note that it wasn't journaled."""
     command = body.split(maxsplit=1)[0].split("@", 1)[0].lower()
     if command == "/done":
-        return DONE if await close_open_entry(session, owner, sent_at) else NOTHING_OPEN
+        closed = await close_open_entry(session, owner, sent_at)
+        return (DONE if closed else NOTHING_OPEN), closed
     if command in ("/start", "/help"):
-        return help_text(entry_timeout)
-    return f"{UNKNOWN}\n\n{help_text(entry_timeout)}"
+        return help_text(entry_timeout), None
+    return f"{UNKNOWN}\n\n{help_text(entry_timeout)}", None
 
 
 async def _edit(session: AsyncSession, message: Message) -> None:

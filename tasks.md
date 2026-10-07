@@ -253,7 +253,7 @@ As the owner, I want wording rules checked by code, so that every bullet follows
 - [x] Each finding has a severity, and there are tests for each rule.
 
 ### T-014 · Fact extraction
-**Status:** ◐ · **Size:** M · **Depends on:** T-005, T-012 · **Requirements:** FR-EXT-1, FR-EXT-2, FR-CAP-8 · **PR:** [#21](https://github.com/matchastack/work-journal/pull/21)
+**Status:** ☑ · **Size:** M · **Depends on:** T-005, T-012 · **Requirements:** FR-EXT-1, FR-EXT-2, FR-CAP-8 · **PR:** [#21](https://github.com/matchastack/work-journal/pull/21)
 
 As the owner, I want my informal notes turned into structured facts, so that meaning and numbers are captured without me formatting anything.
 
@@ -264,7 +264,7 @@ As the owner, I want my informal notes turned into structured facts, so that mea
 - [x] Unit tests use the fake client, plus an opt-in evaluation on casual entries for a fictional person.
 
 ### T-015 · Claim verifier
-**Status:** ◐ · **Size:** M · **Depends on:** T-005, T-009, T-012, T-013 · **Requirements:** FR-FID-4, FR-FID-5, FR-FID-6, FR-FID-7, FR-FID-8, R1, R3 · **PR:** [#23](https://github.com/matchastack/work-journal/pull/23)
+**Status:** ☑ · **Size:** M · **Depends on:** T-005, T-009, T-012, T-013 · **Requirements:** FR-FID-4, FR-FID-5, FR-FID-6, FR-FID-7, FR-FID-8, R1, R3 · **PR:** [#23](https://github.com/matchastack/work-journal/pull/23)
 
 As the owner, I want every generated sentence checked for claims my facts don't support, so that professional wording never turns into exaggeration.
 
@@ -483,7 +483,7 @@ As the owner, I want to link my Telegram chat to my account in one tap, so that 
 - [x] Tests.
 
 ### T-032 · Entry grouping
-**Status:** ◐ · **Size:** S · **Depends on:** T-030 · **Requirements:** FR-CAP-4, FR-CAP-7 · **PR:** [#29](https://github.com/matchastack/work-journal/pull/29)
+**Status:** ☑ · **Size:** S · **Depends on:** T-030 · **Requirements:** FR-CAP-4, FR-CAP-7 · **PR:** [#29](https://github.com/matchastack/work-journal/pull/29)
 
 As the owner, I want my messages grouped into journal entries automatically, so that I can send several short messages about one thing.
 
@@ -493,15 +493,15 @@ As the owner, I want my messages grouped into journal entries automatically, so 
 - [x] Tests for the edge cases: a gap of exactly 30 minutes, and edits to a closed entry.
 
 ### T-033 · Extraction on entry close, and summary reply
-**Status:** ☐ · **Size:** M · **Depends on:** T-014, T-027, T-032 · **Requirements:** FR-CAP-5, FR-EXT-1, FR-CAP-8 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-014, T-027, T-032 · **Requirements:** FR-CAP-5, FR-EXT-1, FR-CAP-8 · **PR:** [#30](https://github.com/matchastack/work-journal/pull/30)
 
 As the owner, I want the bot to tell me what it understood from each entry, so that I can correct it while it's fresh.
 
-- [ ] Closing an entry queues extraction (standard tier), and the facts are stored encrypted.
-- [ ] A light-tier summary reply arrives within 60 s (p95), with a link to the entry in the web app.
-- [ ] Triage: an entry unrelated to work produces no facts, just a short acknowledgement.
-- [ ] Failures are retried, and the owner is told if extraction finally fails.
-- [ ] Tests use the fake LLM client.
+- [x] Closing an entry queues extraction (standard tier), and the facts are stored encrypted.
+- [x] The reply lists the facts saved from the entry, up to three and then how many more, with a link to the entry in the web app. It arrives within 2 minutes of closing (p95).
+- [x] Triage: an entry unrelated to work produces no facts, just a short acknowledgement.
+- [x] Failures are retried, and the owner is told if extraction finally fails.
+- [x] Tests use the fake LLM client.
 
 ### T-034 · Follow-up question
 **Status:** ☐ · **Size:** S · **Depends on:** T-033 · **Requirements:** FR-CAP-6 · **PR:** —

@@ -2,6 +2,14 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-05 · T-033 Extraction on entry close, and summary reply · [#30](https://github.com/matchastack/work-journal/pull/30)
+**Changed:** when an entry closes, the bot triages it (light tier), saves the facts in an entry about work, and replies with the saved facts, up to three, and a link to the entry. It runs right after `/done`, or, for an entry left without `/done`, in the daily tick that closes it. Failures are retried at the next tick, and you're told when one finally fails.
+
+**Verify:**
+- CI is green on #30
+- With your key, `uv run pytest -m llm tests/test_triage_live.py` passes (6 cases)
+- With your bot: a note about your work, then `/done`, gets a reply listing the facts it saved
+
 ## 2026-10-04 · T-032 Entry grouping · [#29](https://github.com/matchastack/work-journal/pull/29)
 **Changed:** journal messages are grouped into entries. An entry closes after 30 minutes of quiet (`ENTRY_TIMEOUT_MINUTES`), or on `/done`; a scheduled task closes quiet ones, and `/help` lists the commands. Messages journaled earlier are grouped by the same rule.
 
