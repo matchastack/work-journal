@@ -297,13 +297,15 @@ def test_polling_journals_updates_as_the_webhook_does(database_url: str, chat_id
     assert asyncio.run(run_poll()) == 2
     assert messages(database_url, chat_id) == [(31, NOTE, None)]
     assert [method for method, _ in calls] == [
+        "setMyCommands",
         "deleteWebhook",
         "getUpdates",
         "sendMessage",
         "getUpdates",
     ]
-    assert calls[2][1] == {"chat_id": stranger, "text": LINK_HINT}
-    assert calls[3][1]["offset"] == batch[1]["update_id"] + 1, "confirms the updates handled"
+    assert [item["command"] for item in calls[0][1]["commands"]] == ["done", "help"]
+    assert calls[3][1] == {"chat_id": stranger, "text": LINK_HINT}
+    assert calls[4][1]["offset"] == batch[1]["update_id"] + 1, "confirms the updates handled"
 
 
 def start(client: TestClient, chat_id: int, token: str) -> str:
@@ -422,7 +424,7 @@ def test_help_lists_the_commands(
     assert answer == help_text(timedelta(minutes=30))
     assert "30 minutes after the last one starts a new entry" in answer
     assert "/done - close the current entry now" in answer
-    assert "/help - show this list" in answer
+    assert "/help - list the commands" in answer
     assert entries(database_url, chat_id) == []
 
 

@@ -44,6 +44,7 @@ from app.schema.profile import Profile
 from app.selection import MASTER_VARIANT, select
 from app.tailoring.posting import parse_posting
 from app.telegram.api import BotApi, TelegramError
+from app.telegram.journal import COMMANDS
 from app.telegram.linking import deep_link, new_link_token
 from app.telegram.polling import poll
 from app.tick import TICK_BUDGET_S, extract_now, tick
@@ -457,7 +458,8 @@ def set_telegram_webhook(
         typer.Option(help="Where Telegram sends updates. Default: APP_URL/telegram/webhook."),
     ] = None,
 ) -> None:
-    """Have Telegram send the bot's updates to the webhook, with TELEGRAM_WEBHOOK_SECRET."""
+    """Have Telegram send the bot's updates to the webhook, with TELEGRAM_WEBHOOK_SECRET, and
+    show the bot's commands when you type "/"."""
     settings = get_settings()
     secret = settings.telegram_webhook_secret
     if secret is None:
@@ -523,7 +525,9 @@ def _bot_api(http: httpx2.AsyncClient) -> BotApi:
 
 async def _set_webhook(url: str, secret: str) -> None:
     async with _telegram_http() as http:
-        await _bot_api(http).set_webhook(url, secret)
+        api = _bot_api(http)
+        await api.set_webhook(url, secret)
+        await api.set_my_commands(COMMANDS)
 
 
 async def _new_link(login: str | None) -> str:

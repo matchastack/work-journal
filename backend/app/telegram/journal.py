@@ -5,7 +5,7 @@ first, so nothing is lost, then the journal message in it. Only private chats li
 become journal messages, grouped into entries (`app/telegram/entries.py`). `/start <token>` from
 a link to the bot links a chat (`app/telegram/linking.py`); any other unlinked chat is told how
 to link itself. Commands aren't journaled: `/done` closes the open entry, and `/help` lists the
-commands (FR-CAP-7). Message text is never logged.
+commands (FR-CAP-7), as Telegram's command menu does (`COMMANDS`). Message text is never logged.
 """
 
 import uuid
@@ -28,17 +28,22 @@ LINK_HINT = (
 DONE = "Closed this entry. Your next message starts a new one."
 NOTHING_OPEN = "There's no open entry to close. Send me a note to start one."
 UNKNOWN = "I don't know that command, so I didn't journal it."
+COMMANDS: tuple[tuple[str, str], ...] = (
+    ("done", "close the current entry now"),
+    ("help", "list the commands"),
+)
+"""The commands `/help` lists and Telegram's command menu shows, without their "/". Later tasks
+add theirs. `/start` is left out: Telegram sends it when a chat opens the bot."""
 
 
 def help_text(timeout: timedelta) -> str:
-    """The list of commands (FR-CAP-7). Later tasks add theirs."""
+    """The list of commands (FR-CAP-7)."""
     minutes = round(timeout.total_seconds() / 60)
     unit = "minute" if minutes == 1 else "minutes"
     return (
         "Send me notes about your work, in as many messages as you like. A message "
         f"{minutes} {unit} after the last one starts a new entry.\n\n"
-        "/done - close the current entry now\n"
-        "/help - show this list"
+        + "\n".join(f"/{command} - {description}" for command, description in COMMANDS)
     )
 
 

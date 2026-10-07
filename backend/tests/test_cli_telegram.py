@@ -11,6 +11,7 @@ from typer.testing import CliRunner
 from app import cli as cli_module
 from app.cli import cli
 from app.config import Settings, get_settings
+from app.telegram.journal import COMMANDS
 
 TOKEN = "123456:test-token-not-real"
 runner = CliRunner()
@@ -65,7 +66,11 @@ def test_set_webhook_points_telegram_at_the_app(monkeypatch: pytest.MonkeyPatch)
     result = runner.invoke(cli, ["telegram", "set-webhook"])
     assert result.exit_code == 0, result.output
     assert "https://journal.example.com/telegram/webhook" in result.stdout
-    [request] = requests
+    request, menu = requests
+    assert menu.url.path == f"/bot{TOKEN}/setMyCommands"
+    assert json.loads(menu.content) == {
+        "commands": [{"command": c, "description": d} for c, d in COMMANDS]
+    }
     assert request.url.path == f"/bot{TOKEN}/setWebhook"
     assert json.loads(request.content) == {
         "url": "https://journal.example.com/telegram/webhook",
