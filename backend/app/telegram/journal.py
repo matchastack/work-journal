@@ -2,20 +2,22 @@
 
 `handle_update` is shared by the webhook and by `wj telegram poll`. It stores the raw update
 first, so nothing is lost, then the journal message in it. Only private chats linked to a user
-become journal messages. `/start <token>` from a link to the bot links a chat
-(`app/telegram/linking.py`); any other unlinked chat is told how to link itself. Message text is
-never logged.
+become journal messages, grouped into entries (`app/telegram/entries.py`). `/start <token>` from
+a link to the bot links a chat (`app/telegram/linking.py`); any other unlinked chat is told how
+to link itself. Commands aren't journaled: `/done` closes the open entry, and `/help` lists the
+commands (FR-CAP-7). Message text is never logged.
 """
 
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import JournalMessage, JournalMessageEdit, TelegramLink, TelegramUpdate
+from app.telegram.entries import DEFAULT_TIMEOUT, close_open_entry, entry_for
 from app.telegram.linking import link_chat, start_token
 from app.telegram.updates import Message, Update
 
@@ -23,6 +25,21 @@ LINK_HINT = (
     "This bot keeps a private work journal. To journal here, open the link to this bot from "
     "your Work Journal account."
 )
+DONE = "Closed this entry. Your next message starts a new one."
+NOTHING_OPEN = "There's no open entry to close. Send me a note to start one."
+UNKNOWN = "I don't know that command, so I didn't journal it."
+
+
+def help_text(timeout: timedelta) -> str:
+    """The list of commands (FR-CAP-7). Later tasks add theirs."""
+    minutes = round(timeout.total_seconds() / 60)
+    unit = "minute" if minutes == 1 else "minutes"
+    return (
+        "Send me notes about your work, in as many messages as you like. A message "
+        f"{minutes} {unit} after the last one starts a new entry.\n\n"
+        "/done - close the current entry now\n"
+        "/help - show this list"
+    )
 
 
 @dataclass(frozen=True)
@@ -37,7 +54,9 @@ class Reply:
         return {"method": "sendMessage", "chat_id": self.chat_id, "text": self.text}
 
 
-async def handle_update(session: AsyncSession, payload: str) -> Reply | None:
+async def handle_update(
+    session: AsyncSession, payload: str, *, entry_timeout: timedelta = DEFAULT_TIMEOUT
+) -> Reply | None:
     """Store an update from Telegram, given as the JSON it arrived as, and the journal message in
     it. Returns the bot's reply, if any. An update Telegram sent before is ignored.
 
@@ -47,7 +66,7 @@ async def handle_update(session: AsyncSession, payload: str) -> Reply | None:
     if not await _store_raw(session, update.update_id, payload):
         return None
     if update.message is not None:
-        return await _new_message(session, update.message)
+        return await _new_message(session, update.message, entry_timeout)
     if update.edited_message is not None:
         await _edit(session, update.edited_message)
     return None
@@ -79,7 +98,9 @@ async def _chat_owner(session: AsyncSession, chat_id: int) -> uuid.UUID | None:
     return await session.scalar(statement)
 
 
-async def _new_message(session: AsyncSession, message: Message) -> Reply | None:
+async def _new_message(
+    session: AsyncSession, message: Message, entry_timeout: timedelta
+) -> Reply | None:
     if message.chat.type != "private":
         return None
     if message.text is not None and (token := start_token(message.text)) is not None:
@@ -88,14 +109,19 @@ async def _new_message(session: AsyncSession, message: Message) -> Reply | None:
     if owner is None:
         return Reply(message.chat.id, LINK_HINT)
     body = message.body
-    if body is None or body.startswith("/"):
+    if body is None:
         return None
+    if body.startswith("/"):
+        answer = await _command(session, owner, body, message.sent_at, entry_timeout)
+        return Reply(message.chat.id, answer)
+    entry_id = await entry_for(session, owner, message.sent_at, entry_timeout)
     statement = (
         insert(JournalMessage)
         .values(
             user_id=owner,
             chat_id=message.chat.id,
             message_id=message.message_id,
+            entry_id=entry_id,
             sender="owner",
             text=body,
             sent_at=message.sent_at,
@@ -104,6 +130,24 @@ async def _new_message(session: AsyncSession, message: Message) -> Reply | None:
     )
     await session.execute(statement)
     return None
+
+
+async def _command(
+    session: AsyncSession,
+    owner: uuid.UUID,
+    body: str,
+    sent_at: datetime,
+    entry_timeout: timedelta,
+) -> str:
+    """The bot's answer to a command sent at `sent_at`. `/done` closes the open entry as of then.
+    `/start` and `/help` get the list of commands, and so does an unknown command, with a note that
+    it wasn't journaled."""
+    command = body.split(maxsplit=1)[0].split("@", 1)[0].lower()
+    if command == "/done":
+        return DONE if await close_open_entry(session, owner, sent_at) else NOTHING_OPEN
+    if command in ("/start", "/help"):
+        return help_text(entry_timeout)
+    return f"{UNKNOWN}\n\n{help_text(entry_timeout)}"
 
 
 async def _edit(session: AsyncSession, message: Message) -> None:

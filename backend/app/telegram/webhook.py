@@ -7,6 +7,7 @@ reply as a Bot API call, which Telegram makes itself, so replying needs no reque
 
 import logging
 import secrets
+from datetime import timedelta
 
 from fastapi import APIRouter, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
@@ -30,8 +31,9 @@ async def webhook(request: Request, db: Db, settings: AppSettings) -> Response:
         given.encode(), expected.get_secret_value().encode()
     ):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Unknown sender")
+    timeout = timedelta(minutes=settings.entry_timeout_minutes)
     try:
-        reply = await handle_update(db, (await request.body()).decode())
+        reply = await handle_update(db, (await request.body()).decode(), entry_timeout=timeout)
     except (UnicodeDecodeError, ValidationError):
         logger.warning("Telegram sent an update the bot can't read; it was skipped")
         return Response(status_code=status.HTTP_200_OK)

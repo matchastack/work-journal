@@ -2,6 +2,13 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-04 · T-032 Entry grouping · [#29](https://github.com/matchastack/work-journal/pull/29)
+**Changed:** journal messages are grouped into entries. An entry closes after 30 minutes of quiet (`ENTRY_TIMEOUT_MINUTES`), or on `/done`; a scheduled task closes quiet ones, and `/help` lists the commands. Messages journaled earlier are grouped by the same rule.
+
+**Verify:**
+- CI is green on #29
+- Optional, with your bot: `/done` and `/help` answer in Telegram, and `journal_entries` shows how each entry closed
+
 ## 2026-10-04 · T-051 Vercel deployment · [#28](https://github.com/matchastack/work-journal/pull/28)
 **Changed:** the app deploys to Vercel's free plan, with Postgres on Neon's: a protected tick, called once a day by Vercel's cron, runs scheduled tasks and queued jobs, and production builds build the web app and migrate the database. `docs/deploy.md` is the runbook.
 
