@@ -46,7 +46,7 @@ Run these from `backend/` (uv project, Python 3.12):
 | Run the command-line tool | `uv run wj --help` |
 | Load the imported profile into the database as version 1 (then `wj lint`, `wj render` and `wj portfolio build` take `--db`) | `uv run wj db load-profile --user <github-login>` |
 | Journal from Telegram on this computer, without the webhook (needs `TELEGRAM_BOT_TOKEN` and `DATABASE_URL`; turns the webhook off) | `uv run wj telegram poll` |
-| Point Telegram at the deployed webhook (needs `TELEGRAM_WEBHOOK_SECRET` and an https:// `APP_URL`) | `uv run wj telegram set-webhook` |
+| Point Telegram at the deployed webhook and set the bot's command menu (needs `TELEGRAM_WEBHOOK_SECRET` and an https:// `APP_URL`) | `uv run wj telegram set-webhook` |
 | Print a one-time link (15 minutes) that links your Telegram chat to your journal (needs `TELEGRAM_BOT_TOKEN` and `DATABASE_URL`) | `uv run wj telegram link --user <github-login>` |
 | Check the profile against the resume rules | `uv run wj lint` |
 | Build the portfolio page (after editing its template, run `scripts/build-portfolio-css.sh`) | `uv run wj portfolio build --out /tmp/site` |

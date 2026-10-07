@@ -119,7 +119,8 @@ deployment:
    below need it.
 2. Optional: `uv run wj db load-profile --user <your GitHub username>` loads your imported
    resume as profile version 1.
-3. `uv run wj telegram set-webhook` points Telegram at the deployed webhook.
+3. `uv run wj telegram set-webhook` points Telegram at the deployed webhook and sets the menu of
+   commands Telegram shows when you type "/". Run it again after a deploy that adds a command.
 4. `uv run wj telegram link --user <your GitHub username>` prints a link. Open it in Telegram
    within 15 minutes; the bot answers "Linked."
 
