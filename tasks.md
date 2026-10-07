@@ -504,7 +504,7 @@ As the owner, I want the bot to tell me what it understood from each entry, so t
 - [x] Tests use the fake LLM client.
 
 ### T-057 · Telegram command menu
-**Status:** ◐ · **Size:** S · **Depends on:** T-032 · **Requirements:** FR-CAP-7 · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-032 · **Requirements:** FR-CAP-7 · **PR:** [#31](https://github.com/matchastack/work-journal/pull/31)
 
 As the owner, I want to see the bot's commands when I type "/", so that I don't have to remember them or look them up.
 
