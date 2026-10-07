@@ -483,7 +483,7 @@ As the owner, I want to link my Telegram chat to my account in one tap, so that 
 - [x] Tests.
 
 ### T-032 · Entry grouping
-**Status:** ◐ · **Size:** S · **Depends on:** T-030 · **Requirements:** FR-CAP-4, FR-CAP-7 · **PR:** [#29](https://github.com/matchastack/work-journal/pull/29)
+**Status:** ☑ · **Size:** S · **Depends on:** T-030 · **Requirements:** FR-CAP-4, FR-CAP-7 · **PR:** [#29](https://github.com/matchastack/work-journal/pull/29)
 
 As the owner, I want my messages grouped into journal entries automatically, so that I can send several short messages about one thing.
 
