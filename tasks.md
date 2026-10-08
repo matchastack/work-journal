@@ -513,7 +513,7 @@ As the owner, I want to see the bot's commands when I type "/", so that I don't 
 - [x] Tests.
 
 ### T-058 · Ticks run scheduled tasks only as of their own time
-**Status:** ◐ · **Size:** S · **Depends on:** T-051 · **Requirements:** NFR-REL-1 · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-051 · **Requirements:** NFR-REL-1 · **PR:** [#32](https://github.com/matchastack/work-journal/pull/32)
 
 As the owner, I want each scheduled task to run once per due time, so that a tick never runs it again for a time it wasn't asked about.
 
