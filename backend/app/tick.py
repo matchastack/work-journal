@@ -19,10 +19,10 @@ import contextlib
 import logging
 import time
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Generator
 
 import procrastinate
-from procrastinate.periodic import PeriodicDeferrer
+from procrastinate.periodic import PeriodicDeferrer, PeriodicRegistry
 
 from app.jobs import jobs, queue_extraction
 
@@ -59,19 +59,20 @@ async def tick(
         stalled = list(await app.job_manager.get_stalled_jobs())
         for job in stalled:
             await app.job_manager.retry_job(job)
-        worker = asyncio.create_task(
-            app.run_worker_async(
-                wait=False,
-                listen_notify=False,
-                install_signal_handlers=False,
-                shutdown_graceful_timeout=JOB_GRACE_S,
+        with _without_schedule(app):
+            worker = asyncio.create_task(
+                app.run_worker_async(
+                    wait=False,
+                    listen_notify=False,
+                    install_signal_handlers=False,
+                    shutdown_graceful_timeout=JOB_GRACE_S,
+                )
             )
-        )
-        done, _ = await asyncio.wait({worker}, timeout=budget_s)
-        if not done:
-            worker.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await worker
+            done, _ = await asyncio.wait({worker}, timeout=budget_s)
+            if not done:
+                worker.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await worker
     return len(stalled)
 
 
@@ -95,6 +96,18 @@ async def extract_now(entry_id: uuid.UUID) -> None:
         return
     if retried is None:
         logger.info("a tick is running; journal entry %s waits for the next one", entry_id)
+
+
+@contextlib.contextmanager
+def _without_schedule(app: procrastinate.App) -> Generator[None]:
+    """Hide the scheduled tasks from the worker while it runs. Procrastinate's worker always
+    defers them too, by the real clock: the tick has done that already, as of `now`."""
+    schedule = app.periodic_registry
+    app.periodic_registry = PeriodicRegistry()
+    try:
+        yield
+    finally:
+        app.periodic_registry = schedule
 
 
 async def _defer_due_tasks(app: procrastinate.App, at: float) -> None:

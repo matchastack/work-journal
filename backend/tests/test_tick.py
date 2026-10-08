@@ -5,10 +5,12 @@ import uuid
 from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 import procrastinate
 import pytest
 from fastapi.testclient import TestClient
+from procrastinate import periodic
 from procrastinate.testing import InMemoryConnector
 from pydantic import SecretStr
 
@@ -65,6 +67,27 @@ async def test_daily_ticks_run_a_daily_task_once_a_day(app: procrastinate.App) -
     for at in (due + 16 * hour, due + 16 * hour + 59 * 60, due + day + 15 * hour + 30 * 60):
         await tick(app, now=at)
     assert ran == [int(due), int(due + day)]
+
+
+@pytest.mark.anyio
+async def test_a_tick_defers_scheduled_tasks_only_as_of_its_own_time(
+    app: procrastinate.App, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Procrastinate's worker defers scheduled tasks by the real clock. In a tick it mustn't:
+    a run due just before the real time would come on top of the ones due by `now`."""
+    ran: list[int] = []
+
+    @app.periodic(cron="17 3 * * *")
+    @app.task(name="daily")
+    async def daily(timestamp: int) -> None:
+        ran.append(timestamp)
+
+    real = datetime(2026, 10, 8, 3, 21, tzinfo=UTC).timestamp()
+    monkeypatch.setattr(periodic, "time", SimpleNamespace(time=lambda: real))
+    due = datetime(2026, 10, 12, 3, 17, tzinfo=UTC).timestamp()
+    await tick(app, now=due + 3600)
+    assert ran == [int(due)]
+    assert app.periodic_registry.periodic_tasks, "the schedule is back after the tick"
 
 
 @pytest.mark.anyio
