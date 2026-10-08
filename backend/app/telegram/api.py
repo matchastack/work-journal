@@ -10,6 +10,7 @@ httpx2's request log, and errors never quote an address.
 
 import logging
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -71,6 +72,14 @@ class BotApi:
         """Have Telegram send updates to `url`, with `secret_token` in a header."""
         allowed = list(ALLOWED_UPDATES)
         await self._call("setWebhook", url=url, secret_token=secret_token, allowed_updates=allowed)
+
+    async def set_my_commands(self, commands: Sequence[tuple[str, str]]) -> None:
+        """Set the menu Telegram shows when the owner types "/": `(command, description)` pairs,
+        each command without its "/"."""
+        menu = [
+            {"command": command, "description": description} for command, description in commands
+        ]
+        await self._call("setMyCommands", commands=menu)
 
     async def delete_webhook(self) -> None:
         """Stop sending updates to the webhook, so that `get_updates` can fetch them instead."""

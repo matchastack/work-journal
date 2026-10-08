@@ -39,10 +39,12 @@ async def test_each_method_posts_json_to_the_bots_address() -> None:
     api = bot(handle)
     await api.send_message(4242, "Noted.")
     await api.set_webhook("https://journal.example.com/telegram/webhook", "s3cret")
+    await api.set_my_commands([("done", "close the current entry now")])
     await api.delete_webhook()
     assert [request.url.path for request in requests] == [
         f"/bot{TOKEN}/sendMessage",
         f"/bot{TOKEN}/setWebhook",
+        f"/bot{TOKEN}/setMyCommands",
         f"/bot{TOKEN}/deleteWebhook",
     ]
     assert [json.loads(request.content) for request in requests] == [
@@ -52,6 +54,7 @@ async def test_each_method_posts_json_to_the_bots_address() -> None:
             "secret_token": "s3cret",
             "allowed_updates": ["message", "edited_message"],
         },
+        {"commands": [{"command": "done", "description": "close the current entry now"}]},
         {},
     ]
 

@@ -1,8 +1,9 @@
 """Fetching updates from Telegram instead of receiving them, for journaling on this computer.
 
 Telegram offers a bot's updates one way at a time: to the webhook, or to `getUpdates`. Polling
-turns the webhook off first; `wj telegram set-webhook` turns it back on. As with the webhook, an
-update that closes an entry has its extraction run right away (`after_close`).
+sets the bot's command menu and turns the webhook off first; `wj telegram set-webhook` turns it
+back on. As with the webhook, an update that closes an entry has its extraction run right away
+(`after_close`).
 """
 
 import json
@@ -16,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.telegram.api import POLL_TIMEOUT_S, BotApi
 from app.telegram.entries import DEFAULT_TIMEOUT
-from app.telegram.journal import handle_update
+from app.telegram.journal import COMMANDS, handle_update
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ async def poll(
     """Journal the bot's updates as the webhook would, and send its replies. When an update
     closes an entry, `after_close` gets it. Asks Telegram `rounds` times, or until cancelled.
     Returns how many updates it handled."""
+    await api.set_my_commands(COMMANDS)
     await api.delete_webhook()
     offset: int | None = None
     handled = 0

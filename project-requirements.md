@@ -156,7 +156,7 @@ Priority: **M** = Must (v1) · **S** = Should (v1 if time allows) · **C** = Cou
 | FR-CAP-4 | Messages are grouped into entries. An entry closes after 30 minutes without a message, or on `/done`. | M | The timeout can be configured. `/done` closes the entry immediately. An entry left open closes at the next message after the timeout, or at the daily tick (§13). |
 | FR-CAP-5 | When an entry closes, the bot replies with a one-to-three-line summary of the facts it understood. | M | The summary is sent within 2 minutes of closing (p95): whatever closes the entry, `/done` or the tick, also runs the jobs that follow (§13). |
 | FR-CAP-6 | The bot asks at most one follow-up question per entry, when impact, metrics or ownership are unclear. | M | Never more than one question per entry. A Skip button is offered, and the answer joins the same entry. |
-| FR-CAP-7 | Commands: `/start`, `/done`, `/skip`, `/refresh`, `/catchup`, `/pause`, `/resume`, `/help`. | M | `/help` lists every command. |
+| FR-CAP-7 | Commands: `/start`, `/done`, `/skip`, `/refresh`, `/catchup`, `/pause`, `/resume`, `/help`. | M | `/help` lists every command, and so does Telegram's command menu when the owner types "/". |
 | FR-CAP-8 | Chit-chat and messages unrelated to work are recognised and don't become facts. | S | A triage label is stored with each entry. |
 | FR-CAP-9 | Job postings can be sent to the bot for tailoring. | C | M3 |
 | FR-CAP-10 | Voice notes are transcribed into entries. | C | M3 |
