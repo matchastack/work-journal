@@ -24,7 +24,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 |---|---|---|
 | M0: Documents | T-000, T-055 and T-056 | ◐ |
 | M1: Engine and command line | T-001 – T-024 and T-054 (T-007 dropped) | ◐ |
-| M2: Journal loop | T-025 – T-053 and T-057 | ◐ |
+| M2: Journal loop | T-025 – T-053, T-057 and T-058 | ◐ |
 | M3: Quality and habit | Epics (at the end of this file) | — |
 | M4: Open to others | Epics (at the end of this file) | — |
 
@@ -504,13 +504,21 @@ As the owner, I want the bot to tell me what it understood from each entry, so t
 - [x] Tests use the fake LLM client.
 
 ### T-057 · Telegram command menu
-**Status:** ◐ · **Size:** S · **Depends on:** T-032 · **Requirements:** FR-CAP-7 · **PR:** [#31](https://github.com/matchastack/work-journal/pull/31)
+**Status:** ☑ · **Size:** S · **Depends on:** T-032 · **Requirements:** FR-CAP-7 · **PR:** [#31](https://github.com/matchastack/work-journal/pull/31)
 
 As the owner, I want to see the bot's commands when I type "/", so that I don't have to remember them or look them up.
 
 - [x] One list of commands feeds both `/help` and Telegram's command menu (`setMyCommands`).
 - [x] `wj telegram set-webhook` and `wj telegram poll` set the menu, so later tasks' commands appear once they're added to the list.
 - [x] Tests.
+
+### T-058 · Ticks run scheduled tasks only as of their own time
+**Status:** ◐ · **Size:** S · **Depends on:** T-051 · **Requirements:** NFR-REL-1 · **PR:** [#32](https://github.com/matchastack/work-journal/pull/32)
+
+As the owner, I want each scheduled task to run once per due time, so that a tick never runs it again for a time it wasn't asked about.
+
+- [x] The worker inside a tick doesn't defer scheduled tasks by the real clock; the tick already deferred the ones due by its own time.
+- [x] A test pins the real clock, so the result doesn't depend on when CI runs.
 
 ### T-034 · Follow-up question
 **Status:** ☐ · **Size:** S · **Depends on:** T-033 · **Requirements:** FR-CAP-6 · **PR:** —
