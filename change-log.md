@@ -2,6 +2,12 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-08 · T-058 Ticks run scheduled tasks only as of their own time · [#32](https://github.com/matchastack/work-journal/pull/32)
+**Changed:** the worker inside a tick no longer defers scheduled tasks by the real clock, which ran a daily task an extra time and turned `main`'s CI red when it ran a few minutes after the task's time.
+
+**Verify:**
+- CI is green on #32, and on `main` after the merge
+
 ## 2026-10-07 · T-057 Telegram command menu · [#31](https://github.com/matchastack/work-journal/pull/31)
 **Changed:** typing "/" in the bot's chat shows its commands. `wj telegram set-webhook` and `wj telegram poll` set the menu from the same list `/help` prints.
 
