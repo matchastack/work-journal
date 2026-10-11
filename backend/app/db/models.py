@@ -325,8 +325,9 @@ class TelegramUpdate(Base):
 class JournalEntry(Base):
     """Messages grouped into one journal entry (FR-CAP-4). A user has at most one open entry; it
     closes after a quiet spell (`closed_by` is `quiet`) or on `/done` (`done`), and stays closed.
-    Once closed, the bot triages it, saves its facts and replies (`processed_at`), or gives up
-    after its retries (`failed_at`)."""
+    Once closed, the bot asks which role it's about (FR-CAP-11). When the owner has answered, it
+    triages the entry, saves its facts and replies (`processed_at`), or gives up after its retries
+    (`failed_at`)."""
 
     __tablename__ = "journal_entries"
     __table_args__ = (
@@ -336,11 +337,18 @@ class JournalEntry(Base):
         CheckConstraint("(triage IS NULL) = (processed_at IS NULL)", name="processed"),
         CheckConstraint("processed_at IS NULL OR closed_at IS NOT NULL", name="processed_closed"),
         CheckConstraint("processed_at IS NULL OR failed_at IS NULL", name="processed_or_failed"),
+        CheckConstraint("role_id IS NULL OR new_role IS NULL", name="one_role"),
         Index(
             "uq_journal_entries_one_open",
             "user_id",
             unique=True,
             postgresql_where=text("closed_at IS NULL"),
+        ),
+        Index(
+            "uq_journal_entries_one_naming_role",
+            "user_id",
+            unique=True,
+            postgresql_where=text("naming_role"),
         ),
     )
 
@@ -360,6 +368,17 @@ class JournalEntry(Base):
     owner got a reply."""
     failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     """When processing finally failed, after its retries. The bot doesn't try it again by itself."""
+    role_id: Mapped[str | None] = mapped_column(String(64))
+    """The role in the profile that the owner chose for the entry."""
+    new_role: Mapped[str | None] = mapped_column(EncryptedText("journal_entries.new_role"))
+    """The name of a new role that the owner gave the entry instead."""
+    role_asked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    """When the bot asked which role the entry is about."""
+    role_question_id: Mapped[int | None] = mapped_column(BigInteger)
+    """The bot's question in the owner's chat, as a Telegram message ID: its buttons answer it."""
+    naming_role: Mapped[bool] = mapped_column(server_default=text("false"))
+    """Whether the owner pressed New role, so that their next message is its name. At most one of
+    a user's entries waits for a name."""
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

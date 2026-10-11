@@ -189,3 +189,29 @@ async def test_only_a_closed_entry_is_processed_with_its_label(session: AsyncSes
         insert(JournalEntry).values({**closed, "triage": "other", "processed_at": at})
     )
     await session.execute(insert(JournalEntry).values({**closed, "failed_at": at}))
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures("key_ring")
+async def test_an_entry_has_one_role_and_a_user_names_one_at_a_time(
+    session: AsyncSession,
+) -> None:
+    """FR-CAP-11: a role from the profile or a new one's name, never both. Only one entry at a time
+    waits for the name the owner's next message gives."""
+    user = await new_user(session)
+    at = datetime(2026, 10, 4, 9, 0, tzinfo=UTC)
+    closed = {
+        "user_id": user.id,
+        "opened_at": at,
+        "last_message_at": at,
+        "closed_at": at,
+        "closed_by": "done",
+    }
+    with pytest.raises(IntegrityError):
+        async with session.begin_nested():
+            session.add(JournalEntry(**closed, role_id="northwind", new_role="Data Engineer"))
+    await session.execute(insert(JournalEntry).values({**closed, "naming_role": True}))
+    with pytest.raises(IntegrityError):
+        async with session.begin_nested():
+            await session.execute(insert(JournalEntry).values({**closed, "naming_role": True}))
+    await session.execute(insert(JournalEntry).values({**closed, "role_id": "northwind"}))
