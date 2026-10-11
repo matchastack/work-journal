@@ -17,6 +17,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import JournalMessage, JournalMessageEdit, TelegramLink, TelegramUpdate
+from app.telegram.api import BotCall, send
 from app.telegram.entries import DEFAULT_TIMEOUT, close_open_entry, entry_for
 from app.telegram.linking import link_chat, start_token
 from app.telegram.updates import Message, Update
@@ -48,23 +49,11 @@ def help_text(timeout: timedelta) -> str:
 
 
 @dataclass(frozen=True)
-class Reply:
-    """A message the bot sends back to a chat."""
-
-    chat_id: int
-    text: str
-
-    def webhook_body(self) -> dict[str, object]:
-        """The reply as a Bot API call in the webhook's answer, which Telegram makes itself."""
-        return {"method": "sendMessage", "chat_id": self.chat_id, "text": self.text}
-
-
-@dataclass(frozen=True)
 class Handled:
-    """What came of an update: the bot's reply, if any, and the entry it closed, if it closed
-    one, so that the jobs that follow can run right away (FR-CAP-5)."""
+    """What came of an update: the Bot API calls that answer it, in order, and the entry it
+    closed, if it closed one, so that the jobs that follow can run right away (FR-CAP-5)."""
 
-    reply: Reply | None = None
+    calls: tuple[BotCall, ...] = ()
     closed: uuid.UUID | None = None
 
 
@@ -72,7 +61,7 @@ async def handle_update(
     session: AsyncSession, payload: str, *, entry_timeout: timedelta = DEFAULT_TIMEOUT
 ) -> Handled:
     """Store an update from Telegram, given as the JSON it arrived as, and the journal message in
-    it. Returns the bot's reply, if any, and the entry the update closed. An update Telegram sent
+    it. Returns the calls that answer it, and the entry the update closed. An update Telegram sent
     before is ignored.
 
     Raises `pydantic.ValidationError` when the payload isn't an update.
@@ -120,16 +109,16 @@ async def _new_message(
     if message.chat.type != "private":
         return Handled()
     if message.text is not None and (token := start_token(message.text)) is not None:
-        return Handled(Reply(chat_id, await link_chat(session, chat_id, token)))
+        return Handled((send(chat_id, await link_chat(session, chat_id, token)),))
     owner = await _chat_owner(session, chat_id)
     if owner is None:
-        return Handled(Reply(chat_id, LINK_HINT))
+        return Handled((send(chat_id, LINK_HINT),))
     body = message.body
     if body is None:
         return Handled()
     if body.startswith("/"):
         answer, closed = await _command(session, owner, body, message.sent_at, entry_timeout)
-        return Handled(Reply(chat_id, answer), closed)
+        return Handled((send(chat_id, answer),), closed)
     entry_id, closed = await entry_for(session, owner, message.sent_at, entry_timeout)
     statement = (
         insert(JournalMessage)

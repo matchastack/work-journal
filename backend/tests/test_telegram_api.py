@@ -9,7 +9,7 @@ import httpx2
 import pytest
 from pydantic import SecretStr
 
-from app.telegram.api import BotApi, BotUser, TelegramError
+from app.telegram.api import BotApi, BotCall, BotUser, TelegramError
 
 TOKEN = "123456:test-token-not-real"
 
@@ -34,10 +34,10 @@ async def test_each_method_posts_json_to_the_bots_address() -> None:
 
     def handle(request: httpx2.Request) -> httpx2.Response:
         requests.append(request)
-        return ok(True)
+        return ok({"message_id": 7} if request.url.path.endswith("/sendMessage") else True)
 
     api = bot(handle)
-    await api.send_message(4242, "Noted.")
+    assert await api.send_message(4242, "Noted.") == 7
     await api.set_webhook("https://journal.example.com/telegram/webhook", "s3cret")
     await api.set_my_commands([("done", "close the current entry now")])
     await api.delete_webhook()
@@ -52,11 +52,35 @@ async def test_each_method_posts_json_to_the_bots_address() -> None:
         {
             "url": "https://journal.example.com/telegram/webhook",
             "secret_token": "s3cret",
-            "allowed_updates": ["message", "edited_message"],
+            "allowed_updates": ["message", "edited_message", "callback_query"],
         },
         {"commands": [{"command": "done", "description": "close the current entry now"}]},
         {},
     ]
+
+
+async def test_a_message_takes_options_and_a_prepared_call_is_made_as_is() -> None:
+    bodies: list[tuple[str, Any]] = []
+
+    def handle(request: httpx2.Request) -> httpx2.Response:
+        bodies.append((request.url.path.rsplit("/", 1)[1], json.loads(request.content)))
+        return ok({"message_id": 8} if request.url.path.endswith("/sendMessage") else True)
+
+    api = bot(handle)
+    keyboard = {"inline_keyboard": [[{"text": "New role", "callback_data": "+new"}]]}
+    assert await api.send_message(4242, "Which role?", reply_markup=keyboard) == 8
+    call = BotCall("answerCallbackQuery", {"callback_query_id": "77"})
+    assert call.webhook_body() == {"method": "answerCallbackQuery", "callback_query_id": "77"}
+    assert await api.make(call) is True
+    assert bodies == [
+        ("sendMessage", {"chat_id": 4242, "text": "Which role?", "reply_markup": keyboard}),
+        ("answerCallbackQuery", {"callback_query_id": "77"}),
+    ]
+
+
+async def test_a_sent_message_without_its_id_is_an_error() -> None:
+    with pytest.raises(TelegramError, match="unexpected reply to sendMessage"):
+        await bot(lambda request: ok(True)).send_message(1, "Noted.")
 
 
 async def test_the_bots_account_and_updates_are_read() -> None:
@@ -67,7 +91,7 @@ async def test_the_bots_account_and_updates_are_read() -> None:
             return ok({"id": 99, "is_bot": True, "first_name": "Journal", "username": "wj_bot"})
         assert json.loads(request.content) == {
             "timeout": 30,
-            "allowed_updates": ["message", "edited_message"],
+            "allowed_updates": ["message", "edited_message", "callback_query"],
             "offset": 10,
         }
         return ok(updates)

@@ -54,8 +54,8 @@ async def poll(
                 except ValidationError:
                     logger.warning("Telegram sent an update the bot can't read; it was skipped")
                     continue
-            if result.reply is not None:
-                await api.send_message(result.reply.chat_id, result.reply.text)
+            for call in result.calls:
+                await api.make(call)
             if result.closed is not None and after_close is not None:
                 await after_close(result.closed)
             handled += 1

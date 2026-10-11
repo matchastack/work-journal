@@ -10,7 +10,7 @@ httpx2's request log, and errors never quote an address.
 
 import logging
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -21,8 +21,9 @@ API_URL = "https://api.telegram.org"
 TIMEOUT_S = 10.0
 POLL_TIMEOUT_S = 30
 """How long `getUpdates` waits for an update before answering with none (long polling)."""
-ALLOWED_UPDATES = ("message", "edited_message")
-"""The kinds of update the bot asks for. Telegram doesn't send the others."""
+ALLOWED_UPDATES = ("message", "edited_message", "callback_query")
+"""The kinds of update the bot asks for: messages, their edits and button presses. Telegram
+doesn't send the others."""
 _TOKEN_IN_URL = re.compile(r"(api\.telegram\.org/bot)[^/\s]+")
 
 
@@ -34,6 +35,27 @@ class TelegramError(Exception):
 class BotUser(BaseModel):
     id: int
     username: str
+
+
+class _SentMessage(BaseModel):
+    message_id: int
+
+
+@dataclass(frozen=True)
+class BotCall:
+    """A Bot API call the bot makes in answer to an update."""
+
+    method: str
+    params: Mapping[str, Any]
+
+    def webhook_body(self) -> dict[str, Any]:
+        """The call as the webhook's answer, which Telegram makes itself."""
+        return {"method": self.method, **self.params}
+
+
+def send(chat_id: int, text: str, **options: Any) -> BotCall:
+    """A `sendMessage` call. `options` are its other parameters, such as `reply_markup`."""
+    return BotCall("sendMessage", {"chat_id": chat_id, "text": text, **options})
 
 
 class _Reply(BaseModel):
@@ -65,8 +87,18 @@ class BotApi:
         """The bot's own account, whose username goes into links to the bot."""
         return BotUser.model_validate(await self._call("getMe"))
 
-    async def send_message(self, chat_id: int, text: str) -> None:
-        await self._call("sendMessage", chat_id=chat_id, text=text)
+    async def send_message(self, chat_id: int, text: str, **options: Any) -> int:
+        """Send `text` to the chat, and return the message's ID. `options` are `sendMessage`'s
+        other parameters, such as `reply_markup`."""
+        result = await self.make(send(chat_id, text, **options))
+        try:
+            return _SentMessage.model_validate(result).message_id
+        except ValidationError:
+            raise TelegramError("Telegram sent an unexpected reply to sendMessage") from None
+
+    async def make(self, call: BotCall) -> Any:
+        """Make a call the bot answers an update with, and return Telegram's result."""
+        return await self._call(call.method, **call.params)
 
     async def set_webhook(self, url: str, secret_token: str) -> None:
         """Have Telegram send updates to `url`, with `secret_token` in a header."""
