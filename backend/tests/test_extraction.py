@@ -13,6 +13,7 @@ from app.extraction import (
     ExtractedMetric,
     Extraction,
     ExtractionReply,
+    RoleChoice,
     check_facts,
     extract_facts,
 )
@@ -188,6 +189,32 @@ def test_tools_the_note_doesnt_name_are_removed() -> None:
 def test_links_to_items_not_in_the_profile_are_removed() -> None:
     extraction = checked(fact(role_id="fabrikam", project_id="recipe_box"))
     assert (extraction.facts[0].role_id, extraction.facts[0].project_id) == (None, "recipe_box")
+    assert extraction.notes == (
+        'fact_1: removed the link to "fabrikam", which isn\'t a role in the profile',
+    )
+
+
+def test_the_owners_role_replaces_the_models() -> None:
+    """FR-CAP-11: every fact links to the role the owner chose for the entry."""
+    facts = (fact(role_id="contoso"), fact(statement="Wrote the runbook."))
+    reply_ = ExtractionReply(facts=facts)
+    chosen = check_facts(reply_, NOTE, PROFILE, role=RoleChoice(role_id="northwind"))
+    assert [(item.role_id, item.proposed_role) for item in chosen.facts] == [
+        ("northwind", None),
+        ("northwind", None),
+    ]
+    new = check_facts(reply_, NOTE, PROFILE, role=RoleChoice(new_role="Data Engineer, Fabrikam"))
+    assert [(item.role_id, item.proposed_role) for item in new.facts] == [
+        (None, "Data Engineer, Fabrikam"),
+        (None, "Data Engineer, Fabrikam"),
+    ]
+
+
+def test_a_chosen_role_no_longer_in_the_profile_is_removed() -> None:
+    extraction = check_facts(
+        ExtractionReply(facts=(fact(),)), NOTE, PROFILE, role=RoleChoice(role_id="fabrikam")
+    )
+    assert extraction.facts[0].role_id is None
     assert extraction.notes == (
         'fact_1: removed the link to "fabrikam", which isn\'t a role in the profile',
     )

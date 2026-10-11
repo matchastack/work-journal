@@ -83,6 +83,9 @@ class Fact(Model):
     """The existing project this fact belongs to, if any."""
     proposed_item: str | None = None
     """The name of a new role or project this fact implies, if it fits no existing one."""
+    proposed_role: str | None = None
+    """The name of the new role the owner gave this fact's entry (FR-CAP-11), which a refresh may
+    add to the profile. Set only when `role_id` isn't."""
     question_id: Id | None = None
     """The open question this fact answers, if any."""
     confidentiality_flags: tuple[str, ...] = ()
