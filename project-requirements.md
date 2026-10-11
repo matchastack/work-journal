@@ -125,7 +125,8 @@ See milestones M3 and M4 in [§14](#14-milestones).
   1. The owner messages the bot about something they did.
   2. The bot stores the message.
   3. If impact, numbers or ownership are unclear, the bot may ask **one** follow-up question.
-  4. When the entry closes, the app extracts facts, and the bot replies with a one-to-three-line summary of what it understood.
+  4. When the entry closes, the bot asks which role it's about. The owner picks one of their roles, or names a new one.
+  5. The app extracts facts, linked to that role, and the bot replies with a one-to-three-line summary of what it understood.
 - **J2 — Refresh.** Only when the owner asks; nothing in this journey runs on a schedule or when an entry closes.
   1. The owner sends `/refresh`. The app proposes changes to the master profile from the facts gathered since the last refresh. The bot says how many there are, or that there's nothing new.
   2. The owner opens the Inbox. Each change shows a before/after diff, its sources and a verifier report.
@@ -154,12 +155,13 @@ Priority: **M** = Must (v1) · **S** = Should (v1 if time allows) · **C** = Cou
 | FR-CAP-2 | Only linked chats are accepted. | M | An unlinked chat gets a short "link your account in the web app" reply, and its message is not stored as a journal message. |
 | FR-CAP-3 | Account linking uses a one-time deep link (`t.me/<bot>?start=<token>`) shown in the web app. | M | The token works once and expires after 15 minutes. Linking is confirmed in the chat and in Settings. |
 | FR-CAP-4 | Messages are grouped into entries. An entry closes after 30 minutes without a message, or on `/done`. | M | The timeout can be configured. `/done` closes the entry immediately. An entry left open closes at the next message after the timeout, or at the daily tick (§13). |
-| FR-CAP-5 | When an entry closes, the bot replies with a one-to-three-line summary of the facts it understood. | M | The summary is sent within 2 minutes of closing (p95): whatever closes the entry, `/done` or the tick, also runs the jobs that follow (§13). |
+| FR-CAP-5 | When an entry closes and its role is chosen (FR-CAP-11), the bot replies with a one-to-three-line summary of the facts it understood. | M | The summary is sent within 2 minutes of the owner choosing the role (p95): whatever closes the entry, `/done` or the tick, also runs the jobs that follow (§13), and so does choosing the role. |
 | FR-CAP-6 | The bot asks at most one follow-up question per entry, when impact, metrics or ownership are unclear. | M | Never more than one question per entry. A Skip button is offered, and the answer joins the same entry. |
 | FR-CAP-7 | Commands: `/start`, `/done`, `/skip`, `/refresh`, `/catchup`, `/pause`, `/resume`, `/help`. | M | `/help` lists every command, and so does Telegram's command menu when the owner types "/". |
 | FR-CAP-8 | Chit-chat and messages unrelated to work are recognised and don't become facts. | S | A triage label is stored with each entry. |
 | FR-CAP-9 | Job postings can be sent to the bot for tailoring. | C | M3 |
 | FR-CAP-10 | Voice notes are transcribed into entries. | C | M3 |
+| FR-CAP-11 | When an entry closes, the bot asks which role it's about: a button for each role in the profile, and one for a new role, which the owner then names. Every entry gets a role this way. | M | Nothing is extracted from an entry until the owner answers, and every fact from it links to the role chosen, never to one the model picks. A new role's name is stored encrypted, and the entry's facts carry it until a refresh adds the role to the profile. |
 
 ### 7.2 Journal storage and view (FR-JRN)
 
@@ -177,7 +179,7 @@ Priority: **M** = Must (v1) · **S** = Should (v1 if time allows) · **C** = Cou
 
 | ID | Requirement | Pri | Acceptance criteria |
 |---|---|---|---|
-| FR-EXT-1 | Each closed entry becomes zero or more facts. Each fact has a statement, kind, metrics, ownership, tools, outcome and date, plus a link to an existing role or project (or a proposed new one). | M | The facts match the schema. Entries unrelated to work produce no facts. |
+| FR-EXT-1 | Each closed entry becomes zero or more facts. Each fact has a statement, kind, metrics, ownership, tools, outcome and date, plus a link to the entry's role, as the owner chose it (FR-CAP-11), and to an existing project (or a proposed new one). | M | The facts match the schema. Entries unrelated to work produce no facts. |
 | FR-EXT-2 | Every metric in a fact must appear in the entry text. | M | The number check rejects facts with numbers the entry doesn't contain. |
 | FR-EXT-3 | The owner can edit or delete facts. | M | |
 | FR-EXT-4 | An answer to an open question is stored as a fact linked to that question. | M | |

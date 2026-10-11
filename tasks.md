@@ -24,7 +24,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 |---|---|---|
 | M0: Documents | T-000, T-055 and T-056 | ◐ |
 | M1: Engine and command line | T-001 – T-024 and T-054 (T-007 dropped) | ◐ |
-| M2: Journal loop | T-025 – T-053, T-057 and T-058 | ◐ |
+| M2: Journal loop | T-025 – T-053 and T-057 – T-059 | ◐ |
 | M3: Quality and habit | Epics (at the end of this file) | — |
 | M4: Open to others | Epics (at the end of this file) | — |
 
@@ -519,6 +519,18 @@ As the owner, I want each scheduled task to run once per due time, so that a tic
 
 - [x] The worker inside a tick doesn't defer scheduled tasks by the real clock; the tick already deferred the ones due by its own time.
 - [x] A test pins the real clock, so the result doesn't depend on when CI runs.
+
+### T-059 · Choose the role of each entry
+**Status:** ◐ · **Size:** M · **Depends on:** T-033 · **Requirements:** FR-CAP-11, FR-CAP-5, FR-EXT-1 · **PR:** —
+
+As the owner, I want to say which role each journal entry is about when I submit it, so that its facts land under the right job instead of one the model guesses.
+
+- [ ] When an entry closes, the bot asks which role it's about, as a reply to the entry's first message: a button for each role in the latest profile version, and a New role button.
+- [ ] New role asks for the role's title and organisation; the owner's next message is its name, stored encrypted and not journaled.
+- [ ] Extraction waits for the answer, then runs at once. Every fact links to the chosen role, or carries the new role's name; the model's own role link is ignored.
+- [ ] The sweep doesn't queue entries that wait for an answer, and an out-of-date button press changes nothing.
+- [ ] The webhook and `wj telegram poll` receive button presses (`callback_query`).
+- [ ] Tests.
 
 ### T-034 · Follow-up question
 **Status:** ☐ · **Size:** S · **Depends on:** T-033 · **Requirements:** FR-CAP-6 · **PR:** —
