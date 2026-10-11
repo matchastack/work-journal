@@ -6,6 +6,7 @@ import random
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import httpx2
@@ -18,6 +19,7 @@ import app.jobs as job_module
 from app.config import Settings, get_settings
 from app.db.crypto import KeyRing, new_key, use_key_ring
 from app.db.models import FactRow, JournalEntry, JournalMessage, LlmCallRow, TelegramLink, User
+from app.db.profiles import save_version
 from app.db.store import list_facts
 from app.extraction import ExtractionReply
 from app.jobs import (
@@ -31,8 +33,10 @@ from app.jobs import (
 from app.llm.client import LLMClient
 from app.llm.fake import FakeMessages, refusal, reply
 from app.llm.usage import CallLog, MemoryCallLog
+from app.schema.profile import Profile
 from app.telegram.api import TelegramError
 from app.telegram.processing import Processed, failure_text, process_entry
+from app.telegram.roles import NO_ROLES, QUESTION
 from app.tick import extract_now
 from app.triage import TriageReply
 
@@ -45,6 +49,11 @@ RUNBOOK = "Wrote the runbook for the nightly export."
 OPENED = datetime(2026, 10, 4, 9, 0, tzinfo=UTC)
 NOW = datetime(2026, 10, 4, 10, 0, tzinfo=UTC)
 APP_URL = "https://journal.example.com"
+ROLE = "northwind"
+"""A role in the fixture profile."""
+PROFILE = Profile.model_validate_json(
+    (Path(__file__).parents[1] / "fixtures" / "profile.json").read_text(encoding="utf-8")
+)
 WORK = TriageReply(label="work")
 OTHER = TriageReply(label="other")
 EXTRACTED = ExtractionReply.model_validate(
@@ -111,12 +120,19 @@ async def new_entry(
     *texts: str,
     chat_id: int | None = None,
     closed: bool = True,
+    profile: Profile | None = None,
     **state: Any,
 ) -> tuple[uuid.UUID, uuid.UUID]:
-    """A user, linked to `chat_id` if given, with one entry holding `texts`. Returns both IDs."""
+    """A user, linked to `chat_id` if given and with `profile` loaded if given, with one entry
+    holding `texts`. Returns both IDs. Unless `state` says otherwise, the owner has chosen the
+    entry's role (FR-CAP-11)."""
+    if "new_role" not in state:
+        state.setdefault("role_id", ROLE)
     user = User()
     session.add(user)
     await session.flush()
+    if profile is not None:
+        await save_version(session, user.id, profile, author="owner")
     if chat_id is not None:
         session.add(TelegramLink(user_id=user.id, chat_id=chat_id))
     last = OPENED + timedelta(minutes=len(texts))
@@ -198,6 +214,58 @@ async def test_only_a_closed_entry_waiting_to_be_processed_is_processed(
     _, entry_id = await new_entry(session, NOTE, **state)
     client = LLMClient(llm_settings(), FakeMessages(), MemoryCallLog())
     assert await process_entry(session, entry_id, client, now=NOW, app_url=APP_URL) is None
+
+
+async def test_every_fact_links_to_the_role_the_owner_chose(
+    session: AsyncSession, chat_id: int
+) -> None:
+    """FR-CAP-11: the owner's choice, not the model's."""
+    user_id, entry_id = await new_entry(
+        session, NOTE, FOLLOW_UP, chat_id=chat_id, profile=PROFILE, role_id="northwind"
+    )
+    elsewhere = EXTRACTED.model_copy(
+        update={
+            "facts": tuple(
+                fact.model_copy(update={"role_id": "contoso"}) for fact in EXTRACTED.facts
+            )
+        }
+    )
+    client = LLMClient(llm_settings(), FakeMessages(reply(WORK), reply(elsewhere)), MemoryCallLog())
+    await process_entry(session, entry_id, client, now=NOW, app_url=APP_URL)
+    saved = await list_facts(session, user_id, role_id="northwind")
+    assert [(fact.statement, fact.proposed_role) for fact in saved] == [
+        (EXPORT, None),
+        (RUNBOOK, None),
+    ]
+
+
+async def test_a_new_roles_name_goes_with_every_fact(session: AsyncSession, chat_id: int) -> None:
+    user_id, entry_id = await new_entry(
+        session,
+        NOTE,
+        FOLLOW_UP,
+        chat_id=chat_id,
+        profile=PROFILE,
+        new_role="Data Engineer, Fabrikam",
+    )
+    client = LLMClient(llm_settings(), FakeMessages(reply(WORK), reply(EXTRACTED)), MemoryCallLog())
+    await process_entry(session, entry_id, client, now=NOW, app_url=APP_URL)
+    saved = await list_facts(session, user_id)
+    assert [(fact.role_id, fact.proposed_role) for fact in saved] == [
+        (None, "Data Engineer, Fabrikam"),
+        (None, "Data Engineer, Fabrikam"),
+    ]
+
+
+async def test_an_entry_waiting_for_its_role_is_not_processed(session: AsyncSession) -> None:
+    _, entry_id = await new_entry(session, NOTE, role_id=None, role_asked_at=OPENED)
+    fake = FakeMessages()
+    client = LLMClient(llm_settings(), fake, MemoryCallLog())
+    assert await process_entry(session, entry_id, client, now=NOW, app_url=APP_URL) is None
+    assert fake.requests == []
+    entry = await session.get(JournalEntry, entry_id)
+    assert entry is not None
+    assert (entry.triage, entry.processed_at) == (None, None)
 
 
 async def test_an_entry_with_no_text_is_set_aside_without_a_call(session: AsyncSession) -> None:
@@ -376,6 +444,62 @@ async def test_an_unusable_answer_fails_the_entry_at_once(
     assert await entry_state(entry_id) == (None, False, True, 0)
 
 
+def question(chat_id: int, *roles: tuple[str, str]) -> dict[str, Any]:
+    """The question about an entry whose first message is message 1 in `chat_id`, with a button
+    for each `(label, role ID)`."""
+    buttons = [[{"text": label, "callback_data": role_id}] for label, role_id in roles]
+    buttons.append([{"text": "New role", "callback_data": "+new"}])
+    return {
+        "chat_id": chat_id,
+        "text": QUESTION,
+        "reply_markup": {"inline_keyboard": buttons},
+        "reply_parameters": {"message_id": 1, "allow_sending_without_reply": True},
+    }
+
+
+async def test_the_job_asks_which_role_first_and_waits_for_the_answer(
+    committed: Committed, chat_id: int, claude: Callable[..., FakeMessages], telegram: Telegram
+) -> None:
+    """FR-CAP-11: a button for each role in the latest profile version, and New role. Nothing is
+    extracted until the owner answers; then the job processes the entry."""
+    _, entry_id = await committed(NOTE, FOLLOW_UP, chat_id=chat_id, profile=PROFILE, role_id=None)
+    fake = claude()
+    await run_extraction(entry_id, last_attempt=never)
+    await run_extraction(entry_id, last_attempt=never)
+    assert telegram.sent == [
+        question(
+            chat_id,
+            ("Engineer, Northwind Traders (2025-now)", "northwind"),
+            ("Research Intern, Contoso Research (2024-2024)", "contoso"),
+        )
+    ], "asked once"
+    assert fake.requests == []
+    async with database() as session:
+        entry = await session.get(JournalEntry, entry_id)
+        assert entry is not None
+        assert (entry.role_asked_at is not None, entry.role_question_id) == (True, 1)
+        assert (entry.processed_at, entry.failed_at) == (None, None)
+        entry.role_id = "northwind"
+
+    claude(reply(WORK), reply(EXTRACTED))
+    await run_extraction(entry_id, last_attempt=never)
+    assert telegram.sent[1] == {"chat_id": chat_id, "text": expected_reply(entry_id)}
+    assert await entry_state(entry_id) == ("work", True, False, 2)
+
+
+async def test_without_a_profile_only_a_new_role_can_be_given(
+    committed: Committed, chat_id: int, claude: Callable[..., FakeMessages], telegram: Telegram
+) -> None:
+    _, entry_id = await committed(NOTE, chat_id=chat_id, role_id=None)
+    claude()
+    await run_extraction(entry_id, last_attempt=never)
+    [sent] = telegram.sent
+    assert sent["text"] == NO_ROLES
+    assert sent["reply_markup"] == {
+        "inline_keyboard": [[{"text": "New role", "callback_data": "+new"}]]
+    }
+
+
 async def test_the_worker_runs_the_job(
     committed: Committed, chat_id: int, claude: Callable[..., FakeMessages], telegram: Telegram
 ) -> None:
@@ -415,7 +539,11 @@ def queued(connector: InMemoryConnector) -> list[dict[str, Any]]:
 
 
 async def test_closed_entries_are_queued_once_each(committed: Committed) -> None:
+    """Including one not yet asked about its role, but not one that waits for the answer."""
     _, waiting = await committed(NOTE)
+    _, to_ask = await committed(NOTE, role_id=None)
+    _, answered = await committed(NOTE, role_asked_at=OPENED, new_role="Data Engineer")
+    _, unanswered = await committed(NOTE, role_id=None, role_asked_at=OPENED)
     _, still_open = await committed(NOTE, closed=False)
     _, processed = await committed(NOTE, triage="work", processed_at=OPENED)
     _, failed = await committed(NOTE, failed_at=OPENED)
@@ -425,8 +553,8 @@ async def test_closed_entries_are_queued_once_each(committed: Committed) -> None
             await queue_extractions(session)
             await queue_extractions(session)
     entries = [job["args"]["entry_id"] for job in queued(connector)]
-    assert entries.count(str(waiting)) == 1
-    assert {str(still_open), str(processed), str(failed)}.isdisjoint(entries)
+    assert [entries.count(str(entry)) for entry in (waiting, to_ask, answered)] == [1, 1, 1]
+    assert {str(unanswered), str(still_open), str(processed), str(failed)}.isdisjoint(entries)
     [job] = [job for job in queued(connector) if job["args"]["entry_id"] == str(waiting)]
     assert (job["lock"], job["queueing_lock"]) == (
         f"journal_entry:{waiting}",

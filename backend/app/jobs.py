@@ -20,7 +20,7 @@ import httpx2
 import procrastinate
 from procrastinate.exceptions import AlreadyEnqueued
 from psycopg_pool import AsyncConnectionPool
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -32,6 +32,7 @@ from app.telegram.api import BotApi, TelegramError
 from app.telegram.entries import close_quiet_entries
 from app.telegram.journal import purge_updates
 from app.telegram.processing import chat_of, entry_link, failure_text, process_entry
+from app.telegram.roles import record_question, role_question
 
 logger = logging.getLogger(__name__)
 
@@ -98,8 +99,9 @@ async def close_quiet_entries_task(timestamp: int) -> None:
 
 @jobs.task(name="extract_entry", retry=RETRY, pass_context=True)
 async def extract_entry(context: procrastinate.JobContext, entry_id: str) -> None:
-    """Triage a closed journal entry, save its facts and reply to its owner (FR-CAP-5). The owner
-    is told when it finally fails."""
+    """Ask which role a closed journal entry is about (FR-CAP-11). Once it has its role, triage
+    it, save its facts and reply to its owner (FR-CAP-5). The owner is told when it finally
+    fails."""
     job = context.job
     await run_extraction(
         uuid.UUID(entry_id),
@@ -109,13 +111,19 @@ async def extract_entry(context: procrastinate.JobContext, entry_id: str) -> Non
 
 async def queue_extractions(session: AsyncSession) -> int:
     """Queue `extract_entry` for each closed entry that's neither processed nor failed, unless
-    it's queued already. Jobs for one entry run one at a time. Returns how many were queued."""
+    it's queued already or waits for the owner to choose its role. Jobs for one entry run one at a
+    time. Returns how many were queued."""
     pending = await session.scalars(
         select(JournalEntry.id)
         .where(
             JournalEntry.closed_at.is_not(None),
             JournalEntry.processed_at.is_(None),
             JournalEntry.failed_at.is_(None),
+            or_(
+                JournalEntry.role_asked_at.is_(None),
+                JournalEntry.role_id.is_not(None),
+                JournalEntry.new_role.is_not(None),
+            ),
         )
         .order_by(JournalEntry.closed_at)
     )
@@ -138,9 +146,10 @@ async def queue_extraction(entry_id: uuid.UUID) -> bool:
 async def run_extraction(
     entry_id: uuid.UUID, *, last_attempt: Callable[[BaseException], bool]
 ) -> None:
-    """Process the entry (`app/telegram/processing.py`) and send the reply before the result is
-    committed. A refusal or an unusable answer won't change on a retry, so it fails at once;
-    anything else is retried, and fails when `last_attempt` says this was the last try."""
+    """Ask which role the entry is about, if it hasn't been asked (`app/telegram/roles.py`), or
+    else process it (`app/telegram/processing.py`). The question or the reply is sent before the
+    result is committed. A refusal or an unusable answer won't change on a retry, so it fails at
+    once; anything else is retried, and fails when `last_attempt` says this was the last try."""
     async with database() as session:
         user_id = await session.scalar(
             select(JournalEntry.user_id).where(JournalEntry.id == entry_id)
@@ -150,6 +159,13 @@ async def run_extraction(
     log = DatabaseCallLog(user_id)
     try:
         async with database() as session:
+            question = await role_question(session, entry_id, now=datetime.now(UTC))
+            if question is not None:
+                if question.chat_id is not None:
+                    message_id = await _send(question.chat_id, question.text, **question.options)
+                    if message_id is not None:
+                        await record_question(session, entry_id, message_id)
+                return
             processed = await process_entry(
                 session,
                 entry_id,
@@ -198,13 +214,14 @@ def _reason(error: BaseException) -> str:
     return "of an error that kept coming back"
 
 
-async def _send(chat_id: int, text: str) -> None:
+async def _send(chat_id: int, text: str, **options: Any) -> int | None:
+    """Send a message, and return its ID, or None when the bot can't send one."""
     token = get_settings().telegram_bot_token
     if token is None:
         logger.warning("TELEGRAM_BOT_TOKEN isn't set, so the bot can't reply")
-        return
+        return None
     async with _telegram_http() as http:
-        await BotApi(token, http).send_message(chat_id, text)
+        return await BotApi(token, http).send_message(chat_id, text, **options)
 
 
 def _llm_client(log: CallLog) -> LLMClient:

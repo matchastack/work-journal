@@ -119,8 +119,9 @@ deployment:
    below need it.
 2. Optional: `uv run wj db load-profile --user <your GitHub username>` loads your imported
    resume as profile version 1.
-3. `uv run wj telegram set-webhook` points Telegram at the deployed webhook and sets the menu of
-   commands Telegram shows when you type "/". Run it again after a deploy that adds a command.
+3. `uv run wj telegram set-webhook` points Telegram at the deployed webhook, asks it for messages
+   and button presses, and sets the menu of commands Telegram shows when you type "/". Run it
+   again after a deploy that adds a command or a kind of update.
 4. `uv run wj telegram link --user <your GitHub username>` prints a link. Open it in Telegram
    within 15 minutes; the bot answers "Linked."
 
@@ -130,8 +131,9 @@ deployment:
 - The web app opens at `https://<project>.vercel.app`, and you can sign in.
 - Send the bot a message. In Neon's SQL Editor, `SELECT count(*) FROM journal_messages;` goes
   up by one. The text itself is stored encrypted.
-- Send a note about your work, then `/done`. Within a minute, the bot replies with the facts it
-  saved. In Neon, `SELECT task, outcome FROM llm_calls ORDER BY at DESC LIMIT 2;` shows the calls.
+- Send a note about your work, then `/done`. The bot asks which role it's about; tap one. Within
+  a minute, the bot replies with the facts it saved. In Neon,
+  `SELECT task, outcome FROM llm_calls ORDER BY at DESC LIMIT 2;` shows the calls.
 - Vercel lists the tick among the project's cron jobs, and the logs of each run show it
   answering 200.
 
@@ -145,5 +147,6 @@ deployment:
 | The tick answers 401 | Set `CRON_SECRET` in Vercel (step 3), then redeploy: Vercel sends it with each call. |
 | A command fails with `relation "..." does not exist` | The database is missing tables: run `uv run alembic upgrade head` (step 6). |
 | The bot stops receiving messages | `wj telegram poll` turns the webhook off; run `wj telegram set-webhook` again. |
+| Tapping a role under the bot's question does nothing | Telegram doesn't send the webhook button presses yet: run `wj telegram set-webhook` again. |
 | The database is asleep or slow on the first request | Neon wakes in about a second; the next requests are quick. |
 | Every request is slow, not just the first | Vercel runs the app far from the database: set the function region (step 3), then redeploy. |

@@ -4,7 +4,8 @@ Telegram resends an update until the webhook answers with success, so the update
 before the answer, and storing it twice does nothing (NFR-REL-1). The answer can carry the bot's
 reply as a Bot API call, which Telegram makes itself, so replying needs no request of its own.
 Any further calls, such as editing a message after a button press, are made right after the
-answer. When the update closes an entry, its extraction runs right after that (FR-CAP-5).
+answer. When the update closes an entry or chooses its role, the entry's jobs run right after
+that (FR-CAP-5).
 """
 
 import logging
@@ -50,8 +51,8 @@ async def webhook(
         background.add_task(
             make_calls, settings.telegram_bot_token, request.app.state.http, handled.calls[1:]
         )
-    if handled.closed is not None:
-        background.add_task(extract_now, handled.closed)
+    if handled.ready is not None:
+        background.add_task(extract_now, handled.ready)
     if not handled.calls:
         return Response(status_code=status.HTTP_200_OK)
     return JSONResponse(handled.calls[0].webhook_body())
