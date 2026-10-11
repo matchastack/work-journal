@@ -525,12 +525,12 @@ As the owner, I want each scheduled task to run once per due time, so that a tic
 
 As the owner, I want to say which role each journal entry is about when I submit it, so that its facts land under the right job instead of one the model guesses.
 
-- [ ] When an entry closes, the bot asks which role it's about, as a reply to the entry's first message: a button for each role in the latest profile version, and a New role button.
-- [ ] New role asks for the role's title and organisation; the owner's next message is its name, stored encrypted and not journaled.
-- [ ] Extraction waits for the answer, then runs at once. Every fact links to the chosen role, or carries the new role's name; the model's own role link is ignored.
-- [ ] The sweep doesn't queue entries that wait for an answer, and an out-of-date button press changes nothing.
-- [ ] The webhook and `wj telegram poll` receive button presses (`callback_query`).
-- [ ] Tests.
+- [x] When an entry closes, the bot asks which role it's about, as a reply to the entry's first message: a button for each role in the latest profile version, and a New role button.
+- [x] New role asks for the role's title and organisation; the owner's next message is its name, stored encrypted and not journaled.
+- [x] Extraction waits for the answer, then runs at once. Every fact links to the chosen role, or carries the new role's name; the model's own role link is ignored.
+- [x] The sweep doesn't queue entries that wait for an answer, and an out-of-date button press changes nothing.
+- [x] The webhook and `wj telegram poll` receive button presses (`callback_query`).
+- [x] Tests.
 
 ### T-034 · Follow-up question
 **Status:** ☐ · **Size:** S · **Depends on:** T-033 · **Requirements:** FR-CAP-6 · **PR:** —

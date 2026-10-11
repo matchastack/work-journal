@@ -2,6 +2,16 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-11 · T-059 Choose the role of each entry · PR not opened yet
+**Changed:** when an entry closes, the bot asks which role it's about, with a button for each role in your profile and New role. Facts are extracted only after you answer, and every one links to the role you chose; a new role's name is kept (encrypted) for a refresh to add.
+
+**Verify:**
+- CI is green on the PR
+- After the deploy, run `uv run wj telegram set-webhook` once, so Telegram sends the webhook button presses
+- With your bot: a note, then `/done`, gets the question as a reply to the note; tapping a role edits the question to show it, and the facts reply follows
+- New role, then a message such as "Data Engineer, Example Co", gives the entry that role, and that message isn't journaled
+- Entries closed but not yet processed when this deploys are asked about too
+
 ## 2026-10-08 · T-058 Ticks run scheduled tasks only as of their own time · [#32](https://github.com/matchastack/work-journal/pull/32)
 **Changed:** the worker inside a tick no longer defers scheduled tasks by the real clock, which ran a daily task an extra time and turned `main`'s CI red when it ran a few minutes after the task's time.
 
