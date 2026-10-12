@@ -291,7 +291,7 @@ As the owner, I want LLM quality measured on a fixed dataset, so that any change
 - [ ] `CLAUDE.md` says to run it before changing prompts or model routing.
 
 ### T-017 · Resume writer
-**Status:** ◐ · **Size:** M · **Depends on:** T-015 · **Requirements:** FR-WRT-1, FR-WRT-4, FR-FID-7 · **PR:** [#34](https://github.com/matchastack/work-journal/pull/34)
+**Status:** ☑ · **Size:** M · **Depends on:** T-015 · **Requirements:** FR-WRT-1, FR-WRT-4, FR-FID-7 · **PR:** [#34](https://github.com/matchastack/work-journal/pull/34)
 
 As the owner, I want facts written up as resume bullets, so that my journal turns into polished resume wording that never says more than I did.
 
