@@ -17,6 +17,7 @@ dependencies = [
     "pypdf>=6.19.0",
     "sqlalchemy[asyncio]>=2.1.1",
     "typer>=0.27.2",
+    "tzdata>=2026.4",
     "uvicorn[standard]>=0.54.0",
 ]
 

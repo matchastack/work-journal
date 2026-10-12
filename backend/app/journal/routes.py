@@ -5,6 +5,7 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Annotated
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, HTTPException, Response, status
 from pydantic import StringConstraints
@@ -25,6 +26,7 @@ from app.journal.editing import (
     edit_fact,
     edit_message,
 )
+from app.journal.export import JournalExport, export_journal, to_markdown
 from app.schema.common import Model
 
 router = APIRouter(prefix="/api/journal", tags=["journal"])
@@ -95,6 +97,44 @@ async def remove_fact(fact_id: str, user: CurrentUser, db: Db, confirm: bool = F
     with _errors():
         await delete_fact(db, user.id, fact_id, confirm=confirm)
     await db.commit()
+
+
+@router.get("/export.json")
+async def export_json(user: CurrentUser, db: Db, response: Response) -> JournalExport:
+    """Every entry and every fact, as a JSON file (FR-JRN-7)."""
+    now = datetime.now(UTC)
+    response.headers.update(NO_STORE | _attachment(f"work-journal-{now:%Y-%m-%d}.json"))
+    return await export_journal(db, user.id, now=now)
+
+
+@router.get(
+    "/export.md",
+    response_class=Response,
+    responses={200: {"content": {"text/markdown": {"schema": {"type": "string"}}}}},
+)
+async def export_markdown(user: CurrentUser, db: Db, tz: str = "UTC") -> Response:
+    """Every entry and every fact, as a Markdown file (FR-JRN-7), with times in the time zone
+    `tz`, such as `Asia/Singapore`."""
+    zone = _zone(tz)
+    now = datetime.now(UTC)
+    export = await export_journal(db, user.id, now=now)
+    name = f"work-journal-{now.astimezone(zone):%Y-%m-%d}.md"
+    return Response(
+        to_markdown(export, zone), media_type="text/markdown", headers=NO_STORE | _attachment(name)
+    )
+
+
+def _attachment(filename: str) -> dict[str, str]:
+    return {"Content-Disposition": f'attachment; filename="{filename}"'}
+
+
+def _zone(name: str) -> ZoneInfo:
+    try:
+        return ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError, OSError):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, f"there's no time zone {name!r}"
+        ) from None
 
 
 @contextmanager

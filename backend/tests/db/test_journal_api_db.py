@@ -2,6 +2,7 @@
 
 import asyncio
 import random
+import time
 import uuid
 from collections.abc import Awaitable, Callable, Iterator
 from datetime import UTC, datetime, timedelta
@@ -595,3 +596,108 @@ def test_deleting_a_fact_the_profile_cites_needs_confirming(
     assert confirmed.status_code == 204
     assert count(database_url, FactRow, FactRow.user_id == owner.id) == 0
     assert client.get("/api/journal").json()["entries"][0]["facts"] == []
+
+
+# --- Export --------------------------------------------------------------------------------------
+
+
+def test_the_json_export_holds_every_entry_and_fact(
+    database_url: str, owner: Owner, client: TestClient, entry: uuid.UUID
+) -> None:
+    """FR-JRN-7, with the facts from the imported resume, which belong to no entry."""
+
+    async def imported(session: AsyncSession) -> None:
+        await save_facts(session, owner.id, [Fact(id="nw_orders", statement="x.", origin="import")])
+
+    seed(database_url, imported)
+    response = client.get("/api/journal/export.json")
+    assert response.status_code == 200
+    assert response.headers["Cache-Control"] == "no-store"
+    today = datetime.now(UTC).date()
+    disposition = f'attachment; filename="work-journal-{today:%Y-%m-%d}.json"'
+    assert response.headers["Content-Disposition"] == disposition
+    export = response.json()
+    journal = client.get("/api/journal").json()
+    assert {key: export[key] for key in journal} == journal
+    assert [fact["id"] for fact in export["importedFacts"]] == ["nw_orders"]
+    assert datetime.fromisoformat(export["exportedAt"]).date() == today
+
+
+def test_the_markdown_export_is_in_the_owners_time_zone(
+    owner: Owner, client: TestClient, entry: uuid.UUID
+) -> None:
+    response = client.get("/api/journal/export.md", params={"tz": "Asia/Singapore"})
+    assert response.status_code == 200
+    assert response.headers["Content-Type"] == "text/markdown; charset=utf-8"
+    assert response.headers["Content-Disposition"].startswith('attachment; filename="work-journal-')
+    markdown = response.text
+    assert "## October 2026\n\n### Sun 4 Oct 2026, 17:00\n" in markdown
+    assert "- Cut the export to 12 minutes.\n" in markdown
+    assert "(Asia/Singapore)" in markdown
+    assert "(UTC)" in client.get("/api/journal/export.md").text
+
+
+@pytest.mark.parametrize("zone", ["", "Nowhere/City", "Asia", "../etc/passwd", "/etc/passwd"])
+def test_the_markdown_export_needs_a_real_time_zone(client: TestClient, zone: str) -> None:
+    assert client.get("/api/journal/export.md", params={"tz": zone}).status_code == 422
+
+
+def test_the_exports_need_a_signed_in_owner(client: TestClient) -> None:
+    client.cookies.clear()
+    assert client.get("/api/journal/export.json").status_code == 401
+    assert client.get("/api/journal/export.md").status_code == 401
+
+
+def test_a_thousand_entries_export_within_ten_seconds(
+    database_url: str, owner: Owner, client: TestClient
+) -> None:
+    """FR-JRN-7. Each entry has two messages and two facts."""
+
+    async def build(session: AsyncSession) -> None:
+        entries = [
+            JournalEntry(
+                id=uuid.uuid4(),
+                user_id=owner.id,
+                opened_at=OCTOBER - timedelta(days=number),
+                last_message_at=OCTOBER - timedelta(days=number),
+                closed_at=OCTOBER - timedelta(days=number),
+                closed_by="done",
+                role_id="northwind",
+                triage="work",
+                processed_at=OCTOBER,
+            )
+            for number in range(1000)
+        ]
+        session.add_all(entries)
+        await session.flush()
+        session.add_all(
+            JournalMessage(
+                user_id=owner.id,
+                chat_id=owner.chat_id,
+                message_id=_random.randrange(10**12),
+                entry_id=entry.id,
+                sender="owner",
+                text=f"note {part} about the nightly export, down from ~50 to 12 minutes",
+                sent_at=entry.opened_at + timedelta(minutes=part),
+            )
+            for entry in entries
+            for part in range(2)
+        )
+        await save_facts(
+            session,
+            owner.id,
+            [
+                fact(entry.id, number, "Cut the nightly export from about 50 to 12 minutes.")
+                for entry in entries
+                for number in (1, 2)
+            ],
+        )
+
+    seed(database_url, build)
+    for path in ("/api/journal/export.md", "/api/journal/export.json"):
+        started = time.perf_counter()
+        response = client.get(path)
+        elapsed = time.perf_counter() - started
+        assert response.status_code == 200
+        assert elapsed < 10, f"{path} took {elapsed:.1f} s"
+    assert "1,000 entries and 2,000 facts" in client.get("/api/journal/export.md").text

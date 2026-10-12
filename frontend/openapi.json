@@ -454,6 +454,72 @@
           }
         }
       }
+    },
+    "/api/journal/export.json": {
+      "get": {
+        "tags": [
+          "journal"
+        ],
+        "summary": "Export Json",
+        "description": "Every entry and every fact, as a JSON file (FR-JRN-7).",
+        "operationId": "export_json_api_journal_export_json_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JournalExport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/journal/export.md": {
+      "get": {
+        "tags": [
+          "journal"
+        ],
+        "summary": "Export Markdown",
+        "description": "Every entry and every fact, as a Markdown file (FR-JRN-7), with times in the time zone\n`tz`, such as `Asia/Singapore`.",
+        "operationId": "export_markdown_api_journal_export_md_get",
+        "parameters": [
+          {
+            "name": "tz",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "UTC",
+              "title": "Tz"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -503,6 +569,189 @@
         ],
         "title": "Citation",
         "description": "A bullet in the latest profile version that cites a fact."
+      },
+      "Fact": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^[a-z0-9][a-z0-9_-]*$",
+            "title": "Id"
+          },
+          "statement": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Statement"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "accomplishment",
+              "project",
+              "role_change",
+              "skill",
+              "certification",
+              "award",
+              "talk",
+              "learning"
+            ],
+            "title": "Kind",
+            "default": "accomplishment"
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/Metric"
+            },
+            "type": "array",
+            "title": "Metrics",
+            "default": []
+          },
+          "ownership": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "led",
+                  "owned",
+                  "contributed",
+                  "assisted"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ownership"
+          },
+          "tools": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tools",
+            "default": []
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "roleId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "pattern": "^[a-z0-9][a-z0-9_-]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roleid"
+          },
+          "projectId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "pattern": "^[a-z0-9][a-z0-9_-]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Projectid"
+          },
+          "proposedItem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposeditem"
+          },
+          "proposedRole": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposedrole"
+          },
+          "questionId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "pattern": "^[a-z0-9][a-z0-9_-]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Questionid"
+          },
+          "confidentialityFlags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Confidentialityflags",
+            "default": []
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "journal",
+              "import"
+            ],
+            "title": "Origin",
+            "default": "journal"
+          },
+          "entryId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entryid"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "statement"
+        ],
+        "title": "Fact",
+        "description": "Something that happened, extracted from a journal entry or an imported bullet."
       },
       "FactEdit": {
         "properties": {
@@ -812,6 +1061,53 @@
           "facts"
         ],
         "title": "JournalEntryView"
+      },
+      "JournalExport": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/JournalEntryView"
+            },
+            "type": "array",
+            "title": "Entries"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/RoleOption"
+            },
+            "type": "array",
+            "title": "Roles"
+          },
+          "projects": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectOption"
+            },
+            "type": "array",
+            "title": "Projects"
+          },
+          "exportedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Exportedat"
+          },
+          "importedFacts": {
+            "items": {
+              "$ref": "#/components/schemas/Fact"
+            },
+            "type": "array",
+            "title": "Importedfacts"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "entries",
+          "roles",
+          "projects",
+          "exportedAt",
+          "importedFacts"
+        ],
+        "title": "JournalExport"
       },
       "JournalFact": {
         "properties": {
