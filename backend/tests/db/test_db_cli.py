@@ -1,6 +1,7 @@
 """`wj db load-profile` and the commands' --db option, against the test database."""
 
 import asyncio
+import json
 import uuid
 from collections.abc import Iterator
 from pathlib import Path
@@ -15,10 +16,12 @@ from app import cli as cli_module
 from app.cli import cli
 from app.config import Settings, get_settings
 from app.db.crypto import new_key, use_key_ring
-from app.db.models import FactRow, ProfileVersionRow, User
+from app.db.models import ChangeOpRow, ChangeSetRow, FactRow, ProfileVersionRow, User
 from app.llm.client import LLMClient
 from app.llm.fake import FakeMessages, reply
 from app.llm.usage import MemoryCallLog
+from app.schema.fact import Fact
+from app.synthesis import PlannedBullet, SynthesisPlan
 from app.validate.claims import ClaimReply, JudgedClaim
 from app.writing import WrittenBullet
 
@@ -51,6 +54,20 @@ def scalars(database_url: str, query: Executable) -> list[Any]:
             async with engine.begin() as connection:
                 result = await connection.execute(query)
                 return list(result.scalars()) if result.returns_rows else []
+        finally:
+            await engine.dispose()
+
+    return asyncio.run(go())
+
+
+def run_rows(database_url: str, query: Executable) -> list[tuple[Any, ...]]:
+    """Run one query in its own transaction, and return its rows."""
+
+    async def go() -> list[tuple[Any, ...]]:
+        engine = create_async_engine(database_url)
+        try:
+            async with engine.begin() as connection:
+                return [tuple(row) for row in await connection.execute(query)]
         finally:
             await engine.dispose()
 
@@ -170,3 +187,90 @@ def test_write_reads_the_profile_and_facts_from_the_database(
     message = fake.requests[0]["messages"][0]["content"]
     assert '"id": "fact_nw_export"' in message, "the facts the bullet was written from"
     assert '"id": "fact_nw_queue"' in message
+
+
+def journal_files(tmp_path: Path) -> Path:
+    """The fictional profile, with its facts as imported plus one journal fact: the profile's
+    path."""
+    profile = tmp_path / "profile.json"
+    profile.write_text((FIXTURES / "profile.json").read_text(encoding="utf-8"), encoding="utf-8")
+    imported = json.loads((FIXTURES / "facts.json").read_text(encoding="utf-8"))
+    alert = Fact(
+        id="e1_1",
+        statement="Added an alert that pages on-call when the nightly export fails.",
+        date="2026-09",
+        role_id="northwind",
+    )
+    facts = [{**fact, "origin": "import"} for fact in imported]
+    facts.append(alert.model_dump(mode="json"))
+    (tmp_path / "facts.json").write_text(json.dumps(facts), encoding="utf-8")
+    return profile
+
+
+def use_planner(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A fake model that plans one bullet from the journal fact, writes it and finds it
+    supported."""
+    plan = SynthesisPlan(bullets=(PlannedBullet(under="northwind", fact_ids=("e1_1",)),))
+    text = "Added an alert that pages on-call when the nightly export job fails."
+    judged = JudgedClaim(claim="Added an alert", reason="As stated.", verdict="supported")
+    fake = FakeMessages(
+        reply(plan), reply(WrittenBullet(text=text)), reply(ClaimReply(claims=(judged,)))
+    )
+    settings = Settings(llm_model_heavy="heavy-model", llm_model_standard="standard-model")
+    llm = LLMClient(settings, fake, MemoryCallLog())
+    monkeypatch.setattr(cli_module, "_llm_client", lambda: llm)
+
+
+def test_propose_and_apply_save_the_accepted_changes_as_the_next_version(
+    tmp_path: Path, database_url: str, owner: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    loaded = invoke("db", "load-profile", str(journal_files(tmp_path)), "--user", owner)
+    assert loaded.exit_code == 0, loaded.output
+    use_planner(monkeypatch)
+    proposed = invoke("propose", "--db", "--user", owner)
+    assert proposed.exit_code == 0, proposed.output
+    assert proposed.stdout.startswith("Planning changes from 1 new fact.\n")
+    assert proposed.stdout.endswith("Saved the proposal. Review it with `wj apply --db`.\n")
+    waiting = invoke("propose", "--db", "--user", owner)
+    assert waiting.exit_code == 1
+    assert "A proposal still waits for review" in waiting.stderr
+
+    applied = invoke("apply", "--db", "--user", owner, "--yes")
+    assert applied.exit_code == 0, applied.output
+    assert applied.stdout.endswith(
+        "Saved version 2. Render the master resume with `wj render --db`.\n"
+    )
+    user = select(User.id).where(User.github_login == owner).scalar_subquery()
+    second = (ProfileVersionRow.user_id == user, ProfileVersionRow.number == 2)
+    assert scalars(database_url, select(ProfileVersionRow.author).where(*second)) == ["ai"]
+    [made_by] = scalars(database_url, select(ProfileVersionRow.change_set_id).where(*second))
+    change_sets = select(ChangeSetRow.id, ChangeSetRow.status).where(ChangeSetRow.user_id == user)
+    assert [(made_by, "applied")] == run_rows(database_url, change_sets)
+    ops = select(ChangeOpRow.status).where(ChangeOpRow.user_id == user)
+    assert scalars(database_url, ops) == ["accepted"]
+
+    nothing_new = invoke("propose", "--db", "--user", owner)
+    assert nothing_new.stdout == "There are no new facts to propose changes from.\n"
+    nothing_waiting = invoke("apply", "--db", "--user", owner)
+    assert (
+        nothing_waiting.stdout == "No proposal waits for review. Make one with `wj propose --db`.\n"
+    )
+
+
+def test_apply_saves_nothing_unless_you_confirm(
+    tmp_path: Path, database_url: str, owner: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert (
+        invoke("db", "load-profile", str(journal_files(tmp_path)), "--user", owner).exit_code == 0
+    )
+    use_planner(monkeypatch)
+    assert invoke("propose", "--db", "--user", owner).exit_code == 0
+    result = runner.invoke(cli, ["apply", "--db", "--user", owner], input="y\nn\n")
+    assert result.exit_code == 0, result.output
+    assert result.stdout.endswith("Nothing was saved.\n")
+    versions, _ = stored(database_url, owner)
+    assert versions == [1]
+    user = select(User.id).where(User.github_login == owner).scalar_subquery()
+    assert scalars(
+        database_url, select(ChangeSetRow.status).where(ChangeSetRow.user_id == user)
+    ) == ["proposed"]

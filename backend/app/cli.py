@@ -26,7 +26,19 @@ from app.db.crypto import (
 )
 from app.db.engine import create_engine, session_factory
 from app.db.models import Base
-from app.db.profiles import VersionError, latest_version, load_master_profile
+from app.db.profiles import (
+    SavedChangeSet,
+    Version,
+    VersionError,
+    close_change_set,
+    decide_op,
+    get_change_set,
+    latest_version,
+    list_change_sets,
+    load_master_profile,
+    propose_change_set,
+    save_version,
+)
 from app.db.store import list_facts, save_facts
 from app.db.users import UnknownUserError, only_user, user_for_login
 from app.extraction import extract_facts
@@ -35,14 +47,19 @@ from app.jobs import run_worker
 from app.llm.client import LLMCallError, LLMClient, LLMConfigError
 from app.main import create_app
 from app.portfolio.build import Download, build_portfolio
+from app.profile_ops import ProfileOpError
+from app.profile_ops import apply as apply_operations
 from app.render.compile import CompileError
 from app.render.fit import FitError
 from app.render.resume import RenderError, render_resume
+from app.review import describe, needs, report_lines
+from app.schema.changes import ChangeSet, ChangeSetStatus, OpStatus, ReviewedOp
 from app.schema.export import write_json_schemas
 from app.schema.fact import Fact
 from app.schema.profile import Profile
 from app.schema.verification import VerifierReport
 from app.selection import MASTER_VARIANT, select
+from app.synthesis import Synthesis, new_facts, synthesize
 from app.tailoring.posting import parse_posting
 from app.telegram.api import BotApi, TelegramError
 from app.telegram.journal import COMMANDS
@@ -244,16 +261,312 @@ def _item_of(facts: Sequence[Fact]) -> str:
 
 def _echo_report(report: VerifierReport) -> None:
     """What the verifier found, on standard error: the findings, then the verdict."""
-    for finding in report.findings:
-        typer.echo(f"{finding.severity:<7}  {finding.check:<7}  {finding.message}", err=True)
-    for derivation in report.derivations:
-        typer.echo(f"Derived {derivation.quantity} from the facts: {derivation.formula}", err=True)
-    if not report.passed:
-        typer.echo("Flagged: it didn't pass the checks, so don't use it as it is.", err=True)
-    elif report.attempts > 1:
-        typer.echo("Passed the checks when written the second time.", err=True)
+    for line in report_lines(report):
+        typer.echo(line, err=True)
+
+
+ChangeSetOption = Annotated[
+    Path, typer.Option("--change-set", help="Without --db: the change set's file.")
+]
+FactsFilesOption = Annotated[
+    list[Path] | None,
+    typer.Option(
+        "--facts-file",
+        help="Without --db: a JSON list of facts, such as `wj extract` prints. Repeat for more. "
+        "Default: local/facts.json.",
+        exists=True,
+        dir_okay=False,
+    ),
+]
+ProfileOption = Annotated[
+    Path | None,
+    typer.Option(
+        help="Without --db: the profile. Default: local/profile.json.", exists=True, dir_okay=False
+    ),
+]
+
+
+@cli.command()
+def propose(
+    profile: ProfileOption = None,
+    facts_file: FactsFilesOption = None,
+    change_set: ChangeSetOption = LOCAL_DIR / "change-set.json",
+    db: DbOption = False,
+    user: UserOption = None,
+) -> None:
+    """Propose changes to the profile from the journal facts it doesn't use yet.
+
+    Calls the heavy-tier model to plan the changes, and the standard-tier model to write and
+    check each bullet. Nothing changes until you review the proposal with `wj apply`.
+    """
+    if db and (profile or facts_file):
+        raise typer.BadParameter("use either --db or files", param_hint="--profile, --facts-file")
+    if db:
+        user_id, version, pool, earlier = asyncio.run(_proposal_inputs(user))
+        if any(saved.change_set.status == "proposed" for saved in earlier):
+            typer.echo("A proposal still waits for review: run `wj apply --db` first.", err=True)
+            raise typer.Exit(1)
+        new = new_facts(version.profile, pool, [saved.change_set for saved in earlier])
+        synthesis = _synthesize(version.profile, new, pool, base_version=version.number)
+        if synthesis.change_set is not None:
+            asyncio.run(_store_proposal(user_id, synthesis.change_set))
+            typer.echo("Saved the proposal. Review it with `wj apply --db`.")
+        return
+    loaded = _read_profile(profile, db, user)
+    pool = _read_facts(facts_file or [LOCAL_DIR / "facts.json"])
+    previous = _read_change_set(change_set) if change_set.is_file() else None
+    if previous is not None and previous.status == "proposed":
+        typer.echo(f"{change_set} still waits for review: run `wj apply` first.", err=True)
+        raise typer.Exit(1)
+    new = new_facts(loaded, pool, [previous] if previous else [])
+    synthesis = _synthesize(loaded, new, pool, base_version=None)
+    if synthesis.change_set is not None:
+        change_set.parent.mkdir(parents=True, exist_ok=True)
+        change_set.write_text(synthesis.change_set.model_dump_json(indent=2) + "\n", "utf-8")
+        typer.echo(f"Wrote {change_set}. Review it with `wj apply`.")
+
+
+@cli.command("apply")
+def apply_changes(
+    profile: ProfileOption = None,
+    facts_file: FactsFilesOption = None,
+    change_set: ChangeSetOption = LOCAL_DIR / "change-set.json",
+    yes: Annotated[
+        bool,
+        typer.Option(
+            "--yes",
+            help="Accept every change that passed the checks and reject the flagged ones, "
+            "without asking.",
+        ),
+    ] = False,
+    db: DbOption = False,
+    user: UserOption = None,
+) -> None:
+    """Review proposed changes one by one, and apply the ones you accept.
+
+    With --db, the accepted changes become the profile's next version; without it, they're
+    written to the profile's file. A change the checks flagged is accepted only if you say so.
+    Then `wj render` renders the updated master resume.
+    """
+    if db and (profile or facts_file):
+        raise typer.BadParameter("use either --db or files", param_hint="--profile, --facts-file")
+    if db:
+        user_id, version, saved, pool = asyncio.run(_review_inputs(user))
+        if saved is None:
+            typer.echo("No proposal waits for review. Make one with `wj propose --db`.")
+            return
+        base = saved.change_set.base_version
+        if base is not None and base != version.number:
+            typer.echo(f"Note: it was proposed for version {base}; the newest is {version.number}.")
+        decided, updated = _review(saved.change_set, version.profile, pool, yes=yes)
+        target = f"version {version.number + 1} of your profile"
+        if updated is not None and not yes and not typer.confirm(f"Save the changes as {target}?"):
+            typer.echo("Nothing was saved.")
+            return
+        number = asyncio.run(_save_review(user_id, saved.id, decided, updated, version.number))
+        if number is None:
+            typer.echo("You rejected every change, so the profile stays as it was.")
+        else:
+            typer.echo(f"Saved version {number}. Render the master resume with `wj render --db`.")
+        return
+    if not change_set.is_file():
+        typer.echo(f"There's no proposal at {change_set}; make one with `wj propose`.", err=True)
+        raise typer.Exit(1)
+    proposal = _read_change_set(change_set)
+    if proposal.status != "proposed":
+        typer.echo(f"The proposal in {change_set} was already {proposal.status}.", err=True)
+        raise typer.Exit(1)
+    path = profile or LOCAL_DIR / "profile.json"
+    loaded = _read_profile(profile, db, user)
+    default_facts = LOCAL_DIR / "facts.json"
+    pool = _read_facts(facts_file or ([default_facts] if default_facts.is_file() else []))
+    decided, updated = _review(proposal, loaded, pool, yes=yes)
+    if updated is not None and not yes and not typer.confirm(f"Write the changes to {path}?"):
+        typer.echo("Nothing was written.")
+        return
+    if updated is not None:
+        path.write_text(updated.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    change_set.write_text(decided.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    if updated is None:
+        typer.echo("You rejected every change, so the profile stays as it was.")
     else:
-        typer.echo("Passed the checks.", err=True)
+        typer.echo(f"Wrote {path}. Render the master resume with `wj render`.")
+
+
+def _synthesize(
+    profile: Profile, new: Sequence[Fact], pool: Sequence[Fact], *, base_version: int | None
+) -> Synthesis:
+    """Propose changes from the new facts, and print them."""
+    if not new:
+        typer.echo("There are no new facts to propose changes from.")
+        raise typer.Exit(0)
+    typer.echo(f"Planning changes from {_count(len(new), 'new fact')}.")
+    try:
+        synthesis = synthesize(profile, new, _llm_client(), sources=pool, base_version=base_version)
+    except LLMConfigError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from None
+    except LLMCallError as error:
+        typer.echo(f"The changes couldn't be proposed: {error}", err=True)
+        raise typer.Exit(1) from None
+    if synthesis.change_set is None:
+        typer.echo("Nothing to propose.")
+    else:
+        _echo_change_set(synthesis.change_set, profile, pool)
+    for note in synthesis.notes:
+        typer.echo(f"Note: {note}")
+    if synthesis.unused:
+        unused = ", ".join(synthesis.unused)
+        typer.echo(f"Not used this time: {unused}. They stay in your journal.")
+    return synthesis
+
+
+def _echo_change_set(change_set: ChangeSet, profile: Profile, facts: Sequence[Fact]) -> None:
+    typer.echo(change_set.summary or "Proposed changes:")
+    for number, reviewed in enumerate(change_set.ops, start=1):
+        typer.echo("")
+        _echo_op(number, reviewed, profile, facts)
+
+
+def _echo_op(number: int, reviewed: ReviewedOp, profile: Profile, facts: Sequence[Fact]) -> None:
+    """One operation: what it does, the facts it rests on, and what the verifier found."""
+    first, *rest = describe(reviewed.op, profile)
+    typer.echo(f"{number}. {first}")
+    for line in rest:
+        typer.echo(f"   {line}")
+    statements = {fact.id: fact.statement for fact in facts}
+    for fact_id in reviewed.op.fact_ids:
+        statement = statements.get(fact_id)
+        typer.echo(f"   From {fact_id}: {statement}" if statement else f"   From {fact_id}")
+    if reviewed.op.rationale:
+        typer.echo(f"   Note: {reviewed.op.rationale}")
+    if reviewed.verifier_report is not None:
+        for line in report_lines(VerifierReport.model_validate(reviewed.verifier_report)):
+            typer.echo(f"   {line}")
+
+
+def _review(
+    proposal: ChangeSet, profile: Profile, facts: Sequence[Fact], *, yes: bool
+) -> tuple[ChangeSet, Profile | None]:
+    """Ask about each change, unless `yes`, and apply the accepted ones to `profile`. Returns the
+    decided change set, and the new profile, or None when every change was rejected."""
+    typer.echo(proposal.summary or "Proposed changes:")
+    ops = [reviewed.op for reviewed in proposal.ops]
+    decided: list[ReviewedOp] = []
+    for number, reviewed in enumerate(proposal.ops, start=1):
+        typer.echo("")
+        _echo_op(number, reviewed, profile, facts)
+        needed = needs(reviewed.op, ops)
+        if needed is not None and needed < len(decided) and decided[needed].status == "rejected":
+            typer.echo(f"   Rejected: it needs change {needed + 1}, which you rejected.")
+            reason = f"It needs change {needed + 1}, which was rejected."
+            decided.append(reviewed.model_copy(update={"status": "rejected", "reason": reason}))
+            continue
+        report = reviewed.verifier_report
+        passed = report is None or VerifierReport.model_validate(report).passed
+        reason = None
+        if yes:
+            accepted = passed
+            typer.echo("   Accepted." if passed else "   Rejected: the checks flagged it.")
+            if not passed:
+                reason = "The checks flagged it."
+        else:
+            accepted = typer.confirm("   Accept this change?", default=passed)
+            if not accepted:
+                why = typer.prompt("   Why not? (optional)", default="", show_default=False)
+                reason = why.strip() or None
+        status: OpStatus = "accepted" if accepted else "rejected"
+        decided.append(reviewed.model_copy(update={"status": status, "reason": reason}))
+    accepted_ops = [reviewed.op for reviewed in decided if reviewed.status == "accepted"]
+    outcome: ChangeSetStatus = "applied" if accepted_ops else "rejected"
+    result = proposal.model_copy(update={"ops": tuple(decided), "status": outcome})
+    typer.echo("")
+    typer.echo(
+        f"Accepted {len(accepted_ops)} of {_count(len(decided), 'change')}."
+        if accepted_ops
+        else "Rejected every change."
+    )
+    if not accepted_ops:
+        return result, None
+    try:
+        return result, apply_operations(profile, accepted_ops)
+    except ProfileOpError as error:
+        typer.echo(f"The accepted changes can't be applied, so nothing changed: {error}", err=True)
+        raise typer.Exit(1) from None
+
+
+def _read_change_set(path: Path) -> ChangeSet:
+    return ChangeSet.model_validate_json(path.read_text(encoding="utf-8"))
+
+
+async def _proposal_inputs(
+    login: str | None,
+) -> tuple[uuid.UUID, Version, list[Fact], list[SavedChangeSet]]:
+    """The user, their newest profile version, their facts and their change sets."""
+    async with _database() as session:
+        user_id = await _user(session, login)
+        version = await _latest(session, user_id)
+        facts = await list_facts(session, user_id)
+        change_sets = await list_change_sets(session, user_id, status=None)
+    return user_id, version, facts, change_sets
+
+
+async def _store_proposal(user_id: uuid.UUID, change_set: ChangeSet) -> None:
+    async with _database() as session:
+        await propose_change_set(session, user_id, change_set)
+
+
+async def _review_inputs(
+    login: str | None,
+) -> tuple[uuid.UUID, Version, SavedChangeSet | None, list[Fact]]:
+    """The user, their newest profile version, the oldest proposal waiting for review, and their
+    facts."""
+    async with _database() as session:
+        user_id = await _user(session, login)
+        version = await _latest(session, user_id)
+        waiting = await list_change_sets(session, user_id, status="proposed")
+        facts = await list_facts(session, user_id) if waiting else []
+    return user_id, version, waiting[0] if waiting else None, facts
+
+
+async def _save_review(
+    user_id: uuid.UUID,
+    change_set_id: uuid.UUID,
+    decided: ChangeSet,
+    updated: Profile | None,
+    reviewed_version: int,
+) -> int | None:
+    """Record the decisions, and save the new profile as the next version, unless the proposal
+    or the profile changed during the review. Returns the new version's number, if any."""
+    async with _database() as session:
+        current = await get_change_set(session, user_id, change_set_id)
+        latest = await latest_version(session, user_id)
+        if (
+            current.change_set.status != "proposed"
+            or latest is None
+            or (latest.number != reviewed_version)
+        ):
+            typer.echo(
+                "The proposal or the profile changed during your review, so nothing was saved. "
+                "Run `wj apply --db` again.",
+                err=True,
+            )
+            raise typer.Exit(1)
+        for position, reviewed in enumerate(decided.ops):
+            await decide_op(
+                session, user_id, change_set_id, position, reviewed.status, reason=reviewed.reason
+            )
+        saved = None
+        if updated is not None:
+            saved = await save_version(
+                session, user_id, updated, author="ai", change_set_id=change_set_id
+            )
+        await close_change_set(session, user_id, change_set_id, decided.status)
+    return None if saved is None else saved.number
+
+
+def _count(number: int, noun: str) -> str:
+    return f"{number} {noun}" if number == 1 else f"{number} {noun}s"
 
 
 @cli.command()
@@ -694,25 +1007,37 @@ async def _newest_profile_and_facts(
     """The newest profile version in the database and, unless `facts` is false, every fact."""
     async with _database() as session:
         user_id = await _user(session, login)
-        version = await latest_version(session, user_id)
-        stored = await list_facts(session, user_id) if facts and version else []
+        version = await _latest(session, user_id)
+        stored = await list_facts(session, user_id) if facts else []
+    return version.profile, stored
+
+
+async def _latest(session: AsyncSession, user_id: uuid.UUID) -> Version:
+    """The user's newest profile version. Exits when they have none."""
+    version = await latest_version(session, user_id)
     if version is None:
         typer.echo("The database has no profile yet; load one with `wj db load-profile`.", err=True)
         raise typer.Exit(1)
-    return version.profile, stored
+    return version
 
 
 def _read_facts(paths: Sequence[Path]) -> list[Fact]:
     """The facts in JSON files, such as the import's facts.json or what `wj extract` prints."""
-    facts: list[Fact] = []
+    facts: dict[str, Fact] = {}
     for path in paths:
         if not path.is_file():
             raise typer.BadParameter(
                 f"{path} does not exist; import your resume with `wj import tex`, or use --db",
                 param_hint="--facts-file",
             )
-        facts.extend(_FACTS.validate_json(path.read_text(encoding="utf-8")))
-    return facts
+        for fact in _FACTS.validate_json(path.read_text(encoding="utf-8")):
+            if fact.id in facts:
+                raise typer.BadParameter(
+                    f"two facts have the ID {fact.id!r}; give them different IDs",
+                    param_hint="--facts-file",
+                )
+            facts[fact.id] = fact
+    return list(facts.values())
 
 
 async def _user(session: AsyncSession, login: str | None, *, create: bool = False) -> uuid.UUID:
