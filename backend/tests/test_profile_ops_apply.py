@@ -114,6 +114,19 @@ def test_add_role_education_and_project(profile: Profile) -> None:
     assert result.projects[-1].id == "cli_tool"
 
 
+def test_add_role_and_project_at_a_position(profile: Profile) -> None:
+    role = Role(id="fabrikam", name="Fabrikam", position="Engineer", start_date="2027-01")
+    ops: list[ChangeOp] = [
+        AddRole(role=role, position=0),
+        AddProject(project=Project(id="cli_tool", name="CLI Tool"), position=1),
+    ]
+    result = apply(profile, ops)
+    assert [role.id for role in result.work] == ["fabrikam", "northwind", "contoso"]
+    assert [project.id for project in result.projects] == ["recipe_box", "cli_tool", "bird_calls"]
+    with pytest.raises(ProfileOpError, match=r"position 3 is past the end of work \(2 roles\)"):
+        apply(profile, [AddRole(role=role, position=3)])
+
+
 def test_update_field_on_a_role_a_bullet_and_basics(profile: Profile) -> None:
     ops: list[ChangeOp] = [
         UpdateField(target_id="northwind", field="endDate", value="2027-06"),
