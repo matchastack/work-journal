@@ -128,10 +128,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/journal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Journal
+         * @description Every entry, oldest first, with its messages and facts (FR-JRN-5).
+         */
+        get: operations["journal_api_journal_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * ChangeValue
+         * @description A change from one number to another, e.g. `50 → 12` (minutes).
+         */
+        ChangeValue: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "change";
+            /** Before */
+            before: number;
+            /** After */
+            after: number;
+        };
+        /**
+         * Citation
+         * @description A bullet in the latest profile version that cites a fact.
+         */
+        Citation: {
+            /** Bulletid */
+            bulletId: string;
+            /** Text */
+            text: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -150,6 +195,121 @@ export interface components {
              */
             database: "ok" | "unreachable" | "not configured";
         };
+        /** Journal */
+        Journal: {
+            /** Entries */
+            entries: components["schemas"]["JournalEntryView"][];
+            /** Roles */
+            roles: components["schemas"]["RoleOption"][];
+            /** Projects */
+            projects: components["schemas"]["ProjectOption"][];
+        };
+        /** JournalEntryView */
+        JournalEntryView: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Openedat
+             * Format: date-time
+             */
+            openedAt: string;
+            /** Closedat */
+            closedAt: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "waiting_for_role" | "extracting" | "processed" | "failed";
+            /** Triage */
+            triage: ("work" | "other") | null;
+            /** Roleid */
+            roleId: string | null;
+            /** Newrole */
+            newRole: string | null;
+            /** Messages */
+            messages: components["schemas"]["JournalMessageView"][];
+            /** Facts */
+            facts: components["schemas"]["JournalFact"][];
+        };
+        /** JournalFact */
+        JournalFact: {
+            /** Id */
+            id: string;
+            /** Statement */
+            statement: string;
+            /**
+             * Kind
+             * @default accomplishment
+             * @enum {string}
+             */
+            kind: "accomplishment" | "project" | "role_change" | "skill" | "certification" | "award" | "talk" | "learning";
+            /**
+             * Metrics
+             * @default []
+             */
+            metrics: components["schemas"]["Metric"][];
+            /** Ownership */
+            ownership?: ("led" | "owned" | "contributed" | "assisted") | null;
+            /**
+             * Tools
+             * @default []
+             */
+            tools: string[];
+            /** Outcome */
+            outcome?: string | null;
+            /** Date */
+            date?: string | null;
+            /** Roleid */
+            roleId?: string | null;
+            /** Projectid */
+            projectId?: string | null;
+            /** Proposeditem */
+            proposedItem?: string | null;
+            /** Proposedrole */
+            proposedRole?: string | null;
+            /** Questionid */
+            questionId?: string | null;
+            /**
+             * Confidentialityflags
+             * @default []
+             */
+            confidentialityFlags: string[];
+            /**
+             * Origin
+             * @default journal
+             * @enum {string}
+             */
+            origin: "journal" | "import";
+            /** Entryid */
+            entryId?: string | null;
+            /**
+             * Citedby
+             * @default []
+             */
+            citedBy: components["schemas"]["Citation"][];
+        };
+        /** JournalMessageView */
+        JournalMessageView: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Sentat
+             * Format: date-time
+             */
+            sentAt: string;
+            /** Editedat */
+            editedAt: string | null;
+            /** Text */
+            text: string;
+            /** Edits */
+            edits: components["schemas"]["MessageEdit"][];
+        };
         /** Me */
         Me: {
             /**
@@ -159,6 +319,76 @@ export interface components {
             id: string;
             /** Githublogin */
             githubLogin: string | null;
+        };
+        /**
+         * MessageEdit
+         * @description A message's text before an edit.
+         */
+        MessageEdit: {
+            /** Text */
+            text: string;
+            /**
+             * Replacedat
+             * Format: date-time
+             */
+            replacedAt: string;
+        };
+        /** Metric */
+        Metric: {
+            /** Subject */
+            subject: string;
+            /** Value */
+            value: components["schemas"]["SingleValue"] | components["schemas"]["ChangeValue"] | components["schemas"]["RangeValue"];
+            /** Unit */
+            unit?: string | null;
+            /**
+             * Qualifier
+             * @default exact
+             * @enum {string}
+             */
+            qualifier: "exact" | "approximately" | "at_least" | "more_than" | "at_most" | "less_than";
+        };
+        /** ProjectOption */
+        ProjectOption: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * RangeValue
+         * @description A range, e.g. `2-3` (hours a week).
+         */
+        RangeValue: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "range";
+            /** Low */
+            low: number;
+            /** High */
+            high: number;
+        };
+        /** RoleOption */
+        RoleOption: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+        };
+        /**
+         * SingleValue
+         * @description One number, e.g. `93` (% accuracy).
+         */
+        SingleValue: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "single";
+            /** Value */
+            value: number;
         };
         /** TelegramDeepLink */
         TelegramDeepLink: {
@@ -344,6 +574,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TelegramDeepLink"];
+                };
+            };
+        };
+    };
+    journal_api_journal_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Journal"];
                 };
             };
         };

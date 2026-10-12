@@ -199,10 +199,78 @@
           }
         }
       }
+    },
+    "/api/journal": {
+      "get": {
+        "tags": [
+          "journal"
+        ],
+        "summary": "Journal",
+        "description": "Every entry, oldest first, with its messages and facts (FR-JRN-5).",
+        "operationId": "journal_api_journal_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Journal"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "ChangeValue": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "change",
+            "title": "Kind",
+            "default": "change"
+          },
+          "before": {
+            "type": "number",
+            "title": "Before"
+          },
+          "after": {
+            "type": "number",
+            "title": "After"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "before",
+          "after"
+        ],
+        "title": "ChangeValue",
+        "description": "A change from one number to another, e.g. `50 → 12` (minutes)."
+      },
+      "Citation": {
+        "properties": {
+          "bulletId": {
+            "type": "string",
+            "title": "Bulletid"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "bulletId",
+          "text"
+        ],
+        "title": "Citation",
+        "description": "A bullet in the latest profile version that cites a fact."
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -243,6 +311,378 @@
         ],
         "title": "Health"
       },
+      "Journal": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/JournalEntryView"
+            },
+            "type": "array",
+            "title": "Entries"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/RoleOption"
+            },
+            "type": "array",
+            "title": "Roles"
+          },
+          "projects": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectOption"
+            },
+            "type": "array",
+            "title": "Projects"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "entries",
+          "roles",
+          "projects"
+        ],
+        "title": "Journal"
+      },
+      "JournalEntryView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "openedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Openedat"
+          },
+          "closedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closedat"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "waiting_for_role",
+              "extracting",
+              "processed",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "triage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "work",
+                  "other"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Triage"
+          },
+          "roleId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roleid"
+          },
+          "newRole": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Newrole"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/JournalMessageView"
+            },
+            "type": "array",
+            "title": "Messages"
+          },
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/JournalFact"
+            },
+            "type": "array",
+            "title": "Facts"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "openedAt",
+          "closedAt",
+          "status",
+          "triage",
+          "roleId",
+          "newRole",
+          "messages",
+          "facts"
+        ],
+        "title": "JournalEntryView"
+      },
+      "JournalFact": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^[a-z0-9][a-z0-9_-]*$",
+            "title": "Id"
+          },
+          "statement": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Statement"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "accomplishment",
+              "project",
+              "role_change",
+              "skill",
+              "certification",
+              "award",
+              "talk",
+              "learning"
+            ],
+            "title": "Kind",
+            "default": "accomplishment"
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/Metric"
+            },
+            "type": "array",
+            "title": "Metrics",
+            "default": []
+          },
+          "ownership": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "led",
+                  "owned",
+                  "contributed",
+                  "assisted"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ownership"
+          },
+          "tools": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tools",
+            "default": []
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "roleId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "pattern": "^[a-z0-9][a-z0-9_-]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roleid"
+          },
+          "projectId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "pattern": "^[a-z0-9][a-z0-9_-]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Projectid"
+          },
+          "proposedItem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposeditem"
+          },
+          "proposedRole": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposedrole"
+          },
+          "questionId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "pattern": "^[a-z0-9][a-z0-9_-]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Questionid"
+          },
+          "confidentialityFlags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Confidentialityflags",
+            "default": []
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "journal",
+              "import"
+            ],
+            "title": "Origin",
+            "default": "journal"
+          },
+          "entryId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entryid"
+          },
+          "citedBy": {
+            "items": {
+              "$ref": "#/components/schemas/Citation"
+            },
+            "type": "array",
+            "title": "Citedby",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "statement"
+        ],
+        "title": "JournalFact"
+      },
+      "JournalMessageView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "sentAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Sentat"
+          },
+          "editedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Editedat"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "edits": {
+            "items": {
+              "$ref": "#/components/schemas/MessageEdit"
+            },
+            "type": "array",
+            "title": "Edits"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "sentAt",
+          "editedAt",
+          "text",
+          "edits"
+        ],
+        "title": "JournalMessageView"
+      },
       "Me": {
         "properties": {
           "id": {
@@ -269,6 +709,174 @@
           "githubLogin"
         ],
         "title": "Me"
+      },
+      "MessageEdit": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "replacedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Replacedat"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text",
+          "replacedAt"
+        ],
+        "title": "MessageEdit",
+        "description": "A message's text before an edit."
+      },
+      "Metric": {
+        "properties": {
+          "subject": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Subject"
+          },
+          "value": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SingleValue"
+              },
+              {
+                "$ref": "#/components/schemas/ChangeValue"
+              },
+              {
+                "$ref": "#/components/schemas/RangeValue"
+              }
+            ],
+            "title": "Value",
+            "discriminator": {
+              "propertyName": "kind",
+              "mapping": {
+                "change": "#/components/schemas/ChangeValue",
+                "range": "#/components/schemas/RangeValue",
+                "single": "#/components/schemas/SingleValue"
+              }
+            }
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "qualifier": {
+            "type": "string",
+            "enum": [
+              "exact",
+              "approximately",
+              "at_least",
+              "more_than",
+              "at_most",
+              "less_than"
+            ],
+            "title": "Qualifier",
+            "default": "exact"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "subject",
+          "value"
+        ],
+        "title": "Metric"
+      },
+      "ProjectOption": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "ProjectOption"
+      },
+      "RangeValue": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "range",
+            "title": "Kind",
+            "default": "range"
+          },
+          "low": {
+            "type": "number",
+            "title": "Low"
+          },
+          "high": {
+            "type": "number",
+            "title": "High"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "low",
+          "high"
+        ],
+        "title": "RangeValue",
+        "description": "A range, e.g. `2-3` (hours a week)."
+      },
+      "RoleOption": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "RoleOption"
+      },
+      "SingleValue": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "single",
+            "title": "Kind",
+            "default": "single"
+          },
+          "value": {
+            "type": "number",
+            "title": "Value"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "value"
+        ],
+        "title": "SingleValue",
+        "description": "One number, e.g. `93` (% accuracy)."
       },
       "TelegramDeepLink": {
         "properties": {
