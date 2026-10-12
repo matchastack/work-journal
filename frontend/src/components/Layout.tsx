@@ -2,8 +2,7 @@ import { NavLink, Outlet } from "react-router";
 
 import { useSignOut, type Me } from "../api/auth";
 import { PAGES } from "../pages";
-
-const FOCUS = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700";
+import { FOCUS } from "./ui";
 
 /** The frame around every page once someone has signed in. */
 export function Layout({ me }: { me: Me }) {
