@@ -2,11 +2,11 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-12 · T-018 Profile synthesis · PR not opened yet
+## 2026-10-12 · T-018 Profile synthesis · [#37](https://github.com/matchastack/work-journal/pull/37)
 **Changed:** added `wj propose` and `wj apply`. A heavy-tier prompt plans what your new journal facts change in the profile (new roles, bullets, new versions of bullets, skills, answered questions), the resume writer writes and verifies each bullet, and code drops anything not backed by your facts or words. You review each change, and with `--db` the accepted ones become the profile's next version, ready for `wj render --db`.
 
 **Verify:**
-- CI is green on the PR
+- CI is green on #37
 - With your key, `uv run pytest -m llm tests/test_synthesis_live.py` passes (4 cases)
 - With your key, after a few journal entries: `uv run wj propose --db` shows changes you'd make, each with its facts; `uv run wj apply --db` saves the ones you accept as a new version; `uv run wj render --db` shows them in the master resume
 

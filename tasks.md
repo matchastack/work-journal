@@ -314,7 +314,7 @@ As the owner, I want facts written in LinkedIn's voice and in a posting's vocabu
 - [ ] Tests use the fake client, plus an opt-in evaluation.
 
 ### T-018 · Profile synthesis
-**Status:** ◐ · **Size:** M · **Depends on:** T-004, T-017 · **Requirements:** FR-REV-1, FR-PRF-2, FR-EXT-4 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-004, T-017 · **Requirements:** FR-REV-1, FR-PRF-2, FR-EXT-4 · **PR:** [#37](https://github.com/matchastack/work-journal/pull/37)
 
 As the owner, I want new facts turned into proposed profile changes, so that my master profile grows without me rewriting it.
 
