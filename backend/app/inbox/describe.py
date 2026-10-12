@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from difflib import SequenceMatcher
 from typing import Literal, assert_never
 
-from pydantic import JsonValue
+from pydantic import ConfigDict, JsonValue
 
 from app.schema.changes import (
     AddBullet,
@@ -51,6 +51,11 @@ STATUS_TITLES = {
 
 
 class DiffPart(Model):
+    """Words the texts share, or that one of them has. Its spaces count, so the parts rebuild
+    each text exactly."""
+
+    model_config = ConfigDict(str_strip_whitespace=False)
+
     kind: Literal["same", "removed", "added"]
     text: str
 

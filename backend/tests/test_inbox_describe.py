@@ -198,12 +198,26 @@ def test_word_diff_keeps_shared_words_and_marks_the_rest() -> None:
     ) == (
         DiffPart(kind="same", text="Cut the "),
         DiffPart(kind="added", text="nightly "),
-        DiffPart(kind="same", text="export "),
-        DiffPart(kind="removed", text="from 50 "),
-        DiffPart(kind="same", text="to 12 minutes."),
+        DiffPart(kind="same", text="export"),
+        DiffPart(kind="removed", text=" from 50"),
+        DiffPart(kind="same", text=" to 12 minutes."),
     )
     assert word_diff("Same text.", "Same text.") == (DiffPart(kind="same", text="Same text."),)
     assert word_diff("old", "new") == (
         DiffPart(kind="removed", text="old"),
         DiffPart(kind="added", text="new"),
     )
+
+
+@pytest.mark.parametrize(
+    ("before", "after"),
+    [
+        ("Cut the export from 50 to 12 minutes.", "Cut the nightly export to 12 minutes."),
+        ("Led  a team of\nfour.", "Led a team of four engineers."),
+        ("", "New text."),
+    ],
+)
+def test_word_diff_parts_rebuild_both_texts(before: str, after: str) -> None:
+    parts = word_diff(before, after)
+    assert "".join(part.text for part in parts if part.kind != "added") == before
+    assert "".join(part.text for part in parts if part.kind != "removed") == after
