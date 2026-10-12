@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -41,6 +42,8 @@ ADDED_KAFKA = reply(
         )
     )
 )
+ANSI_STYLE = re.compile(r"\x1b\[[0-9;]*m")
+"""In GitHub Actions, Typer colors the options named in usage errors."""
 runner = CliRunner()
 
 
@@ -160,7 +163,7 @@ def test_write_explains_what_it_cant_do(
     use_fake(monkeypatch)
     result = write(*options)
     assert result.exit_code == 2
-    assert message in " ".join(result.stderr.split())
+    assert message in " ".join(ANSI_STYLE.sub("", result.stderr).split())
 
 
 def test_write_needs_the_model_settings(monkeypatch: pytest.MonkeyPatch) -> None:
