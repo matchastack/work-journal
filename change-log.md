@@ -2,11 +2,11 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-11 · T-059 Choose the role of each entry · PR not opened yet
+## 2026-10-11 · T-059 Choose the role of each entry · [#33](https://github.com/matchastack/work-journal/pull/33)
 **Changed:** when an entry closes, the bot asks which role it's about, with a button for each role in your profile and New role. Facts are extracted only after you answer, and every one links to the role you chose; a new role's name is kept (encrypted) for a refresh to add.
 
 **Verify:**
-- CI is green on the PR
+- CI is green on #33
 - After the deploy, run `uv run wj telegram set-webhook` once, so Telegram sends the webhook button presses
 - With your bot: a note, then `/done`, gets the question as a reply to the note; tapping a role edits the question to show it, and the facts reply follows
 - New role, then a message such as "Data Engineer, Example Co", gives the entry that role, and that message isn't journaled

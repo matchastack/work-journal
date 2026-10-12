@@ -493,7 +493,7 @@ As the owner, I want my messages grouped into journal entries automatically, so 
 - [x] Tests for the edge cases: a gap of exactly 30 minutes, and edits to a closed entry.
 
 ### T-033 · Extraction on entry close, and summary reply
-**Status:** ◐ · **Size:** M · **Depends on:** T-014, T-027, T-032 · **Requirements:** FR-CAP-5, FR-EXT-1, FR-CAP-8 · **PR:** [#30](https://github.com/matchastack/work-journal/pull/30)
+**Status:** ☑ · **Size:** M · **Depends on:** T-014, T-027, T-032 · **Requirements:** FR-CAP-5, FR-EXT-1, FR-CAP-8 · **PR:** [#30](https://github.com/matchastack/work-journal/pull/30)
 
 As the owner, I want the bot to tell me what it understood from each entry, so that I can correct it while it's fresh.
 
@@ -513,7 +513,7 @@ As the owner, I want to see the bot's commands when I type "/", so that I don't 
 - [x] Tests.
 
 ### T-058 · Ticks run scheduled tasks only as of their own time
-**Status:** ◐ · **Size:** S · **Depends on:** T-051 · **Requirements:** NFR-REL-1 · **PR:** [#32](https://github.com/matchastack/work-journal/pull/32)
+**Status:** ☑ · **Size:** S · **Depends on:** T-051 · **Requirements:** NFR-REL-1 · **PR:** [#32](https://github.com/matchastack/work-journal/pull/32)
 
 As the owner, I want each scheduled task to run once per due time, so that a tick never runs it again for a time it wasn't asked about.
 
@@ -521,7 +521,7 @@ As the owner, I want each scheduled task to run once per due time, so that a tic
 - [x] A test pins the real clock, so the result doesn't depend on when CI runs.
 
 ### T-059 · Choose the role of each entry
-**Status:** ◐ · **Size:** M · **Depends on:** T-033 · **Requirements:** FR-CAP-11, FR-CAP-5, FR-EXT-1 · **PR:** —
+**Status:** ☑ · **Size:** M · **Depends on:** T-033 · **Requirements:** FR-CAP-11, FR-CAP-5, FR-EXT-1 · **PR:** [#33](https://github.com/matchastack/work-journal/pull/33)
 
 As the owner, I want to say which role each journal entry is about when I submit it, so that its facts land under the right job instead of one the model guesses.
 
