@@ -265,9 +265,9 @@ def test_each_change_shows_its_diff_sources_outputs_and_report(
         "before": EXPORT,
         "after": REWORDED,
         "diff": [
-            {"kind": "same", "text": "Cut the nightly export"},
-            {"kind": "removed", "text": " job"},
-            {"kind": "same", "text": " from 50 to 12 minutes by batching database writes."},
+            {"kind": "same", "text": "Cut the nightly export "},
+            {"kind": "removed", "text": "job "},
+            {"kind": "same", "text": "from 50 to 12 minutes by batching database writes."},
         ],
         "outputs": ["master_resume", "tailored_resumes", "portfolio", "linkedin"],
         "sources": [
@@ -287,7 +287,8 @@ def test_each_change_shows_its_diff_sources_outputs_and_report(
     assert added["sources"][0]["entryId"]
     assert added["sources"][1] == {"id": "gone_fact", "statement": None, "entryId": None}
     assert added["verifierReport"]["findings"][0]["message"] == "No fact names Go."
-    assert (benched["verifierReport"], benched["editable"]) == (None, False)
+    assert (benched["verifierReport"], benched["editable"], benched["diff"]) == (None, False, [])
+    assert (benched["before"], benched["after"]) == ("active", "benched: Older")
     assert skill["outputs"] == ["master_resume", "tailored_resumes", "portfolio"]
 
 

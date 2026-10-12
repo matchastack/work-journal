@@ -35,6 +35,15 @@ def test_a_reworded_bullet_shows_its_text_before_and_after() -> None:
     assert (described.before, described.after) == (EXPORT, "Cut it to 12 minutes.")
     assert described.outputs == EVERY
     assert described.editable
+    assert described.reworded
+
+
+def test_only_rewordings_are_compared_a_word_at_a_time() -> None:
+    """A bullet's status before and after is two values, not two wordings."""
+    bench = SetBulletStatus(bullet_id="nw_export", status="benched", reason="Too old")
+    tags = UpdateField(target_id="nw_export", field="tags", value=["data"])
+    label = UpdateField(target_id="basics", field="label", value="Data Engineer")
+    assert [describe(op, PROFILE).reworded for op in (bench, tags, label)] == [False, False, True]
 
 
 @pytest.mark.parametrize(
@@ -192,15 +201,15 @@ def test_a_change_to_something_gone_is_still_described() -> None:
     assert (described.before, described.outputs) == (None, ())
 
 
-def test_word_diff_keeps_shared_words_and_marks_the_rest() -> None:
+def test_word_diff_lines_words_up_by_what_they_say() -> None:
     assert word_diff(
         "Cut the export from 50 to 12 minutes.", "Cut the nightly export to 12 minutes."
     ) == (
         DiffPart(kind="same", text="Cut the "),
         DiffPart(kind="added", text="nightly "),
-        DiffPart(kind="same", text="export"),
-        DiffPart(kind="removed", text=" from 50"),
-        DiffPart(kind="same", text=" to 12 minutes."),
+        DiffPart(kind="same", text="export "),
+        DiffPart(kind="removed", text="from 50 "),
+        DiffPart(kind="same", text="to 12 minutes."),
     )
     assert word_diff("Same text.", "Same text.") == (DiffPart(kind="same", text="Same text."),)
     assert word_diff("old", "new") == (
@@ -221,3 +230,13 @@ def test_word_diff_parts_rebuild_both_texts(before: str, after: str) -> None:
     parts = word_diff(before, after)
     assert "".join(part.text for part in parts if part.kind != "added") == before
     assert "".join(part.text for part in parts if part.kind != "removed") == after
+
+
+def test_word_diff_doesnt_line_words_up_by_their_spaces() -> None:
+    assert word_diff("export job from 50", "export from about 50") == (
+        DiffPart(kind="same", text="export "),
+        DiffPart(kind="removed", text="job "),
+        DiffPart(kind="same", text="from "),
+        DiffPart(kind="added", text="about "),
+        DiffPart(kind="same", text="50"),
+    )

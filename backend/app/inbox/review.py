@@ -95,7 +95,7 @@ class InboxOp(Model):
     before: str | None
     after: str | None
     diff: tuple[DiffPart, ...]
-    """The text before and after, a word at a time; empty when there's no text before."""
+    """The text before and after, a word at a time, when the change rewords a text."""
     outputs: tuple[Output, ...]
     sources: tuple[SourceFact, ...]
     verifier_report: VerifierReport | None
@@ -289,7 +289,11 @@ def _op_view(
         context=described.context,
         before=before,
         after=after,
-        diff=word_diff(before, after) if before is not None and after is not None else (),
+        diff=(
+            word_diff(before, after)
+            if described.reworded and before is not None and after is not None
+            else ()
+        ),
         outputs=described.outputs,
         sources=tuple(_source(fact_id, facts.get(fact_id)) for fact_id in op.fact_ids),
         verifier_report=_report(reviewed.verifier_report),

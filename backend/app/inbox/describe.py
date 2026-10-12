@@ -72,6 +72,9 @@ class Description:
     outputs: tuple[Output, ...]
     editable: bool
     """Whether the owner can edit the text it adds; edited text is verified again."""
+    reworded: bool = False
+    """Whether the text before and after are two wordings of one text, worth comparing a word at
+    a time, rather than two values such as a bullet's status."""
 
 
 def describe(op: ChangeOp, profile: Profile) -> Description:
@@ -99,6 +102,7 @@ def describe(op: ChangeOp, profile: Profile) -> Description:
                 after=op.text,
                 outputs=_bullet_outputs(bullet, parent) if bullet else (),
                 editable=True,
+                reworded=True,
             )
         case SetBulletStatus():
             parent, bullet = _bullet(profile, op.bullet_id)
@@ -195,7 +199,8 @@ def describe(op: ChangeOp, profile: Profile) -> Description:
 
 def word_diff(before: str, after: str) -> tuple[DiffPart, ...]:
     """`before` and `after` compared a word at a time: the words they share, and the words
-    removed and added between them, in order. Spaces count with the words around them."""
+    removed and added between them, in order. Each word goes with the spaces after it, so words
+    line up by what they say rather than by the spaces between them."""
     old, new = _words(before), _words(after)
     parts: list[DiffPart] = []
     for tag, i1, i2, j1, j2 in SequenceMatcher(None, old, new, autojunk=False).get_opcodes():
@@ -208,7 +213,7 @@ def word_diff(before: str, after: str) -> tuple[DiffPart, ...]:
 
 
 def _words(text: str) -> list[str]:
-    return re.findall(r"\s+|\S+", text)
+    return re.findall(r"^\s+|\S+\s*", text)
 
 
 def _add(
@@ -243,6 +248,7 @@ def _describe_update(op: UpdateField, profile: Profile) -> Description:
         after=_text(op.value),
         outputs=outputs,
         editable=False,
+        reworded=isinstance(current, str) and isinstance(op.value, str),
     )
 
 
