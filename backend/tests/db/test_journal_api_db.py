@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.auth.sessions import CSRF_HEADER, SESSION_COOKIE, start_session
@@ -59,6 +59,23 @@ def seed[T](database_url: str, build: Callable[[AsyncSession], Awaitable[T]]) ->
             await engine.dispose()
 
     return asyncio.run(run())
+
+
+@pytest.fixture(autouse=True)
+def delete_users_made(database_url: str) -> Iterator[None]:
+    """The tests commit, so the users each one makes are deleted afterwards, with all their rows:
+    later tests, such as key rotation's, then see no journal text under this test's key."""
+
+    async def users(session: AsyncSession) -> set[uuid.UUID]:
+        return set(await session.scalars(select(User.id)))
+
+    before = seed(database_url, users)
+    yield
+
+    async def delete_new(session: AsyncSession) -> None:
+        await session.execute(delete(User).where(User.id.not_in(before)))
+
+    seed(database_url, delete_new)
 
 
 class Owner:
