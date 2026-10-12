@@ -2,6 +2,15 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-12 · T-041 Journal page · PR not opened yet
+**Changed:** the web app's Journal page shows your journal as one document by month, with the facts saved from each entry. You can edit or delete messages, entries and facts there (deleting something your profile cites names the bullets and asks first), and download it all as Markdown or JSON.
+
+**Verify:**
+- CI is green on the PR
+- The link in the bot's reply to an entry opens the Journal page at that entry
+- Editing a message keeps its earlier text under "Edited once"; editing a fact shows the change at once
+- Download Markdown writes the times in your time zone; Download JSON holds every entry and fact
+
 ## 2026-10-11 · T-059 Choose the role of each entry · [#33](https://github.com/matchastack/work-journal/pull/33)
 **Changed:** when an entry closes, the bot asks which role it's about, with a button for each role in your profile and New role. Facts are extracted only after you answer, and every one links to the role you chose; a new role's name is kept (encrypted) for a refresh to add.
 
