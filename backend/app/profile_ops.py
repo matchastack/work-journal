@@ -64,16 +64,10 @@ def apply(profile: Profile, ops: Sequence[ChangeOp]) -> Profile:
 def _apply_one(data: Json, op: ChangeOp) -> None:
     match op:
         case AddBullet():
-            bullets: list[Json] = _find_item(data, op.parent_id)[0]["highlights"]
-            position = len(bullets) if op.position is None else op.position
-            if position > len(bullets):
-                raise ProfileOpError(
-                    f"position {position} is past the end of {op.parent_id!r} "
-                    f"({len(bullets)} bullets)"
-                )
             bullet = op.bullet.model_dump(mode="json")
             bullet["sources"] = _merge_ids(bullet["sources"], op.fact_ids)
-            bullets.insert(position, bullet)
+            bullets: list[Json] = _find_item(data, op.parent_id)[0]["highlights"]
+            _insert(bullets, bullet, op.position, f"{op.parent_id!r}", "bullets")
         case EditBullet():
             bullet = _find_bullet(data, op.bullet_id)
             bullet["text"] = op.text
@@ -85,11 +79,12 @@ def _apply_one(data: Json, op: ChangeOp) -> None:
         case AddSwap():
             _find_bullet(data, op.bullet_id)["swaps"].append(op.swap.model_dump(mode="json"))
         case AddRole():
-            data["work"].append(op.role.model_dump(mode="json"))
+            _insert(data["work"], op.role.model_dump(mode="json"), op.position, "work", "roles")
         case AddEducation():
             data["education"].append(op.education.model_dump(mode="json"))
         case AddProject():
-            data["projects"].append(op.project.model_dump(mode="json"))
+            project = op.project.model_dump(mode="json")
+            _insert(data["projects"], project, op.position, "projects", "projects")
         case UpdateField():
             _update_field(data, op)
         case AddSkill():
@@ -100,6 +95,18 @@ def _apply_one(data: Json, op: ChangeOp) -> None:
             question["answerFactIds"] = _merge_ids(question["answerFactIds"], op.fact_ids)
         case _:
             assert_never(op)
+
+
+def _insert(items: list[Json], item: Json, position: int | None, where: str, what: str) -> None:
+    """Insert `item` at `position` in `items`, or append it for None."""
+    if position is None:
+        items.append(item)
+    elif position > len(items):
+        raise ProfileOpError(
+            f"position {position} is past the end of {where} ({len(items)} {what})"
+        )
+    else:
+        items.insert(position, item)
 
 
 def _find_item(data: Json, item_id: str) -> tuple[Json, type[BaseModel]]:

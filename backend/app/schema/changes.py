@@ -54,6 +54,8 @@ class AddSwap(OpBase):
 class AddRole(OpBase):
     op: Literal["add_role"] = "add_role"
     role: Role
+    position: int | None = Field(default=None, ge=0)
+    """Where to insert it among the roles, which resumes print in order; None appends."""
 
 
 class AddEducation(OpBase):
@@ -64,6 +66,8 @@ class AddEducation(OpBase):
 class AddProject(OpBase):
     op: Literal["add_project"] = "add_project"
     project: Project
+    position: int | None = Field(default=None, ge=0)
+    """Where to insert it among the projects; None appends."""
 
 
 class UpdateField(OpBase):
