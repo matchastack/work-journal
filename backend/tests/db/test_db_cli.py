@@ -11,10 +11,16 @@ from sqlalchemy import Executable, delete, func, insert, select
 from sqlalchemy.ext.asyncio import create_async_engine
 from typer.testing import CliRunner, Result
 
+from app import cli as cli_module
 from app.cli import cli
-from app.config import get_settings
+from app.config import Settings, get_settings
 from app.db.crypto import new_key, use_key_ring
 from app.db.models import FactRow, ProfileVersionRow, User
+from app.llm.client import LLMClient
+from app.llm.fake import FakeMessages, reply
+from app.llm.usage import MemoryCallLog
+from app.validate.claims import ClaimReply, JudgedClaim
+from app.writing import WrittenBullet
 
 FIXTURES = Path(__file__).parents[1] / "fixtures"
 runner = CliRunner()
@@ -142,3 +148,25 @@ def test_a_user_without_a_profile_is_told_how_to_load_one(
     result = invoke("lint", "--db", "--user", owner)
     assert result.exit_code == 1
     assert "load one with `wj db load-profile`" in result.stderr
+
+
+def test_write_reads_the_profile_and_facts_from_the_database(
+    owner: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    loaded = invoke("db", "load-profile", str(FIXTURES / "profile.json"), "--user", owner)
+    assert loaded.exit_code == 0, loaded.output
+    bullet = "Cut the nightly export job from 50 to 12 minutes by batching database writes."
+    judged = JudgedClaim(
+        claim="Cut the nightly export job", reason="As stated.", verdict="supported"
+    )
+    fake = FakeMessages(reply(WrittenBullet(text=bullet)), reply(ClaimReply(claims=(judged,))))
+    llm = LLMClient(Settings(llm_model_standard="standard-model"), fake, MemoryCallLog())
+    monkeypatch.setattr(cli_module, "_llm_client", lambda: llm)
+    result = invoke(
+        "write", "--db", "--user", owner, "--facts", "fact_nw_queue", "--edit", "nw_export"
+    )
+    assert result.exit_code == 0, result.output
+    assert result.stdout == f"{bullet}\n"
+    message = fake.requests[0]["messages"][0]["content"]
+    assert '"id": "fact_nw_export"' in message, "the facts the bullet was written from"
+    assert '"id": "fact_nw_queue"' in message

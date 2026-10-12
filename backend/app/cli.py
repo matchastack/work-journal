@@ -27,7 +27,7 @@ from app.db.crypto import (
 from app.db.engine import create_engine, session_factory
 from app.db.models import Base
 from app.db.profiles import VersionError, latest_version, load_master_profile
-from app.db.store import save_facts
+from app.db.store import list_facts, save_facts
 from app.db.users import UnknownUserError, only_user, user_for_login
 from app.extraction import extract_facts
 from app.importers.master_resume import MasterResumeError, import_master_resume
@@ -41,6 +41,7 @@ from app.render.resume import RenderError, render_resume
 from app.schema.export import write_json_schemas
 from app.schema.fact import Fact
 from app.schema.profile import Profile
+from app.schema.verification import VerifierReport
 from app.selection import MASTER_VARIANT, select
 from app.tailoring.posting import parse_posting
 from app.telegram.api import BotApi, TelegramError
@@ -49,6 +50,7 @@ from app.telegram.linking import deep_link, new_link_token
 from app.telegram.polling import poll
 from app.tick import TICK_BUDGET_S, extract_now, tick
 from app.validate.lint import format_report, lint_profile
+from app.writing import locate_bullet, write_bullet
 
 LOCAL_DIR = Path(__file__).resolve().parents[2] / "local"
 """The repository's git-ignored folder for personal data (`backend/app/cli.py` is two below)."""
@@ -141,6 +143,117 @@ def extract(
         typer.echo(f'Left out "{dropped.statement}": {reasons}', err=True)
     for message in extraction.notes:
         typer.echo(f"Note: {message}", err=True)
+
+
+@cli.command()
+def write(
+    facts: Annotated[
+        str, typer.Option(help="The IDs of the facts to write from, separated by commas.")
+    ],
+    under: Annotated[
+        str | None,
+        typer.Option(
+            help="The ID of the role, education entry or project the bullet goes under. "
+            "Default: the one the facts, or the bullet to edit, belong to."
+        ),
+    ] = None,
+    edit: Annotated[
+        str | None,
+        typer.Option(
+            help="The ID of a bullet to write a new version of. The facts it was written from "
+            "are added."
+        ),
+    ] = None,
+    profile: Annotated[
+        Path | None,
+        typer.Option(help="The profile. Default: local/profile.json.", exists=True, dir_okay=False),
+    ] = None,
+    facts_file: Annotated[
+        list[Path] | None,
+        typer.Option(
+            "--facts-file",
+            help="A JSON list of facts, such as `wj extract` prints. Repeat for more. "
+            "Default: local/facts.json.",
+            exists=True,
+            dir_okay=False,
+        ),
+    ] = None,
+    db: DbOption = False,
+    user: UserOption = None,
+) -> None:
+    """Write facts as a resume bullet, check it with the verifier, and print it.
+
+    Calls the standard-tier model to write the bullet and to check its claims. Nothing is saved.
+    Exits with status 1 when the bullet is flagged: it failed the checks, even when written again.
+    """
+    if db and facts_file:
+        raise typer.BadParameter("use either --facts-file or --db", param_hint="--facts-file")
+    if db:
+        if profile is not None:
+            raise typer.BadParameter("use either --profile or --db", param_hint="--profile")
+        loaded, pool = asyncio.run(_newest_profile_and_facts(user))
+    else:
+        loaded = _read_profile(profile, db, user)
+        pool = _read_facts(facts_file or [LOCAL_DIR / "facts.json"])
+    by_id = {fact.id: fact for fact in pool}
+    ids = list(dict.fromkeys(part.strip() for part in facts.split(",") if part.strip()))
+    if unknown := [fact_id for fact_id in ids if fact_id not in by_id]:
+        raise typer.BadParameter(f"there's no fact {unknown[0]!r}", param_hint="--facts")
+    chosen = [by_id[fact_id] for fact_id in ids]
+    if not chosen:
+        raise typer.BadParameter("name at least one fact", param_hint="--facts")
+    if edit is not None:
+        try:
+            parent, bullet = locate_bullet(loaded, edit)
+        except ValueError as error:
+            raise typer.BadParameter(str(error), param_hint="--edit") from None
+        under = under or parent
+        for source in bullet.sources:
+            if source not in by_id:
+                typer.echo(f"Note: {edit} cites fact {source}, which wasn't found.", err=True)
+            elif source not in ids:
+                chosen.insert(0, by_id[source])
+    entry_id = under or _item_of(chosen)
+    try:
+        report = write_bullet(chosen, loaded, _llm_client(), entry_id=entry_id, edit=edit)
+    except ValueError as error:
+        raise typer.BadParameter(str(error), param_hint="--under") from None
+    except LLMConfigError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from None
+    except LLMCallError as error:
+        typer.echo(f"The bullet couldn't be written: {error}", err=True)
+        raise typer.Exit(1) from None
+    typer.echo(report.text)
+    _echo_report(report)
+    if not report.passed:
+        raise typer.Exit(1)
+
+
+def _item_of(facts: Sequence[Fact]) -> str:
+    """The one role or project the facts belong to."""
+    items = {fact.role_id or fact.project_id for fact in facts}
+    if len(items) != 1 or None in items:
+        raise typer.BadParameter(
+            "the facts don't all belong to one role or project in the profile; say which item "
+            "the bullet goes under",
+            param_hint="--under",
+        )
+    return str(items.pop())
+
+
+def _echo_report(report: VerifierReport) -> None:
+    """What the verifier found, on standard error: the findings, then the verdict."""
+    for finding in report.findings:
+        typer.echo(f"{finding.severity:<7}  {finding.check:<7}  {finding.message}", err=True)
+    for derivation in report.derivations:
+        typer.echo(f"Derived {derivation.quantity} from the facts: {derivation.formula}", err=True)
+    if not report.passed:
+        typer.echo("Flagged: it didn't pass the checks, so don't use it as it is.", err=True)
+    elif report.attempts > 1:
+        typer.echo("Passed the checks when written the second time.", err=True)
+    else:
+        typer.echo("Passed the checks.", err=True)
 
 
 @cli.command()
@@ -572,12 +685,34 @@ def _read_profile(path: Path | None, db: bool, user: str | None) -> Profile:
 
 
 async def _newest_profile(login: str | None) -> Profile:
+    return (await _newest_profile_and_facts(login, facts=False))[0]
+
+
+async def _newest_profile_and_facts(
+    login: str | None, *, facts: bool = True
+) -> tuple[Profile, list[Fact]]:
+    """The newest profile version in the database and, unless `facts` is false, every fact."""
     async with _database() as session:
-        version = await latest_version(session, await _user(session, login))
+        user_id = await _user(session, login)
+        version = await latest_version(session, user_id)
+        stored = await list_facts(session, user_id) if facts and version else []
     if version is None:
         typer.echo("The database has no profile yet; load one with `wj db load-profile`.", err=True)
         raise typer.Exit(1)
-    return version.profile
+    return version.profile, stored
+
+
+def _read_facts(paths: Sequence[Path]) -> list[Fact]:
+    """The facts in JSON files, such as the import's facts.json or what `wj extract` prints."""
+    facts: list[Fact] = []
+    for path in paths:
+        if not path.is_file():
+            raise typer.BadParameter(
+                f"{path} does not exist; import your resume with `wj import tex`, or use --db",
+                param_hint="--facts-file",
+            )
+        facts.extend(_FACTS.validate_json(path.read_text(encoding="utf-8")))
+    return facts
 
 
 async def _user(session: AsyncSession, login: str | None, *, create: bool = False) -> uuid.UUID:
