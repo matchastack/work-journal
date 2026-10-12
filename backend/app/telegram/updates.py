@@ -45,8 +45,20 @@ class Message(TelegramModel):
         return self.text if self.text is not None else self.caption
 
 
+class CallbackQuery(TelegramModel):
+    """A press of a button under one of the bot's messages."""
+
+    id: str
+    message: Message | None = None
+    """The bot's message with the button. Only its chat and ID are certain: Telegram leaves out
+    the rest of a message it no longer shows the bot."""
+    data: str | None = None
+    """What the button carries."""
+
+
 class Update(TelegramModel):
     update_id: int
     """Increases with each update, and identifies one even when Telegram sends it again."""
     message: Message | None = None
     edited_message: Message | None = None
+    callback_query: CallbackQuery | None = None

@@ -3,18 +3,23 @@
 Telegram resends an update until the webhook answers with success, so the update is stored
 before the answer, and storing it twice does nothing (NFR-REL-1). The answer can carry the bot's
 reply as a Bot API call, which Telegram makes itself, so replying needs no request of its own.
-When the update closes an entry, its extraction runs right after the answer (FR-CAP-5).
+Any further calls, such as editing a message after a button press, are made right after the
+answer. When the update closes an entry or chooses its role, the entry's jobs run right after
+that (FR-CAP-5).
 """
 
 import logging
 import secrets
+from collections.abc import Sequence
 from datetime import timedelta
 
+import httpx2
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
 
 from app.deps import AppSettings, Db
+from app.telegram.api import BotApi, BotCall, TelegramError
 from app.telegram.journal import handle_update
 from app.tick import extract_now
 
@@ -42,8 +47,28 @@ async def webhook(
         logger.warning("Telegram sent an update the bot can't read; it was skipped")
         return Response(status_code=status.HTTP_200_OK)
     await db.commit()
-    if handled.closed is not None:
-        background.add_task(extract_now, handled.closed)
-    if handled.reply is None:
+    if handled.calls[1:]:
+        background.add_task(
+            make_calls, settings.telegram_bot_token, request.app.state.http, handled.calls[1:]
+        )
+    if handled.ready is not None:
+        background.add_task(extract_now, handled.ready)
+    if not handled.calls:
         return Response(status_code=status.HTTP_200_OK)
-    return JSONResponse(handled.reply.webhook_body())
+    return JSONResponse(handled.calls[0].webhook_body())
+
+
+async def make_calls(
+    token: SecretStr | None, http: httpx2.AsyncClient, calls: Sequence[BotCall]
+) -> None:
+    """Make the calls the webhook's answer can't carry. One that fails is logged and skipped:
+    Telegram won't send the update again, and the calls change nothing that's stored."""
+    if token is None:
+        logger.warning("TELEGRAM_BOT_TOKEN isn't set, so the bot can't finish its answer")
+        return
+    api = BotApi(token, http)
+    for call in calls:
+        try:
+            await api.make(call)
+        except TelegramError as error:
+            logger.warning("couldn't make the bot's %s call: %s", call.method, error)

@@ -1,11 +1,12 @@
 """What happens to a journal entry once it closes (FR-CAP-5, FR-CAP-8, FR-EXT-1).
 
-The `extract_entry` job (`app/jobs.py`) processes each closed entry once:
+The `extract_entry` job (`app/jobs.py`) first asks which role the closed entry is about
+(`app/telegram/roles.py`, FR-CAP-11). Once the owner has answered, it processes the entry once:
 
 1. Triage (`app/triage.py`) labels the entry's text: an entry that isn't about work gives no
    facts.
 2. Extraction (`app/extraction.py`) finds the facts in an entry about work. They're checked
-   against the entry's text and saved encrypted, with the entry's ID.
+   against the entry's text and saved encrypted, with the entry's ID, linked to its role.
 3. The reply lists the saved facts, up to three, with a link to the entry in the web app.
 
 The entry is marked processed in the transaction that saves its facts, and the job sends the
@@ -26,7 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import JournalEntry, JournalMessage, TelegramLink
 from app.db.profiles import latest_version
 from app.db.store import save_facts
-from app.extraction import extract_facts
+from app.extraction import RoleChoice, extract_facts
 from app.llm.client import LLMClient
 from app.schema.fact import Fact
 from app.schema.profile import Basics, Profile
@@ -57,8 +58,8 @@ async def process_entry(
     app_url: str,
 ) -> Processed | None:
     """Triage the closed entry, save the facts in it, and mark it processed. Returns the reply,
-    or None when there's nothing to say: the entry is open, already processed or failed, or
-    empty."""
+    or None when there's nothing to say: the entry is open, waits for its role, is already
+    processed or failed, or is empty."""
     entry = await session.scalar(
         select(JournalEntry).where(JournalEntry.id == entry_id).with_for_update()
     )
@@ -69,6 +70,8 @@ async def process_entry(
     note = await entry_text(session, entry_id)
     if not note:
         entry.triage, entry.processed_at = "other", now
+        return None
+    if entry.role_id is None and entry.new_role is None:
         return None
     label = await asyncio.to_thread(triage, note, client)
     facts: tuple[Fact, ...] = ()
@@ -82,6 +85,7 @@ async def process_entry(
             client,
             written=entry.opened_at.date(),
             entry_id=str(entry.id),
+            role=RoleChoice(role_id=entry.role_id, new_role=entry.new_role),
         )
         await save_facts(session, entry.user_id, extraction.facts)
         facts, left_out = extraction.facts, len(extraction.dropped)

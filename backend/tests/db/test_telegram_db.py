@@ -23,12 +23,14 @@ from app.db.models import (
     JournalEntry,
     JournalMessage,
     JournalMessageEdit,
+    ProfileVersionRow,
     TelegramLink,
     TelegramUpdate,
     User,
 )
 from app.main import create_app
-from app.telegram.api import BotApi
+from app.schema.profile import Profile
+from app.telegram.api import BotApi, BotCall
 from app.telegram.entries import close_quiet_entries, entry_for
 from app.telegram.journal import DONE, LINK_HINT, NOTHING_OPEN, UNKNOWN, help_text, purge_updates
 from app.telegram.linking import (
@@ -39,12 +41,15 @@ from app.telegram.linking import (
     new_link_token,
 )
 from app.telegram.polling import poll
-from app.telegram.webhook import SECRET_HEADER
+from app.telegram.webhook import SECRET_HEADER, make_calls
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "telegram"
 SECRET = "test-webhook-secret"
 NOTE = "Moved the nightly export onto a queue today, it finishes in 12 minutes instead of 50."
 EDITED = "Moved the nightly export onto a queue today; it now finishes in 12 minutes instead of 50."
+PROFILE = Profile.model_validate_json(
+    (Path(__file__).parents[1] / "fixtures" / "profile.json").read_text(encoding="utf-8")
+)
 _random = random.SystemRandom()
 
 
@@ -479,7 +484,7 @@ def test_polling_hands_on_the_entry_an_update_closes(database_url: str, chat_id:
         result = batches.pop(0) if method == "getUpdates" else True
         return httpx2.Response(200, json={"ok": True, "result": result})
 
-    async def after_close(entry_id: uuid.UUID) -> None:
+    async def run_jobs(entry_id: uuid.UUID) -> None:
         handed_on.append(entry_id)
 
     async def run_poll() -> int:
@@ -488,7 +493,7 @@ def test_polling_hands_on_the_entry_an_update_closes(database_url: str, chat_id:
             async with httpx2.AsyncClient(transport=httpx2.MockTransport(handle)) as http:
                 api = BotApi(SecretStr("123456:test-token-not-real"), http)
                 sessions = async_sessionmaker(engine, expire_on_commit=False)
-                return await poll(api, sessions, rounds=2, timeout=0, after_close=after_close)
+                return await poll(api, sessions, rounds=2, timeout=0, run_jobs=run_jobs)
         finally:
             await engine.dispose()
 
@@ -521,3 +526,86 @@ async def test_the_tick_closes_entries_that_went_quiet(session: AsyncSession) ->
         quiet: (now, "quiet"),
         recent: (None, None),
     }
+
+
+def test_a_button_press_is_answered_and_its_entry_handed_on(
+    client: TestClient,
+    database_url: str,
+    chat_id: int,
+    extracted: list[uuid.UUID],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """FR-CAP-11 through the webhook: its answer carries the first call, and the others are made
+    right after it. Choosing the role hands the entry on, so its facts are extracted at once."""
+    made: list[BotCall] = []
+
+    async def record(token: SecretStr | None, http: httpx2.AsyncClient, calls: Any) -> None:
+        made.extend(calls)
+
+    monkeypatch.setattr("app.telegram.webhook.make_calls", record)
+    user_id = link(database_url, chat_id)
+    run(
+        database_url,
+        insert(ProfileVersionRow).values(
+            user_id=user_id,
+            number=1,
+            author="owner",
+            profile=PROFILE.model_dump(mode="json", by_alias=True),
+        ),
+    )
+    closed = datetime(2026, 10, 4, 9, 30, tzinfo=UTC)
+    [(entry_id,)] = run(
+        database_url,
+        insert(JournalEntry)
+        .values(
+            user_id=user_id,
+            opened_at=closed,
+            last_message_at=closed,
+            closed_at=closed,
+            closed_by="done",
+            role_asked_at=closed,
+            role_question_id=900,
+        )
+        .returning(JournalEntry.id),
+    )
+    payload = {
+        "update_id": _random.randrange(10**9, 10**12),
+        "callback_query": {
+            "id": "77",
+            "from": {"id": chat_id, "is_bot": False, "first_name": "Casey"},
+            "message": {"message_id": 900, "chat": {"id": chat_id, "type": "private"}, "date": 0},
+            "data": "northwind",
+        },
+    }
+    response = post(client, json.dumps(payload))
+    assert response.json() == {"method": "answerCallbackQuery", "callback_query_id": "77"}
+    shown = "Role for this entry: Engineer, Northwind Traders (2025-now)"
+    edit = {"chat_id": chat_id, "message_id": 900, "text": shown}
+    assert made == [BotCall("editMessageText", edit)]
+    assert extracted == [entry_id]
+    [(role_id,)] = run(
+        database_url, select(JournalEntry.role_id).where(JournalEntry.id == entry_id)
+    )
+    assert role_id == "northwind"
+
+
+@pytest.mark.anyio
+async def test_the_calls_after_the_answer_go_on_when_one_fails(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """And without a token, the bot can't make them at all."""
+    methods: list[str] = []
+
+    def handle(request: httpx2.Request) -> httpx2.Response:
+        methods.append(request.url.path.rsplit("/", 1)[1])
+        if request.url.path.endswith("/editMessageText"):
+            return httpx2.Response(400, json={"ok": False, "description": "Bad Request"})
+        return httpx2.Response(200, json={"ok": True, "result": True})
+
+    calls = [BotCall("editMessageText", {"chat_id": 1}), BotCall("answerCallbackQuery", {})]
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handle)) as http:
+        await make_calls(SecretStr("123456:test-token-not-real"), http, calls)
+        await make_calls(None, http, calls)
+    assert methods == ["editMessageText", "answerCallbackQuery"]
+    assert "couldn't make the bot's editMessageText call" in caplog.text
+    assert "TELEGRAM_BOT_TOKEN isn't set" in caplog.text

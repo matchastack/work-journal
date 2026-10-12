@@ -547,7 +547,7 @@ async def _poll(database_url: str) -> int:
                 _bot_api(http),
                 session_factory(engine),
                 entry_timeout=entry_timeout,
-                after_close=extract_now,
+                run_jobs=extract_now,
             )
     finally:
         await engine.dispose()

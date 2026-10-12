@@ -2,8 +2,8 @@
 
 Telegram offers a bot's updates one way at a time: to the webhook, or to `getUpdates`. Polling
 sets the bot's command menu and turns the webhook off first; `wj telegram set-webhook` turns it
-back on. As with the webhook, an update that closes an entry has its extraction run right away
-(`after_close`).
+back on. As with the webhook, an update that closes an entry or chooses its role has the entry's
+jobs run right away (`run_jobs`).
 """
 
 import json
@@ -29,11 +29,11 @@ async def poll(
     rounds: int | None = None,
     timeout: int = POLL_TIMEOUT_S,
     entry_timeout: timedelta = DEFAULT_TIMEOUT,
-    after_close: Callable[[uuid.UUID], Awaitable[object]] | None = None,
+    run_jobs: Callable[[uuid.UUID], Awaitable[object]] | None = None,
 ) -> int:
     """Journal the bot's updates as the webhook would, and send its replies. When an update
-    closes an entry, `after_close` gets it. Asks Telegram `rounds` times, or until cancelled.
-    Returns how many updates it handled."""
+    closes an entry or chooses its role, `run_jobs` gets the entry. Asks Telegram `rounds` times,
+    or until cancelled. Returns how many updates it handled."""
     await api.set_my_commands(COMMANDS)
     await api.delete_webhook()
     offset: int | None = None
@@ -54,9 +54,9 @@ async def poll(
                 except ValidationError:
                     logger.warning("Telegram sent an update the bot can't read; it was skipped")
                     continue
-            if result.reply is not None:
-                await api.send_message(result.reply.chat_id, result.reply.text)
-            if result.closed is not None and after_close is not None:
-                await after_close(result.closed)
+            for call in result.calls:
+                await api.make(call)
+            if result.ready is not None and run_jobs is not None:
+                await run_jobs(result.ready)
             handled += 1
     return handled

@@ -75,7 +75,7 @@ def test_set_webhook_points_telegram_at_the_app(monkeypatch: pytest.MonkeyPatch)
     assert json.loads(request.content) == {
         "url": "https://journal.example.com/telegram/webhook",
         "secret_token": "webhook-secret",
-        "allowed_updates": ["message", "edited_message"],
+        "allowed_updates": ["message", "edited_message", "callback_query"],
     }
 
 

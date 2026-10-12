@@ -5,21 +5,26 @@ first, so nothing is lost, then the journal message in it. Only private chats li
 become journal messages, grouped into entries (`app/telegram/entries.py`). `/start <token>` from
 a link to the bot links a chat (`app/telegram/linking.py`); any other unlinked chat is told how
 to link itself. Commands aren't journaled: `/done` closes the open entry, and `/help` lists the
-commands (FR-CAP-7), as Telegram's command menu does (`COMMANDS`). Message text is never logged.
+commands (FR-CAP-7), as Telegram's command menu does (`COMMANDS`). Button presses, and the
+message that names a new role, answer which role an entry is about (`app/telegram/roles.py`).
+Message text is never logged.
 """
 
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Self
 
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import JournalMessage, JournalMessageEdit, TelegramLink, TelegramUpdate
+from app.telegram.api import BotCall, send
 from app.telegram.entries import DEFAULT_TIMEOUT, close_open_entry, entry_for
 from app.telegram.linking import link_chat, start_token
-from app.telegram.updates import Message, Update
+from app.telegram.roles import Answer, name_role, naming_entry, press
+from app.telegram.updates import CallbackQuery, Message, Update
 
 LINK_HINT = (
     "This bot keeps a private work journal. To journal here, open the link to this bot from "
@@ -48,32 +53,25 @@ def help_text(timeout: timedelta) -> str:
 
 
 @dataclass(frozen=True)
-class Reply:
-    """A message the bot sends back to a chat."""
-
-    chat_id: int
-    text: str
-
-    def webhook_body(self) -> dict[str, object]:
-        """The reply as a Bot API call in the webhook's answer, which Telegram makes itself."""
-        return {"method": "sendMessage", "chat_id": self.chat_id, "text": self.text}
-
-
-@dataclass(frozen=True)
 class Handled:
-    """What came of an update: the bot's reply, if any, and the entry it closed, if it closed
-    one, so that the jobs that follow can run right away (FR-CAP-5)."""
+    """What came of an update: the Bot API calls that answer it, in order, and the entry whose
+    jobs can run right away (FR-CAP-5), if there is one: an entry the update closed, so that the
+    bot asks which role it's about, or one whose role it chose, so that its facts are extracted."""
 
-    reply: Reply | None = None
-    closed: uuid.UUID | None = None
+    calls: tuple[BotCall, ...] = ()
+    ready: uuid.UUID | None = None
+
+    @classmethod
+    def of(cls, answer: Answer) -> Self:
+        return cls(answer.calls, answer.chosen)
 
 
 async def handle_update(
     session: AsyncSession, payload: str, *, entry_timeout: timedelta = DEFAULT_TIMEOUT
 ) -> Handled:
     """Store an update from Telegram, given as the JSON it arrived as, and the journal message in
-    it. Returns the bot's reply, if any, and the entry the update closed. An update Telegram sent
-    before is ignored.
+    it. Returns the calls that answer it, and the entry whose jobs can run. An update Telegram
+    sent before is ignored.
 
     Raises `pydantic.ValidationError` when the payload isn't an update.
     """
@@ -84,6 +82,8 @@ async def handle_update(
         return await _new_message(session, update.message, entry_timeout)
     if update.edited_message is not None:
         await _edit(session, update.edited_message)
+    if update.callback_query is not None:
+        return await _press(session, update.callback_query)
     return Handled()
 
 
@@ -120,16 +120,18 @@ async def _new_message(
     if message.chat.type != "private":
         return Handled()
     if message.text is not None and (token := start_token(message.text)) is not None:
-        return Handled(Reply(chat_id, await link_chat(session, chat_id, token)))
+        return Handled((send(chat_id, await link_chat(session, chat_id, token)),))
     owner = await _chat_owner(session, chat_id)
     if owner is None:
-        return Handled(Reply(chat_id, LINK_HINT))
+        return Handled((send(chat_id, LINK_HINT),))
     body = message.body
     if body is None:
         return Handled()
     if body.startswith("/"):
         answer, closed = await _command(session, owner, body, message.sent_at, entry_timeout)
-        return Handled(Reply(chat_id, answer), closed)
+        return Handled((send(chat_id, answer),), closed)
+    if (naming := await naming_entry(session, owner)) is not None:
+        return Handled.of(name_role(naming, chat_id, body))
     entry_id, closed = await entry_for(session, owner, message.sent_at, entry_timeout)
     statement = (
         insert(JournalMessage)
@@ -145,7 +147,18 @@ async def _new_message(
         .on_conflict_do_nothing(index_elements=[JournalMessage.chat_id, JournalMessage.message_id])
     )
     await session.execute(statement)
-    return Handled(closed=closed)
+    return Handled(ready=closed)
+
+
+async def _press(session: AsyncSession, query: CallbackQuery) -> Handled:
+    """A button under one of the bot's messages, in a linked private chat."""
+    message = query.message
+    owner = None
+    if message is not None and message.chat.type == "private":
+        owner = await _chat_owner(session, message.chat.id)
+    if owner is None:
+        return Handled((BotCall("answerCallbackQuery", {"callback_query_id": query.id}),))
+    return Handled.of(await press(session, owner, query))
 
 
 async def _command(

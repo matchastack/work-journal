@@ -12,7 +12,8 @@ context. Code then checks each fact against the note before keeping it:
   percentage change: facts keep the note's own numbers.
 - Tools: a tool the note doesn't name is removed from the fact, unless the note names one of its
   aliases in the skills catalogue (R1).
-- Links: a role or project ID that isn't in the profile is removed.
+- Links: a role or project ID that isn't in the profile is removed. When the owner chose the
+  entry's role (FR-CAP-11), every fact links to it instead of the role the model picked.
 
 A note unrelated to work gives no facts (FR-CAP-8).
 """
@@ -101,6 +102,15 @@ class ExtractionReply(Model):
 
 
 @dataclass(frozen=True)
+class RoleChoice:
+    """The role the owner chose for an entry (FR-CAP-11): one in the profile, by ID, or a new one,
+    by name."""
+
+    role_id: str | None = None
+    new_role: str | None = None
+
+
+@dataclass(frozen=True)
 class DroppedFact:
     statement: str
     reasons: tuple[str, ...]
@@ -123,9 +133,11 @@ def extract_facts(
     *,
     written: date,
     entry_id: str | None = None,
+    role: RoleChoice | None = None,
     prompt: Prompt | None = None,
 ) -> Extraction:
-    """Extract the facts in `note`, written on `written`, with the standard-tier model."""
+    """Extract the facts in `note`, written on `written`, with the standard-tier model. With the
+    owner's `role`, the facts link to it."""
     prompt = prompt or load_prompt(PROMPT_NAME, PROMPT_VERSION)
     result = client.call(
         "fact_extraction",
@@ -134,7 +146,7 @@ def extract_facts(
         variables={"note": note, "date": written.isoformat()},
         context=profile_context(profile),
     )
-    return check_facts(result.output, note, profile, entry_id=entry_id)
+    return check_facts(result.output, note, profile, entry_id=entry_id, role=role)
 
 
 def profile_context(profile: Profile) -> str:
@@ -160,7 +172,12 @@ def profile_context(profile: Profile) -> str:
 
 
 def check_facts(
-    reply: ExtractionReply, note: str, profile: Profile, *, entry_id: str | None = None
+    reply: ExtractionReply,
+    note: str,
+    profile: Profile,
+    *,
+    entry_id: str | None = None,
+    role: RoleChoice | None = None,
 ) -> Extraction:
     """Keep the facts the note backs, as described in the module docstring."""
     skill_names = [name for skill in profile.skills for name in (skill.name, *skill.aliases)]
@@ -182,7 +199,8 @@ def check_facts(
                 tools.append(tool)
             else:
                 notes.append(f'{fact_id}: removed the tool "{tool}", which the note doesn\'t name')
-        role_id = _known(extracted.role_id, roles, "role", fact_id, notes)
+        chosen = extracted.role_id if role is None else role.role_id
+        role_id = _known(chosen, roles, "role", fact_id, notes)
         project_id = _known(extracted.project_id, projects, "project", fact_id, notes)
         facts.append(
             Fact(
@@ -197,6 +215,7 @@ def check_facts(
                 role_id=role_id,
                 project_id=project_id,
                 proposed_item=extracted.proposed_item,
+                proposed_role=None if role is None else role.new_role,
                 origin="journal",
                 entry_id=entry_id,
             )
