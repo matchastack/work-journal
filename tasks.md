@@ -606,7 +606,7 @@ As the owner, I want to review each proposed change with its sources and checks,
 - [ ] Works with the keyboard. Tests for the API and components.
 
 ### T-041 · Journal page
-**Status:** ◐ · **Size:** M · **Depends on:** T-033, T-039 · **Requirements:** FR-JRN-5, FR-JRN-6, FR-JRN-7, FR-EXT-3 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-033, T-039 · **Requirements:** FR-JRN-5, FR-JRN-6, FR-JRN-7, FR-EXT-3 · **PR:** [#35](https://github.com/matchastack/work-journal/pull/35)
 
 As the owner, I want to read my journal as one document and correct it, so that my record stays accurate.
 

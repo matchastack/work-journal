@@ -2,11 +2,11 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-12 · T-041 Journal page · PR not opened yet
+## 2026-10-12 · T-041 Journal page · [#35](https://github.com/matchastack/work-journal/pull/35)
 **Changed:** the web app's Journal page shows your journal as one document by month, with the facts saved from each entry. You can edit or delete messages, entries and facts there (deleting something your profile cites names the bullets and asks first), and download it all as Markdown or JSON.
 
 **Verify:**
-- CI is green on the PR
+- CI is green on #35
 - The link in the bot's reply to an entry opens the Journal page at that entry
 - Editing a message keeps its earlier text under "Edited once"; editing a fact shows the change at once
 - Download Markdown writes the times in your time zone; Download JSON holds every entry and fact
