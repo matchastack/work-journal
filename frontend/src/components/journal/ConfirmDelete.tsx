@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef } from "react";
 
-import { failureMessage, type Citation } from "../../api/journal";
+import { failureMessage } from "../../api/auth";
+import type { Citation } from "../../api/journal";
 import { BUTTON, DANGER_BUTTON } from "../ui";
 
 function citedWarning(count: number): string {
