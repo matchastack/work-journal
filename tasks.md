@@ -633,7 +633,7 @@ As a developer, I want the React app set up with typed API access and sign-in, s
 - [ ] ESLint, tsc and Vitest run in CI.
 
 ### T-040 · Inbox
-**Status:** ◐ · **Size:** M · **Depends on:** T-027, T-039, T-041 · **Requirements:** FR-REV-1, FR-REV-2, FR-REV-3, FR-REV-4 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-027, T-039, T-041 · **Requirements:** FR-REV-1, FR-REV-2, FR-REV-3, FR-REV-4 · **PR:** [#36](https://github.com/matchastack/work-journal/pull/36)
 
 As the owner, I want to review each proposed change with its sources and checks, so that I stay in control of what my profile says.
 
