@@ -314,19 +314,21 @@ As the owner, I want facts written in LinkedIn's voice and in a posting's vocabu
 - [ ] Tests use the fake client, plus an opt-in evaluation.
 
 ### T-018 · Profile synthesis
-**Status:** ☐ · **Size:** M · **Depends on:** T-004, T-017 · **Requirements:** FR-REV-1, FR-PRF-2, FR-EXT-4 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-004, T-017 · **Requirements:** FR-REV-1, FR-PRF-2, FR-EXT-4 · **PR:** —
 
 As the owner, I want new facts turned into proposed profile changes, so that my master profile grows without me rewriting it.
 
-- [ ] A heavy-tier prompt takes new facts and the current profile and returns a change set. It can contain:
+- [x] A heavy-tier prompt takes new facts and the current profile and returns a change set. It can contain:
   - new bullets
   - edits to existing bullets, such as adding a metric from an answered open question
   - new items and skills
   - resolved open questions
-- [ ] Every op cites facts, and every text op carries a verifier report.
-- [ ] It never re-activates benched or planned items without a fact that justifies it.
-- [ ] `wj propose` prints the change set. `wj apply` applies it to `local/profile.json` after confirmation.
-- [ ] Tests use the fake client, plus an opt-in evaluation.
+- [x] Every op cites facts, and every text op carries a verifier report.
+- [x] It never re-activates benched or planned items without a fact that justifies it.
+- [x] `wj propose` prints the change set. `wj apply` applies it to `local/profile.json` after confirmation.
+- [x] Tests use the fake client, plus an opt-in evaluation.
+
+**Built (2026-10-12):** the prompt plans the changes and the resume writer (T-017) writes each bullet. `wj apply` asks about each change, and with `--db` saves the accepted ones as the next profile version, so this is also the command-line review until the Inbox (T-040). Until T-038 records refreshes, `wj propose` uses the journal facts that neither the profile nor an earlier change set cites, so a fact a proposal left out is offered again next time.
 
 ### T-019 · Job-posting parser
 **Status:** ☑ · **Size:** S · **Depends on:** T-012 · **Requirements:** FR-TLR-1 · **PR:** [#12](https://github.com/matchastack/work-journal/pull/12)
