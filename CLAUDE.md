@@ -52,6 +52,7 @@ Run these from `backend/` (uv project, Python 3.12):
 | Build the portfolio page (after editing its template, run `scripts/build-portfolio-css.sh`) | `uv run wj portfolio build --out /tmp/site` |
 | Render the master resume (needs TeX Live: `backend/templates/README.md`) | `uv run wj render` |
 | Extract the facts in a journal note (needs the LLM settings) | `uv run wj extract <file>` |
+| Write facts as a resume bullet, checked by the verifier (needs the LLM settings; `--edit <bullet>` writes a new version of one) | `uv run wj write --facts <ids>` (add `--db` for facts in the database) |
 | Lint | `uv run ruff check .` |
 | Format | `uv run ruff format .` |
 | Type-check | `uv run pyright` |

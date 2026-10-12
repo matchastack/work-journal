@@ -291,14 +291,14 @@ As the owner, I want LLM quality measured on a fixed dataset, so that any change
 - [ ] `CLAUDE.md` says to run it before changing prompts or model routing.
 
 ### T-017 · Resume writer
-**Status:** ☐ · **Size:** M · **Depends on:** T-015 · **Requirements:** FR-WRT-1, FR-WRT-4, FR-FID-7 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-015 · **Requirements:** FR-WRT-1, FR-WRT-4, FR-FID-7 · **PR:** —
 
 As the owner, I want facts written up as resume bullets, so that my journal turns into polished resume wording that never says more than I did.
 
-- [ ] A standard-tier writer turns facts into a bullet in the resume/HR style, under a role, education entry or project: a new bullet, or a new version of an existing one.
-- [ ] Every bullet passes the combined verifier. One that fails is written once more with the findings, and is flagged if it still fails.
-- [ ] `wj write --facts <ids>` prints the bullet and what the verifier found.
-- [ ] Tests use the fake client, plus an opt-in evaluation.
+- [x] A standard-tier writer turns facts into a bullet in the resume/HR style, under a role, education entry or project: a new bullet, or a new version of an existing one.
+- [x] Every bullet passes the combined verifier. One that fails is written once more with the findings, and is flagged if it still fails.
+- [x] `wj write --facts <ids>` prints the bullet and what the verifier found.
+- [x] Tests use the fake client, plus an opt-in evaluation.
 
 **Split at the owner's request (2026-10-12):** the master resume comes first, so the LinkedIn and job-posting styles, swaps and saving approved phrasings moved to T-060.
 
