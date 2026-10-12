@@ -71,9 +71,9 @@ async def edit_message(
     session: AsyncSession, user_id: uuid.UUID, message_id: uuid.UUID, text: str, *, now: datetime
 ) -> JournalMessageView:
     """Replace a message's text as of `now`, keeping the text it replaces. Text that's the same,
-    once both are in ASCII characters, changes nothing."""
+    once both are in ASCII characters and trimmed, changes nothing."""
     message = await _message(session, user_id, message_id)
-    if plain(message.text) != text:
+    if plain(message.text).strip() != text:
         session.add(
             JournalMessageEdit(
                 user_id=user_id, message_id=message.id, text=message.text, replaced_at=now

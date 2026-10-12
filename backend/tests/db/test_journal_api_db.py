@@ -371,6 +371,21 @@ def test_editing_a_message_keeps_its_earlier_text(
     assert again.json() == edited, "the same text adds no history"
 
 
+def test_text_from_telegram_that_differs_only_in_its_characters_is_not_an_edit(
+    database_url: str, owner: Owner, client: TestClient
+) -> None:
+    """Telegram text is stored as sent: an en dash and spaces around it aren't a change."""
+
+    async def build(session: AsyncSession) -> uuid.UUID:
+        return await add_entry(session, owner.id, owner.chat_id, OCTOBER, " 2\u20133 hours \n")
+
+    (message,) = message_ids(database_url, seed(database_url, build))
+    response = client.patch(
+        f"/api/journal/messages/{message}", json={"text": "2-3 hours"}, headers=owner.csrf
+    )
+    assert response.json()["edits"] == []
+
+
 def test_a_message_edit_needs_text_and_the_csrf_header(
     owner: Owner, client: TestClient, entry: uuid.UUID, database_url: str
 ) -> None:
