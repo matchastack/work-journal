@@ -95,7 +95,7 @@ def check_claims(
             prompt,
             ClaimReply,
             variables={
-                "facts": _facts_json(facts),
+                "facts": facts_json(facts),
                 "boundaries": _listed(boundaries),
                 "gaps": _listed(gaps),
                 "posting_terms": _listed(posting_terms),
@@ -126,7 +126,9 @@ def check_claims(
     )
 
 
-def _facts_json(facts: Sequence[Fact]) -> str:
+def facts_json(facts: Sequence[Fact]) -> str:
+    """The facts as the judge and the writers see them: each one's ID and what happened, without
+    its links to roles, projects or journal entries."""
     data = [fact.model_dump(mode="json", include=_FACT_FIELDS, exclude_none=True) for fact in facts]
     return json.dumps(data, indent=2, ensure_ascii=False)
 

@@ -2,7 +2,16 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-11 · T-059 Choose the role of each entry · PR not opened yet
+## 2026-10-12 · T-017 Resume writer · [#34](https://github.com/matchastack/work-journal/pull/34)
+**Changed:** added the resume writer and `wj write`: a standard-tier prompt writes facts as a resume bullet, new or a new version of an existing one, and the verifier checks it; one that fails is written once more, then flagged. The backlog now puts the master resume first: LinkedIn and job-posting writing moved to T-060, and the refresh's LinkedIn and portfolio updates to T-061.
+
+**Verify:**
+- CI is green on #34
+- With your key, `uv run pytest -m llm tests/test_writing_live.py` passes (6 cases)
+- With your key and a loaded profile, `uv run wj write --db --edit <one of your bullet IDs> --facts fact_<that bullet ID>` prints a version of that bullet you'd put on your resume, and says it passed the checks
+- The re-planned T-017, T-038, T-060 and T-061 in `tasks.md` match the order you want
+
+## 2026-10-11 · T-059 Choose the role of each entry · [#33](https://github.com/matchastack/work-journal/pull/33)
 **Changed:** when an entry closes, the bot asks which role it's about, with a button for each role in your profile and New role. Facts are extracted only after you answer, and every one links to the role you chose; a new role's name is kept (encrypted) for a refresh to add.
 
 **Verify:**

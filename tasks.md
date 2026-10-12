@@ -23,8 +23,8 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 | Milestone | Tasks | Status |
 |---|---|---|
 | M0: Documents | T-000, T-055 and T-056 | ◐ |
-| M1: Engine and command line | T-001 – T-024 and T-054 (T-007 dropped) | ◐ |
-| M2: Journal loop | T-025 – T-053 and T-057 – T-059 | ◐ |
+| M1: Engine and command line | T-001 – T-024, T-054 and T-060 (T-007 dropped) | ◐ |
+| M2: Journal loop | T-025 – T-053, T-057 – T-059 and T-061 | ◐ |
 | M3: Quality and habit | Epics (at the end of this file) | — |
 | M4: Open to others | Epics (at the end of this file) | — |
 
@@ -290,12 +290,24 @@ As the owner, I want LLM quality measured on a fixed dataset, so that any change
 - [ ] A baseline report is committed.
 - [ ] `CLAUDE.md` says to run it before changing prompts or model routing.
 
-### T-017 · Writers
-**Status:** ☐ · **Size:** M · **Depends on:** T-015 · **Requirements:** FR-WRT-1, FR-WRT-2, FR-WRT-3, FR-WRT-4, FR-WRT-5 · **PR:** —
+### T-017 · Resume writer
+**Status:** ◐ · **Size:** M · **Depends on:** T-015 · **Requirements:** FR-WRT-1, FR-WRT-4, FR-FID-7 · **PR:** [#34](https://github.com/matchastack/work-journal/pull/34)
 
-As the owner, I want facts written up as resume or LinkedIn text, so that I get polished wording in the right voice.
+As the owner, I want facts written up as resume bullets, so that my journal turns into polished resume wording that never says more than I did.
 
-- [ ] A standard-tier writer handles the resume/HR, LinkedIn and job-posting styles, and can apply a swap fragment to a bullet.
+- [x] A standard-tier writer turns facts into a bullet in the resume/HR style, under a role, education entry or project: a new bullet, or a new version of an existing one.
+- [x] Every bullet passes the combined verifier. One that fails is written once more with the findings, and is flagged if it still fails.
+- [x] `wj write --facts <ids>` prints the bullet and what the verifier found.
+- [x] Tests use the fake client, plus an opt-in evaluation.
+
+**Split at the owner's request (2026-10-12):** the master resume comes first, so the LinkedIn and job-posting styles, swaps and saving approved phrasings moved to T-060.
+
+### T-060 · LinkedIn and job-posting writers, and swaps
+**Status:** ☐ · **Size:** M · **Depends on:** T-017 · **Requirements:** FR-WRT-2, FR-WRT-3, FR-WRT-4, FR-WRT-5 · **PR:** —
+
+As the owner, I want facts written in LinkedIn's voice and in a posting's vocabulary, and the phrasings I approve kept, so that tailoring and LinkedIn reuse wording I've already checked.
+
+- [ ] The writer (T-017) also handles the LinkedIn and job-posting styles, and can apply a swap fragment to a bullet.
 - [ ] Every output passes the combined verifier, and failures are flagged.
 - [ ] Approved new phrasings can be saved as swaps (the AddSwap op).
 - [ ] `wj write --style resume|linkedin --facts <ids>`
@@ -326,7 +338,7 @@ As the owner, I want a pasted posting broken into structured requirements, so th
 - [x] Tests use the fake client, with three fictional postings as fixtures.
 
 ### T-020 · Tailoring: selection and assembly
-**Status:** ☐ · **Size:** L · **Depends on:** T-009, T-010, T-017, T-019 · **Requirements:** FR-TLR-2, FR-TLR-3, FR-TLR-4, FR-TLR-5, FR-TLR-7, R1–R10 · **PR:** —
+**Status:** ☐ · **Size:** L · **Depends on:** T-009, T-010, T-019, T-060 · **Requirements:** FR-TLR-2, FR-TLR-3, FR-TLR-4, FR-TLR-5, FR-TLR-7, R1–R10 · **PR:** —
 
 As the owner, I want a one-page resume tailored to a posting from my master profile, so that each application takes minutes and stays truthful.
 
@@ -377,7 +389,7 @@ As the owner, I want my profile rendered as a portfolio page in the style of my 
 - [x] Snapshot tests run against the fictional fixture.
 
 ### T-024 · LinkedIn pack generator
-**Status:** ☐ · **Size:** M · **Depends on:** T-017 · **Requirements:** FR-LIN-1, FR-LIN-2, FR-LIN-4 · **PR:** —
+**Status:** ☐ · **Size:** M · **Depends on:** T-060 · **Requirements:** FR-LIN-1, FR-LIN-2, FR-LIN-4 · **PR:** —
 
 As the owner, I want LinkedIn text generated from my profile, and only for what changed, so that updating LinkedIn takes minutes.
 
@@ -493,7 +505,7 @@ As the owner, I want my messages grouped into journal entries automatically, so 
 - [x] Tests for the edge cases: a gap of exactly 30 minutes, and edits to a closed entry.
 
 ### T-033 · Extraction on entry close, and summary reply
-**Status:** ◐ · **Size:** M · **Depends on:** T-014, T-027, T-032 · **Requirements:** FR-CAP-5, FR-EXT-1, FR-CAP-8 · **PR:** [#30](https://github.com/matchastack/work-journal/pull/30)
+**Status:** ☑ · **Size:** M · **Depends on:** T-014, T-027, T-032 · **Requirements:** FR-CAP-5, FR-EXT-1, FR-CAP-8 · **PR:** [#30](https://github.com/matchastack/work-journal/pull/30)
 
 As the owner, I want the bot to tell me what it understood from each entry, so that I can correct it while it's fresh.
 
@@ -513,7 +525,7 @@ As the owner, I want to see the bot's commands when I type "/", so that I don't 
 - [x] Tests.
 
 ### T-058 · Ticks run scheduled tasks only as of their own time
-**Status:** ◐ · **Size:** S · **Depends on:** T-051 · **Requirements:** NFR-REL-1 · **PR:** [#32](https://github.com/matchastack/work-journal/pull/32)
+**Status:** ☑ · **Size:** S · **Depends on:** T-051 · **Requirements:** NFR-REL-1 · **PR:** [#32](https://github.com/matchastack/work-journal/pull/32)
 
 As the owner, I want each scheduled task to run once per due time, so that a tick never runs it again for a time it wasn't asked about.
 
@@ -521,7 +533,7 @@ As the owner, I want each scheduled task to run once per due time, so that a tic
 - [x] A test pins the real clock, so the result doesn't depend on when CI runs.
 
 ### T-059 · Choose the role of each entry
-**Status:** ◐ · **Size:** M · **Depends on:** T-033 · **Requirements:** FR-CAP-11, FR-CAP-5, FR-EXT-1 · **PR:** —
+**Status:** ☑ · **Size:** M · **Depends on:** T-033 · **Requirements:** FR-CAP-11, FR-CAP-5, FR-EXT-1 · **PR:** [#33](https://github.com/matchastack/work-journal/pull/33)
 
 As the owner, I want to say which role each journal entry is about when I submit it, so that its facts land under the right job instead of one the model guesses.
 
@@ -572,16 +584,27 @@ As the owner, I want a short guided interview on first use, so that the months s
 - [ ] Answers become entries, then facts. When the interview ends, the bot offers `/refresh` to turn them into proposed changes.
 - [ ] The owner can stop at any time and resume later.
 
-### T-038 · Refresh: proposals on demand and output updates
-**Status:** ☐ · **Size:** M · **Depends on:** T-010, T-018, T-024, T-027, T-028, T-033 · **Requirements:** FR-REV-6, FR-REV-7, FR-REM-6, FR-RES-5, FR-LIN-1 · **PR:** —
+### T-038 · Refresh: proposals on demand and the master resume
+**Status:** ☐ · **Size:** M · **Depends on:** T-010, T-018, T-027, T-028, T-033 · **Requirements:** FR-REV-6, FR-REV-7, FR-REM-6, FR-RES-5 · **PR:** —
 
-As the owner, I want my profile and every output updated only when I ask, so that months of small journal entries become one review when I need current outputs.
+As the owner, I want my profile and master resume updated only when I ask, so that months of small journal entries become one review when I need a current resume.
 
 - [ ] `/refresh` queues profile synthesis on the facts added or edited since the last refresh. Nothing runs on a schedule or when an entry closes.
 - [ ] The bot sends "N updates proposed → Review" with a link, or says there's nothing new.
-- [ ] An output-update job runs when the owner applies a refresh's changes (T-040): it re-renders the master resume, regenerates the LinkedIn pack, and moves the portfolio page to the new version if it's published.
-- [ ] A refresh with no new facts still runs the output update, so edits made in the web app reach the outputs.
+- [ ] An output-update job runs when the owner applies a refresh's changes (T-040): it re-renders the master resume.
+- [ ] A refresh with no new facts still runs the output update, so edits made in the web app reach the master resume.
 - [ ] Tailored resumes already made are not changed.
+- [ ] Tests use the fake LLM client.
+
+**Split at the owner's request (2026-10-12):** the master resume comes first, so regenerating the LinkedIn pack and moving the portfolio page moved to T-061.
+
+### T-061 · Refresh: the LinkedIn pack and the portfolio page
+**Status:** ☐ · **Size:** S · **Depends on:** T-024, T-038, T-046 · **Requirements:** FR-REV-7, FR-LIN-1, FR-PRT-3 · **PR:** —
+
+As the owner, I want a refresh to update my LinkedIn text and portfolio page too, so that every output shows the same new version.
+
+- [ ] The output-update job (T-038) also regenerates the LinkedIn pack, and moves the portfolio page to the new version if it's published.
+- [ ] A refresh with no new facts still brings both up to date with the latest version.
 - [ ] Tests use the fake LLM client.
 
 ### T-039 · Web app scaffold
