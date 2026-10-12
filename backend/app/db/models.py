@@ -388,8 +388,8 @@ class JournalEntry(Base):
 
 
 class JournalMessage(Base):
-    """A message in the journal, from the owner's linked chat (FR-JRN-1). An edit in Telegram
-    changes its text and keeps the earlier one (FR-JRN-3)."""
+    """A message in the journal, from the owner's linked chat (FR-JRN-1). An edit, in Telegram or
+    in the web app, changes its text and keeps the earlier one (FR-JRN-3, FR-JRN-6)."""
 
     __tablename__ = "journal_messages"
     __table_args__ = (
@@ -412,12 +412,12 @@ class JournalMessage(Base):
     text: Mapped[str] = mapped_column(EncryptedText("journal_messages.text"))
     sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    """When the text was last edited in Telegram, if it was."""
+    """When the text was last edited, in Telegram or in the web app, if it was."""
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class JournalMessageEdit(Base):
-    """A journal message's earlier text, kept when it was edited in Telegram (FR-JRN-3)."""
+    """A journal message's earlier text, kept when it was edited (FR-JRN-3)."""
 
     __tablename__ = "journal_message_edits"
 

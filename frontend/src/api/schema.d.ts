@@ -148,6 +148,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/journal/messages/{message_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Message
+         * @description Delete a message. An entry's only message can't be: delete the entry (409).
+         */
+        delete: operations["remove_message_api_journal_messages__message_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change Message
+         * @description Replace a message's text, keeping the text it replaces (FR-JRN-6, FR-JRN-3).
+         */
+        patch: operations["change_message_api_journal_messages__message_id__patch"];
+        trace?: never;
+    };
+    "/api/journal/entries/{entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Entry
+         * @description Delete an entry, its messages and its facts (FR-JRN-6). When the profile cites one of the
+         *     facts, it takes `confirm=true` (409 without).
+         */
+        delete: operations["remove_entry_api_journal_entries__entry_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -332,6 +377,11 @@ export interface components {
              * Format: date-time
              */
             replacedAt: string;
+        };
+        /** MessageText */
+        MessageText: {
+            /** Text */
+            text: string;
         };
         /** Metric */
         Metric: {
@@ -594,6 +644,101 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Journal"];
+                };
+            };
+        };
+    };
+    remove_message_api_journal_messages__message_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_message_api_journal_messages__message_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MessageText"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JournalMessageView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_entry_api_journal_entries__entry_id__delete: {
+        parameters: {
+            query?: {
+                confirm?: boolean;
+            };
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -11,13 +11,13 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.auth.sessions import SESSION_COOKIE, start_session
+from app.auth.sessions import CSRF_HEADER, SESSION_COOKIE, start_session
 from app.config import Settings
 from app.db.crypto import KeyRing, new_key, use_key_ring
-from app.db.models import JournalEntry, JournalMessage, JournalMessageEdit, User
+from app.db.models import FactRow, JournalEntry, JournalMessage, JournalMessageEdit, User
 from app.db.profiles import save_version
 from app.db.store import save_facts
 from app.main import create_app
@@ -70,6 +70,11 @@ class Owner:
             return user.id, token, row.csrf_token
 
         self.id, self.session_token, self.csrf_token = seed(database_url, sign_in)
+
+    @property
+    def csrf(self) -> dict[str, str]:
+        """The header that requests changing something must carry."""
+        return {CSRF_HEADER: self.csrf_token}
 
 
 @pytest.fixture
@@ -296,3 +301,169 @@ def test_the_journal_shows_only_the_owners_entries(
 
     seed(database_url, build)
     assert client.get("/api/journal").json()["entries"] == []
+
+
+# --- Correcting messages and entries -------------------------------------------------------------
+
+
+def message_ids(database_url: str, entry_id: uuid.UUID) -> list[uuid.UUID]:
+    async def query(session: AsyncSession) -> list[uuid.UUID]:
+        ids = await session.scalars(
+            select(JournalMessage.id)
+            .where(JournalMessage.entry_id == entry_id)
+            .order_by(JournalMessage.sent_at)
+        )
+        return list(ids)
+
+    return seed(database_url, query)
+
+
+def count(database_url: str, table: Any, *where: Any) -> int:
+    async def query(session: AsyncSession) -> int:
+        return await session.scalar(select(func.count()).select_from(table).where(*where)) or 0
+
+    return seed(database_url, query)
+
+
+@pytest.fixture
+def entry(database_url: str, owner: Owner) -> uuid.UUID:
+    """A processed entry of two messages, with two facts. The profile cites the first."""
+
+    async def build(session: AsyncSession) -> uuid.UUID:
+        entry = await add_entry(
+            session,
+            owner.id,
+            owner.chat_id,
+            OCTOBER,
+            "cut the nightly export to 12 min",
+            "also wrote the runbook",
+            role_id="northwind",
+            triage="work",
+            processed_at=OCTOBER + timedelta(hours=1),
+        )
+        await save_facts(
+            session,
+            owner.id,
+            [fact(entry, 1, "Cut the export to 12 minutes."), fact(entry, 2, "Wrote a runbook.")],
+        )
+        await save_version(session, owner.id, citing(f"{entry}_1"), author="owner")
+        return entry
+
+    return seed(database_url, build)
+
+
+def test_editing_a_message_keeps_its_earlier_text(
+    database_url: str, owner: Owner, client: TestClient, entry: uuid.UUID
+) -> None:
+    """FR-JRN-6, with the history of FR-JRN-3. The text is stored in ASCII characters."""
+    first, _ = message_ids(database_url, entry)
+    response = client.patch(
+        f"/api/journal/messages/{first}",
+        json={"text": "  cut the nightly export to 13 min \u2013 not 12  "},
+        headers=owner.csrf,
+    )
+    assert response.status_code == 200
+    edited = response.json()
+    assert edited["text"] == "cut the nightly export to 13 min - not 12"
+    assert [edit["text"] for edit in edited["edits"]] == ["cut the nightly export to 12 min"]
+    assert edited["editedAt"] == edited["edits"][0]["replacedAt"]
+    shown = client.get("/api/journal").json()["entries"][0]["messages"][0]
+    assert shown == edited
+    again = client.patch(
+        f"/api/journal/messages/{first}", json={"text": edited["text"]}, headers=owner.csrf
+    )
+    assert again.json() == edited, "the same text adds no history"
+
+
+def test_a_message_edit_needs_text_and_the_csrf_header(
+    owner: Owner, client: TestClient, entry: uuid.UUID, database_url: str
+) -> None:
+    first, _ = message_ids(database_url, entry)
+    path = f"/api/journal/messages/{first}"
+    assert client.patch(path, json={"text": "new"}).status_code == 403
+    assert client.patch(path, json={"text": "   "}, headers=owner.csrf).status_code == 422
+    too_long = {"text": "x" * 4097}
+    assert client.patch(path, json=too_long, headers=owner.csrf).status_code == 422
+
+
+def test_only_the_owners_own_messages_can_be_changed(
+    database_url: str, owner: Owner, client: TestClient
+) -> None:
+    async def build(session: AsyncSession) -> list[uuid.UUID]:
+        other = User()
+        session.add(other)
+        await session.flush()
+        theirs = await add_entry(session, other.id, owner.chat_id + 1, OCTOBER, "a", "b")
+        bot = JournalMessage(
+            user_id=owner.id,
+            chat_id=owner.chat_id,
+            message_id=_random.randrange(10**9),
+            sender="bot",
+            text="Saved 2 facts from this entry.",
+            sent_at=OCTOBER,
+        )
+        session.add(bot)
+        await session.flush()
+        others = await session.scalars(
+            select(JournalMessage.id).where(JournalMessage.entry_id == theirs)
+        )
+        return [*others, bot.id]
+
+    for message_id in [*seed(database_url, build), uuid.uuid4()]:
+        path = f"/api/journal/messages/{message_id}"
+        assert client.patch(path, json={"text": "x"}, headers=owner.csrf).status_code == 404
+        assert client.delete(path, headers=owner.csrf).status_code == 404
+
+
+def test_a_message_can_be_deleted_but_not_its_entrys_only_one(
+    database_url: str, owner: Owner, client: TestClient, entry: uuid.UUID
+) -> None:
+    first, second = message_ids(database_url, entry)
+    assert client.delete(f"/api/journal/messages/{first}").status_code == 403
+    assert client.delete(f"/api/journal/messages/{first}", headers=owner.csrf).status_code == 204
+    assert message_ids(database_url, entry) == [second]
+    only = client.delete(f"/api/journal/messages/{second}", headers=owner.csrf)
+    assert only.status_code == 409
+    assert "delete the entry instead" in only.json()["detail"]
+
+
+def test_deleting_an_entry_deletes_its_messages_and_facts(
+    database_url: str, owner: Owner, client: TestClient
+) -> None:
+    async def build(session: AsyncSession) -> tuple[uuid.UUID, uuid.UUID]:
+        gone = await add_entry(session, owner.id, owner.chat_id, OCTOBER, "one", "two")
+        kept = await add_entry(session, owner.id, owner.chat_id, SEPTEMBER, "three")
+        await save_facts(
+            session,
+            owner.id,
+            [fact(gone, 1, "Gone."), fact(gone, 2, "Gone."), fact(kept, 1, "Kept.")],
+        )
+        return gone, kept
+
+    gone, kept = seed(database_url, build)
+    first, _ = message_ids(database_url, gone)
+    client.patch(f"/api/journal/messages/{first}", json={"text": "uno"}, headers=owner.csrf)
+    assert client.delete(f"/api/journal/entries/{gone}").status_code == 403
+    assert client.delete(f"/api/journal/entries/{gone}", headers=owner.csrf).status_code == 204
+    assert [e["id"] for e in client.get("/api/journal").json()["entries"]] == [str(kept)]
+    assert count(database_url, JournalMessage, JournalMessage.user_id == owner.id) == 1
+    assert count(database_url, JournalMessageEdit, JournalMessageEdit.user_id == owner.id) == 0
+    assert count(database_url, FactRow, FactRow.user_id == owner.id) == 1
+    again = client.delete(f"/api/journal/entries/{gone}", headers=owner.csrf)
+    assert again.status_code == 404
+
+
+def test_deleting_an_entry_with_cited_facts_needs_confirming(
+    database_url: str, owner: Owner, client: TestClient, entry: uuid.UUID
+) -> None:
+    """FR-JRN-6: the profile cites the entry's first fact."""
+    refused = client.delete(f"/api/journal/entries/{entry}", headers=owner.csrf)
+    assert refused.status_code == 409
+    assert refused.json()["detail"] == (
+        "1 bullet in your profile cites this; confirm to delete anyway"
+    )
+    assert count(database_url, JournalEntry, JournalEntry.id == entry) == 1
+    confirmed = client.delete(f"/api/journal/entries/{entry}?confirm=true", headers=owner.csrf)
+    assert confirmed.status_code == 204
+    assert count(database_url, JournalEntry, JournalEntry.id == entry) == 0
+    assert count(database_url, FactRow, FactRow.user_id == owner.id) == 0

@@ -221,6 +221,142 @@
           }
         }
       }
+    },
+    "/api/journal/messages/{message_id}": {
+      "patch": {
+        "tags": [
+          "journal"
+        ],
+        "summary": "Change Message",
+        "description": "Replace a message's text, keeping the text it replaces (FR-JRN-6, FR-JRN-3).",
+        "operationId": "change_message_api_journal_messages__message_id__patch",
+        "parameters": [
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Message Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessageText"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JournalMessageView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "journal"
+        ],
+        "summary": "Remove Message",
+        "description": "Delete a message. An entry's only message can't be: delete the entry (409).",
+        "operationId": "remove_message_api_journal_messages__message_id__delete",
+        "parameters": [
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Message Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/journal/entries/{entry_id}": {
+      "delete": {
+        "tags": [
+          "journal"
+        ],
+        "summary": "Remove Entry",
+        "description": "Delete an entry, its messages and its facts (FR-JRN-6). When the profile cites one of the\nfacts, it takes `confirm=true` (409 without).",
+        "operationId": "remove_entry_api_journal_entries__entry_id__delete",
+        "parameters": [
+          {
+            "name": "entry_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Entry Id"
+            }
+          },
+          {
+            "name": "confirm",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Confirm"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -730,6 +866,22 @@
         ],
         "title": "MessageEdit",
         "description": "A message's text before an edit."
+      },
+      "MessageText": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "MessageText"
       },
       "Metric": {
         "properties": {
