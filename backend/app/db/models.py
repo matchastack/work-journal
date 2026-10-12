@@ -195,6 +195,11 @@ class FactRow(Base):
     role_id: Mapped[str | None] = mapped_column(String(64))
     project_id: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+    """When the fact was saved or last changed: a refresh covers the facts added or edited since
+    the last one (FR-REV-6)."""
 
 
 class VariantRow(Base):
