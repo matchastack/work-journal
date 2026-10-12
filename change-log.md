@@ -2,6 +2,15 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-12 · T-040 Inbox · PR not opened yet
+**Changed:** the web app's Inbox lists the changes proposed to your profile. Each one shows a word diff, the facts it came from, the outputs it changes and the verifier's report. You accept, edit (checked again) or reject each one, and Apply turns the accepted ones into a new profile version; reasons you give for rejecting become style notes. Nothing proposes changes until the refresh (T-038), so the Inbox stays empty until then.
+
+**Verify:**
+- CI is green on the PR
+- With a change set in your local database (the PR has a script), accepting a change moves focus to the next one, and Apply makes a new profile version
+- "Accept all that passed" leaves the changes the verifier flagged waiting, and Apply stays off until every change is decided
+- Editing a bullet's text, with the LLM settings, shows the verifier's new report on the change
+
 ## 2026-10-12 · T-041 Journal page · [#35](https://github.com/matchastack/work-journal/pull/35)
 **Changed:** the web app's Journal page shows your journal as one document by month, with the facts saved from each entry. You can edit or delete messages, entries and facts there (deleting something your profile cites names the bullets and asks first), and download it all as Markdown or JSON.
 
