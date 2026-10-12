@@ -2,7 +2,7 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-11 · T-059 Choose the role of each entry · PR not opened yet
+## 2026-10-11 · T-059 Choose the role of each entry · [#33](https://github.com/matchastack/work-journal/pull/33)
 **Changed:** when an entry closes, the bot asks which role it's about, with a button for each role in your profile and New role. Facts are extracted only after you answer, and every one links to the role you chose; a new role's name is kept (encrypted) for a refresh to add.
 
 **Verify:**
