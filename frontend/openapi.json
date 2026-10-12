@@ -520,10 +520,283 @@
           }
         }
       }
+    },
+    "/api/inbox": {
+      "get": {
+        "tags": [
+          "inbox"
+        ],
+        "summary": "Inbox",
+        "description": "The change sets waiting for review, oldest first (FR-REV-1).",
+        "operationId": "inbox_api_inbox_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Inbox"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/inbox/{change_set_id}/ops/{position}/decision": {
+      "post": {
+        "tags": [
+          "inbox"
+        ],
+        "summary": "Decide Change",
+        "description": "Accept or reject one change, or undo the decision (FR-REV-2).",
+        "operationId": "decide_change_api_inbox__change_set_id__ops__position__decision_post",
+        "parameters": [
+          {
+            "name": "change_set_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Change Set Id"
+            }
+          },
+          {
+            "name": "position",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Position"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Decision"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboxChangeSet"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/inbox/{change_set_id}/ops/{position}/text": {
+      "put": {
+        "tags": [
+          "inbox"
+        ],
+        "summary": "Edit Change",
+        "description": "Edit the text of a new or reworded bullet. The verifier checks it again, and it waits for\na decision once more (FR-REV-2, FR-FID-7). Claude unavailable: 502, or 503 when it isn't\nset up.",
+        "operationId": "edit_change_api_inbox__change_set_id__ops__position__text_put",
+        "parameters": [
+          {
+            "name": "change_set_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Change Set Id"
+            }
+          },
+          {
+            "name": "position",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Position"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulletText"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboxChangeSet"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/inbox/{change_set_id}/accept-passed": {
+      "post": {
+        "tags": [
+          "inbox"
+        ],
+        "summary": "Accept All",
+        "description": "Accept every change still waiting whose text passed the verifier (bulk accept). Flagged\nones keep waiting for a decision of their own.",
+        "operationId": "accept_all_api_inbox__change_set_id__accept_passed_post",
+        "parameters": [
+          {
+            "name": "change_set_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Change Set Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboxChangeSet"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/inbox/{change_set_id}/apply": {
+      "post": {
+        "tags": [
+          "inbox"
+        ],
+        "summary": "Apply Changes",
+        "description": "Apply the accepted changes as one new profile version (FR-REV-3), once every change is\ndecided (409 before). Reasons given for rejections become style notes (FR-REV-4).",
+        "operationId": "apply_changes_api_inbox__change_set_id__apply_post",
+        "parameters": [
+          {
+            "name": "change_set_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Change Set Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Applied"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "Applied": {
+        "properties": {
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "version"
+        ],
+        "title": "Applied"
+      },
+      "BulletText": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "BulletText"
+      },
       "ChangeValue": {
         "properties": {
           "kind": {
@@ -569,6 +842,151 @@
         ],
         "title": "Citation",
         "description": "A bullet in the latest profile version that cites a fact."
+      },
+      "ClaimJudgement": {
+        "properties": {
+          "claim": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Claim"
+          },
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "supported",
+              "unsupported",
+              "contradicted"
+            ],
+            "title": "Verdict"
+          },
+          "issue": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "inflated_ownership",
+                  "added_tool",
+                  "added_team_size",
+                  "added_outcome",
+                  "added_scope",
+                  "honesty_boundary",
+                  "skill_gap",
+                  "posting_term",
+                  "other"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issue"
+          },
+          "term": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Term"
+          },
+          "factIds": {
+            "items": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[a-z0-9][a-z0-9_-]*$"
+            },
+            "type": "array",
+            "title": "Factids",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "claim",
+          "verdict"
+        ],
+        "title": "ClaimJudgement",
+        "description": "The claim check's verdict on one claim in the text."
+      },
+      "Decision": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "proposed",
+              "accepted",
+              "rejected"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "Decision"
+      },
+      "Derivation": {
+        "properties": {
+          "quantity": {
+            "type": "string",
+            "title": "Quantity"
+          },
+          "formula": {
+            "type": "string",
+            "title": "Formula"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "quantity",
+          "formula"
+        ],
+        "title": "Derivation",
+        "description": "A figure in the text that code computed from a fact metric, and how (FR-FID-2)."
+      },
+      "DiffPart": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "same",
+              "removed",
+              "added"
+            ],
+            "title": "Kind"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "text"
+        ],
+        "title": "DiffPart",
+        "description": "Words the texts share, or that one of them has. Its spaces count, so the parts rebuild\neach text exactly."
       },
       "Fact": {
         "properties": {
@@ -926,6 +1344,237 @@
           "database"
         ],
         "title": "Health"
+      },
+      "Inbox": {
+        "properties": {
+          "changeSets": {
+            "items": {
+              "$ref": "#/components/schemas/InboxChangeSet"
+            },
+            "type": "array",
+            "title": "Changesets"
+          },
+          "profileVersion": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profileversion"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "changeSets",
+          "profileVersion"
+        ],
+        "title": "Inbox"
+      },
+      "InboxChangeSet": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "author": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "ai"
+            ],
+            "title": "Author"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "baseVersion": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseversion"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Createdat"
+          },
+          "ops": {
+            "items": {
+              "$ref": "#/components/schemas/InboxOp"
+            },
+            "type": "array",
+            "title": "Ops"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "author",
+          "summary",
+          "baseVersion",
+          "createdAt",
+          "ops"
+        ],
+        "title": "InboxChangeSet"
+      },
+      "InboxOp": {
+        "properties": {
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "add_bullet",
+              "edit_bullet",
+              "set_bullet_status",
+              "add_swap",
+              "add_role",
+              "add_education",
+              "add_project",
+              "update_field",
+              "add_skill",
+              "resolve_open_question"
+            ],
+            "title": "Kind"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "proposed",
+              "accepted",
+              "rejected"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "context": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          },
+          "after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After"
+          },
+          "diff": {
+            "items": {
+              "$ref": "#/components/schemas/DiffPart"
+            },
+            "type": "array",
+            "title": "Diff"
+          },
+          "outputs": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "master_resume",
+                "tailored_resumes",
+                "portfolio",
+                "linkedin"
+              ]
+            },
+            "type": "array",
+            "title": "Outputs"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceFact"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "verifierReport": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VerifierReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "editable": {
+            "type": "boolean",
+            "title": "Editable"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "position",
+          "kind",
+          "status",
+          "reason",
+          "title",
+          "context",
+          "before",
+          "after",
+          "diff",
+          "outputs",
+          "sources",
+          "verifierReport",
+          "editable"
+        ],
+        "title": "InboxOp"
       },
       "Journal": {
         "properties": {
@@ -1557,6 +2206,45 @@
         "title": "SingleValue",
         "description": "One number, e.g. `93` (% accuracy)."
       },
+      "SourceFact": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "statement": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Statement"
+          },
+          "entryId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entryid"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "statement",
+          "entryId"
+        ],
+        "title": "SourceFact",
+        "description": "A fact an operation cites."
+      },
       "TelegramDeepLink": {
         "properties": {
           "url": {
@@ -1643,6 +2331,120 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VerifierFinding": {
+        "properties": {
+          "check": {
+            "type": "string",
+            "enum": [
+              "numbers",
+              "claims",
+              "style",
+              "rules"
+            ],
+            "title": "Check"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warning"
+            ],
+            "title": "Severity"
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Message"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "check",
+          "severity",
+          "code",
+          "message"
+        ],
+        "title": "VerifierFinding"
+      },
+      "VerifierReport": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text"
+          },
+          "passed": {
+            "type": "boolean",
+            "title": "Passed"
+          },
+          "attempts": {
+            "type": "integer",
+            "maximum": 2.0,
+            "minimum": 1.0,
+            "title": "Attempts",
+            "default": 1
+          },
+          "factIds": {
+            "items": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[a-z0-9][a-z0-9_-]*$"
+            },
+            "type": "array",
+            "title": "Factids",
+            "default": []
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/VerifierFinding"
+            },
+            "type": "array",
+            "title": "Findings",
+            "default": []
+          },
+          "claims": {
+            "items": {
+              "$ref": "#/components/schemas/ClaimJudgement"
+            },
+            "type": "array",
+            "title": "Claims",
+            "default": []
+          },
+          "derivations": {
+            "items": {
+              "$ref": "#/components/schemas/Derivation"
+            },
+            "type": "array",
+            "title": "Derivations",
+            "default": []
+          },
+          "claimPrompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claimprompt"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text",
+          "passed"
+        ],
+        "title": "VerifierReport",
+        "description": "What the verifier found in one text. Text that doesn't pass is flagged: it's shown to the\nowner, who must accept it by hand (FR-FID-7)."
       }
     }
   }
