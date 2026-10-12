@@ -12,13 +12,17 @@ from pydantic import StringConstraints
 from app.auth.routes import NO_STORE
 from app.auth.sessions import CurrentUser
 from app.deps import Db
-from app.journal.document import Journal, JournalMessageView, load_journal
+from app.journal.document import Journal, JournalFact, JournalMessageView, load_journal
 from app.journal.editing import (
+    FactEdit,
     FactsCited,
     NotFound,
     OnlyMessage,
+    UnknownLink,
     delete_entry,
+    delete_fact,
     delete_message,
+    edit_fact,
     edit_message,
 )
 from app.schema.common import Model
@@ -71,6 +75,28 @@ async def remove_entry(
     await db.commit()
 
 
+@router.put("/facts/{fact_id}")
+async def change_fact(
+    fact_id: str, body: FactEdit, user: CurrentUser, db: Db, response: Response
+) -> JournalFact:
+    """Change a fact's fields (FR-EXT-3). Its role and project must be in the profile, unless it
+    already links to them (422)."""
+    response.headers.update(NO_STORE)
+    with _errors():
+        fact = await edit_fact(db, user.id, fact_id, body)
+    await db.commit()
+    return fact
+
+
+@router.delete("/facts/{fact_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_fact(fact_id: str, user: CurrentUser, db: Db, confirm: bool = False) -> None:
+    """Delete a fact (FR-EXT-3). When the profile cites it, it takes `confirm=true` (409
+    without)."""
+    with _errors():
+        await delete_fact(db, user.id, fact_id, confirm=confirm)
+    await db.commit()
+
+
 @contextmanager
 def _errors() -> Generator[None]:
     """Answer a correction that can't be made with its HTTP status."""
@@ -80,3 +106,5 @@ def _errors() -> Generator[None]:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(error)) from None
     except (OnlyMessage, FactsCited) as error:
         raise HTTPException(status.HTTP_409_CONFLICT, str(error)) from None
+    except UnknownLink as error:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(error)) from None

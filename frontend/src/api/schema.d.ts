@@ -193,6 +193,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/journal/facts/{fact_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change Fact
+         * @description Change a fact's fields (FR-EXT-3). Its role and project must be in the profile, unless it
+         *     already links to them (422).
+         */
+        put: operations["change_fact_api_journal_facts__fact_id__put"];
+        post?: never;
+        /**
+         * Remove Fact
+         * @description Delete a fact (FR-EXT-3). When the profile cites it, it takes `confirm=true` (409
+         *     without).
+         */
+        delete: operations["remove_fact_api_journal_facts__fact_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -221,6 +247,35 @@ export interface components {
             bulletId: string;
             /** Text */
             text: string;
+        };
+        /**
+         * FactEdit
+         * @description A fact's fields that the owner can change, all of them at once.
+         */
+        FactEdit: {
+            /** Statement */
+            statement: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "accomplishment" | "project" | "role_change" | "skill" | "certification" | "award" | "talk" | "learning";
+            /** Metrics */
+            metrics: components["schemas"]["Metric"][];
+            /** Ownership */
+            ownership: ("led" | "owned" | "contributed" | "assisted") | null;
+            /** Tools */
+            tools: string[];
+            /** Outcome */
+            outcome: string | null;
+            /** Date */
+            date: string | null;
+            /** Roleid */
+            roleId: string | null;
+            /** Projectid */
+            projectId: string | null;
+            /** Proposedrole */
+            proposedRole: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -720,6 +775,72 @@ export interface operations {
             header?: never;
             path: {
                 entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_fact_api_journal_facts__fact_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fact_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FactEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JournalFact"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_fact_api_journal_facts__fact_id__delete: {
+        parameters: {
+            query?: {
+                confirm?: boolean;
+            };
+            header?: never;
+            path: {
+                fact_id: string;
             };
             cookie?: never;
         };

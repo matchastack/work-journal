@@ -357,6 +357,103 @@
           }
         }
       }
+    },
+    "/api/journal/facts/{fact_id}": {
+      "put": {
+        "tags": [
+          "journal"
+        ],
+        "summary": "Change Fact",
+        "description": "Change a fact's fields (FR-EXT-3). Its role and project must be in the profile, unless it\nalready links to them (422).",
+        "operationId": "change_fact_api_journal_facts__fact_id__put",
+        "parameters": [
+          {
+            "name": "fact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Fact Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FactEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JournalFact"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "journal"
+        ],
+        "summary": "Remove Fact",
+        "description": "Delete a fact (FR-EXT-3). When the profile cites it, it takes `confirm=true` (409\nwithout).",
+        "operationId": "remove_fact_api_journal_facts__fact_id__delete",
+        "parameters": [
+          {
+            "name": "fact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Fact Id"
+            }
+          },
+          {
+            "name": "confirm",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Confirm"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -406,6 +503,140 @@
         ],
         "title": "Citation",
         "description": "A bullet in the latest profile version that cites a fact."
+      },
+      "FactEdit": {
+        "properties": {
+          "statement": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Statement"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "accomplishment",
+              "project",
+              "role_change",
+              "skill",
+              "certification",
+              "award",
+              "talk",
+              "learning"
+            ],
+            "title": "Kind"
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/Metric"
+            },
+            "type": "array",
+            "title": "Metrics"
+          },
+          "ownership": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "led",
+                  "owned",
+                  "contributed",
+                  "assisted"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ownership"
+          },
+          "tools": {
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "type": "array",
+            "title": "Tools"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "roleId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "pattern": "^[a-z0-9][a-z0-9_-]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roleid"
+          },
+          "projectId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "pattern": "^[a-z0-9][a-z0-9_-]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Projectid"
+          },
+          "proposedRole": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposedrole"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "statement",
+          "kind",
+          "metrics",
+          "ownership",
+          "tools",
+          "outcome",
+          "date",
+          "roleId",
+          "projectId",
+          "proposedRole"
+        ],
+        "title": "FactEdit",
+        "description": "A fact's fields that the owner can change, all of them at once."
       },
       "HTTPValidationError": {
         "properties": {

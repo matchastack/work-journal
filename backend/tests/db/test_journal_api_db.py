@@ -30,6 +30,11 @@ PROFILE = Profile.model_validate_json(
 )
 SEPTEMBER = datetime(2026, 9, 28, 18, 0, tzinfo=UTC)
 OCTOBER = datetime(2026, 10, 4, 9, 0, tzinfo=UTC)
+EXPORT_BULLET = {
+    "bulletId": "nw_export",
+    "text": "Cut the nightly export job from 50 to 12 minutes by batching database writes.",
+}
+"""The fixture profile's bullet that `citing` makes cite facts."""
 _random = random.SystemRandom()
 
 
@@ -127,13 +132,8 @@ async def add_entry(
 
 
 def fact(entry_id: uuid.UUID, number: int, statement: str, **fields: Any) -> Fact:
-    return Fact(
-        id=f"{entry_id}_{number}",
-        statement=statement,
-        entry_id=str(entry_id),
-        role_id="northwind",
-        **fields,
-    )
+    fields = {"role_id": "northwind"} | fields
+    return Fact(id=f"{entry_id}_{number}", statement=statement, entry_id=str(entry_id), **fields)
 
 
 def citing(*fact_ids: str) -> Profile:
@@ -280,12 +280,7 @@ def test_each_fact_lists_the_bullets_that_cite_it(
     cited, uncited = client.get("/api/journal").json()["entries"][0]["facts"]
     assert cited["id"] == f"{entry}_1"
     assert cited["metrics"][0]["value"] == {"kind": "single", "value": 12.0}
-    assert cited["citedBy"] == [
-        {
-            "bulletId": "nw_export",
-            "text": "Cut the nightly export job from 50 to 12 minutes by batching database writes.",
-        }
-    ]
+    assert cited["citedBy"] == [EXPORT_BULLET]
     assert uncited["citedBy"] == []
 
 
@@ -467,3 +462,136 @@ def test_deleting_an_entry_with_cited_facts_needs_confirming(
     assert confirmed.status_code == 204
     assert count(database_url, JournalEntry, JournalEntry.id == entry) == 0
     assert count(database_url, FactRow, FactRow.user_id == owner.id) == 0
+
+
+# --- Correcting facts ----------------------------------------------------------------------------
+
+
+def edited(**changes: Any) -> dict[str, Any]:
+    """A fact edit, with `changes` to its fields."""
+    return {
+        "statement": "Cut the nightly export from 50 to 13 minutes.",
+        "kind": "accomplishment",
+        "metrics": [
+            {
+                "subject": "export duration",
+                "value": {"kind": "change", "before": 50, "after": 13},
+                "unit": "minutes",
+                "qualifier": "approximately",
+            }
+        ],
+        "ownership": "owned",
+        "tools": ["PostgreSQL"],
+        "outcome": "Reports are ready by 9am.",
+        "date": "2026-10",
+        "roleId": "northwind",
+        "projectId": None,
+        "proposedRole": None,
+    } | changes
+
+
+def test_editing_a_fact_changes_its_fields_and_keeps_where_it_came_from(
+    database_url: str, owner: Owner, client: TestClient, entry: uuid.UUID
+) -> None:
+    """FR-EXT-3. The profile still cites the fact; its bullets wait for a refresh."""
+    response = client.put(f"/api/journal/facts/{entry}_1", json=edited(), headers=owner.csrf)
+    assert response.status_code == 200
+    fact = response.json()
+    assert fact == edited() | {
+        "id": f"{entry}_1",
+        "entryId": str(entry),
+        "origin": "journal",
+        "metrics": [
+            edited()["metrics"][0] | {"value": {"kind": "change", "before": 50.0, "after": 13.0}}
+        ],
+        "proposedItem": None,
+        "questionId": None,
+        "confidentialityFlags": [],
+        "citedBy": [EXPORT_BULLET],
+    }
+    assert client.get("/api/journal").json()["entries"][0]["facts"][0] == fact
+
+
+def test_a_fact_links_only_to_roles_and_projects_in_the_profile(
+    database_url: str, owner: Owner, client: TestClient, entry: uuid.UUID
+) -> None:
+    path = f"/api/journal/facts/{entry}_2"
+
+    def put(**changes: Any) -> int:
+        return client.put(path, json=edited(**changes), headers=owner.csrf).status_code
+
+    assert put(roleId="contoso", projectId="recipe_box") == 200
+    assert put(roleId="nowhere") == 422
+    assert put(projectId="nowhere") == 422
+    assert put(roleId="contoso", proposedRole="Data Engineer, Example Co") == 422
+    assert put(roleId=None, proposedRole="Data Engineer, Example Co") == 200
+    assert put(roleId=None, proposedRole=None) == 200
+
+
+def test_a_fact_keeps_a_link_that_left_the_profile(
+    database_url: str, owner: Owner, client: TestClient
+) -> None:
+    async def build(session: AsyncSession) -> uuid.UUID:
+        await save_version(session, owner.id, PROFILE, author="owner")
+        entry = await add_entry(session, owner.id, owner.chat_id, OCTOBER, "note")
+        await save_facts(
+            session, owner.id, [fact(entry, 1, "Old.", role_id="gone", project_id="old")]
+        )
+        return entry
+
+    entry = seed(database_url, build)
+    response = client.put(
+        f"/api/journal/facts/{entry}_1",
+        json=edited(roleId="gone", projectId="old"),
+        headers=owner.csrf,
+    )
+    assert response.status_code == 200
+
+
+def test_a_fact_edit_must_be_a_whole_valid_fact(
+    owner: Owner, client: TestClient, entry: uuid.UUID
+) -> None:
+    path = f"/api/journal/facts/{entry}_2"
+    assert client.put(path, json=edited()).status_code == 403
+    invalid: list[dict[str, Any]] = [
+        edited(statement=" "),
+        edited(tools=["Python", ""]),
+        edited(date="2026-13"),
+        edited(kind="rumour"),
+        {k: v for k, v in edited().items() if k != "outcome"},
+    ]
+    for body in invalid:
+        assert client.put(path, json=body, headers=owner.csrf).status_code == 422, body
+
+
+def test_only_the_owners_own_facts_can_be_changed(
+    database_url: str, owner: Owner, client: TestClient
+) -> None:
+    async def build(session: AsyncSession) -> str:
+        other = User()
+        session.add(other)
+        await session.flush()
+        theirs = await add_entry(session, other.id, owner.chat_id + 1, OCTOBER, "a")
+        await save_facts(session, other.id, [fact(theirs, 1, "Theirs.")])
+        return f"{theirs}_1"
+
+    for fact_id in (seed(database_url, build), "no_such_fact"):
+        path = f"/api/journal/facts/{fact_id}"
+        assert client.put(path, json=edited(), headers=owner.csrf).status_code == 404
+        assert client.delete(path, headers=owner.csrf).status_code == 404
+
+
+def test_deleting_a_fact_the_profile_cites_needs_confirming(
+    database_url: str, owner: Owner, client: TestClient, entry: uuid.UUID
+) -> None:
+    """FR-JRN-6 and FR-EXT-3."""
+    assert client.delete(f"/api/journal/facts/{entry}_2").status_code == 403
+    assert client.delete(f"/api/journal/facts/{entry}_2", headers=owner.csrf).status_code == 204
+    refused = client.delete(f"/api/journal/facts/{entry}_1", headers=owner.csrf)
+    assert refused.status_code == 409
+    assert "1 bullet in your profile cites this" in refused.json()["detail"]
+    assert count(database_url, FactRow, FactRow.user_id == owner.id) == 1
+    confirmed = client.delete(f"/api/journal/facts/{entry}_1?confirm=true", headers=owner.csrf)
+    assert confirmed.status_code == 204
+    assert count(database_url, FactRow, FactRow.user_id == owner.id) == 0
+    assert client.get("/api/journal").json()["entries"][0]["facts"] == []
