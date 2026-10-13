@@ -128,10 +128,251 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/journal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Journal
+         * @description Every entry, oldest first, with its messages and facts (FR-JRN-5).
+         */
+        get: operations["journal_api_journal_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/journal/messages/{message_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Message
+         * @description Delete a message. An entry's only message can't be: delete the entry (409).
+         */
+        delete: operations["remove_message_api_journal_messages__message_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change Message
+         * @description Replace a message's text, keeping the text it replaces (FR-JRN-6, FR-JRN-3).
+         */
+        patch: operations["change_message_api_journal_messages__message_id__patch"];
+        trace?: never;
+    };
+    "/api/journal/entries/{entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Entry
+         * @description Delete an entry, its messages and its facts (FR-JRN-6). When the profile cites one of the
+         *     facts, it takes `confirm=true` (409 without).
+         */
+        delete: operations["remove_entry_api_journal_entries__entry_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/journal/facts/{fact_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change Fact
+         * @description Change a fact's fields (FR-EXT-3). Its role and project must be in the profile, unless it
+         *     already links to them (422).
+         */
+        put: operations["change_fact_api_journal_facts__fact_id__put"];
+        post?: never;
+        /**
+         * Remove Fact
+         * @description Delete a fact (FR-EXT-3). When the profile cites it, it takes `confirm=true` (409
+         *     without).
+         */
+        delete: operations["remove_fact_api_journal_facts__fact_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/journal/export.json": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Json
+         * @description Every entry and every fact, as a JSON file (FR-JRN-7).
+         */
+        get: operations["export_json_api_journal_export_json_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/journal/export.md": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Markdown
+         * @description Every entry and every fact, as a Markdown file (FR-JRN-7), with times in the time zone
+         *     `tz`, such as `Asia/Singapore`.
+         */
+        get: operations["export_markdown_api_journal_export_md_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * ChangeValue
+         * @description A change from one number to another, e.g. `50 → 12` (minutes).
+         */
+        ChangeValue: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "change";
+            /** Before */
+            before: number;
+            /** After */
+            after: number;
+        };
+        /**
+         * Citation
+         * @description A bullet in the latest profile version that cites a fact.
+         */
+        Citation: {
+            /** Bulletid */
+            bulletId: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * Fact
+         * @description Something that happened, extracted from a journal entry or an imported bullet.
+         */
+        Fact: {
+            /** Id */
+            id: string;
+            /** Statement */
+            statement: string;
+            /**
+             * Kind
+             * @default accomplishment
+             * @enum {string}
+             */
+            kind: "accomplishment" | "project" | "role_change" | "skill" | "certification" | "award" | "talk" | "learning";
+            /**
+             * Metrics
+             * @default []
+             */
+            metrics: components["schemas"]["Metric"][];
+            /** Ownership */
+            ownership?: ("led" | "owned" | "contributed" | "assisted") | null;
+            /**
+             * Tools
+             * @default []
+             */
+            tools: string[];
+            /** Outcome */
+            outcome?: string | null;
+            /** Date */
+            date?: string | null;
+            /** Roleid */
+            roleId?: string | null;
+            /** Projectid */
+            projectId?: string | null;
+            /** Proposeditem */
+            proposedItem?: string | null;
+            /** Proposedrole */
+            proposedRole?: string | null;
+            /** Questionid */
+            questionId?: string | null;
+            /**
+             * Confidentialityflags
+             * @default []
+             */
+            confidentialityFlags: string[];
+            /**
+             * Origin
+             * @default journal
+             * @enum {string}
+             */
+            origin: "journal" | "import";
+            /** Entryid */
+            entryId?: string | null;
+        };
+        /**
+         * FactEdit
+         * @description A fact's fields that the owner can change, all of them at once.
+         */
+        FactEdit: {
+            /** Statement */
+            statement: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "accomplishment" | "project" | "role_change" | "skill" | "certification" | "award" | "talk" | "learning";
+            /** Metrics */
+            metrics: components["schemas"]["Metric"][];
+            /** Ownership */
+            ownership: ("led" | "owned" | "contributed" | "assisted") | null;
+            /** Tools */
+            tools: string[];
+            /** Outcome */
+            outcome: string | null;
+            /** Date */
+            date: string | null;
+            /** Roleid */
+            roleId: string | null;
+            /** Projectid */
+            projectId: string | null;
+            /** Proposedrole */
+            proposedRole: string | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -150,6 +391,137 @@ export interface components {
              */
             database: "ok" | "unreachable" | "not configured";
         };
+        /** Journal */
+        Journal: {
+            /** Entries */
+            entries: components["schemas"]["JournalEntryView"][];
+            /** Roles */
+            roles: components["schemas"]["RoleOption"][];
+            /** Projects */
+            projects: components["schemas"]["ProjectOption"][];
+        };
+        /** JournalEntryView */
+        JournalEntryView: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Openedat
+             * Format: date-time
+             */
+            openedAt: string;
+            /** Closedat */
+            closedAt: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "waiting_for_role" | "extracting" | "processed" | "failed";
+            /** Triage */
+            triage: ("work" | "other") | null;
+            /** Roleid */
+            roleId: string | null;
+            /** Newrole */
+            newRole: string | null;
+            /** Messages */
+            messages: components["schemas"]["JournalMessageView"][];
+            /** Facts */
+            facts: components["schemas"]["JournalFact"][];
+        };
+        /** JournalExport */
+        JournalExport: {
+            /** Entries */
+            entries: components["schemas"]["JournalEntryView"][];
+            /** Roles */
+            roles: components["schemas"]["RoleOption"][];
+            /** Projects */
+            projects: components["schemas"]["ProjectOption"][];
+            /**
+             * Exportedat
+             * Format: date-time
+             */
+            exportedAt: string;
+            /** Importedfacts */
+            importedFacts: components["schemas"]["Fact"][];
+        };
+        /** JournalFact */
+        JournalFact: {
+            /** Id */
+            id: string;
+            /** Statement */
+            statement: string;
+            /**
+             * Kind
+             * @default accomplishment
+             * @enum {string}
+             */
+            kind: "accomplishment" | "project" | "role_change" | "skill" | "certification" | "award" | "talk" | "learning";
+            /**
+             * Metrics
+             * @default []
+             */
+            metrics: components["schemas"]["Metric"][];
+            /** Ownership */
+            ownership?: ("led" | "owned" | "contributed" | "assisted") | null;
+            /**
+             * Tools
+             * @default []
+             */
+            tools: string[];
+            /** Outcome */
+            outcome?: string | null;
+            /** Date */
+            date?: string | null;
+            /** Roleid */
+            roleId?: string | null;
+            /** Projectid */
+            projectId?: string | null;
+            /** Proposeditem */
+            proposedItem?: string | null;
+            /** Proposedrole */
+            proposedRole?: string | null;
+            /** Questionid */
+            questionId?: string | null;
+            /**
+             * Confidentialityflags
+             * @default []
+             */
+            confidentialityFlags: string[];
+            /**
+             * Origin
+             * @default journal
+             * @enum {string}
+             */
+            origin: "journal" | "import";
+            /** Entryid */
+            entryId?: string | null;
+            /**
+             * Citedby
+             * @default []
+             */
+            citedBy: components["schemas"]["Citation"][];
+        };
+        /** JournalMessageView */
+        JournalMessageView: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Sentat
+             * Format: date-time
+             */
+            sentAt: string;
+            /** Editedat */
+            editedAt: string | null;
+            /** Text */
+            text: string;
+            /** Edits */
+            edits: components["schemas"]["MessageEdit"][];
+        };
         /** Me */
         Me: {
             /**
@@ -159,6 +531,81 @@ export interface components {
             id: string;
             /** Githublogin */
             githubLogin: string | null;
+        };
+        /**
+         * MessageEdit
+         * @description A message's text before an edit.
+         */
+        MessageEdit: {
+            /** Text */
+            text: string;
+            /**
+             * Replacedat
+             * Format: date-time
+             */
+            replacedAt: string;
+        };
+        /** MessageText */
+        MessageText: {
+            /** Text */
+            text: string;
+        };
+        /** Metric */
+        Metric: {
+            /** Subject */
+            subject: string;
+            /** Value */
+            value: components["schemas"]["SingleValue"] | components["schemas"]["ChangeValue"] | components["schemas"]["RangeValue"];
+            /** Unit */
+            unit?: string | null;
+            /**
+             * Qualifier
+             * @default exact
+             * @enum {string}
+             */
+            qualifier: "exact" | "approximately" | "at_least" | "more_than" | "at_most" | "less_than";
+        };
+        /** ProjectOption */
+        ProjectOption: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * RangeValue
+         * @description A range, e.g. `2-3` (hours a week).
+         */
+        RangeValue: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "range";
+            /** Low */
+            low: number;
+            /** High */
+            high: number;
+        };
+        /** RoleOption */
+        RoleOption: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+        };
+        /**
+         * SingleValue
+         * @description One number, e.g. `93` (% accuracy).
+         */
+        SingleValue: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "single";
+            /** Value */
+            value: number;
         };
         /** TelegramDeepLink */
         TelegramDeepLink: {
@@ -344,6 +791,238 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TelegramDeepLink"];
+                };
+            };
+        };
+    };
+    journal_api_journal_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Journal"];
+                };
+            };
+        };
+    };
+    remove_message_api_journal_messages__message_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_message_api_journal_messages__message_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MessageText"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JournalMessageView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_entry_api_journal_entries__entry_id__delete: {
+        parameters: {
+            query?: {
+                confirm?: boolean;
+            };
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_fact_api_journal_facts__fact_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fact_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FactEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JournalFact"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_fact_api_journal_facts__fact_id__delete: {
+        parameters: {
+            query?: {
+                confirm?: boolean;
+            };
+            header?: never;
+            path: {
+                fact_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_json_api_journal_export_json_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JournalExport"];
+                };
+            };
+        };
+    };
+    export_markdown_api_journal_export_md_get: {
+        parameters: {
+            query?: {
+                tz?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/markdown": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -643,14 +643,14 @@ As the owner, I want to review each proposed change with its sources and checks,
 - [ ] Works with the keyboard. Tests for the API and components.
 
 ### T-041 · Journal page
-**Status:** ☐ · **Size:** M · **Depends on:** T-033, T-039 · **Requirements:** FR-JRN-5, FR-JRN-6, FR-JRN-7, FR-EXT-3 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-033, T-039 · **Requirements:** FR-JRN-5, FR-JRN-6, FR-JRN-7, FR-EXT-3 · **PR:** [#35](https://github.com/matchastack/work-journal/pull/35)
 
 As the owner, I want to read my journal as one document and correct it, so that my record stays accurate.
 
-- [ ] One chronological document, grouped by month, with facts shown inline and each message's edit history.
-- [ ] Entries and facts can be edited and deleted, with a warning when the profile cites a fact.
-- [ ] Export as Markdown and as JSON.
-- [ ] Tests.
+- [x] One chronological document, grouped by month, with facts shown inline and each message's edit history.
+- [x] Entries and facts can be edited and deleted, with a warning when the profile cites a fact.
+- [x] Export as Markdown and as JSON.
+- [x] Tests.
 
 ### T-042 · Profile page: items, bullets and versions
 **Status:** ☐ · **Size:** M · **Depends on:** T-027, T-039 · **Requirements:** FR-PRF-3, FR-PRF-4, FR-PRF-11 · **PR:** —

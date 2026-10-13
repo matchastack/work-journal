@@ -54,7 +54,10 @@ async def save_facts(session: AsyncSession, user_id: uuid.UUID, facts: Sequence[
         for fact in facts
     ]
     query = insert(FactRow).values(rows)
-    replaced = {name: query.excluded[name] for name in rows[0] if name not in ("user_id", "id")}
+    replaced: dict[str, Any] = {
+        name: query.excluded[name] for name in rows[0] if name not in ("user_id", "id")
+    }
+    replaced["updated_at"] = func.now()
     await session.execute(
         query.on_conflict_do_update(index_elements=[FactRow.user_id, FactRow.id], set_=replaced)
     )
