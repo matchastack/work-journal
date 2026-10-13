@@ -1,4 +1,8 @@
 import importlib.util
+import os
+import subprocess
+import sys
+import time
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -8,14 +12,18 @@ from typing import Literal
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import insert, select, text, update
+from alembic.script import ScriptDirectory
+from sqlalchemy import create_engine, insert, select, text, update
+from sqlalchemy.engine import make_url
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.crypto import KeyRing, new_key, use_key_ring
+from app.db.engine import MIGRATION_LOCK
 from app.db.models import JournalEntry, JournalMessage, ProfileVersionRow, User
 
-VERSIONS = Path(__file__).parents[2] / "migrations" / "versions"
+BACKEND = Path(__file__).parents[2]
+VERSIONS = BACKEND / "migrations" / "versions"
 
 
 def migration(name: str) -> ModuleType:
@@ -35,6 +43,51 @@ def test_the_migrations_match_the_models(alembic: Config) -> None:
 def test_the_migrations_go_down_and_up_again(alembic: Config) -> None:
     command.downgrade(alembic, "base")
     command.upgrade(alembic, "head")
+
+
+WAITING_FOR_AN_ADVISORY_LOCK = text(
+    "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database()"
+    " AND wait_event_type = 'Lock' AND wait_event = 'advisory'"
+)
+
+
+def test_upgrades_at_the_same_time_take_turns(alembic: Config, database_url: str) -> None:
+    """Vercel's build and `post-deploy.sh` can both run `alembic upgrade head` at once. Each waits
+    for the other to finish, even across the commits inside migration 0002, rather than failing
+    on the tables the other creates."""
+    command.downgrade(alembic, "base")
+    environment = {**os.environ, "DATABASE_URL": database_url}
+    holder = create_engine(
+        make_url(database_url).set(drivername="postgresql+psycopg"), isolation_level="AUTOCOMMIT"
+    )
+    with holder.connect() as connection:
+        # Hold both upgrades at the lock, so that they start migrating at the same moment.
+        connection.execute(text("SELECT pg_advisory_lock(:key)"), {"key": MIGRATION_LOCK})
+        upgrades = [
+            subprocess.Popen(
+                [sys.executable, "-m", "alembic", "upgrade", "head"],
+                cwd=BACKEND,
+                env=environment,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+            for _ in range(2)
+        ]
+        try:
+            deadline = time.monotonic() + 30
+            while connection.scalar(WAITING_FOR_AN_ADVISORY_LOCK) != len(upgrades):
+                assert all(upgrade.poll() is None for upgrade in upgrades), "one didn't wait"
+                assert time.monotonic() < deadline, "the upgrades never asked for the lock"
+                time.sleep(0.05)
+        finally:
+            connection.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": MIGRATION_LOCK})
+            outputs = [upgrade.communicate(timeout=60)[0] for upgrade in upgrades]
+        version = connection.scalar(text("SELECT version_num FROM alembic_version"))
+    holder.dispose()
+    for upgrade, output in zip(upgrades, outputs, strict=True):
+        assert upgrade.returncode == 0, output
+    assert version == ScriptDirectory.from_config(alembic).get_current_head()
 
 
 @pytest.mark.anyio

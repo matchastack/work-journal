@@ -16,6 +16,10 @@ from sqlalchemy.ext.asyncio import (
 
 DatabaseStatus = Literal["ok", "unreachable", "not configured"]
 HEALTH_TIMEOUT_S = 2.0
+MIGRATION_LOCK = 7_640_201
+"""The key of the PostgreSQL advisory lock that migrations hold (migrations/env.py), so that two
+runs of `alembic upgrade head`, such as Vercel's build and `post-deploy.sh`, take turns. Nothing
+else uses advisory locks."""
 _PLAIN_SCHEMES = ("postgresql://", "postgres://")
 
 
