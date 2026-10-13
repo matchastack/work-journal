@@ -1,11 +1,7 @@
 import { useId, useState } from "react";
 
-import {
-  failureMessage,
-  useDeleteMessage,
-  useEditMessage,
-  type JournalMessage,
-} from "../../api/journal";
+import { failureMessage } from "../../api/auth";
+import { useDeleteMessage, useEditMessage, type JournalMessage } from "../../api/journal";
 import { clockTime, dateAndTime } from "../../format";
 import { BUTTON, INPUT, LABEL, PRIMARY_BUTTON, TEXT_BUTTON } from "../ui";
 import { ConfirmDelete } from "./ConfirmDelete";

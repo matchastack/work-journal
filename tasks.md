@@ -633,14 +633,16 @@ As a developer, I want the React app set up with typed API access and sign-in, s
 - [ ] ESLint, tsc and Vitest run in CI.
 
 ### T-040 · Inbox
-**Status:** ☐ · **Size:** M · **Depends on:** T-038, T-039 · **Requirements:** FR-REV-1, FR-REV-2, FR-REV-3, FR-REV-4 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-027, T-039, T-041 · **Requirements:** FR-REV-1, FR-REV-2, FR-REV-3, FR-REV-4 · **PR:** [#36](https://github.com/matchastack/work-journal/pull/36)
 
 As the owner, I want to review each proposed change with its sources and checks, so that I stay in control of what my profile says.
 
-- [ ] Lists pending change sets. Each op shows a word-level before/after diff, source facts (linked to their journal entries), the outputs it affects and the verifier report.
-- [ ] Accept, edit (re-verified) or reject each op, with an optional reason. Bulk accept is available.
-- [ ] Applying the accepted ops creates a new profile version and starts the output update (T-038). Rejection reasons are saved as style notes.
-- [ ] Works with the keyboard. Tests for the API and components.
+The Inbox reviews the change sets stored by T-027, whoever proposes them, so it doesn't wait for the refresh (T-038). T-038 adds the output update that follows applying a refresh's changes.
+
+- [x] Lists pending change sets. Each op shows a word-level before/after diff, source facts (linked to their journal entries), the outputs it affects and the verifier report.
+- [x] Accept, edit (re-verified) or reject each op, with an optional reason. Bulk accept is available.
+- [x] Applying the accepted ops creates a new profile version. Rejection reasons are saved as style notes.
+- [x] Works with the keyboard. Tests for the API and components.
 
 ### T-041 · Journal page
 **Status:** ◐ · **Size:** M · **Depends on:** T-033, T-039 · **Requirements:** FR-JRN-5, FR-JRN-6, FR-JRN-7, FR-EXT-3 · **PR:** [#35](https://github.com/matchastack/work-journal/pull/35)

@@ -260,10 +260,124 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/inbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Inbox
+         * @description The change sets waiting for review, oldest first (FR-REV-1).
+         */
+        get: operations["inbox_api_inbox_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inbox/{change_set_id}/ops/{position}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decide Change
+         * @description Accept or reject one change, or undo the decision (FR-REV-2).
+         */
+        post: operations["decide_change_api_inbox__change_set_id__ops__position__decision_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inbox/{change_set_id}/ops/{position}/text": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Change
+         * @description Edit the text of a new or reworded bullet. The verifier checks it again, and it waits for
+         *     a decision once more (FR-REV-2, FR-FID-7). Claude unavailable: 502, or 503 when it isn't
+         *     set up.
+         */
+        put: operations["edit_change_api_inbox__change_set_id__ops__position__text_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inbox/{change_set_id}/accept-passed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept All
+         * @description Accept every change still waiting whose text passed the verifier (bulk accept). Flagged
+         *     ones keep waiting for a decision of their own.
+         */
+        post: operations["accept_all_api_inbox__change_set_id__accept_passed_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inbox/{change_set_id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply Changes
+         * @description Apply the accepted changes as one new profile version (FR-REV-3), once every change is
+         *     decided (409 before). Reasons given for rejections become style notes (FR-REV-4).
+         */
+        post: operations["apply_changes_api_inbox__change_set_id__apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Applied */
+        Applied: {
+            /** Version */
+            version: number | null;
+        };
+        /** BulletText */
+        BulletText: {
+            /** Text */
+            text: string;
+        };
         /**
          * ChangeValue
          * @description A change from one number to another, e.g. `50 → 12` (minutes).
@@ -286,6 +400,62 @@ export interface components {
         Citation: {
             /** Bulletid */
             bulletId: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * ClaimJudgement
+         * @description The claim check's verdict on one claim in the text.
+         */
+        ClaimJudgement: {
+            /** Claim */
+            claim: string;
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "supported" | "unsupported" | "contradicted";
+            /** Issue */
+            issue?: ("inflated_ownership" | "added_tool" | "added_team_size" | "added_outcome" | "added_scope" | "honesty_boundary" | "skill_gap" | "posting_term" | "other") | null;
+            /** Term */
+            term?: string | null;
+            /**
+             * Factids
+             * @default []
+             */
+            factIds: string[];
+        };
+        /** Decision */
+        Decision: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "proposed" | "accepted" | "rejected";
+            /** Reason */
+            reason?: string | null;
+        };
+        /**
+         * Derivation
+         * @description A figure in the text that code computed from a fact metric, and how (FR-FID-2).
+         */
+        Derivation: {
+            /** Quantity */
+            quantity: string;
+            /** Formula */
+            formula: string;
+        };
+        /**
+         * DiffPart
+         * @description Words the texts share, or that one of them has. Its spaces count, so the parts rebuild
+         *     each text exactly.
+         */
+        DiffPart: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "same" | "removed" | "added";
             /** Text */
             text: string;
         };
@@ -390,6 +560,73 @@ export interface components {
              * @enum {string}
              */
             database: "ok" | "unreachable" | "not configured";
+        };
+        /** Inbox */
+        Inbox: {
+            /** Changesets */
+            changeSets: components["schemas"]["InboxChangeSet"][];
+            /** Profileversion */
+            profileVersion: number | null;
+        };
+        /** InboxChangeSet */
+        InboxChangeSet: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Author
+             * @enum {string}
+             */
+            author: "owner" | "ai";
+            /** Summary */
+            summary: string | null;
+            /** Baseversion */
+            baseVersion: number | null;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /** Ops */
+            ops: components["schemas"]["InboxOp"][];
+        };
+        /** InboxOp */
+        InboxOp: {
+            /** Position */
+            position: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "add_bullet" | "edit_bullet" | "set_bullet_status" | "add_swap" | "add_role" | "add_education" | "add_project" | "update_field" | "add_skill" | "resolve_open_question";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "proposed" | "accepted" | "rejected";
+            /** Reason */
+            reason: string | null;
+            /** Title */
+            title: string;
+            /** Context */
+            context: string | null;
+            /** Before */
+            before: string | null;
+            /** After */
+            after: string | null;
+            /** Diff */
+            diff: components["schemas"]["DiffPart"][];
+            /** Outputs */
+            outputs: ("master_resume" | "tailored_resumes" | "portfolio" | "linkedin")[];
+            /** Sources */
+            sources: components["schemas"]["SourceFact"][];
+            verifierReport: components["schemas"]["VerifierReport"] | null;
+            /** Editable */
+            editable: boolean;
+            /** Needs */
+            needs: number | null;
         };
         /** Journal */
         Journal: {
@@ -607,6 +844,18 @@ export interface components {
             /** Value */
             value: number;
         };
+        /**
+         * SourceFact
+         * @description A fact an operation cites.
+         */
+        SourceFact: {
+            /** Id */
+            id: string;
+            /** Statement */
+            statement: string | null;
+            /** Entryid */
+            entryId: string | null;
+        };
         /** TelegramDeepLink */
         TelegramDeepLink: {
             /** Url */
@@ -636,6 +885,61 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** VerifierFinding */
+        VerifierFinding: {
+            /**
+             * Check
+             * @enum {string}
+             */
+            check: "numbers" | "claims" | "style" | "rules";
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "error" | "warning";
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+        };
+        /**
+         * VerifierReport
+         * @description What the verifier found in one text. Text that doesn't pass is flagged: it's shown to the
+         *     owner, who must accept it by hand (FR-FID-7).
+         */
+        VerifierReport: {
+            /** Text */
+            text: string;
+            /** Passed */
+            passed: boolean;
+            /**
+             * Attempts
+             * @default 1
+             */
+            attempts: number;
+            /**
+             * Factids
+             * @default []
+             */
+            factIds: string[];
+            /**
+             * Findings
+             * @default []
+             */
+            findings: components["schemas"]["VerifierFinding"][];
+            /**
+             * Claims
+             * @default []
+             */
+            claims: components["schemas"]["ClaimJudgement"][];
+            /**
+             * Derivations
+             * @default []
+             */
+            derivations: components["schemas"]["Derivation"][];
+            /** Claimprompt */
+            claimPrompt?: string | null;
         };
     };
     responses: never;
@@ -1014,6 +1318,160 @@ export interface operations {
                 };
                 content: {
                     "text/markdown": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    inbox_api_inbox_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Inbox"];
+                };
+            };
+        };
+    };
+    decide_change_api_inbox__change_set_id__ops__position__decision_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                change_set_id: string;
+                position: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Decision"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxChangeSet"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_change_api_inbox__change_set_id__ops__position__text_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                change_set_id: string;
+                position: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulletText"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxChangeSet"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_all_api_inbox__change_set_id__accept_passed_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                change_set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxChangeSet"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_changes_api_inbox__change_set_id__apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                change_set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Applied"];
                 };
             };
             /** @description Validation Error */

@@ -1,7 +1,7 @@
 import { useId, useRef, useState } from "react";
 
+import { failureMessage } from "../../api/auth";
 import {
-  failureMessage,
   useEditFact,
   type FactEdit,
   type FactKind,

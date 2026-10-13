@@ -61,3 +61,14 @@ export function useSignOut() {
     },
   });
 }
+
+/** What to tell the owner when a change didn't work, with the API's reason if it gave one. */
+export function failureMessage(action: string, error: Error): string {
+  if (error instanceof ApiError && error.detail !== undefined) {
+    return `Couldn't ${action}: ${error.detail}.`;
+  }
+  if (error instanceof ApiError && error.status === 422) {
+    return `Couldn't ${action}: check the fields.`;
+  }
+  return `Couldn't ${action}. Try again.`;
+}
