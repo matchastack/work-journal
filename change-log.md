@@ -2,6 +2,15 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-13 · T-063 Post-deploy script · [#PR](https://github.com/matchastack/work-journal/pull/PR)
+**Changed:** added `backend/scripts/post-deploy.sh`, the one command to run after every deploy. It gets main as on GitHub, installs its dependencies, migrates the database, points Telegram at the webhook with the current command menu, and checks the app. Each step does nothing when there's nothing to do, and later PRs add their steps to it. Since it runs main's code, a branch's migration can't reach production early, as in #41. Migrations that start at the same time now take turns, so the script and Vercel's build can both migrate.
+
+**Verify:**
+- CI is green on #PR
+- After the deploy, from a clean checkout on any branch, `backend/scripts/post-deploy.sh` ends on main, prints your app's address and database host (no password), shows Telegram's webhook address, and ends with `{"status":"ok","database":"ok"}` and `Done.`
+- Running it again right away changes nothing, and still ends with `Done.`
+- In Telegram, typing "/" to the bot lists `/done`, `/skip` and `/help`
+
 ## 2026-10-13 · T-062 Migrations follow the production database · [#41](https://github.com/matchastack/work-journal/pull/41)
 **Changed:** the deploy of `main` failed because production's database is at migration 0010 (from #35, not yet merged) and `main` didn't have it. `main` now carries that migration and its `facts.updated_at` column, and the follow-up question's migration comes after it.
 

@@ -24,7 +24,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 |---|---|---|
 | M0: Documents | T-000, T-055 and T-056 | ◐ |
 | M1: Engine and command line | T-001 – T-024, T-054 and T-060 (T-007 dropped) | ◐ |
-| M2: Journal loop | T-025 – T-053, T-057 – T-059, T-061 and T-062 | ◐ |
+| M2: Journal loop | T-025 – T-053, T-057 – T-059 and T-061 – T-063 | ◐ |
 | M3: Quality and habit | Epics (at the end of this file) | — |
 | M4: Open to others | Epics (at the end of this file) | — |
 
@@ -752,6 +752,17 @@ As the owner, I want the app deployed for free and updated automatically, so tha
 - [x] Postgres is on Neon's free plan, and each production build runs `alembic upgrade head` before the new deployment goes live.
 - [x] Environment variables are documented without values, and `wj telegram set-webhook` points Telegram at the deployed webhook.
 - [x] A deployment runbook in `docs/deploy.md`.
+
+### T-063 · Post-deploy script
+**Status:** ◐ · **Size:** S · **Depends on:** T-051 · **Requirements:** C6, §13 · **PR:** —
+
+As the owner, I want one command to run after every deploy, so that I don't need to know which deploy needs a step on my computer, such as updating the bot's command menu.
+
+- [x] `backend/scripts/post-deploy.sh` moves the checkout to main as on GitHub, then runs main's version of itself, so a step that a PR adds runs on that PR's deploy. A branch's migration can't reach production before the branch merges (the cause of T-062).
+- [x] It installs main's dependencies, migrates the database, points Telegram at the webhook with the current command menu, and checks `/healthz`. Each step does nothing when there's nothing to do.
+- [x] It stops before touching the database or Telegram when `backend/.env` points at this computer instead of the deployed app, or when the checkout has uncommitted changes or commits GitHub's main doesn't have.
+- [x] Migrations that start at the same time, such as Vercel's build and the script, take turns instead of failing.
+- [x] `docs/deploy.md` and `CLAUDE.md` say to add any later post-deploy step to the script.
 
 ### T-052 · Observability
 **Status:** ☐ · **Size:** S · **Depends on:** T-051 · **Requirements:** NFR-OBS-1, NFR-COST-2, NFR-PRIV-2 · **PR:** —
