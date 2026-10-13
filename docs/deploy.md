@@ -89,7 +89,8 @@ both.
    Singapore. Otherwise Vercel runs the app in Washington, D.C. (`iad1`), and every database
    query makes the trip. Then redeploy.
 
-Each later merge to `main` deploys the same way.
+Each later merge to `main` deploys the same way. Then run `backend/scripts/post-deploy.sh`
+(step 7).
 
 ## 4. Let GitHub sign you in
 
@@ -120,10 +121,36 @@ deployment:
 2. Optional: `uv run wj db load-profile --user <your GitHub username>` loads your imported
    resume as profile version 1.
 3. `uv run wj telegram set-webhook` points Telegram at the deployed webhook, asks it for messages
-   and button presses, and sets the menu of commands Telegram shows when you type "/". Run it
-   again after a deploy that adds a command or a kind of update.
+   and button presses, and sets the menu of commands Telegram shows when you type "/".
+   `backend/scripts/post-deploy.sh` runs it again after each deploy (step 7).
 4. `uv run wj telegram link --user <your GitHub username>` prints a link. Open it in Telegram
    within 15 minutes; the bot answers "Linked."
+
+## 7. After each deploy
+
+Vercel deploys each merge to `main` by itself, but some changes also need a step on your
+computer, such as telling Telegram about a new bot command. One script takes all of them, so you
+don't need to know which deploy needs which. With `backend/.env` set as in step 6, run it from
+the repository after each merge, before or after Vercel has finished deploying:
+
+```sh
+backend/scripts/post-deploy.sh
+```
+
+It stops at once if you have uncommitted changes. It also stops before touching the database or
+Telegram if `backend/.env` points at this computer instead of the deployed app. Otherwise it:
+
+1. Switches to `main` and pulls it from GitHub, so it runs the deployed code. It says which
+   branch it left, and how to go back. Then it runs `main`'s version of itself.
+2. Installs `main`'s dependencies (`uv sync`).
+3. Prints the app's address and the database's host, from `backend/.env`.
+4. Migrates the database (`alembic upgrade head`). The build does this too; if both start at
+   once, one waits for the other and then finds nothing to do.
+5. Points Telegram at the webhook and sets the command menu (`wj telegram set-webhook`).
+6. Checks that `/healthz` answers.
+
+Each step does nothing when there's nothing to do, so you can run it any time. A change that
+needs a new step after its deploy adds it to the script.
 
 ## Check it works
 

@@ -47,6 +47,7 @@ Run these from `backend/` (uv project, Python 3.12):
 | Load the imported profile into the database as version 1 (then `wj lint`, `wj render` and `wj portfolio build` take `--db`) | `uv run wj db load-profile --user <github-login>` |
 | Journal from Telegram on this computer, without the webhook (needs `TELEGRAM_BOT_TOKEN` and `DATABASE_URL`; turns the webhook off) | `uv run wj telegram poll` |
 | Point Telegram at the deployed webhook (messages and button presses) and set the bot's command menu (needs `TELEGRAM_WEBHOOK_SECRET` and an https:// `APP_URL`) | `uv run wj telegram set-webhook` |
+| After each deploy: get main, migrate, set Telegram's webhook and command menu, and check the app (needs `backend/.env` as `docs/deploy.md` step 6 says) | `scripts/post-deploy.sh` |
 | Print a one-time link (15 minutes) that links your Telegram chat to your journal (needs `TELEGRAM_BOT_TOKEN` and `DATABASE_URL`) | `uv run wj telegram link --user <github-login>` |
 | Check the profile against the resume rules | `uv run wj lint` |
 | Build the portfolio page (after editing its template, run `scripts/build-portfolio-css.sh`) | `uv run wj portfolio build --out /tmp/site` |
@@ -97,6 +98,7 @@ Add a dependency with `npm install <package>` (or `npm install --save-dev <packa
 - **TypeScript:** strict mode. API types are generated from OpenAPI, never written by hand.
 - **Routes:** the web app's JSON routes go under `/api/`; sign-in stays under `/auth/`. The Vite dev server passes only the paths in `API_PATHS` (`frontend/vite.config.ts`) on to the API.
 - **Tests** sit next to the behaviour they cover. Fixtures use a fictional person (`backend/tests/fixtures/`).
+- **Steps after a deploy:** a change that needs a command run on the owner's computer once it's deployed, such as a new bot command, adds it to `backend/scripts/post-deploy.sh`, written so that running it again is harmless. Its change-log entry says to run the script.
 
 ## LLM rules
 
