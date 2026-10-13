@@ -6,6 +6,7 @@ import pytest
 from procrastinate.jobs import Job
 from procrastinate.testing import InMemoryConnector
 
+import app.jobs as job_module
 from app.jobs import RETRY, echo, jobs, psycopg_url
 
 pytestmark = pytest.mark.anyio
@@ -59,8 +60,9 @@ def test_retries_back_off_exponentially_then_stop() -> None:
 
 
 def test_the_scheduled_tasks_and_when_they_run() -> None:
-    """The heartbeat every 15 minutes, quiet entries closed every minute (FR-CAP-4), and raw
-    updates purged daily (FR-JRN-2)."""
+    """The heartbeat every 15 minutes, quiet entries closed every minute (FR-CAP-4), raw
+    updates purged daily (FR-JRN-2), and the work refreshes wait for queued every minute. That
+    one starts no refresh: only the owner does (FR-REV-6)."""
     scheduled = {
         periodic.task.name: periodic.cron
         for periodic in jobs.periodic_registry.periodic_tasks.values()
@@ -69,7 +71,23 @@ def test_the_scheduled_tasks_and_when_they_run() -> None:
         "heartbeat": "*/15 * * * *",
         "close_quiet_entries": "* * * * *",
         "purge_telegram_updates": "17 3 * * *",
+        "queue_refresh_jobs": "* * * * *",
     }
+
+
+@pytest.mark.parametrize(
+    ("latexmk", "queues"),
+    [("/usr/bin/latexmk", ["default", "latex"]), (None, ["default"])],
+    ids=["with LaTeX", "without LaTeX"],
+)
+def test_only_a_worker_with_latex_renders_resumes(
+    monkeypatch: pytest.MonkeyPatch, latexmk: str | None, queues: list[str]
+) -> None:
+    """C6: Vercel can't run LaTeX, so the jobs that render resumes wait for a worker that can."""
+    monkeypatch.setattr(job_module.shutil, "which", lambda name: latexmk)
+    assert job_module.worker_queues() == queues
+    assert job_module.update_outputs.queue == job_module.LATEX_QUEUE
+    assert job_module.refresh_profile.queue == "default"
 
 
 @pytest.mark.parametrize(

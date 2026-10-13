@@ -8,10 +8,12 @@ stopping, in bounded time:
    twice for the same time, so ticks may overlap or repeat.
 2. It retries the jobs whose worker stopped without finishing them, such as a tick cut short.
 3. It runs queued jobs for up to `budget_s`. A job that has started by then gets `JOB_GRACE_S`
-   more to finish; one that still hasn't is aborted and retried by a later tick.
+   more to finish; one that still hasn't is aborted and retried by a later tick. Jobs that need
+   LaTeX run only where it's installed (`worker_queues`).
 
 An update that closes a journal entry also runs a tick, right after the bot answers, which first
-queues the entry's extraction (`extract_now`, FR-CAP-5).
+queues the entry's extraction (`extract_now`, FR-CAP-5), and so does `/refresh`, for its refresh
+(`refresh_now`, FR-REV-6).
 """
 
 import asyncio
@@ -24,15 +26,16 @@ from collections.abc import Awaitable, Callable, Generator
 import procrastinate
 from procrastinate.periodic import PeriodicDeferrer, PeriodicRegistry
 
-from app.jobs import jobs, queue_extraction
+from app.jobs import jobs, queue_extraction, queue_refresh, worker_queues
 
 logger = logging.getLogger(__name__)
 
 TICK_BUDGET_S = 20.0
 """How long a tick starts new jobs."""
-JOB_GRACE_S = 30.0
-"""How long a job that started within the budget may still run. With the budget, this stays
-under the function's 60 s limit (`backend/vercel.json`)."""
+JOB_GRACE_S = 240.0
+"""How long a job that started within the budget may still run: long enough for a refresh's
+synthesis. With the budget, this stays under the function's 300 s limit (`backend/vercel.json`),
+the most Vercel's free plan allows."""
 MISSED_SCHEDULE_S = 25 * 3600
 """A scheduled task due within the last 25 hours still runs: the tick comes once a day, at any
 time within its hour, so each daily task runs once a day."""
@@ -62,6 +65,7 @@ async def tick(
         with _without_schedule(app):
             worker = asyncio.create_task(
                 app.run_worker_async(
+                    queues=worker_queues(),
                     wait=False,
                     listen_notify=False,
                     install_signal_handlers=False,
@@ -86,16 +90,30 @@ async def extract_now(entry_id: uuid.UUID) -> None:
     async def queue() -> None:
         await queue_extraction(entry_id)
 
+    await _run_now(queue, f"journal entry {entry_id}")
+
+
+async def refresh_now(refresh_id: uuid.UUID) -> None:
+    """Queue a refresh's job and run a tick, so its proposals don't wait for the scheduler
+    (FR-REV-6). The webhook does this right after answering `/refresh`, and `wj telegram poll`
+    too. If a tick is already running in this process, or this one fails, the next tick queues
+    the refresh instead (`queue_refresh_jobs`), as does another `/refresh`."""
+
+    async def queue() -> None:
+        await queue_refresh(refresh_id)
+
+    await _run_now(queue, f"refresh {refresh_id}")
+
+
+async def _run_now(queue: Callable[[], Awaitable[object]], what: str) -> None:
     try:
         retried = await tick(first=queue)
     except Exception as error:
         # Only the error's type: a database error can quote the statement that failed.
-        logger.warning(
-            "couldn't run journal entry %s's jobs now: %s", entry_id, type(error).__name__
-        )
+        logger.warning("couldn't run %s's jobs now: %s", what, type(error).__name__)
         return
     if retried is None:
-        logger.info("a tick is running; journal entry %s waits for the next one", entry_id)
+        logger.info("a tick is running; %s waits for the next one", what)
 
 
 @contextlib.contextmanager

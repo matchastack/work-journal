@@ -2,14 +2,18 @@
 
 Jobs run in the worker (`wj worker`), outside web requests:
 - `@jobs.task(retry=RETRY)` retries a job that raises, with exponential backoff;
-- `@jobs.periodic(cron="...")` runs a task on a schedule.
+- `@jobs.periodic(cron="...")` runs a task on a schedule;
+- `@jobs.task(queue=LATEX_QUEUE)` is for a job that needs LaTeX: only a worker on a computer with
+  TeX Live takes it (`worker_queues`), so on Vercel it waits for one (C6).
 
 Job arguments are stored as plain JSON and appear in the worker's logs, so pass IDs, never journal
 or fact text. Procrastinate's tables come from migration 0002; a newer Procrastinate needs a
 migration that applies its new SQL files.
 """
 
+import asyncio
 import logging
+import shutil
 import uuid
 from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
@@ -19,6 +23,7 @@ from typing import Any
 import httpx2
 import procrastinate
 from procrastinate.exceptions import AlreadyEnqueued
+from procrastinate.jobs import DEFAULT_QUEUE
 from psycopg_pool import AsyncConnectionPool
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,11 +33,28 @@ from app.db.engine import create_engine, session_factory, with_query
 from app.db.models import JournalEntry
 from app.llm.client import LLMClient, LLMConfigError, LLMInvalidOutput, LLMRefusal
 from app.llm.usage import CallLog, DatabaseCallLog
+from app.refresh import (
+    RefreshInterrupted,
+    begin_proposals,
+    due_outputs,
+    fail_refresh,
+    outputs_to_update,
+    record_outputs,
+    record_proposals,
+    render_master,
+    running_refreshes,
+)
+from app.render.compile import CompileError
+from app.render.fit import FitError
+from app.render.resume import RenderError
+from app.synthesis import Synthesis, synthesize
 from app.telegram.api import BotApi, TelegramError
 from app.telegram.entries import close_quiet_entries
 from app.telegram.follow_up import follow_up, record_follow_up
 from app.telegram.journal import purge_updates
 from app.telegram.processing import chat_of, entry_link, failure_text, process_entry
+from app.telegram.refresh import failure_text as refresh_failure_text
+from app.telegram.refresh import proposals_text
 from app.telegram.roles import record_question, role_question
 
 logger = logging.getLogger(__name__)
@@ -41,6 +63,9 @@ RETRY = procrastinate.RetryStrategy(max_attempts=5, exponential_wait=4)
 """Up to 5 retries after a failure, 4 s, 16 s, 64 s, 256 s and 1,024 s later (23 minutes in all)."""
 UPDATE_RETENTION = timedelta(days=7)
 """How long raw Telegram updates are kept (FR-JRN-2)."""
+LATEX_QUEUE = "latex"
+"""The queue of the jobs that render resumes, which need LaTeX. The other jobs and the scheduled
+tasks use Procrastinate's default queue."""
 
 
 def psycopg_url(url: str) -> str:
@@ -59,6 +84,14 @@ def _pool(**options: Any) -> AsyncConnectionPool:
 
 
 jobs = procrastinate.App(connector=procrastinate.PsycopgConnector(pool_factory=_pool))
+
+
+def worker_queues() -> list[str]:
+    """The queues a worker here takes jobs from: `LATEX_QUEUE` too only where LaTeX is
+    installed. Elsewhere, such as on Vercel, those jobs wait for a worker that has it (C6)."""
+    if shutil.which("latexmk") is None:
+        return [DEFAULT_QUEUE]
+    return [DEFAULT_QUEUE, LATEX_QUEUE]
 
 
 @jobs.task(name="echo", retry=RETRY)
@@ -203,6 +236,145 @@ async def run_extraction(
             await log.save(session)
 
 
+@jobs.periodic(cron="* * * * *")
+@jobs.task(name="queue_refresh_jobs", retry=RETRY)
+async def queue_refresh_jobs(timestamp: int) -> None:
+    """Queue the work refreshes wait for: proposing changes, for each running refresh whose job
+    isn't queued, such as one the bot couldn't run at once, and updating the outputs that are
+    due (FR-REV-7). Due every minute, so it runs on every tick, and every minute under
+    `wj worker`. Nothing is refreshed unless the owner asked (FR-REV-6)."""
+    async with database() as session:
+        running = await running_refreshes(session)
+        due = await due_outputs(session)
+    proposing = sum([await queue_refresh(refresh_id) for refresh_id in running])
+    updating = sum([await queue_output_update(refresh_id) for refresh_id in due])
+    logger.info("queued %d refreshes and %d output updates", proposing, updating)
+
+
+@jobs.task(name="refresh_profile")
+async def refresh_profile(refresh_id: str) -> None:
+    """Propose profile changes from the facts since the last refresh, and tell the owner how
+    many wait for review (FR-REV-6, FR-REM-6). It's never retried, since each try calls the
+    heavy-tier model; the owner can send `/refresh` again."""
+    await run_refresh(uuid.UUID(refresh_id))
+
+
+async def queue_refresh(refresh_id: uuid.UUID) -> bool:
+    """Queue `refresh_profile` for a running refresh, unless it's queued already. Returns
+    whether it was queued."""
+    job = refresh_profile.configure(
+        lock=f"refresh:{refresh_id}", queueing_lock=f"refresh_profile:{refresh_id}"
+    )
+    try:
+        await job.defer_async(refresh_id=str(refresh_id))
+    except AlreadyEnqueued:
+        return False
+    return True
+
+
+async def run_refresh(refresh_id: uuid.UUID) -> None:
+    """Propose changes from the facts the refresh covers (`app/refresh.py`), outside a
+    transaction, then save them and tell the owner. A failure fails the refresh and tells the
+    owner, and so does finding that an earlier try never finished. A message that can't be sent
+    is only logged: the proposals are saved, and wait in the Inbox."""
+    try:
+        async with database() as session:
+            inputs = await begin_proposals(session, refresh_id, now=datetime.now(UTC))
+    except RefreshInterrupted:
+        await _refresh_failed(refresh_id, "it didn't finish in time")
+        return
+    if inputs is None:
+        return
+    log = DatabaseCallLog(inputs.user_id)
+    try:
+        synthesis = Synthesis(change_set=None)
+        if inputs.facts:
+            synthesis = await asyncio.to_thread(
+                synthesize,
+                inputs.version.profile,
+                inputs.facts,
+                _llm_client(log),
+                sources=inputs.sources,
+                base_version=inputs.version.number,
+                avoid=inputs.avoid,
+            )
+        async with database() as session:
+            proposals = await record_proposals(session, inputs, synthesis, now=datetime.now(UTC))
+            chat_id = await chat_of(session, inputs.user_id)
+    except (LLMRefusal, LLMInvalidOutput, LLMConfigError) as error:
+        await _refresh_failed(refresh_id, _reason(error))
+        return
+    except Exception as error:
+        await _refresh_failed(refresh_id, _reason(error, otherwise="of an error"))
+        raise
+    finally:
+        async with database() as session:
+            await log.save(session)
+    if proposals is None or chat_id is None:
+        return
+    try:
+        await _send(chat_id, proposals_text(proposals, get_settings().app_url))
+    except TelegramError:
+        logger.warning("couldn't tell the owner that refresh %s is ready", refresh_id)
+
+
+async def _refresh_failed(refresh_id: uuid.UUID, reason: str) -> None:
+    logger.warning("refresh %s failed: %s", refresh_id, reason)
+    async with database() as session:
+        user_id = await fail_refresh(session, refresh_id, now=datetime.now(UTC))
+        chat_id = None if user_id is None else await chat_of(session, user_id)
+    if chat_id is None:
+        return
+    try:
+        await _send(chat_id, refresh_failure_text(reason))
+    except TelegramError:
+        logger.warning("couldn't tell the owner that refresh %s failed", refresh_id)
+
+
+@jobs.task(name="update_outputs", queue=LATEX_QUEUE, retry=RETRY)
+async def update_outputs(refresh_id: str) -> None:
+    """Update a refresh's outputs from its version (FR-REV-7): render the master resume
+    (FR-RES-5) and keep the PDF. Tailored resumes aren't touched."""
+    await run_output_update(uuid.UUID(refresh_id))
+
+
+async def queue_output_update(refresh_id: uuid.UUID) -> bool:
+    """Queue `update_outputs` for a refresh, unless it's queued already. Returns whether it was
+    queued."""
+    job = update_outputs.configure(
+        lock=f"outputs:{refresh_id}", queueing_lock=f"update_outputs:{refresh_id}"
+    )
+    try:
+        await job.defer_async(refresh_id=str(refresh_id))
+    except AlreadyEnqueued:
+        return False
+    return True
+
+
+async def run_output_update(refresh_id: uuid.UUID) -> None:
+    """Render the master resume from the version the refresh's outputs are to show, outside a
+    transaction, and keep it. A resume that can't be rendered won't render on a retry, so the
+    outputs are marked failed; the next refresh tries again. Only the error's type is logged: a
+    LaTeX error can quote the resume."""
+    async with database() as session:
+        job = await outputs_to_update(session, refresh_id)
+    if job is None:
+        return
+    try:
+        rendered = await asyncio.to_thread(render_master, job.profile)
+    except (CompileError, RenderError, FitError) as error:
+        logger.warning(
+            "couldn't render the master resume for refresh %s: %s",
+            refresh_id,
+            type(error).__name__,
+        )
+        rendered = None
+    async with database() as session:
+        kept = await record_outputs(session, job, rendered, now=datetime.now(UTC))
+    if kept and rendered is not None:
+        logger.info("the master resume shows profile version %d now", job.version)
+
+
 async def _give_up(entry_id: uuid.UUID, error: BaseException) -> None:
     """Mark the entry failed, so it isn't tried again, and tell its owner (T-033)."""
     logger.warning("gave up on journal entry %s: %s", entry_id, type(error).__name__)
@@ -221,14 +393,14 @@ async def _give_up(entry_id: uuid.UUID, error: BaseException) -> None:
         logger.warning("couldn't tell the owner that journal entry %s failed", entry_id)
 
 
-def _reason(error: BaseException) -> str:
+def _reason(error: BaseException, *, otherwise: str = "of an error that kept coming back") -> str:
     if isinstance(error, LLMRefusal):
         return "the model declined it"
     if isinstance(error, LLMInvalidOutput):
         return "the model's answer wasn't usable"
     if isinstance(error, LLMConfigError):
         return "the model settings are missing"
-    return "of an error that kept coming back"
+    return otherwise
 
 
 async def _send(chat_id: int, text: str, **options: Any) -> int | None:
@@ -267,5 +439,10 @@ async def database() -> AsyncGenerator[AsyncSession]:
 
 async def run_worker(concurrency: int = 1) -> None:
     """Run queued jobs and scheduled tasks until stopped with Ctrl-C or SIGTERM."""
+    queues = worker_queues()
+    if LATEX_QUEUE not in queues:
+        logger.info("LaTeX isn't installed, so this worker leaves resumes for one that has it")
     async with jobs.open_async():
-        await jobs.run_worker_async(concurrency=concurrency, install_signal_handlers=True)
+        await jobs.run_worker_async(
+            queues=queues, concurrency=concurrency, install_signal_handlers=True
+        )
