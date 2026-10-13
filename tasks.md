@@ -24,7 +24,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 |---|---|---|
 | M0: Documents | T-000, T-055 and T-056 | ◐ |
 | M1: Engine and command line | T-001 – T-024, T-054 and T-060 (T-007 dropped) | ◐ |
-| M2: Journal loop | T-025 – T-053, T-057 – T-059 and T-061 | ◐ |
+| M2: Journal loop | T-025 – T-053, T-057 – T-059, T-061 and T-062 | ◐ |
 | M3: Quality and habit | Epics (at the end of this file) | — |
 | M4: Open to others | Epics (at the end of this file) | — |
 
@@ -279,7 +279,7 @@ As the owner, I want every generated sentence checked for claims my facts don't 
 - [x] Unit tests use the fake client. An opt-in evaluation uses known-bad examples, such as inflation and invented numbers.
 
 ### T-016 · Evaluation harness
-**Status:** ◐ · **Size:** M · **Depends on:** T-014, T-015 · **Requirements:** NFR-MAINT-2 (and the evaluation bar in requirements §10) · **PR:** [#38](https://github.com/matchastack/work-journal/pull/38)
+**Status:** ☑ · **Size:** M · **Depends on:** T-014, T-015 · **Requirements:** NFR-MAINT-2 (and the evaluation bar in requirements §10) · **PR:** [#38](https://github.com/matchastack/work-journal/pull/38)
 
 As the owner, I want LLM quality measured on a fixed dataset, so that any change to a prompt or model is judged by numbers.
 
@@ -548,8 +548,16 @@ As the owner, I want to say which role each journal entry is about when I submit
 - [x] The webhook and `wj telegram poll` receive button presses (`callback_query`).
 - [x] Tests.
 
+### T-062 · Migrations follow the production database
+**Status:** ◐ · **Size:** S · **Depends on:** T-034, T-051 · **Requirements:** NFR-REL-1 · **PR:** [#41](https://github.com/matchastack/work-journal/pull/41)
+
+As the owner, I want `main` to deploy, so that the follow-up question (T-034) reaches the bot.
+
+- [x] Production's database is at 0010, the fact-updates migration from #35, which was applied before #35 merged. `main` carries that migration unchanged, with its column in the model, and 0011 follows it.
+- [x] A database at 0010 upgrades to 0011, and a new one runs every migration in order.
+
 ### T-034 · Follow-up question
-**Status:** ◐ · **Size:** S · **Depends on:** T-033 · **Requirements:** FR-CAP-6 · **PR:** [#39](https://github.com/matchastack/work-journal/pull/39)
+**Status:** ☑ · **Size:** S · **Depends on:** T-033 · **Requirements:** FR-CAP-6 · **PR:** [#39](https://github.com/matchastack/work-journal/pull/39)
 
 As the owner, I want at most one short follow-up question when my note is missing impact or numbers, so that entries become stronger without nagging.
 
