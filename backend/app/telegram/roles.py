@@ -10,7 +10,7 @@ profile version and a New role button. Nothing is extracted until the owner answ
   command, is its name: it's stored encrypted with the entry, and isn't journaled. The question's
   buttons still work until then.
 
-Either answer lets the entry's jobs run at once (`Answer.chosen`). A button on a question about an
+Either answer lets the entry's jobs run at once (`Answer.ready`). A button on a question about an
 entry that already has its role, or that's gone, changes nothing. Role names are never logged.
 """
 
@@ -23,11 +23,11 @@ from typing import Any
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import JournalEntry, JournalMessage
+from app.db.models import JournalEntry
 from app.db.profiles import latest_version
 from app.schema.profile import Role
 from app.telegram.api import BotCall, send
-from app.telegram.processing import chat_of, entry_text
+from app.telegram.processing import chat_of, entry_text, reply_to_entry
 from app.telegram.updates import CallbackQuery
 
 NEW_ROLE = "+new"
@@ -62,11 +62,11 @@ class RoleQuestion:
 
 @dataclass(frozen=True)
 class Answer:
-    """The bot's answer to a button press or to a new role's name."""
+    """The bot's answer to a button press, or to a message that answers one of its questions."""
 
     calls: tuple[BotCall, ...]
-    chosen: uuid.UUID | None = None
-    """The entry whose role was just chosen, so that its jobs can run."""
+    ready: uuid.UUID | None = None
+    """The entry whose jobs can run now, such as one whose role was just chosen."""
 
 
 def role_label(role: Role) -> str:
@@ -105,20 +105,7 @@ async def role_question(
     version = await latest_version(session, entry.user_id)
     roles = version.profile.work if version else ()
     chat_id = await chat_of(session, entry.user_id)
-    options: dict[str, Any] = {"reply_markup": keyboard(roles)}
-    first = (
-        await session.execute(
-            select(JournalMessage.chat_id, JournalMessage.message_id)
-            .where(JournalMessage.entry_id == entry_id, JournalMessage.sender == "owner")
-            .order_by(JournalMessage.sent_at, JournalMessage.id)
-            .limit(1)
-        )
-    ).first()
-    if first is not None and first.chat_id == chat_id:
-        options["reply_parameters"] = {
-            "message_id": first.message_id,
-            "allow_sending_without_reply": True,
-        }
+    options = {"reply_markup": keyboard(roles), **await reply_to_entry(session, entry_id, chat_id)}
     return RoleQuestion(chat_id, QUESTION if roles else NO_ROLES, options)
 
 
@@ -173,7 +160,7 @@ async def press(session: AsyncSession, owner: uuid.UUID, query: CallbackQuery) -
         return Answer((_answer(query, NOT_IN_PROFILE),))
     entry.role_id, entry.naming_role = role.id, False
     shown = _edit(chat_id, message.message_id, chosen_text(role_label(role)))
-    return Answer((_answer(query), shown), chosen=entry.id)
+    return Answer((_answer(query), shown), ready=entry.id)
 
 
 async def naming_entry(session: AsyncSession, owner: uuid.UUID) -> JournalEntry | None:
@@ -199,7 +186,7 @@ def name_role(entry: JournalEntry, chat_id: int, body: str) -> Answer:
     calls = [send(chat_id, f"New role for this entry: {name}.")]
     if entry.role_question_id is not None:
         calls.append(_edit(chat_id, entry.role_question_id, chosen_text(f"{name} (new)")))
-    return Answer(tuple(calls), chosen=entry.id)
+    return Answer(tuple(calls), ready=entry.id)
 
 
 def _answer(query: CallbackQuery, text: str | None = None) -> BotCall:

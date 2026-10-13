@@ -20,6 +20,7 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -107,6 +108,26 @@ async def entry_text(session: AsyncSession, entry_id: uuid.UUID) -> str:
 
 async def chat_of(session: AsyncSession, user_id: uuid.UUID) -> int | None:
     return await session.scalar(select(TelegramLink.chat_id).where(TelegramLink.user_id == user_id))
+
+
+async def reply_to_entry(
+    session: AsyncSession, entry_id: uuid.UUID, chat_id: int | None
+) -> dict[str, Any]:
+    """`sendMessage`'s parameters for a question that replies to the entry's first message, when
+    that message is in `chat_id`, so that the question shows which entry it's about."""
+    first = (
+        await session.execute(
+            select(JournalMessage.chat_id, JournalMessage.message_id)
+            .where(JournalMessage.entry_id == entry_id, JournalMessage.sender == "owner")
+            .order_by(JournalMessage.sent_at, JournalMessage.id)
+            .limit(1)
+        )
+    ).first()
+    if first is None or first.chat_id != chat_id:
+        return {}
+    return {
+        "reply_parameters": {"message_id": first.message_id, "allow_sending_without_reply": True}
+    }
 
 
 def entry_link(app_url: str, entry_id: uuid.UUID) -> str:

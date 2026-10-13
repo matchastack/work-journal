@@ -63,7 +63,7 @@ class Handled:
 
     @classmethod
     def of(cls, answer: Answer) -> Self:
-        return cls(answer.calls, answer.chosen)
+        return cls(answer.calls, answer.ready)
 
 
 async def handle_update(
