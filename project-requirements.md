@@ -124,8 +124,8 @@ See milestones M3 and M4 in [§14](#14-milestones).
 - **J1 — Capture.**
   1. The owner messages the bot about something they did.
   2. The bot stores the message.
-  3. If impact, numbers or ownership are unclear, the bot may ask **one** follow-up question.
-  4. When the entry closes, the bot asks which role it's about. The owner picks one of their roles, or names a new one.
+  3. When the entry closes, if impact, numbers or ownership are unclear, the bot may ask **one** follow-up question. The owner answers it or skips it.
+  4. Then the bot asks which role the entry is about. The owner picks one of their roles, or names a new one.
   5. The app extracts facts, linked to that role, and the bot replies with a one-to-three-line summary of what it understood.
 - **J2 — Refresh.** Only when the owner asks; nothing in this journey runs on a schedule or when an entry closes.
   1. The owner sends `/refresh`. The app proposes changes to the master profile from the facts gathered since the last refresh. The bot says how many there are, or that there's nothing new.
@@ -156,7 +156,7 @@ Priority: **M** = Must (v1) · **S** = Should (v1 if time allows) · **C** = Cou
 | FR-CAP-3 | Account linking uses a one-time deep link (`t.me/<bot>?start=<token>`) shown in the web app. | M | The token works once and expires after 15 minutes. Linking is confirmed in the chat and in Settings. |
 | FR-CAP-4 | Messages are grouped into entries. An entry closes after 30 minutes without a message, or on `/done`. | M | The timeout can be configured. `/done` closes the entry immediately. An entry left open closes at the next message after the timeout, or at the daily tick (§13). |
 | FR-CAP-5 | When an entry closes and its role is chosen (FR-CAP-11), the bot replies with a one-to-three-line summary of the facts it understood. | M | The summary is sent within 2 minutes of the owner choosing the role (p95): whatever closes the entry, `/done` or the tick, also runs the jobs that follow (§13), and so does choosing the role. |
-| FR-CAP-6 | The bot asks at most one follow-up question per entry, when impact, metrics or ownership are unclear. | M | Never more than one question per entry. A Skip button is offered, and the answer joins the same entry. |
+| FR-CAP-6 | The bot asks at most one follow-up question per entry, when impact, metrics or ownership are unclear. | M | Never more than one question per entry. It's asked when the entry closes, before the role question (FR-CAP-11), and only while the owner is likely there to answer: within the entry timeout of the close, with no other entry open. A Skip button and `/skip` are offered. The answer, the owner's next message within the entry timeout, joins the same entry; after that, the question lapses. |
 | FR-CAP-7 | Commands: `/start`, `/done`, `/skip`, `/refresh`, `/catchup`, `/pause`, `/resume`, `/help`. | M | `/help` lists every command, and so does Telegram's command menu when the owner types "/". |
 | FR-CAP-8 | Chit-chat and messages unrelated to work are recognised and don't become facts. | S | A triage label is stored with each entry. |
 | FR-CAP-9 | Job postings can be sent to the bot for tailoring. | C | M3 |

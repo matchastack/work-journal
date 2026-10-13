@@ -138,6 +138,20 @@ def extract_facts(
 ) -> Extraction:
     """Extract the facts in `note`, written on `written`, with the standard-tier model. With the
     owner's `role`, the facts link to it."""
+    reply = ask_for_facts(note, profile, client, written=written, prompt=prompt)
+    return check_facts(reply, note, profile, entry_id=entry_id, role=role)
+
+
+def ask_for_facts(
+    note: str,
+    profile: Profile,
+    client: LLMClient,
+    *,
+    written: date,
+    prompt: Prompt | None = None,
+) -> ExtractionReply:
+    """The facts the standard-tier model finds in `note`, before `check_facts` checks them. The
+    evaluation (`app/evals/`) scores this reply; everything else uses `extract_facts`."""
     prompt = prompt or load_prompt(PROMPT_NAME, PROMPT_VERSION)
     result = client.call(
         "fact_extraction",
@@ -146,7 +160,7 @@ def extract_facts(
         variables={"note": note, "date": written.isoformat()},
         context=profile_context(profile),
     )
-    return check_facts(result.output, note, profile, entry_id=entry_id, role=role)
+    return result.output
 
 
 def profile_context(profile: Profile) -> str:
@@ -195,7 +209,7 @@ def check_facts(
         fact_id = f"{entry_id or 'fact'}_{len(facts) + 1}"
         tools: list[str] = []
         for tool in extracted.tools:
-            if _named(tool, note, profile.skills):
+            if names_tool(note, tool, profile.skills):
                 tools.append(tool)
             else:
                 notes.append(f'{fact_id}: removed the tool "{tool}", which the note doesn\'t name')
@@ -286,7 +300,7 @@ def _claim_text(value: float, unit: str | None, qualifier: Qualifier) -> str:
     return _QUALIFIER_WORDS[qualifier] + number
 
 
-def _named(tool: str, note: str, skills: Sequence[Skill]) -> bool:
+def names_tool(note: str, tool: str, skills: Sequence[Skill]) -> bool:
     """Whether the note names `tool`, or an alias of the catalogue skill it is."""
     spellings = {tool}
     for skill in skills:

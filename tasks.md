@@ -24,7 +24,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 |---|---|---|
 | M0: Documents | T-000, T-055 and T-056 | ◐ |
 | M1: Engine and command line | T-001 – T-024, T-054 and T-060 (T-007 dropped) | ◐ |
-| M2: Journal loop | T-025 – T-053, T-057 – T-059 and T-061 | ◐ |
+| M2: Journal loop | T-025 – T-053, T-057 – T-059, T-061 and T-062 | ◐ |
 | M3: Quality and habit | Epics (at the end of this file) | — |
 | M4: Open to others | Epics (at the end of this file) | — |
 
@@ -279,16 +279,18 @@ As the owner, I want every generated sentence checked for claims my facts don't 
 - [x] Unit tests use the fake client. An opt-in evaluation uses known-bad examples, such as inflation and invented numbers.
 
 ### T-016 · Evaluation harness
-**Status:** ☐ · **Size:** M · **Depends on:** T-014, T-015 · **Requirements:** NFR-MAINT-2 (and the evaluation bar in requirements §10) · **PR:** —
+**Status:** ☑ · **Size:** M · **Depends on:** T-014, T-015 · **Requirements:** NFR-MAINT-2 (and the evaluation bar in requirements §10) · **PR:** [#38](https://github.com/matchastack/work-journal/pull/38)
 
 As the owner, I want LLM quality measured on a fixed dataset, so that any change to a prompt or model is judged by numbers.
 
-- [ ] A dataset format covering entries → expected facts, facts → bullets, and adversarial cases.
+- [x] A dataset format covering entries → expected facts, facts → bullets, and adversarial cases.
   - Fictional data is committed.
   - Private cases go in `local/evals/`, which git ignores.
-- [ ] `wj eval <suite>` reports altered numbers, inflated claims, fact recall and cost.
+- [x] `wj eval <suite>` reports altered numbers, inflated claims, fact recall and cost.
 - [ ] A baseline report is committed.
-- [ ] `CLAUDE.md` says to run it before changing prompts or model routing.
+- [x] `CLAUDE.md` says to run it before changing prompts or model routing.
+
+**Built (2026-10-13):** one TOML file per suite (`extraction`, `writing`, `adversarial`) in `backend/evals/`, described in its README. Notes and facts that try to trick a step are cases in that step's suite. Extraction is scored on the model's reply before the code checks, so a prompt that invents numbers shows up even though the checks drop them. The baseline needs a run with the owner's key (`uv run wj eval all --out evals/baseline.md`), since CI never calls the API.
 
 ### T-017 · Resume writer
 **Status:** ☑ · **Size:** M · **Depends on:** T-015 · **Requirements:** FR-WRT-1, FR-WRT-4, FR-FID-7 · **PR:** [#34](https://github.com/matchastack/work-journal/pull/34)
@@ -314,7 +316,7 @@ As the owner, I want facts written in LinkedIn's voice and in a posting's vocabu
 - [ ] Tests use the fake client, plus an opt-in evaluation.
 
 ### T-018 · Profile synthesis
-**Status:** ◐ · **Size:** M · **Depends on:** T-004, T-017 · **Requirements:** FR-REV-1, FR-PRF-2, FR-EXT-4 · **PR:** [#37](https://github.com/matchastack/work-journal/pull/37)
+**Status:** ☑ · **Size:** M · **Depends on:** T-004, T-017 · **Requirements:** FR-REV-1, FR-PRF-2, FR-EXT-4 · **PR:** [#37](https://github.com/matchastack/work-journal/pull/37)
 
 As the owner, I want new facts turned into proposed profile changes, so that my master profile grows without me rewriting it.
 
@@ -546,15 +548,25 @@ As the owner, I want to say which role each journal entry is about when I submit
 - [x] The webhook and `wj telegram poll` receive button presses (`callback_query`).
 - [x] Tests.
 
+### T-062 · Migrations follow the production database
+**Status:** ◐ · **Size:** S · **Depends on:** T-034, T-051 · **Requirements:** NFR-REL-1 · **PR:** [#41](https://github.com/matchastack/work-journal/pull/41)
+
+As the owner, I want `main` to deploy, so that the follow-up question (T-034) reaches the bot.
+
+- [x] Production's database is at 0010, the fact-updates migration from #35, which was applied before #35 merged. `main` carries that migration unchanged, with its column in the model, and 0011 follows it.
+- [x] A database at 0010 upgrades to 0011, and a new one runs every migration in order.
+
 ### T-034 · Follow-up question
-**Status:** ☐ · **Size:** S · **Depends on:** T-033 · **Requirements:** FR-CAP-6 · **PR:** —
+**Status:** ☑ · **Size:** S · **Depends on:** T-033 · **Requirements:** FR-CAP-6 · **PR:** [#39](https://github.com/matchastack/work-journal/pull/39)
 
 As the owner, I want at most one short follow-up question when my note is missing impact or numbers, so that entries become stronger without nagging.
 
-- [ ] A light-tier check decides whether impact, metrics or ownership are missing.
-- [ ] At most one question per entry, with a Skip button.
-- [ ] The answer joins the same entry before extraction.
-- [ ] Tests.
+- [x] A light-tier check decides whether impact, metrics or ownership are missing.
+- [x] At most one question per entry, with a Skip button.
+- [x] The answer joins the same entry before extraction.
+- [x] Tests.
+
+**Built (2026-10-13):** the bot asks when the entry closes, before the role question, and only within the entry timeout of the close with no other entry open, since without an always-on worker it can't wait for a pause while the entry is open. The model writes the question about the note; code asks a fixed one instead if it has a number or isn't one short question. `/skip` does what the Skip button does, and a question with no answer within the entry timeout lapses.
 
 ### T-035 · Reminders
 **Status:** ☐ · **Size:** M · **Depends on:** T-028, T-031 · **Requirements:** FR-REM-1, FR-REM-2, FR-REM-3, FR-SET-2 · **Needs:** OQ-4 · **PR:** —

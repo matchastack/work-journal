@@ -215,3 +215,25 @@ async def test_an_entry_has_one_role_and_a_user_names_one_at_a_time(
         async with session.begin_nested():
             await session.execute(insert(JournalEntry).values({**closed, "naming_role": True}))
     await session.execute(insert(JournalEntry).values({**closed, "role_id": "northwind"}))
+
+
+@pytest.mark.anyio
+async def test_a_user_awaits_one_follow_up_answer_at_a_time(session: AsyncSession) -> None:
+    """FR-CAP-6: the owner's next message answers at most one entry's follow-up question."""
+    user = await new_user(session)
+    at = datetime(2026, 10, 4, 9, 0, tzinfo=UTC)
+    closed = {
+        "user_id": user.id,
+        "opened_at": at,
+        "last_message_at": at,
+        "closed_at": at,
+        "closed_by": "done",
+        "follow_up_at": at,
+    }
+    await session.execute(insert(JournalEntry).values({**closed, "awaiting_follow_up": True}))
+    with pytest.raises(IntegrityError):
+        async with session.begin_nested():
+            await session.execute(
+                insert(JournalEntry).values({**closed, "awaiting_follow_up": True})
+            )
+    await session.execute(insert(JournalEntry).values(closed))

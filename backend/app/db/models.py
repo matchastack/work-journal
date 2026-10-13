@@ -330,7 +330,8 @@ class TelegramUpdate(Base):
 class JournalEntry(Base):
     """Messages grouped into one journal entry (FR-CAP-4). A user has at most one open entry; it
     closes after a quiet spell (`closed_by` is `quiet`) or on `/done` (`done`), and stays closed.
-    Once closed, the bot asks which role it's about (FR-CAP-11). When the owner has answered, it
+    Once closed, the bot may ask one follow-up question (FR-CAP-6), then asks which role it's about
+    (FR-CAP-11). When the owner has answered, it
     triages the entry, saves its facts and replies (`processed_at`), or gives up after its retries
     (`failed_at`)."""
 
@@ -354,6 +355,12 @@ class JournalEntry(Base):
             "user_id",
             unique=True,
             postgresql_where=text("naming_role"),
+        ),
+        Index(
+            "uq_journal_entries_one_awaiting_follow_up",
+            "user_id",
+            unique=True,
+            postgresql_where=text("awaiting_follow_up"),
         ),
     )
 
@@ -384,6 +391,15 @@ class JournalEntry(Base):
     naming_role: Mapped[bool] = mapped_column(server_default=text("false"))
     """Whether the owner pressed New role, so that their next message is its name. At most one of
     a user's entries waits for a name."""
+    follow_up_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    """When the bot decided whether to ask a follow-up question about the closed entry
+    (FR-CAP-6), and asked it if it did. It decides once."""
+    follow_up_question_id: Mapped[int | None] = mapped_column(BigInteger)
+    """The follow-up question in the owner's chat, as a Telegram message ID: its Skip button
+    answers it."""
+    awaiting_follow_up: Mapped[bool] = mapped_column(server_default=text("false"))
+    """Whether the follow-up question waits for the owner's answer or Skip. At most one of a
+    user's entries waits for one."""
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

@@ -30,6 +30,7 @@ from app.llm.client import LLMClient, LLMConfigError, LLMInvalidOutput, LLMRefus
 from app.llm.usage import CallLog, DatabaseCallLog
 from app.telegram.api import BotApi, TelegramError
 from app.telegram.entries import close_quiet_entries
+from app.telegram.follow_up import follow_up, record_follow_up
 from app.telegram.journal import purge_updates
 from app.telegram.processing import chat_of, entry_link, failure_text, process_entry
 from app.telegram.roles import record_question, role_question
@@ -90,18 +91,19 @@ async def close_quiet_entries_task(timestamp: int) -> None:
     that isn't processed yet (FR-CAP-5). Due every minute, so it runs on every tick, and every
     minute under `wj worker`."""
     timeout = timedelta(minutes=get_settings().entry_timeout_minutes)
+    now = datetime.fromtimestamp(timestamp, UTC)
     async with database() as session:
-        closed = await close_quiet_entries(session, datetime.fromtimestamp(timestamp, UTC), timeout)
+        closed = await close_quiet_entries(session, now, timeout)
     async with database() as session:
-        queued = await queue_extractions(session)
+        queued = await queue_extractions(session, now=now, timeout=timeout)
     logger.info("closed %d quiet journal entries; queued %d for extraction", len(closed), queued)
 
 
 @jobs.task(name="extract_entry", retry=RETRY, pass_context=True)
 async def extract_entry(context: procrastinate.JobContext, entry_id: str) -> None:
-    """Ask which role a closed journal entry is about (FR-CAP-11). Once it has its role, triage
-    it, save its facts and reply to its owner (FR-CAP-5). The owner is told when it finally
-    fails."""
+    """Ask a follow-up question about a closed journal entry, if one is worth asking (FR-CAP-6),
+    then which role it's about (FR-CAP-11). Once it has its role, triage it, save its facts and
+    reply to its owner (FR-CAP-5). The owner is told when it finally fails."""
     job = context.job
     await run_extraction(
         uuid.UUID(entry_id),
@@ -109,10 +111,11 @@ async def extract_entry(context: procrastinate.JobContext, entry_id: str) -> Non
     )
 
 
-async def queue_extractions(session: AsyncSession) -> int:
+async def queue_extractions(session: AsyncSession, *, now: datetime, timeout: timedelta) -> int:
     """Queue `extract_entry` for each closed entry that's neither processed nor failed, unless
-    it's queued already or waits for the owner to choose its role. Jobs for one entry run one at a
-    time. Returns how many were queued."""
+    it's queued already or waits for the owner: to choose its role, or to answer its follow-up
+    question, which lapses after `timeout`. Jobs for one entry run one at a time. Returns how many
+    were queued."""
     pending = await session.scalars(
         select(JournalEntry.id)
         .where(
@@ -123,6 +126,10 @@ async def queue_extractions(session: AsyncSession) -> int:
                 JournalEntry.role_asked_at.is_(None),
                 JournalEntry.role_id.is_not(None),
                 JournalEntry.new_role.is_not(None),
+            ),
+            or_(
+                JournalEntry.awaiting_follow_up.is_(False),
+                JournalEntry.follow_up_at <= now - timeout,
             ),
         )
         .order_by(JournalEntry.closed_at)
@@ -146,10 +153,11 @@ async def queue_extraction(entry_id: uuid.UUID) -> bool:
 async def run_extraction(
     entry_id: uuid.UUID, *, last_attempt: Callable[[BaseException], bool]
 ) -> None:
-    """Ask which role the entry is about, if it hasn't been asked (`app/telegram/roles.py`), or
-    else process it (`app/telegram/processing.py`). The question or the reply is sent before the
-    result is committed. A refusal or an unusable answer won't change on a retry, so it fails at
-    once; anything else is retried, and fails when `last_attempt` says this was the last try."""
+    """Ask the entry's follow-up question, if it's time to (`app/telegram/follow_up.py`), or else
+    which role it's about, if that hasn't been asked (`app/telegram/roles.py`), or else process it
+    (`app/telegram/processing.py`). A question or the reply is sent before the result is
+    committed. A refusal or an unusable answer won't change on a retry, so it fails at once;
+    anything else is retried, and fails when `last_attempt` says this was the last try."""
     async with database() as session:
         user_id = await session.scalar(
             select(JournalEntry.user_id).where(JournalEntry.id == entry_id)
@@ -157,8 +165,17 @@ async def run_extraction(
     if user_id is None:
         return
     log = DatabaseCallLog(user_id)
+    timeout = timedelta(minutes=get_settings().entry_timeout_minutes)
     try:
+        client = _llm_client(log)
         async with database() as session:
+            asked = await follow_up(
+                session, entry_id, client, now=datetime.now(UTC), timeout=timeout
+            )
+            if asked is not None:
+                message_id = await _send(asked.chat_id, asked.text, **asked.options)
+                await record_follow_up(session, entry_id, message_id)
+                return
             question = await role_question(session, entry_id, now=datetime.now(UTC))
             if question is not None:
                 if question.chat_id is not None:
@@ -169,7 +186,7 @@ async def run_extraction(
             processed = await process_entry(
                 session,
                 entry_id,
-                _llm_client(log),
+                client,
                 now=datetime.now(UTC),
                 app_url=get_settings().app_url,
             )

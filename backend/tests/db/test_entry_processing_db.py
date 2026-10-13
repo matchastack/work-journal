@@ -22,6 +22,7 @@ from app.db.models import FactRow, JournalEntry, JournalMessage, LlmCallRow, Tel
 from app.db.profiles import save_version
 from app.db.store import list_facts
 from app.extraction import ExtractionReply
+from app.follow_up import FollowUpReply
 from app.jobs import (
     close_quiet_entries_task,
     database,
@@ -531,6 +532,218 @@ async def test_a_just_closed_entry_is_extracted_right_away(
     assert await entry_state(entry_id) == ("work", True, False, 2)
 
 
+# --- The follow-up question ----------------------------------------------------------------------
+
+ASKED = "How much faster did the nightly export get?"
+ANSWER = "it went from ~50 min to 12"
+ROLES = (
+    ("Engineer, Northwind Traders (2025-now)", "northwind"),
+    ("Research Intern, Contoso Research (2024-2024)", "contoso"),
+)
+
+
+def just_closed(**state: Any) -> dict[str, Any]:
+    """`new_entry` options for an entry that closed a minute ago, waiting for its role."""
+    closed_at = datetime.now(UTC) - timedelta(minutes=1)
+    return {"closed": False, "closed_at": closed_at, "closed_by": "done", "role_id": None, **state}
+
+
+def follow_up_question(chat_id: int, text: str = ASKED) -> dict[str, Any]:
+    return {
+        "chat_id": chat_id,
+        "text": text,
+        "reply_markup": {"inline_keyboard": [[{"text": "Skip", "callback_data": "+skip"}]]},
+        "reply_parameters": {"message_id": 1, "allow_sending_without_reply": True},
+    }
+
+
+async def follow_up_state(entry_id: uuid.UUID) -> tuple[bool, int | None, bool, bool]:
+    """Whether the bot has decided about the follow-up question, the question's message, whether
+    it waits for an answer, and whether the role question was asked."""
+    async with database() as session:
+        entry = await session.get(JournalEntry, entry_id)
+        assert entry is not None
+        return (
+            entry.follow_up_at is not None,
+            entry.follow_up_question_id,
+            entry.awaiting_follow_up,
+            entry.role_asked_at is not None,
+        )
+
+
+async def test_the_job_asks_one_follow_up_question_before_the_role(
+    committed: Committed, chat_id: int, claude: Callable[..., FakeMessages], telegram: Telegram
+) -> None:
+    """FR-CAP-6: the light-tier check finds a gap, and the bot asks once, with a Skip button. The
+    role question waits until the question is answered; extraction then reads the answer."""
+    user_id, entry_id = await committed(NOTE, chat_id=chat_id, profile=PROFILE, **just_closed())
+    fake = claude(reply(FollowUpReply(missing="metrics", question=ASKED)))
+    await run_extraction(entry_id, last_attempt=never)
+    await run_extraction(entry_id, last_attempt=never)
+    assert telegram.sent == [follow_up_question(chat_id)], "asked once, and nothing else yet"
+    assert fake.requests[0]["model"] == "light-model"
+    assert fake.requests[0]["messages"][0]["content"] == f"<note>\n{NOTE}\n</note>"
+    assert await follow_up_state(entry_id) == (True, 1, True, False)
+
+    async with database() as session:
+        entry = await session.get(JournalEntry, entry_id)
+        assert entry is not None
+        entry.awaiting_follow_up = False
+        session.add(
+            JournalMessage(
+                user_id=user_id,
+                chat_id=chat_id,
+                message_id=60,
+                entry_id=entry_id,
+                sender="owner",
+                text=ANSWER,
+                sent_at=datetime.now(UTC),
+            )
+        )
+    await run_extraction(entry_id, last_attempt=never)
+    assert telegram.sent[1] == question(chat_id, *ROLES)
+    assert await follow_up_state(entry_id) == (True, 1, False, True)
+
+    async with database() as session:
+        entry = await session.get(JournalEntry, entry_id)
+        assert entry is not None
+        entry.role_id = "northwind"
+    fake = claude(reply(WORK), reply(EXTRACTED))
+    await run_extraction(entry_id, last_attempt=never)
+    assert fake.requests[0]["messages"][0]["content"] == f"<note>\n{NOTE}\n\n{ANSWER}\n</note>"
+    assert await entry_state(entry_id) == ("work", True, False, 2)
+    async with database() as session:
+        calls = await session.scalars(
+            select(LlmCallRow.task).where(LlmCallRow.user_id == user_id).order_by(LlmCallRow.at)
+        )
+        assert list(calls) == ["follow_up_question", "message_triage", "fact_extraction"]
+
+
+async def test_a_note_that_says_enough_goes_straight_to_its_role(
+    committed: Committed, chat_id: int, claude: Callable[..., FakeMessages], telegram: Telegram
+) -> None:
+    _, entry_id = await committed(NOTE, chat_id=chat_id, profile=PROFILE, **just_closed())
+    claude(reply(FollowUpReply(missing=None)))
+    await run_extraction(entry_id, last_attempt=never)
+    assert telegram.sent == [question(chat_id, *ROLES)]
+    assert await follow_up_state(entry_id) == (True, None, False, True)
+
+
+async def test_a_refused_check_means_no_question_rather_than_a_failed_entry(
+    committed: Committed, chat_id: int, claude: Callable[..., FakeMessages], telegram: Telegram
+) -> None:
+    _, entry_id = await committed(NOTE, chat_id=chat_id, profile=PROFILE, **just_closed())
+    claude(refusal())
+    await run_extraction(entry_id, last_attempt=never)
+    assert telegram.sent == [question(chat_id, *ROLES)]
+    assert await entry_state(entry_id) == (None, False, False, 0)
+
+
+async def test_a_question_that_cant_be_sent_is_asked_again(
+    committed: Committed, chat_id: int, claude: Callable[..., FakeMessages], telegram: Telegram
+) -> None:
+    """The decision is saved only once the question is sent, so a retry decides again."""
+    _, entry_id = await committed(NOTE, chat_id=chat_id, profile=PROFILE, **just_closed())
+    claude(reply(FollowUpReply(missing="metrics", question=ASKED)))
+    telegram.failures = 1
+    with pytest.raises(TelegramError):
+        await run_extraction(entry_id, last_attempt=never)
+    assert await follow_up_state(entry_id) == (False, None, False, False)
+
+    claude(reply(FollowUpReply(missing="metrics", question=ASKED)))
+    await run_extraction(entry_id, last_attempt=never)
+    assert telegram.sent == [follow_up_question(chat_id)]
+
+
+async def test_an_unanswered_question_lapses_after_the_timeout(
+    committed: Committed, chat_id: int, claude: Callable[..., FakeMessages], telegram: Telegram
+) -> None:
+    """The entry then goes on to its role, without an answer."""
+    asked = datetime.now(UTC) - timedelta(minutes=30)
+    _, entry_id = await committed(
+        NOTE,
+        chat_id=chat_id,
+        profile=PROFILE,
+        **just_closed(follow_up_at=asked, follow_up_question_id=7, awaiting_follow_up=True),
+    )
+    claude()
+    await run_extraction(entry_id, last_attempt=never)
+    assert telegram.sent == [question(chat_id, *ROLES)]
+    assert await follow_up_state(entry_id) == (True, 7, False, True)
+
+
+@pytest.mark.parametrize(
+    "case",
+    ["closed long ago", "another entry open", "naming a role", "another question", "no chat"],
+)
+async def test_no_question_when_the_owner_may_not_be_there_to_answer(
+    committed: Committed,
+    chat_id: int,
+    claude: Callable[..., FakeMessages],
+    telegram: Telegram,
+    case: str,
+) -> None:
+    """The bot asks only right after the entry closed, when the owner's next message can't be
+    meant for anything else. It decides without calling the model, and goes on to the role."""
+    state = just_closed()
+    if case == "closed long ago":
+        state["closed_at"] -= timedelta(minutes=30)
+    user_id, entry_id = await committed(
+        NOTE, chat_id=None if case == "no chat" else chat_id, profile=PROFILE, **state
+    )
+    async with database() as session:
+        at = datetime.now(UTC)
+        other = JournalEntry(user_id=user_id, opened_at=at, last_message_at=at)
+        if case != "another entry open":
+            other.closed_at, other.closed_by = at, "done"
+        other.naming_role = case == "naming a role"
+        if case == "another question":
+            other.follow_up_at, other.awaiting_follow_up = at, True
+        session.add(other)
+    fake = claude()
+    await run_extraction(entry_id, last_attempt=never)
+    assert fake.requests == []
+    assert await follow_up_state(entry_id) == (True, None, False, True)
+    if case != "no chat":
+        assert telegram.sent == [question(chat_id, *ROLES)]
+
+
+async def test_another_entrys_lapsed_question_doesnt_stop_a_new_one(
+    committed: Committed, chat_id: int, claude: Callable[..., FakeMessages], telegram: Telegram
+) -> None:
+    user_id, entry_id = await committed(NOTE, chat_id=chat_id, profile=PROFILE, **just_closed())
+    async with database() as session:
+        at = datetime.now(UTC) - timedelta(hours=2)
+        other = JournalEntry(
+            user_id=user_id,
+            opened_at=at,
+            last_message_at=at,
+            closed_at=at,
+            closed_by="done",
+            follow_up_at=at,
+            awaiting_follow_up=True,
+        )
+        session.add(other)
+    claude(reply(FollowUpReply(missing="impact", question="Who uses the export now?")))
+    await run_extraction(entry_id, last_attempt=never)
+    assert telegram.sent == [follow_up_question(chat_id, "Who uses the export now?")]
+    assert (await follow_up_state(entry_id))[2] is True
+    assert (await follow_up_state(other.id))[2] is False
+
+
+async def test_an_entry_already_asked_about_its_role_gets_no_question(
+    committed: Committed, chat_id: int, claude: Callable[..., FakeMessages], telegram: Telegram
+) -> None:
+    """Such as one closed before the bot asked follow-up questions."""
+    _, entry_id = await committed(
+        NOTE, chat_id=chat_id, profile=PROFILE, **just_closed(role_asked_at=OPENED)
+    )
+    fake = claude()
+    await run_extraction(entry_id, last_attempt=never)
+    assert (fake.requests, telegram.sent) == ([], [])
+    assert await follow_up_state(entry_id) == (False, None, False, True)
+
+
 # --- Queueing closed entries ---------------------------------------------------------------------
 
 
@@ -539,7 +752,8 @@ def queued(connector: InMemoryConnector) -> list[dict[str, Any]]:
 
 
 async def test_closed_entries_are_queued_once_each(committed: Committed) -> None:
-    """Including one not yet asked about its role, but not one that waits for the answer."""
+    """Including one not yet asked about its role, and one whose follow-up question has lapsed,
+    but not one that waits for an answer."""
     _, waiting = await committed(NOTE)
     _, to_ask = await committed(NOTE, role_id=None)
     _, answered = await committed(NOTE, role_asked_at=OPENED, new_role="Data Engineer")
@@ -547,14 +761,22 @@ async def test_closed_entries_are_queued_once_each(committed: Committed) -> None
     _, still_open = await committed(NOTE, closed=False)
     _, processed = await committed(NOTE, triage="work", processed_at=OPENED)
     _, failed = await committed(NOTE, failed_at=OPENED)
+    asked = NOW - timedelta(minutes=10)
+    _, follow_up = await committed(NOTE, role_id=None, follow_up_at=asked, awaiting_follow_up=True)
+    lapsed = asked - timedelta(minutes=20, seconds=1)
+    _, lapsed_follow_up = await committed(
+        NOTE, role_id=None, follow_up_at=lapsed, awaiting_follow_up=True
+    )
     connector = InMemoryConnector()
     with jobs.replace_connector(connector):
         async with database() as session:
-            await queue_extractions(session)
-            await queue_extractions(session)
+            await queue_extractions(session, now=NOW, timeout=timedelta(minutes=30))
+            await queue_extractions(session, now=NOW, timeout=timedelta(minutes=30))
     entries = [job["args"]["entry_id"] for job in queued(connector)]
-    assert [entries.count(str(entry)) for entry in (waiting, to_ask, answered)] == [1, 1, 1]
-    assert {str(unanswered), str(still_open), str(processed), str(failed)}.isdisjoint(entries)
+    counts = [entries.count(str(entry)) for entry in (waiting, to_ask, answered, lapsed_follow_up)]
+    assert counts == [1, 1, 1, 1]
+    not_queued = (unanswered, still_open, processed, failed, follow_up)
+    assert {str(entry) for entry in not_queued}.isdisjoint(entries)
     [job] = [job for job in queued(connector) if job["args"]["entry_id"] == str(waiting)]
     assert (job["lock"], job["queueing_lock"]) == (
         f"journal_entry:{waiting}",

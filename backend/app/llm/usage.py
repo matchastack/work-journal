@@ -96,6 +96,18 @@ class JsonlCallLog:
             file.write(json.dumps(call.model_dump(mode="json")) + "\n")
 
 
+class CallLogs:
+    """Records each call in several logs, such as the JSONL file and a `MemoryCallLog` that a
+    command totals."""
+
+    def __init__(self, *logs: CallLog) -> None:
+        self.logs = logs
+
+    def record(self, call: CallRecord) -> None:
+        for log in self.logs:
+            log.record(call)
+
+
 class DatabaseCallLog:
     """Keeps one user's call records until `save` writes them to the `llm_calls` table.
 

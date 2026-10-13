@@ -10,6 +10,32 @@ One short entry per pull request, newest first: what changed and what to verify.
 - The link in the bot's reply to an entry opens the Journal page at that entry
 - Editing a message keeps its earlier text under "Edited once"; editing a fact shows the change at once
 - Download Markdown writes the times in your time zone; Download JSON holds every entry and fact
+## 2026-10-13 · T-062 Migrations follow the production database · [#41](https://github.com/matchastack/work-journal/pull/41)
+**Changed:** the deploy of `main` failed because production's database is at migration 0010 (from #35, not yet merged) and `main` didn't have it. `main` now carries that migration and its `facts.updated_at` column, and the follow-up question's migration comes after it.
+
+**Verify:**
+- CI is green on #41
+- After the merge, the production deployment's build log shows `Running upgrade 0010 -> 0011` and the deployment goes live
+- #35 and #36 merge `main` without a conflict in their 0010 migration
+
+## 2026-10-13 · T-034 Follow-up question · [#39](https://github.com/matchastack/work-journal/pull/39)
+**Changed:** when an entry closes and the note leaves out a number, its impact or your part in it, the bot asks one short question about it, with a Skip button, before asking the entry's role. Your next message joins the entry, so its facts can use the answer. `/skip` skips the question too.
+
+**Verify:**
+- CI is green on #39
+- After the deploy, run `uv run wj telegram set-webhook` once, so the command menu shows `/skip`
+- With your bot: a note without numbers, such as "sped up the search page by caching the filters", then `/done`, gets one question with a Skip button; your answer is followed by the role question, and the facts reply uses the answer
+- Skip, or `/skip`, goes straight on to the role question, and a note that already gives its numbers gets no question
+- With your key, `uv run pytest -m llm tests/test_follow_up_live.py` passes (5 cases)
+
+## 2026-10-13 · T-016 Evaluation harness · [#38](https://github.com/matchastack/work-journal/pull/38)
+**Changed:** added `wj eval`, which runs fictional journal notes, facts and known-bad texts through fact extraction, the resume writer and the verifier with the real models. It reports altered numbers, inflated claims, fact recall and cost against the bar for changing a prompt or the model routing. Your own cases go in `local/evals/` and run with `--private`.
+
+**Verify:**
+- CI is green on #38
+- With your key, `uv run wj eval all --out evals/baseline.md` runs the 33 cases, prints the report, and writes the baseline to commit with this PR
+- The report quotes no note, fact or bullet: only case names, counts and the verifier's codes
+- `backend/evals/README.md` is clear enough to add a case of your own to `local/evals/`
 
 ## 2026-10-12 · T-018 Profile synthesis · [#37](https://github.com/matchastack/work-journal/pull/37)
 **Changed:** added `wj propose` and `wj apply`. A heavy-tier prompt plans what your new journal facts change in the profile (new roles, bullets, new versions of bullets, skills, answered questions), the resume writer writes and verifies each bullet, and code drops anything not backed by your facts or words. You review each change, and with `--db` the accepted ones become the profile's next version, ready for `wj render --db`.

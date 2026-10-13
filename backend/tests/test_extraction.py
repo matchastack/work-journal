@@ -14,6 +14,7 @@ from app.extraction import (
     Extraction,
     ExtractionReply,
     RoleChoice,
+    ask_for_facts,
     check_facts,
     extract_facts,
 )
@@ -101,6 +102,14 @@ def test_a_fact_the_note_backs_is_kept_as_a_journal_fact() -> None:
         ),
     )
     assert (extraction.dropped, extraction.notes) == ((), ())
+
+
+def test_asking_for_facts_returns_the_reply_before_the_checks() -> None:
+    invented = fact(statement="Cut the nightly export from 50 to 8 minutes.", tools=["Kafka"])
+    llm, _ = client(ExtractionReply(facts=(invented,)))
+    reply_ = ask_for_facts(NOTE, PROFILE, llm, written=WRITTEN)
+    assert reply_ == ExtractionReply(facts=(invented,))
+    assert checked(*reply_.facts).facts == ()
 
 
 def test_a_note_unrelated_to_work_gives_no_facts() -> None:
