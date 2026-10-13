@@ -279,7 +279,7 @@ As the owner, I want every generated sentence checked for claims my facts don't 
 - [x] Unit tests use the fake client. An opt-in evaluation uses known-bad examples, such as inflation and invented numbers.
 
 ### T-016 · Evaluation harness
-**Status:** ◐ · **Size:** M · **Depends on:** T-014, T-015 · **Requirements:** NFR-MAINT-2 (and the evaluation bar in requirements §10) · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-014, T-015 · **Requirements:** NFR-MAINT-2 (and the evaluation bar in requirements §10) · **PR:** [#38](https://github.com/matchastack/work-journal/pull/38)
 
 As the owner, I want LLM quality measured on a fixed dataset, so that any change to a prompt or model is judged by numbers.
 

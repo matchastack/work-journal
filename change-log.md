@@ -2,11 +2,11 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-13 · T-016 Evaluation harness · PR not opened yet
+## 2026-10-13 · T-016 Evaluation harness · [#38](https://github.com/matchastack/work-journal/pull/38)
 **Changed:** added `wj eval`, which runs fictional journal notes, facts and known-bad texts through fact extraction, the resume writer and the verifier with the real models. It reports altered numbers, inflated claims, fact recall and cost against the bar for changing a prompt or the model routing. Your own cases go in `local/evals/` and run with `--private`.
 
 **Verify:**
-- CI is green on the PR
+- CI is green on #38
 - With your key, `uv run wj eval all --out evals/baseline.md` runs the 33 cases, prints the report, and writes the baseline to commit with this PR
 - The report quotes no note, fact or bullet: only case names, counts and the verifier's codes
 - `backend/evals/README.md` is clear enough to add a case of your own to `local/evals/`
