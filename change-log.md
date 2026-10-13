@@ -10,6 +10,7 @@ One short entry per pull request, newest first: what changed and what to verify.
 - With a change set in your local database (the PR has a script), accepting a change moves focus to the next one, and Apply makes a new profile version
 - "Accept all that passed" leaves the changes the verifier flagged waiting, and Apply stays off until every change is decided
 - Editing a bullet's text, with the LLM settings, shows the verifier's new report on the change
+- Rejecting a new role also rejects the bullets under it, and they can't be accepted until you undo the role's rejection
 
 ## 2026-10-12 · T-041 Journal page · [#35](https://github.com/matchastack/work-journal/pull/35)
 **Changed:** the web app's Journal page shows your journal as one document by month, with the facts saved from each entry. You can edit or delete messages, entries and facts there (deleting something your profile cites names the bullets and asks first), and download it all as Markdown or JSON.

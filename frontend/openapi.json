@@ -1555,6 +1555,17 @@
           "editable": {
             "type": "boolean",
             "title": "Editable"
+          },
+          "needs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Needs"
           }
         },
         "additionalProperties": false,
@@ -1572,7 +1583,8 @@
           "outputs",
           "sources",
           "verifierReport",
-          "editable"
+          "editable",
+          "needs"
         ],
         "title": "InboxOp"
       },

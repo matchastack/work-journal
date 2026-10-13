@@ -50,6 +50,7 @@ function op(position: number, fields: Partial<InboxOp>): InboxOp {
     sources: [],
     verifierReport: null,
     editable: false,
+    needs: null,
     ...fields,
   };
 }
@@ -160,6 +161,13 @@ function serveInbox(start: Inbox = inbox(), refuse: Record<string, Response> = {
         const { status, reason } = body as { status: InboxOp["status"]; reason: string | null };
         target.status = status;
         target.reason = status === "rejected" ? reason : null;
+        // A rejection takes the changes that need it along.
+        for (const item of changeSet.ops) {
+          if (status === "rejected" && item.needs === target.position) {
+            item.status = "rejected";
+            item.reason = null;
+          }
+        }
         return answer(changeSet);
       }
       if (action === "ops" && what === "text" && target !== undefined) {
@@ -275,6 +283,43 @@ describe("the inbox", () => {
     );
     await userEvent.click(added.getByRole("button", { name: "Cancel" }));
     expect(added.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("rejects the changes that need a rejected one with it", async () => {
+    const withRole = inbox();
+    withRole.changeSets[0]?.ops.push(
+      op(3, {
+        kind: "add_role",
+        title: "Add a role",
+        after: "Engineer, Fabrikam (2026-09 - now)",
+        outputs: ["master_resume"],
+      }),
+      op(4, {
+        kind: "add_bullet",
+        title: "Add a bullet under Engineer, Fabrikam",
+        after: "Built a queue.",
+        outputs: ["master_resume"],
+        editable: true,
+        needs: 3,
+      }),
+    );
+    serveInbox(withRole);
+    renderInbox();
+    const bullet = await change("Add a bullet under Engineer, Fabrikam");
+    expect(
+      bullet.getByText('Goes with "Add a role": Engineer, Fabrikam (2026-09 - now).'),
+    ).toBeInTheDocument();
+    const role = await change("Add a role");
+    await userEvent.click(role.getByRole("button", { name: "Reject" }));
+    await userEvent.click(role.getByRole("button", { name: "Reject" }));
+    expect(
+      await bullet.findByText(/Rejected with "Add a role", which it needs\./),
+    ).toBeInTheDocument();
+    expect(bullet.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument();
+    expect(bullet.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
+    await userEvent.click(role.getByRole("button", { name: "Undo" }));
+    expect(await bullet.findByRole("button", { name: "Undo" })).toBeInTheDocument();
+    expect(bullet.getByText("Rejected")).toBeInTheDocument();
   });
 
   it("says what a change without text is about", async () => {

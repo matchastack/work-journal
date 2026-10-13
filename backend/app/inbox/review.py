@@ -13,6 +13,11 @@ The owner decides on each operation (FR-REV-2):
 - accept, at once, every operation still waiting whose verifier report passed. Flagged ones are
   left for the owner to decide one by one.
 
+Some operations need another in the same change set: a bullet under a new role or project, or a
+change to one, can't be applied without it (`needs` in `app/review.py`, as `wj apply` uses it).
+Rejecting an operation rejects the ones that need it too, and those can't be accepted while it
+stays rejected. They're rejected without a reason of their own, so they add no style note.
+
 Once every operation is decided, `apply_change_set` applies the accepted ones to the latest
 version, atomically, as one new version (FR-REV-3), and the reasons given for rejections become
 style notes (FR-REV-4). A change set with nothing accepted is closed as rejected. Fact text is
@@ -44,6 +49,7 @@ from app.db.settings import add_style_notes, get_style_notes
 from app.inbox.describe import DiffPart, Output, describe, word_diff
 from app.llm.client import LLMClient
 from app.profile_ops import ProfileOpError, apply
+from app.review import needs
 from app.schema.changes import AddBullet, Author, ChangeOp, EditBullet, OpStatus, ReviewedOp
 from app.schema.common import Model
 from app.schema.fact import Fact
@@ -101,6 +107,9 @@ class InboxOp(Model):
     verifier_report: VerifierReport | None
     """None for an operation without generated text, such as benching a bullet."""
     editable: bool
+    needs: int | None
+    """The position of the change this one can't be applied without: the new role or project it
+    goes under, or changes."""
 
 
 class InboxChangeSet(Model):
@@ -152,9 +161,14 @@ async def decide(
     reason: str | None = None,
 ) -> None:
     """Accept or reject an operation, or set it back to waiting. Only a rejection keeps a
-    reason."""
+    reason. Rejecting it rejects the operations that need it too; and while the operation it
+    needs is rejected, it can only be rejected."""
     saved = await _open(session, user_id, change_set_id)
-    _op(saved, position)
+    reviewed = saved.change_set.ops
+    ops = [item.op for item in reviewed]
+    needed = needs(_op(saved, position).op, ops)
+    if status != "rejected" and needed is not None and reviewed[needed].status == "rejected":
+        raise ReviewError("it needs a change you rejected; undo that rejection first")
     await decide_op(
         session,
         user_id,
@@ -163,6 +177,10 @@ async def decide(
         status,
         reason=reason if status == "rejected" else None,
     )
+    if status == "rejected":
+        for other, item in enumerate(reviewed):
+            if needs(item.op, ops) == position and item.status != "rejected":
+                await decide_op(session, user_id, change_set_id, other, "rejected")
 
 
 async def edit_text(
@@ -180,7 +198,8 @@ async def edit_text(
     if not isinstance(op, AddBullet | EditBullet):
         raise ReviewError("only the text of a new or reworded bullet can be edited")
     version = await latest_version(session, user_id)
-    profile = version.profile if version else NO_PROFILE
+    ops = [item.op for item in saved.change_set.ops]
+    profile = _with_needed(op, ops, version.profile if version else NO_PROFILE)
     facts = await _facts(session, user_id, op.fact_ids)
     entries = {item.id for item in (*profile.work, *profile.education, *profile.projects)}
     if isinstance(op, AddBullet):
@@ -261,6 +280,7 @@ async def apply_change_set(
 
 def _view(saved: SavedChangeSet, profile: Profile, facts: Mapping[str, Fact]) -> InboxChangeSet:
     change_set = saved.change_set
+    ops = [reviewed.op for reviewed in change_set.ops]
     return InboxChangeSet(
         id=saved.id,
         author=change_set.author,
@@ -268,17 +288,33 @@ def _view(saved: SavedChangeSet, profile: Profile, facts: Mapping[str, Fact]) ->
         base_version=change_set.base_version,
         created_at=saved.created_at,
         ops=tuple(
-            _op_view(position, reviewed, profile, facts)
+            _op_view(position, reviewed, ops, profile, facts)
             for position, reviewed in enumerate(change_set.ops)
         ),
     )
 
 
+def _with_needed(op: ChangeOp, ops: Sequence[ChangeOp], profile: Profile) -> Profile:
+    """`profile` with the new role or project `op` needs, if it needs one, so that `op` can be
+    described and verified under it."""
+    needed = needs(op, ops)
+    if needed is None:
+        return profile
+    try:
+        return apply(profile, [ops[needed]])
+    except ProfileOpError:
+        return profile
+
+
 def _op_view(
-    position: int, reviewed: ReviewedOp, profile: Profile, facts: Mapping[str, Fact]
+    position: int,
+    reviewed: ReviewedOp,
+    ops: Sequence[ChangeOp],
+    profile: Profile,
+    facts: Mapping[str, Fact],
 ) -> InboxOp:
     op = reviewed.op
-    described = describe(op, profile)
+    described = describe(op, _with_needed(op, ops, profile))
     before, after = described.before, described.after
     return InboxOp(
         position=position,
@@ -298,6 +334,7 @@ def _op_view(
         sources=tuple(_source(fact_id, facts.get(fact_id)) for fact_id in op.fact_ids),
         verifier_report=_report(reviewed.verifier_report),
         editable=described.editable,
+        needs=needs(op, ops),
     )
 
 

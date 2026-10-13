@@ -98,15 +98,18 @@ function Sources({ op }: { op: InboxOp }) {
  * One proposed change (FR-REV-1), with the owner's decision on it (FR-REV-2): accept it, edit
  * its text, which the verifier checks again, or reject it with an optional reason. A decision can
  * be undone until the change set is applied. `onDecided` is told of a decision as it's made,
- * so focus can move on once it's saved.
+ * so focus can move on once it's saved. A change that `needed` another, such as a bullet under a
+ * new role, is rejected with it, and waits for that rejection to be undone.
  */
 export function OpReview({
   changeSetId,
   op,
+  needed,
   onDecided,
 }: {
   changeSetId: string;
   op: InboxOp;
+  needed?: InboxOp | undefined;
   onDecided: (position: number) => void;
 }) {
   const [mode, setMode] = useState<"view" | "reject" | "edit">("view");
@@ -117,6 +120,7 @@ export function OpReview({
   const id = useId();
   const at = { changeSetId, position: op.position };
   const status = STATUS[op.status];
+  const blocker = needed?.status === "rejected" ? needed : undefined;
   const failure = edit.error
     ? failureMessage("check your text", edit.error)
     : decide.error && failureMessage("save your decision", decide.error);
@@ -142,6 +146,11 @@ export function OpReview({
         </header>
         {op.context !== null && (
           <p className="mt-1 text-sm text-stone-600">About: &quot;{op.context}&quot;</p>
+        )}
+        {needed !== undefined && (
+          <p className="mt-1 text-sm text-stone-600">
+            Goes with &quot;{needed.title}&quot;{needed.after === null ? "" : `: ${needed.after}`}.
+          </p>
         )}
         <Diff op={op} />
         <p className="mt-2 text-xs text-stone-600">
@@ -259,6 +268,11 @@ export function OpReview({
               </button>
             </div>
           </form>
+        ) : blocker !== undefined ? (
+          <p className="mt-3 text-sm text-stone-700">
+            Rejected with &quot;{blocker.title}&quot;, which it needs. Undo that rejection to decide
+            on this one.
+          </p>
         ) : op.status === "proposed" ? (
           <div className="mt-3 flex flex-wrap gap-2">
             <button

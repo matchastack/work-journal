@@ -27,15 +27,17 @@ from app.llm.usage import CallLog
 from app.main import create_app
 from app.schema.changes import (
     AddBullet,
+    AddRole,
     AddSkill,
     ChangeOp,
     ChangeSet,
     EditBullet,
     ReviewedOp,
     SetBulletStatus,
+    UpdateField,
 )
 from app.schema.fact import Fact
-from app.schema.profile import Bullet, Profile, Skill
+from app.schema.profile import Bullet, Profile, Role, Skill
 from app.schema.settings import StyleNotes
 from app.schema.verification import VerifierFinding, VerifierReport
 from app.validate.claims import ClaimReply, JudgedClaim
@@ -279,6 +281,7 @@ def test_each_change_shows_its_diff_sources_outputs_and_report(
         ],
         "verifierReport": None,
         "editable": True,
+        "needs": None,
     }
     assert reworded["verifierReport"]["passed"] is True
     assert added["diff"] == []
@@ -481,3 +484,94 @@ def test_editing_says_so_when_claude_isnt_set_up(
     op = client.get("/api/inbox").json()["changeSets"][0]["ops"][0]
     assert op["after"] == REWORDED
     assert op["verifierReport"]["text"] == REWORDED, "the stored report is unchanged"
+
+
+# --- Changes that need others --------------------------------------------------------------------
+
+
+@pytest.fixture
+def new_role(database_url: str, owner: Owner) -> uuid.UUID:
+    """A proposal of a new role, with a bullet under it and a change to it, and a new skill."""
+    role = Role(id="fabrikam", name="Fabrikam", position="Engineer", start_date="2026-09")
+    return propose(
+        database_url,
+        owner.id,
+        ReviewedOp(op=AddRole(role=role, position=0)),
+        ReviewedOp(
+            op=AddBullet(parent_id="fabrikam", bullet=Bullet(id="fb_queue", text="Built a queue.")),
+            verifier_report=report("Built a queue."),
+        ),
+        ReviewedOp(op=UpdateField(target_id="fabrikam", field="location", value="Remote")),
+        ReviewedOp(op=AddSkill(skill=Skill(name="Go", category="Languages"))),
+    )
+
+
+def test_a_change_to_a_new_role_says_it_needs_it(client: TestClient, new_role: uuid.UUID) -> None:
+    """It's described under the new role, as it will be once both apply."""
+    ops = client.get("/api/inbox").json()["changeSets"][0]["ops"]
+    assert [op["needs"] for op in ops] == [None, 0, 0, None]
+    assert ops[1]["title"] == "Add a bullet under Engineer, Fabrikam"
+    assert ops[1]["outputs"] == ["master_resume", "tailored_resumes", "portfolio", "linkedin"]
+    assert (ops[2]["title"], ops[2]["after"]) == ("Change location of Engineer, Fabrikam", "Remote")
+
+
+def test_rejecting_a_new_role_rejects_the_changes_that_need_it(
+    owner: Owner, client: TestClient, new_role: uuid.UUID
+) -> None:
+    """As `wj apply` does (T-018): they can't be applied without it."""
+    decide(client, owner, new_role, 1, status="accepted")
+    rejected = decide(client, owner, new_role, 0, status="rejected", reason="Not yet")
+    assert [(op["status"], op["reason"]) for op in rejected.json()["ops"]] == [
+        ("rejected", "Not yet"),
+        ("rejected", None),
+        ("rejected", None),
+        ("proposed", None),
+    ]
+    for status in ("accepted", "proposed"):
+        refused = decide(client, owner, new_role, 1, status=status)
+        assert refused.status_code == 409
+        assert (
+            refused.json()["detail"] == "it needs a change you rejected; undo that rejection first"
+        )
+    assert decide(client, owner, new_role, 1, status="rejected", reason="No").status_code == 200
+    undone = decide(client, owner, new_role, 0, status="proposed")
+    statuses = [op["status"] for op in undone.json()["ops"]]
+    assert statuses == ["proposed", "rejected", "rejected", "proposed"]
+    assert decide(client, owner, new_role, 1, status="accepted").status_code == 200
+
+
+def test_bulk_accept_leaves_what_a_rejected_role_took(
+    owner: Owner, client: TestClient, new_role: uuid.UUID
+) -> None:
+    decide(client, owner, new_role, 0, status="rejected")
+    response = client.post(f"/api/inbox/{new_role}/accept-passed", headers=owner.csrf)
+    statuses = [op["status"] for op in response.json()["ops"]]
+    assert statuses == ["rejected", "rejected", "rejected", "accepted"]
+
+
+def test_only_the_owners_own_reasons_become_style_notes(
+    database_url: str, owner: Owner, client: TestClient, new_role: uuid.UUID
+) -> None:
+    decide(client, owner, new_role, 0, status="rejected", reason="Not yet")
+    decide(client, owner, new_role, 3, status="accepted")
+    applied = client.post(f"/api/inbox/{new_role}/apply", headers=owner.csrf)
+    assert applied.json() == {"version": 2}
+    _, profile = latest_profile(database_url, owner.id)
+    assert "fabrikam" not in [role.id for role in profile.work]
+    assert [skill.name for skill in profile.skills][-1] == "Go"
+
+    async def notes(session: AsyncSession) -> StyleNotes:
+        return await get_style_notes(session, owner.id)
+
+    assert [note.text for note in seed(database_url, notes).notes] == ["Not yet"]
+
+
+def test_a_new_role_applies_with_the_changes_that_need_it(
+    database_url: str, owner: Owner, client: TestClient, new_role: uuid.UUID
+) -> None:
+    client.post(f"/api/inbox/{new_role}/accept-passed", headers=owner.csrf)
+    assert client.post(f"/api/inbox/{new_role}/apply", headers=owner.csrf).json() == {"version": 2}
+    _, profile = latest_profile(database_url, owner.id)
+    role = profile.work[0]
+    assert (role.id, role.location) == ("fabrikam", "Remote")
+    assert [bullet.id for bullet in role.highlights] == ["fb_queue"]

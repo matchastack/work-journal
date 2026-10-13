@@ -625,6 +625,8 @@ export interface components {
             verifierReport: components["schemas"]["VerifierReport"] | null;
             /** Editable */
             editable: boolean;
+            /** Needs */
+            needs: number | null;
         };
         /** Journal */
         Journal: {

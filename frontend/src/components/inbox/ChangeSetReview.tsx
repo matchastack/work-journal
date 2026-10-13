@@ -115,7 +115,13 @@ export function ChangeSetReview({
       </div>
       <ol className="mt-4 space-y-3">
         {ops.map((op) => (
-          <OpReview key={op.position} changeSetId={changeSet.id} op={op} onDecided={decidedAfter} />
+          <OpReview
+            key={op.position}
+            changeSetId={changeSet.id}
+            op={op}
+            needed={op.needs === null ? undefined : ops[op.needs]}
+            onDecided={decidedAfter}
+          />
         ))}
       </ol>
     </section>
