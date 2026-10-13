@@ -4,9 +4,10 @@ import asyncio
 import json
 import logging
 import uuid
-from collections.abc import AsyncGenerator, Coroutine, Sequence
+from collections.abc import AsyncGenerator, Callable, Coroutine, Sequence
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -41,10 +42,14 @@ from app.db.profiles import (
 )
 from app.db.store import list_facts, save_facts
 from app.db.users import UnknownUserError, only_user, user_for_login
+from app.evals.dataset import FICTIONAL_DIR, SUITES, Dataset, DatasetError, load_dataset
+from app.evals.report import evaluation_report
+from app.evals.run import CaseResult, Evaluation, SuiteResult, run_suite
 from app.extraction import extract_facts
 from app.importers.master_resume import MasterResumeError, import_master_resume
 from app.jobs import run_worker
 from app.llm.client import LLMCallError, LLMClient, LLMConfigError
+from app.llm.usage import CallLog, CallLogs, JsonlCallLog, MemoryCallLog
 from app.main import create_app
 from app.portfolio.build import Download, build_portfolio
 from app.profile_ops import ProfileOpError
@@ -103,6 +108,16 @@ _FACTS = TypeAdapter(list[Fact])
 def _llm_client() -> LLMClient:
     """The Claude client the commands use (tests replace it with a fake)."""
     return LLMClient.from_settings()
+
+
+def _eval_client(log: CallLog) -> LLMClient:
+    """The Claude client `wj eval` uses, which logs its calls to `log` and to the JSONL file
+    (tests replace it with a fake)."""
+    settings = get_settings()
+    if settings.anthropic_api_key is None or settings.llm_model_standard is None:
+        typer.echo("Set ANTHROPIC_API_KEY and LLM_MODEL_STANDARD to run the evaluation.", err=True)
+        raise typer.Exit(1)
+    return LLMClient.from_settings(settings, CallLogs(log, JsonlCallLog(settings.llm_call_log)))
 
 
 def _telegram_http() -> httpx2.AsyncClient:
@@ -567,6 +582,89 @@ async def _save_review(
 
 def _count(number: int, noun: str) -> str:
     return f"{number} {noun}" if number == 1 else f"{number} {noun}s"
+
+
+class SuiteName(StrEnum):
+    EXTRACTION = "extraction"
+    WRITING = "writing"
+    ADVERSARIAL = "adversarial"
+    ALL = "all"
+
+
+@cli.command("eval")
+def evaluate(
+    suite: Annotated[
+        SuiteName,
+        typer.Argument(
+            help="extraction (notes to facts), writing (facts to bullets), adversarial (text "
+            "the verifier must judge right) or all."
+        ),
+    ],
+    private: Annotated[
+        bool,
+        typer.Option(
+            "--private",
+            help="Run your own cases in local/evals/ instead of the committed fictional ones.",
+        ),
+    ] = False,
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Also write the report to this file, such as evals/baseline.md."),
+    ] = None,
+) -> None:
+    """Run an evaluation suite with the real models, and report its altered numbers, inflated
+    claims, fact recall and cost.
+
+    Run it before changing a prompt or the model routing, and give the numbers in the PR. Calls
+    the standard-tier model. Exits with status 1 when the results don't meet the evaluation bar:
+    0 altered numbers, 0 inflated claims and at least 90% of facts recovered.
+    """
+    folder = LOCAL_DIR / "evals" if private else FICTIONAL_DIR
+    try:
+        datasets = [
+            dataset
+            for name in SUITES
+            if suite in (SuiteName.ALL, name)
+            and (dataset := load_dataset(folder, name)) is not None
+        ]
+    except DatasetError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from None
+    if not datasets:
+        typer.echo(
+            f"{folder} has no cases for {suite}; backend/evals/README.md describes the format.",
+            err=True,
+        )
+        raise typer.Exit(1)
+    log = MemoryCallLog()
+    client = _eval_client(log)
+    suites: list[SuiteResult] = []
+    try:
+        for dataset in datasets:
+            suites.append(run_suite(dataset, client, log, progress=_progress(dataset)))
+    except LLMConfigError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from None
+    evaluation = Evaluation(suites=tuple(suites))
+    cases = "Your private cases (`local/evals/`)" if private else "The fictional cases"
+    report = evaluation_report(evaluation, dataset=cases, on=date.today())
+    typer.echo(report, nl=False)
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(report, encoding="utf-8")
+        typer.echo(f"Wrote {out}", err=True)
+    if not evaluation.meets_bar:
+        raise typer.Exit(1)
+
+
+def _progress(dataset: Dataset) -> Callable[[CaseResult], None]:
+    """Prints each case's result on standard error as it finishes."""
+
+    def show(case: CaseResult) -> None:
+        result = "error" if case.error else "pass" if case.passed else "fail"
+        typer.echo(f"{dataset.suite}: {case.case_id}: {result}", err=True)
+
+    return show
 
 
 @cli.command()

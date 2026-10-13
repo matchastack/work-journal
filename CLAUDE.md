@@ -55,6 +55,7 @@ Run these from `backend/` (uv project, Python 3.12):
 | Write facts as a resume bullet, checked by the verifier (needs the LLM settings; `--edit <bullet>` writes a new version of one) | `uv run wj write --facts <ids>` (add `--db` for facts in the database) |
 | Propose profile changes from the journal facts the profile doesn't use yet (needs the LLM settings) | `uv run wj propose --db` |
 | Review the proposed changes one by one and save the accepted ones as the next version, then render | `uv run wj apply --db`, then `uv run wj render --db` |
+| Evaluate the LLM steps on the fictional cases, against the bar (needs `ANTHROPIC_API_KEY` and `LLM_MODEL_STANDARD`; `evals/README.md`) | `uv run wj eval all` (add `--private` for your cases in `local/evals/`) |
 | Lint | `uv run ruff check .` |
 | Format | `uv run ruff format .` |
 | Type-check | `uv run pyright` |
@@ -83,6 +84,7 @@ Add a dependency with `npm install <package>` (or `npm install --save-dev <packa
 | `backend/` | FastAPI app, engine and the `wj` command-line tool (from T-001) |
 | `backend/migrations/` | Alembic migrations for `app/db/models.py` |
 | `backend/templates/` | LaTeX resume template and portfolio templates |
+| `backend/evals/` | Fictional evaluation cases for `wj eval`, and the baseline report |
 | `frontend/` | React web app: Vite, TypeScript, Tailwind, React Router and TanStack Query. `src/api/schema.d.ts` is generated. |
 | `docs/` | Runbooks: `deploy.md` sets up the free hosting (Vercel and Neon) |
 | `local/` | **Git-ignored** personal data: the imported profile and private evaluations. Never commit it. |
@@ -106,7 +108,7 @@ Add a dependency with `npm install <package>` (or `npm install --save-dev <packa
 - **Every generated sentence passes the verifier** (`app/validate/verifier.py`) before it's stored.
 - **ASCII characters come from code, not prompts.** Schema models apply the rules in `app/text.py` to every string (for example, en dash to hyphen and ellipsis to three dots), and code and templates write ASCII too. To keep another character out of generated text, add a rule there.
 - **Tests:** unit tests use the fake client. Real API calls happen only in `pytest -m llm` and `wj eval`, never in default CI.
-- **Evaluations:** run the evaluation suite before changing a prompt or the routing, and report the numbers in the PR.
+- **Evaluations:** before changing a prompt or the routing, run `uv run wj eval all` (and with `--private`, if you have cases in `local/evals/`). Give the numbers in the PR next to `backend/evals/baseline.md`; the change must meet the bar (0 altered numbers, 0 inflated claims, at least 90% fact recall). A prompt change that improves the baseline updates it in the same PR.
 - **Check the docs first:** before writing Claude API code, check the current SDK documentation (the `claude-api` skill) rather than relying on memory.
 
 ## Resume rules (enforced in code; never bypass)
