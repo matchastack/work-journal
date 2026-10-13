@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from app.llm.usage import CallRecord, JsonlCallLog, MemoryCallLog, Tokens
+from app.llm.usage import CallLogs, CallRecord, JsonlCallLog, MemoryCallLog, Tokens
 
 
 def record(**overrides: object) -> CallRecord:
@@ -51,3 +51,10 @@ def test_memory_log_keeps_records() -> None:
     log = MemoryCallLog()
     log.record(record())
     assert [call.task for call in log.calls] == ["entry_summary"]
+
+
+def test_call_logs_record_each_call_in_every_log(tmp_path: Path) -> None:
+    memory, jsonl = MemoryCallLog(), JsonlCallLog(tmp_path / "calls.jsonl")
+    CallLogs(memory, jsonl).record(record())
+    assert [call.task for call in memory.calls] == ["entry_summary"]
+    assert jsonl.path.read_text(encoding="utf-8").count("\n") == 1
