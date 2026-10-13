@@ -29,9 +29,37 @@ fi
 step "Installing dependencies"
 uv sync --frozen --quiet
 
-app_url=$(uv run --frozen python -c 'from app.config import get_settings; print(get_settings().app_url)')
-if [[ $app_url != https://* ]]; then
-  echo "APP_URL in backend/.env is $app_url; set it to the deployed address (https://...)." >&2
+step "Checking that backend/.env points at the deployed app"
+# Stops before anything touches a database or Telegram. Prints hosts only, never secrets.
+if ! app_url=$(
+  uv run --frozen python - << 'PYTHON'
+import sys
+from urllib.parse import urlsplit
+
+from app.config import LOCAL_HOSTS, get_settings
+
+settings = get_settings()
+problems: list[str] = []
+if urlsplit(settings.app_url).hostname in LOCAL_HOSTS:
+    problems.append(f"APP_URL is {settings.app_url}, not the deployed app's https:// address")
+database = None
+if settings.database_url is None:
+    problems.append("DATABASE_URL isn't set")
+else:
+    database = urlsplit(settings.database_url.get_secret_value()).hostname
+    if database is None or database in LOCAL_HOSTS:
+        problems.append("DATABASE_URL is a database on this computer, not the deployed one")
+for name in ("TELEGRAM_BOT_TOKEN", "TELEGRAM_WEBHOOK_SECRET"):
+    if getattr(settings, name.lower()) is None:
+        problems.append(f"{name} isn't set")
+if problems:
+    print("\n".join(f"- {problem}" for problem in problems), file=sys.stderr)
+    sys.exit(1)
+print(f"App: {settings.app_url}\nDatabase: {database}", file=sys.stderr)
+print(settings.app_url)
+PYTHON
+); then
+  echo "Set backend/.env as docs/deploy.md (step 6) says, then run this again." >&2
   exit 1
 fi
 

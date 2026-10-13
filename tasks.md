@@ -759,6 +759,8 @@ As the owner, I want the app deployed for free and updated automatically, so tha
 As the owner, I want one command to run after each deploy, so that I don't have to work out which commands a deploy needs.
 
 - [x] `backend/scripts/post-deploy.sh` checks that the checkout matches `origin/main`, waits for `/healthz`, runs `alembic upgrade head` and `wj telegram set-webhook`. Every step is safe to repeat.
+- [x] It stops before touching the database or Telegram when `backend/.env` points at this computer or lacks the Telegram secrets.
+- [x] Migrations that start at the same time, such as Vercel's build and the script, take turns instead of failing.
 - [x] `docs/deploy.md` and `CLAUDE.md` say to run it after each deploy, and that a change needing a command after its deploy adds it there.
 
 ### T-052 · Observability

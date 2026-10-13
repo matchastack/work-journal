@@ -138,7 +138,10 @@ scripts/post-deploy.sh
 
 It checks that your checkout matches `origin/main`, waits for `/healthz` to answer, migrates the
 database and points Telegram at the webhook. Every step is safe to repeat, so a deploy that
-needs none of them changes nothing. It uses the settings in `backend/.env` from step 6.
+needs none of them changes nothing. It uses the settings in `backend/.env` from step 6, and
+stops before touching the database or Telegram if they point at this computer or lack the
+Telegram secrets. If the build is migrating at the same moment, one migration waits for the
+other.
 
 ## Check it works
 
