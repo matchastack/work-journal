@@ -754,7 +754,7 @@ As the owner, I want the app deployed for free and updated automatically, so tha
 - [x] A deployment runbook in `docs/deploy.md`.
 
 ### T-063 · Post-deploy script
-**Status:** ◐ · **Size:** S · **Depends on:** T-051 · **Requirements:** C6 · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-051 · **Requirements:** C6 · **PR:** [#42](https://github.com/matchastack/work-journal/pull/42)
 
 As the owner, I want one command to run after each deploy, so that I don't have to work out which commands a deploy needs.
 

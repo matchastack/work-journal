@@ -2,7 +2,7 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-13 · T-063 Post-deploy script · PR link to come
+## 2026-10-13 · T-063 Post-deploy script · [#42](https://github.com/matchastack/work-journal/pull/42)
 **Changed:** added `backend/scripts/post-deploy.sh`, to run after each deploy. It waits for the app, migrates the database and runs `wj telegram set-webhook`; every step is safe to repeat.
 
 **Verify:**
