@@ -10,6 +10,24 @@ One short entry per pull request, newest first: what changed and what to verify.
 - Run from an out-of-date checkout, it stops and asks you to `git pull`
 - With `DATABASE_URL` pointing at localhost, it lists the problem and stops before migrating
 
+## 2026-10-12 · T-040 Inbox · [#36](https://github.com/matchastack/work-journal/pull/36)
+**Changed:** the web app's Inbox lists the changes proposed to your profile. Each one shows a word diff, the facts it came from, the outputs it changes and the verifier's report. You accept, edit (checked again) or reject each one, and Apply turns the accepted ones into a new profile version; reasons you give for rejecting become style notes. Nothing proposes changes until the refresh (T-038), so the Inbox stays empty until then.
+
+**Verify:**
+- CI is green on #36
+- With a change set in your local database (the PR has a script), accepting a change moves focus to the next one, and Apply makes a new profile version
+- "Accept all that passed" leaves the changes the verifier flagged waiting, and Apply stays off until every change is decided
+- Editing a bullet's text, with the LLM settings, shows the verifier's new report on the change
+- Rejecting a new role also rejects the bullets under it, and they can't be accepted until you undo the role's rejection
+
+## 2026-10-12 · T-041 Journal page · [#35](https://github.com/matchastack/work-journal/pull/35)
+**Changed:** the web app's Journal page shows your journal as one document by month, with the facts saved from each entry. You can edit or delete messages, entries and facts there (deleting something your profile cites names the bullets and asks first), and download it all as Markdown or JSON.
+
+**Verify:**
+- CI is green on #35
+- The link in the bot's reply to an entry opens the Journal page at that entry
+- Editing a message keeps its earlier text under "Edited once"; editing a fact shows the change at once
+- Download Markdown writes the times in your time zone; Download JSON holds every entry and fact
 ## 2026-10-13 · T-062 Migrations follow the production database · [#41](https://github.com/matchastack/work-journal/pull/41)
 **Changed:** the deploy of `main` failed because production's database is at migration 0010 (from #35, not yet merged) and `main` didn't have it. `main` now carries that migration and its `facts.updated_at` column, and the follow-up question's migration comes after it.
 
@@ -58,7 +76,7 @@ One short entry per pull request, newest first: what changed and what to verify.
 **Changed:** when an entry closes, the bot asks which role it's about, with a button for each role in your profile and New role. Facts are extracted only after you answer, and every one links to the role you chose; a new role's name is kept (encrypted) for a refresh to add.
 
 **Verify:**
-- CI is green on the PR
+- CI is green on #33
 - After the deploy, run `uv run wj telegram set-webhook` once, so Telegram sends the webhook button presses
 - With your bot: a note, then `/done`, gets the question as a reply to the note; tapping a role edits the question to show it, and the facts reply follows
 - New role, then a message such as "Data Engineer, Example Co", gives the entry that role, and that message isn't journaled

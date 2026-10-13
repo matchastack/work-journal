@@ -17,6 +17,8 @@ export default defineConfig({
     environment: "jsdom",
     environmentOptions: { jsdom: { url: "https://journal.test/" } },
     setupFiles: ["./src/test/setup.ts"],
+    // A time zone away from UTC, so tests show that times are written in the browser's.
+    env: { TZ: "Asia/Singapore" },
     unstubGlobals: true,
   },
 });

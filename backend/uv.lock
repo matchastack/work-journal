@@ -1534,6 +1534,7 @@ dependencies = [
     { name = "pypdf" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "typer" },
+    { name = "tzdata" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -1561,6 +1562,7 @@ requires-dist = [
     { name = "pypdf", specifier = ">=6.19.0" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.1.1" },
     { name = "typer", specifier = ">=0.27.2" },
+    { name = "tzdata", specifier = ">=2026.4" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.54.0" },
 ]
 

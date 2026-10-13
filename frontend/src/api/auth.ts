@@ -5,15 +5,25 @@ import type { components } from "./schema";
 
 export type Me = components["schemas"]["Me"];
 
-/** The API answered with an error status. */
+/** The API answered with an error status, and said why in `detail` if it could. */
 export class ApiError extends Error {
   readonly status: number;
+  readonly detail: string | undefined;
 
-  constructor(status: number) {
+  constructor(status: number, detail?: string) {
     super(`The API answered with status ${String(status)}`);
     this.name = "ApiError";
     this.status = status;
+    this.detail = detail;
   }
+}
+
+/** The API's own reason for an error, from FastAPI's `{"detail": "..."}` body. */
+export function detailOf(body: unknown): string | undefined {
+  if (typeof body === "object" && body !== null && "detail" in body) {
+    return typeof body.detail === "string" ? body.detail : undefined;
+  }
+  return undefined;
 }
 
 /** Who is signed in, or null when nobody is. */
@@ -50,4 +60,15 @@ export function useSignOut() {
       queryClient.setQueryData(meQuery.queryKey, null);
     },
   });
+}
+
+/** What to tell the owner when a change didn't work, with the API's reason if it gave one. */
+export function failureMessage(action: string, error: Error): string {
+  if (error instanceof ApiError && error.detail !== undefined) {
+    return `Couldn't ${action}: ${error.detail}.`;
+  }
+  if (error instanceof ApiError && error.status === 422) {
+    return `Couldn't ${action}: check the fields.`;
+  }
+  return `Couldn't ${action}. Try again.`;
 }

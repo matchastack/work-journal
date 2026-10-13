@@ -14,7 +14,12 @@ from app.auth import github
 from app.auth.routes import router as auth_router
 from app.config import Settings, get_settings
 from app.db.engine import DatabaseStatus, check_database, create_engine, session_factory
+from app.deps import LLMFactory
+from app.inbox.routes import router as inbox_router
 from app.internal import router as internal_router
+from app.journal.routes import router as journal_router
+from app.llm.client import LLMClient
+from app.llm.usage import CallLog
 from app.telegram.routes import router as telegram_api_router
 from app.telegram.webhook import router as telegram_router
 from app.web import add_web_app
@@ -39,12 +44,19 @@ async def healthz(request: Request, response: Response) -> Health:
 
 
 def create_app(
-    settings: Settings | None = None, *, transport: httpx2.AsyncBaseTransport | None = None
+    settings: Settings | None = None,
+    *,
+    transport: httpx2.AsyncBaseTransport | None = None,
+    llm: LLMFactory | None = None,
 ) -> FastAPI:
     """Build the FastAPI application. The database engine and the HTTP client for outgoing
     requests (GitHub) live as long as the app does. Tests pass a `transport` that stands in
-    for the network."""
+    for the network, and an `llm` that stands in for Claude."""
     settings = settings or get_settings()
+    app_settings = settings
+
+    def claude(log: CallLog) -> LLMClient:
+        return LLMClient.from_settings(app_settings, log=log)
 
     @asynccontextmanager
     async def lifespan(api: FastAPI) -> AsyncGenerator[None]:
@@ -62,10 +74,13 @@ def create_app(
 
     api = FastAPI(title="Work Journal", version=__version__, lifespan=lifespan)
     api.state.settings = settings
+    api.state.llm = llm or claude
     api.include_router(router)
     api.include_router(auth_router)
     api.include_router(telegram_router)
     api.include_router(telegram_api_router)
+    api.include_router(journal_router)
+    api.include_router(inbox_router)
     api.include_router(internal_router)
     add_web_app(api, settings.web_dist_dir)
     return api
