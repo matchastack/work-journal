@@ -4,6 +4,9 @@ from pathlib import Path
 import pytest
 
 from app.evals.dataset import (
+    FICTIONAL_DIR,
+    SUITES,
+    AdversarialCase,
     DatasetError,
     ExtractionCase,
     Suite,
@@ -35,6 +38,26 @@ def failure(folder: Path, suite: Suite, text: str) -> str:
     with pytest.raises(DatasetError) as raised:
         load_dataset(folder, suite)
     return str(raised.value)
+
+
+@pytest.mark.parametrize("suite", SUITES)
+def test_the_fictional_dataset_loads(suite: Suite) -> None:
+    dataset = load_dataset(FICTIONAL_DIR, suite)
+    assert dataset is not None
+    assert len(dataset.cases) >= 8
+    assert dataset.profile.basics.name
+
+
+def test_the_fictional_dataset_has_every_kind_of_case() -> None:
+    extraction = load_dataset(FICTIONAL_DIR, "extraction")
+    adversarial = load_dataset(FICTIONAL_DIR, "adversarial")
+    assert extraction is not None and adversarial is not None
+    extraction_cases = [case for case in extraction.cases if isinstance(case, ExtractionCase)]
+    assert any(not case.expected for case in extraction_cases), "a note with no facts"
+    assert any(case.never for case in extraction_cases), "a note that tries to trick the model"
+    adversarial_cases = [case for case in adversarial.cases if isinstance(case, AdversarialCase)]
+    assert any(case.catch for case in adversarial_cases), "known-bad text"
+    assert any(not case.catch for case in adversarial_cases), "faithful text"
 
 
 def test_a_folder_without_the_suite_has_no_dataset(tmp_path: Path) -> None:
