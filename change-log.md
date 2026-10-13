@@ -2,6 +2,16 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-13 · T-034 Follow-up question · [#39](https://github.com/matchastack/work-journal/pull/39)
+**Changed:** when an entry closes and the note leaves out a number, its impact or your part in it, the bot asks one short question about it, with a Skip button, before asking the entry's role. Your next message joins the entry, so its facts can use the answer. `/skip` skips the question too.
+
+**Verify:**
+- CI is green on #39
+- After the deploy, run `uv run wj telegram set-webhook` once, so the command menu shows `/skip`
+- With your bot: a note without numbers, such as "sped up the search page by caching the filters", then `/done`, gets one question with a Skip button; your answer is followed by the role question, and the facts reply uses the answer
+- Skip, or `/skip`, goes straight on to the role question, and a note that already gives its numbers gets no question
+- With your key, `uv run pytest -m llm tests/test_follow_up_live.py` passes (5 cases)
+
 ## 2026-10-13 · T-016 Evaluation harness · [#38](https://github.com/matchastack/work-journal/pull/38)
 **Changed:** added `wj eval`, which runs fictional journal notes, facts and known-bad texts through fact extraction, the resume writer and the verifier with the real models. It reports altered numbers, inflated claims, fact recall and cost against the bar for changing a prompt or the model routing. Your own cases go in `local/evals/` and run with `--private`.
 

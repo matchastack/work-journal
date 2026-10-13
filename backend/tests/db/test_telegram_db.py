@@ -308,7 +308,7 @@ def test_polling_journals_updates_as_the_webhook_does(database_url: str, chat_id
         "sendMessage",
         "getUpdates",
     ]
-    assert [item["command"] for item in calls[0][1]["commands"]] == ["done", "help"]
+    assert [item["command"] for item in calls[0][1]["commands"]] == ["done", "skip", "help"]
     assert calls[3][1] == {"chat_id": stranger, "text": LINK_HINT}
     assert calls[4][1]["offset"] == batch[1]["update_id"] + 1, "confirms the updates handled"
 

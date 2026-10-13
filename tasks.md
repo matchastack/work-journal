@@ -549,14 +549,16 @@ As the owner, I want to say which role each journal entry is about when I submit
 - [x] Tests.
 
 ### T-034 · Follow-up question
-**Status:** ☐ · **Size:** S · **Depends on:** T-033 · **Requirements:** FR-CAP-6 · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-033 · **Requirements:** FR-CAP-6 · **PR:** [#39](https://github.com/matchastack/work-journal/pull/39)
 
 As the owner, I want at most one short follow-up question when my note is missing impact or numbers, so that entries become stronger without nagging.
 
-- [ ] A light-tier check decides whether impact, metrics or ownership are missing.
-- [ ] At most one question per entry, with a Skip button.
-- [ ] The answer joins the same entry before extraction.
-- [ ] Tests.
+- [x] A light-tier check decides whether impact, metrics or ownership are missing.
+- [x] At most one question per entry, with a Skip button.
+- [x] The answer joins the same entry before extraction.
+- [x] Tests.
+
+**Built (2026-10-13):** the bot asks when the entry closes, before the role question, and only within the entry timeout of the close with no other entry open, since without an always-on worker it can't wait for a pause while the entry is open. The model writes the question about the note; code asks a fixed one instead if it has a number or isn't one short question. `/skip` does what the Skip button does, and a question with no answer within the entry timeout lapses.
 
 ### T-035 · Reminders
 **Status:** ☐ · **Size:** M · **Depends on:** T-028, T-031 · **Requirements:** FR-REM-1, FR-REM-2, FR-REM-3, FR-SET-2 · **Needs:** OQ-4 · **PR:** —
