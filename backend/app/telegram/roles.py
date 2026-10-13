@@ -1,6 +1,7 @@
 """Which role a journal entry is about (FR-CAP-11).
 
-When an entry closes, the `extract_entry` job (`app/jobs.py`) asks first (`role_question`). The
+When an entry closes, the `extract_entry` job (`app/jobs.py`) asks this first (`role_question`),
+after the follow-up question, if there is one (`app/telegram/follow_up.py`). The
 question replies to the entry's first message, with a button for each role in the owner's latest
 profile version and a New role button. Nothing is extracted until the owner answers:
 
@@ -91,7 +92,8 @@ async def role_question(
     session: AsyncSession, entry_id: uuid.UUID, *, now: datetime
 ) -> RoleQuestion | None:
     """The question to ask about the entry, if it's closed, waits for its role and hasn't been
-    asked about yet. Marks it asked as of `now`."""
+    asked about yet, and its follow-up question (`app/telegram/follow_up.py`) doesn't wait for an
+    answer. Marks it asked as of `now`."""
     entry = await session.scalar(
         select(JournalEntry).where(JournalEntry.id == entry_id).with_for_update()
     )
@@ -99,7 +101,7 @@ async def role_question(
         return None
     if entry.processed_at is not None or entry.failed_at is not None or has_role(entry):
         return None
-    if not await entry_text(session, entry_id):
+    if entry.awaiting_follow_up or not await entry_text(session, entry_id):
         return None
     entry.role_asked_at = now
     version = await latest_version(session, entry.user_id)

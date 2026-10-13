@@ -4,10 +4,12 @@
 first, so nothing is lost, then the journal message in it. Only private chats linked to a user
 become journal messages, grouped into entries (`app/telegram/entries.py`). `/start <token>` from
 a link to the bot links a chat (`app/telegram/linking.py`); any other unlinked chat is told how
-to link itself. Commands aren't journaled: `/done` closes the open entry, and `/help` lists the
-commands (FR-CAP-7), as Telegram's command menu does (`COMMANDS`). Button presses, and the
-message that names a new role, answer which role an entry is about (`app/telegram/roles.py`).
-Message text is never logged.
+to link itself. Commands aren't journaled: `/done` closes the open entry, `/skip` skips the
+follow-up question, and `/help` lists the commands (FR-CAP-7), as Telegram's command menu does
+(`COMMANDS`). Button presses, and the message that names a new role, answer which role an entry
+is about (`app/telegram/roles.py`). A message that answers a closed entry's follow-up question
+joins that entry, and its Skip button skips the question (`app/telegram/follow_up.py`). Message
+text is never logged.
 """
 
 import uuid
@@ -22,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import JournalMessage, JournalMessageEdit, TelegramLink, TelegramUpdate
 from app.telegram.api import BotCall, send
 from app.telegram.entries import DEFAULT_TIMEOUT, close_open_entry, entry_for
+from app.telegram.follow_up import SKIP, answered, awaiting, lapsed, press_skip, skip
 from app.telegram.linking import link_chat, start_token
 from app.telegram.roles import Answer, name_role, naming_entry, press
 from app.telegram.updates import CallbackQuery, Message, Update
@@ -35,6 +38,7 @@ NOTHING_OPEN = "There's no open entry to close. Send me a note to start one."
 UNKNOWN = "I don't know that command, so I didn't journal it."
 COMMANDS: tuple[tuple[str, str], ...] = (
     ("done", "close the current entry now"),
+    ("skip", "skip the question about the last entry"),
     ("help", "list the commands"),
 )
 """The commands `/help` lists and Telegram's command menu shows, without their "/". Later tasks
@@ -56,7 +60,8 @@ def help_text(timeout: timedelta) -> str:
 class Handled:
     """What came of an update: the Bot API calls that answer it, in order, and the entry whose
     jobs can run right away (FR-CAP-5), if there is one: an entry the update closed, so that the
-    bot asks which role it's about, or one whose role it chose, so that its facts are extracted."""
+    bot asks about it, one whose follow-up question it answered or skipped, so that the bot asks
+    which role it's about, or one whose role it chose, so that its facts are extracted."""
 
     calls: tuple[BotCall, ...] = ()
     ready: uuid.UUID | None = None
@@ -128,11 +133,15 @@ async def _new_message(
     if body is None:
         return Handled()
     if body.startswith("/"):
-        answer, closed = await _command(session, owner, body, message.sent_at, entry_timeout)
-        return Handled((send(chat_id, answer),), closed)
+        return await _command(session, owner, chat_id, body, message.sent_at, entry_timeout)
     if (naming := await naming_entry(session, owner)) is not None:
         return Handled.of(name_role(naming, chat_id, body))
-    entry_id, closed = await entry_for(session, owner, message.sent_at, entry_timeout)
+    asked = await awaiting(session, owner)
+    if asked is not None and not lapsed(asked, message.sent_at, entry_timeout):
+        entry_id, handled = asked.id, Handled.of(answered(asked, chat_id))
+    else:
+        entry_id, closed = await entry_for(session, owner, message.sent_at, entry_timeout)
+        handled = Handled(ready=closed)
     statement = (
         insert(JournalMessage)
         .values(
@@ -147,7 +156,7 @@ async def _new_message(
         .on_conflict_do_nothing(index_elements=[JournalMessage.chat_id, JournalMessage.message_id])
     )
     await session.execute(statement)
-    return Handled(ready=closed)
+    return handled
 
 
 async def _press(session: AsyncSession, query: CallbackQuery) -> Handled:
@@ -158,26 +167,32 @@ async def _press(session: AsyncSession, query: CallbackQuery) -> Handled:
         owner = await _chat_owner(session, message.chat.id)
     if owner is None:
         return Handled((BotCall("answerCallbackQuery", {"callback_query_id": query.id}),))
+    if query.data == SKIP:
+        return Handled.of(await press_skip(session, owner, query))
     return Handled.of(await press(session, owner, query))
 
 
 async def _command(
     session: AsyncSession,
     owner: uuid.UUID,
+    chat_id: int,
     body: str,
     sent_at: datetime,
     entry_timeout: timedelta,
-) -> tuple[str, uuid.UUID | None]:
-    """The bot's answer to a command sent at `sent_at`, and the entry it closed, if any. `/done`
-    closes the open entry as of then. `/start` and `/help` get the list of commands, and so does
-    an unknown command, with a note that it wasn't journaled."""
+) -> Handled:
+    """The bot's answer to a command sent at `sent_at`. `/done` closes the open entry as of then,
+    and `/skip` skips the follow-up question that waits for an answer. `/start` and `/help` get
+    the list of commands, and so does an unknown command, with a note that it wasn't
+    journaled."""
     command = body.split(maxsplit=1)[0].split("@", 1)[0].lower()
     if command == "/done":
         closed = await close_open_entry(session, owner, sent_at)
-        return (DONE if closed else NOTHING_OPEN), closed
+        return Handled((send(chat_id, DONE if closed else NOTHING_OPEN),), closed)
+    if command == "/skip":
+        return Handled.of(await skip(session, owner, chat_id))
     if command in ("/start", "/help"):
-        return help_text(entry_timeout), None
-    return f"{UNKNOWN}\n\n{help_text(entry_timeout)}", None
+        return Handled((send(chat_id, help_text(entry_timeout)),))
+    return Handled((send(chat_id, f"{UNKNOWN}\n\n{help_text(entry_timeout)}"),))
 
 
 async def _edit(session: AsyncSession, message: Message) -> None:
