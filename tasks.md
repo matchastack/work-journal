@@ -547,7 +547,7 @@ As the owner, I want to say which role each journal entry is about when I submit
 - [x] Tests.
 
 ### T-034 · Follow-up question
-**Status:** ◐ · **Size:** S · **Depends on:** T-033 · **Requirements:** FR-CAP-6 · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-033 · **Requirements:** FR-CAP-6 · **PR:** [#39](https://github.com/matchastack/work-journal/pull/39)
 
 As the owner, I want at most one short follow-up question when my note is missing impact or numbers, so that entries become stronger without nagging.
 

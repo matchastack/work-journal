@@ -2,11 +2,11 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-13 · T-034 Follow-up question · [#PR](https://github.com/matchastack/work-journal/pull/PR)
+## 2026-10-13 · T-034 Follow-up question · [#39](https://github.com/matchastack/work-journal/pull/39)
 **Changed:** when an entry closes and the note leaves out a number, its impact or your part in it, the bot asks one short question about it, with a Skip button, before asking the entry's role. Your next message joins the entry, so its facts can use the answer. `/skip` skips the question too.
 
 **Verify:**
-- CI is green on #PR
+- CI is green on #39
 - After the deploy, run `uv run wj telegram set-webhook` once, so the command menu shows `/skip`
 - With your bot: a note without numbers, such as "sped up the search page by caching the filters", then `/done`, gets one question with a Skip button; your answer is followed by the role question, and the facts reply uses the answer
 - Skip, or `/skip`, goes straight on to the role question, and a note that already gives its numbers gets no question
