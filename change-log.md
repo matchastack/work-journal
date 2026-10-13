@@ -2,6 +2,13 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-13 · T-063 Post-deploy script · PR link to come
+**Changed:** added `backend/scripts/post-deploy.sh`, to run after each deploy. It waits for the app, migrates the database and runs `wj telegram set-webhook`; every step is safe to repeat.
+
+**Verify:**
+- After the next deploy, `scripts/post-deploy.sh` from `backend/` ends with "Done", and the bot still answers
+- Run from an out-of-date checkout, it stops and asks you to `git pull`
+
 ## 2026-10-13 · T-062 Migrations follow the production database · [#41](https://github.com/matchastack/work-journal/pull/41)
 **Changed:** the deploy of `main` failed because production's database is at migration 0010 (from #35, not yet merged) and `main` didn't have it. `main` now carries that migration and its `facts.updated_at` column, and the follow-up question's migration comes after it.
 

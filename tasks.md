@@ -753,6 +753,14 @@ As the owner, I want the app deployed for free and updated automatically, so tha
 - [x] Environment variables are documented without values, and `wj telegram set-webhook` points Telegram at the deployed webhook.
 - [x] A deployment runbook in `docs/deploy.md`.
 
+### T-063 · Post-deploy script
+**Status:** ◐ · **Size:** S · **Depends on:** T-051 · **Requirements:** C6 · **PR:** —
+
+As the owner, I want one command to run after each deploy, so that I don't have to work out which commands a deploy needs.
+
+- [x] `backend/scripts/post-deploy.sh` checks that the checkout matches `origin/main`, waits for `/healthz`, runs `alembic upgrade head` and `wj telegram set-webhook`. Every step is safe to repeat.
+- [x] `docs/deploy.md` and `CLAUDE.md` say to run it after each deploy, and that a change needing a command after its deploy adds it there.
+
 ### T-052 · Observability
 **Status:** ☐ · **Size:** S · **Depends on:** T-051 · **Requirements:** NFR-OBS-1, NFR-COST-2, NFR-PRIV-2 · **PR:** —
 
