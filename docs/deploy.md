@@ -125,6 +125,21 @@ deployment:
 4. `uv run wj telegram link --user <your GitHub username>` prints a link. Open it in Telegram
    within 15 minutes; the bot answers "Linked."
 
+## After each deploy
+
+Each merge to `main` deploys by itself, but some changes also need a command run from your
+computer, such as `wj telegram set-webhook` after a new bot command. You don't need to work out
+which: once Vercel shows the deployment as ready, run from `backend/`, with `main` checked out
+and up to date:
+
+```
+scripts/post-deploy.sh
+```
+
+It checks that your checkout matches `origin/main`, waits for `/healthz` to answer, migrates the
+database and points Telegram at the webhook. Every step is safe to repeat, so a deploy that
+needs none of them changes nothing. It uses the settings in `backend/.env` from step 6.
+
 ## Check it works
 
 - `https://<project>.vercel.app/healthz` answers `{"status":"ok","database":"ok"}`.
