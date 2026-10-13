@@ -70,7 +70,7 @@ from app.telegram.api import BotApi, TelegramError
 from app.telegram.journal import COMMANDS
 from app.telegram.linking import deep_link, new_link_token
 from app.telegram.polling import poll
-from app.tick import TICK_BUDGET_S, extract_now, tick
+from app.tick import TICK_BUDGET_S, extract_now, refresh_now, tick
 from app.validate.lint import format_report, lint_profile
 from app.writing import locate_bullet, write_bullet
 
@@ -1066,12 +1066,14 @@ async def _poll(database_url: str) -> int:
     engine = create_engine(database_url)
     try:
         async with _telegram_http() as http:
-            entry_timeout = timedelta(minutes=get_settings().entry_timeout_minutes)
+            settings = get_settings()
             return await poll(
                 _bot_api(http),
                 session_factory(engine),
-                entry_timeout=entry_timeout,
+                entry_timeout=timedelta(minutes=settings.entry_timeout_minutes),
+                app_url=settings.app_url,
                 run_jobs=extract_now,
+                run_refresh=refresh_now,
             )
     finally:
         await engine.dispose()

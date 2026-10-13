@@ -1,5 +1,5 @@
 """The Telegram webhook against the test database: raw updates, journal messages and their edits,
-linking, and entries."""
+linking, entries, and `/refresh`."""
 
 import asyncio
 import json
@@ -20,10 +20,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.config import Settings
 from app.db.crypto import KeyRing, new_key, use_key_ring
 from app.db.models import (
+    ChangeSetRow,
     JournalEntry,
     JournalMessage,
     JournalMessageEdit,
     ProfileVersionRow,
+    Refresh,
     TelegramLink,
     TelegramUpdate,
     User,
@@ -41,6 +43,7 @@ from app.telegram.linking import (
     new_link_token,
 )
 from app.telegram.polling import poll
+from app.telegram.refresh import LOOKING, NO_PROFILE, RUNNING, waiting_text
 from app.telegram.webhook import SECRET_HEADER, make_calls
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "telegram"
@@ -71,6 +74,19 @@ def extracted(monkeypatch: pytest.MonkeyPatch) -> list[uuid.UUID]:
 
     monkeypatch.setattr("app.telegram.webhook.extract_now", record)
     return entries
+
+
+@pytest.fixture(autouse=True)
+def refreshed(monkeypatch: pytest.MonkeyPatch) -> list[uuid.UUID]:
+    """The refreshes the webhook hands on right after answering `/refresh` (FR-REV-6). The jobs
+    themselves are tested in `test_refresh_db.py`."""
+    refreshes: list[uuid.UUID] = []
+
+    async def record(refresh_id: uuid.UUID) -> None:
+        refreshes.append(refresh_id)
+
+    monkeypatch.setattr("app.telegram.webhook.refresh_now", record)
+    return refreshes
 
 
 @pytest.fixture
@@ -308,7 +324,12 @@ def test_polling_journals_updates_as_the_webhook_does(database_url: str, chat_id
         "sendMessage",
         "getUpdates",
     ]
-    assert [item["command"] for item in calls[0][1]["commands"]] == ["done", "skip", "help"]
+    assert [item["command"] for item in calls[0][1]["commands"]] == [
+        "done",
+        "skip",
+        "refresh",
+        "help",
+    ]
     assert calls[3][1] == {"chat_id": stranger, "text": LINK_HINT}
     assert calls[4][1]["offset"] == batch[1]["update_id"] + 1, "confirms the updates handled"
 
@@ -429,6 +450,7 @@ def test_help_lists_the_commands(
     assert answer == help_text(timedelta(minutes=30))
     assert "30 minutes after the last one starts a new entry" in answer
     assert "/done - close the current entry now" in answer
+    assert "/refresh - propose profile changes from your new facts" in answer
     assert "/help - list the commands" in answer
     assert entries(database_url, chat_id) == []
 
@@ -441,6 +463,57 @@ def test_an_unknown_command_is_not_journaled(
     answer = send(client, chat_id, 1, NINE, "/etc files moved to the new config store")
     assert answer == f"{UNKNOWN}\n\n{help_text(timedelta(minutes=30))}"
     assert messages(database_url, chat_id) == []
+
+
+def load_profile(database_url: str, user_id: uuid.UUID) -> None:
+    profile = PROFILE.model_dump(mode="json", by_alias=True)
+    row = {"user_id": user_id, "number": 1, "author": "owner", "profile": profile}
+    run(database_url, insert(ProfileVersionRow).values(row))
+
+
+def refreshes(database_url: str, user_id: uuid.UUID) -> list[tuple[uuid.UUID, str]]:
+    query = select(Refresh.id, Refresh.status).where(Refresh.user_id == user_id)
+    return [tuple(row) for row in run(database_url, query)]
+
+
+def test_refresh_starts_a_refresh_and_hands_it_on(
+    client: TestClient, database_url: str, chat_id: int, refreshed: list[uuid.UUID]
+) -> None:
+    """FR-REV-6: only on demand. Asked again while it runs, the bot says so and hands it on
+    again, in case it waits for a tick."""
+    user_id = link(database_url, chat_id)
+    load_profile(database_url, user_id)
+    assert send(client, chat_id, 1, NINE, "/refresh") == LOOKING
+    [(refresh_id, status)] = refreshes(database_url, user_id)
+    assert (status, refreshed) == ("running", [refresh_id])
+    assert send(client, chat_id, 2, NINE + 60, "/refresh") == RUNNING
+    assert refreshed == [refresh_id, refresh_id]
+    assert len(refreshes(database_url, user_id)) == 1
+    assert messages(database_url, chat_id) == [], "commands aren't journaled"
+
+
+def test_refresh_waits_until_proposed_changes_are_decided(
+    client: TestClient, database_url: str, chat_id: int, refreshed: list[uuid.UUID]
+) -> None:
+    user_id = link(database_url, chat_id)
+    load_profile(database_url, user_id)
+    run(database_url, insert(ChangeSetRow).values(user_id=user_id, author="ai"))
+    answer = send(client, chat_id, 1, NINE, "/refresh")
+    assert answer == waiting_text("http://localhost:8000")
+    assert answer == (
+        "Changes proposed earlier still wait for review in the Inbox:\n"
+        "http://localhost:8000/inbox\n"
+        "Decide on them, then send /refresh again."
+    )
+    assert (refreshes(database_url, user_id), refreshed) == ([], [])
+
+
+def test_refresh_needs_a_profile(
+    client: TestClient, database_url: str, chat_id: int, refreshed: list[uuid.UUID]
+) -> None:
+    user_id = link(database_url, chat_id)
+    assert send(client, chat_id, 1, NINE, "/refresh") == NO_PROFILE
+    assert (refreshes(database_url, user_id), refreshed) == ([], [])
 
 
 def test_an_edit_to_a_closed_entry_changes_only_its_message(
@@ -472,12 +545,16 @@ def test_the_timeout_can_be_configured(database_url: str, chat_id: int) -> None:
 
 
 def test_polling_hands_on_the_entry_an_update_closes(database_url: str, chat_id: int) -> None:
-    """As with the webhook, `/done` while polling runs extraction right away (FR-CAP-5)."""
-    link(database_url, chat_id)
+    """As with the webhook, `/done` while polling runs extraction right away (FR-CAP-5), and
+    `/refresh` runs its refresh."""
+    user_id = link(database_url, chat_id)
+    load_profile(database_url, user_id)
     note = json.loads(update("message", chat_id, message_id=1, date=NINE))
     done = json.loads(update("message", chat_id, message_id=2, date=NINE + 60, text="/done"))
-    batches = [[note, done], []]
+    refresh = json.loads(update("message", chat_id, message_id=3, date=NINE + 90, text="/refresh"))
+    batches = [[note, done, refresh], []]
     handed_on: list[uuid.UUID] = []
+    refreshed: list[uuid.UUID] = []
 
     def handle(request: httpx2.Request) -> httpx2.Response:
         method = request.url.path.rsplit("/", 1)[1]
@@ -487,19 +564,31 @@ def test_polling_hands_on_the_entry_an_update_closes(database_url: str, chat_id:
     async def run_jobs(entry_id: uuid.UUID) -> None:
         handed_on.append(entry_id)
 
+    async def run_refresh(refresh_id: uuid.UUID) -> None:
+        refreshed.append(refresh_id)
+
     async def run_poll() -> int:
         engine = create_async_engine(database_url)
         try:
             async with httpx2.AsyncClient(transport=httpx2.MockTransport(handle)) as http:
                 api = BotApi(SecretStr("123456:test-token-not-real"), http)
                 sessions = async_sessionmaker(engine, expire_on_commit=False)
-                return await poll(api, sessions, rounds=2, timeout=0, run_jobs=run_jobs)
+                return await poll(
+                    api,
+                    sessions,
+                    rounds=2,
+                    timeout=0,
+                    run_jobs=run_jobs,
+                    run_refresh=run_refresh,
+                )
         finally:
             await engine.dispose()
 
-    assert asyncio.run(run_poll()) == 2
+    assert asyncio.run(run_poll()) == 3
     [(_, entry_id, how)] = entries(database_url, chat_id)
     assert (handed_on, how) == ([entry_id], "done")
+    [(refresh_id, _)] = refreshes(database_url, user_id)
+    assert refreshed == [refresh_id]
 
 
 @pytest.mark.anyio
