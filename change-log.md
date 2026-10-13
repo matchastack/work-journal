@@ -2,11 +2,11 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-13 · T-062 Migrations follow the production database · [#PR](https://github.com/matchastack/work-journal/pull/PR)
+## 2026-10-13 · T-062 Migrations follow the production database · [#41](https://github.com/matchastack/work-journal/pull/41)
 **Changed:** the deploy of `main` failed because production's database is at migration 0010 (from #35, not yet merged) and `main` didn't have it. `main` now carries that migration and its `facts.updated_at` column, and the follow-up question's migration comes after it.
 
 **Verify:**
-- CI is green on #PR
+- CI is green on #41
 - After the merge, the production deployment's build log shows `Running upgrade 0010 -> 0011` and the deployment goes live
 - #35 and #36 merge `main` without a conflict in their 0010 migration
 

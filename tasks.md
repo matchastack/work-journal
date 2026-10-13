@@ -549,7 +549,7 @@ As the owner, I want to say which role each journal entry is about when I submit
 - [x] Tests.
 
 ### T-062 · Migrations follow the production database
-**Status:** ◐ · **Size:** S · **Depends on:** T-034, T-051 · **Requirements:** NFR-REL-1 · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-034, T-051 · **Requirements:** NFR-REL-1 · **PR:** [#41](https://github.com/matchastack/work-journal/pull/41)
 
 As the owner, I want `main` to deploy, so that the follow-up question (T-034) reaches the bot.
 
