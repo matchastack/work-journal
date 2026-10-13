@@ -275,8 +275,9 @@ async def queue_refresh(refresh_id: uuid.UUID) -> bool:
 async def run_refresh(refresh_id: uuid.UUID) -> None:
     """Propose changes from the facts the refresh covers (`app/refresh.py`), outside a
     transaction, then save them and tell the owner. A failure fails the refresh and tells the
-    owner, and so does finding that an earlier try never finished. A message that can't be sent
-    is only logged: the proposals are saved, and wait in the Inbox."""
+    owner, and so does running out of time, when the tick stops the job, or finding that an
+    earlier try never finished. A message that can't be sent is only logged: the proposals are
+    saved, and wait in the Inbox."""
     try:
         async with database() as session:
             inputs = await begin_proposals(session, refresh_id, now=datetime.now(UTC))
@@ -304,6 +305,9 @@ async def run_refresh(refresh_id: uuid.UUID) -> None:
     except (LLMRefusal, LLMInvalidOutput, LLMConfigError) as error:
         await _refresh_failed(refresh_id, _reason(error))
         return
+    except asyncio.CancelledError:
+        await _refresh_failed(refresh_id, "it didn't finish in time")
+        raise
     except Exception as error:
         await _refresh_failed(refresh_id, _reason(error, otherwise="of an error"))
         raise

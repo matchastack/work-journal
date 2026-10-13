@@ -1,9 +1,11 @@
 """Refreshes against the test database (T-038): starting one, the facts it covers, the changes it
 proposes and what the bot says, the update of its outputs, and the jobs that run it."""
 
+import asyncio
 import hashlib
 import json
 import random
+import threading
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from datetime import UTC, date, datetime, timedelta
@@ -509,6 +511,37 @@ async def test_a_refresh_that_never_finished_isnt_tried_again(
     await run_refresh(refresh_id)
     assert telegram.sent == [{"chat_id": chat_id, "text": failure_text("it didn't finish in time")}]
     assert fake.requests == []
+    assert (await committed_row(refresh_id)).status == "failed"
+
+
+async def test_a_refresh_stopped_at_the_time_limit_fails_and_says_so(
+    committed: Committed,
+    chat_id: int,
+    telegram: Telegram,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The tick stops a job that runs past its time; the owner hears at once, not at the next
+    tick."""
+    _, refresh_id = await committed(ALERT, chat_id=chat_id)
+    planning = threading.Event()
+    stop = threading.Event()
+
+    def slow_synthesis(*args: Any, **kwargs: Any) -> Synthesis:
+        planning.set()
+        stop.wait(timeout=10)
+        return Synthesis(change_set=None)
+
+    monkeypatch.setattr(job_module, "synthesize", slow_synthesis)
+    job = asyncio.create_task(run_refresh(refresh_id))
+    try:
+        while not planning.is_set():
+            await asyncio.sleep(0.01)
+        job.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await job
+    finally:
+        stop.set()
+    assert telegram.sent == [{"chat_id": chat_id, "text": failure_text("it didn't finish in time")}]
     assert (await committed_row(refresh_id)).status == "failed"
 
 
