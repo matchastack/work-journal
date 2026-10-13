@@ -2,6 +2,14 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-13 · T-063 Post-deploy script · [#42](https://github.com/matchastack/work-journal/pull/42)
+**Changed:** added `backend/scripts/post-deploy.sh`, to run after each deploy. It waits for the app, migrates the database and runs `wj telegram set-webhook`; every step is safe to repeat. It stops first if `backend/.env` points at this computer, and migrations that start at the same time, such as the script's and Vercel's build, now take turns instead of failing.
+
+**Verify:**
+- After the next deploy, `scripts/post-deploy.sh` from `backend/` ends with "Done", and the bot still answers
+- Run from an out-of-date checkout, it stops and asks you to `git pull`
+- With `DATABASE_URL` pointing at localhost, it lists the problem and stops before migrating
+
 ## 2026-10-12 · T-040 Inbox · [#36](https://github.com/matchastack/work-journal/pull/36)
 **Changed:** the web app's Inbox lists the changes proposed to your profile. Each one shows a word diff, the facts it came from, the outputs it changes and the verifier's report. You accept, edit (checked again) or reject each one, and Apply turns the accepted ones into a new profile version; reasons you give for rejecting become style notes. Nothing proposes changes until the refresh (T-038), so the Inbox stays empty until then.
 

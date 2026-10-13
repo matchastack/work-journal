@@ -1,17 +1,20 @@
 """Run Alembic migrations against DATABASE_URL, or a URL or connection a caller provides."""
 
 import asyncio
+from collections.abc import Iterator
+from contextlib import contextmanager
 from logging.config import fileConfig
 from typing import Literal
 
 from alembic import context
 from alembic.autogenerate.api import AutogenContext
+from sqlalchemy import text
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.config import get_settings
 from app.db.crypto import EncryptedText
-from app.db.engine import async_url
+from app.db.engine import MIGRATION_LOCK, async_url
 from app.db.models import Base
 
 config = context.config
@@ -41,6 +44,23 @@ def render_item(type_: str, obj: object, autogen_context: AutogenContext) -> str
     return False
 
 
+@contextmanager
+def migration_lock(connection: Connection) -> Iterator[None]:
+    """Hold the migrations' advisory lock for the whole run. A run that starts while another is
+    migrating waits here, then finds the database at that one's revision. The lock belongs to the
+    connection, not a transaction, because some migrations commit as they go (0002)."""
+    own_transaction = not connection.in_transaction()
+    connection.execute(text("SELECT pg_advisory_lock(:key)"), {"key": MIGRATION_LOCK})
+    if own_transaction:
+        connection.commit()
+    try:
+        yield
+    finally:
+        connection.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": MIGRATION_LOCK})
+        if own_transaction:
+            connection.commit()
+
+
 def run_migrations(connection: Connection) -> None:
     context.configure(
         connection=connection,
@@ -49,7 +69,7 @@ def run_migrations(connection: Connection) -> None:
         include_name=include_name,
         render_item=render_item,
     )
-    with context.begin_transaction():
+    with migration_lock(connection), context.begin_transaction():
         context.run_migrations()
 
 
