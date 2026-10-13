@@ -279,16 +279,18 @@ As the owner, I want every generated sentence checked for claims my facts don't 
 - [x] Unit tests use the fake client. An opt-in evaluation uses known-bad examples, such as inflation and invented numbers.
 
 ### T-016 · Evaluation harness
-**Status:** ☐ · **Size:** M · **Depends on:** T-014, T-015 · **Requirements:** NFR-MAINT-2 (and the evaluation bar in requirements §10) · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-014, T-015 · **Requirements:** NFR-MAINT-2 (and the evaluation bar in requirements §10) · **PR:** —
 
 As the owner, I want LLM quality measured on a fixed dataset, so that any change to a prompt or model is judged by numbers.
 
-- [ ] A dataset format covering entries → expected facts, facts → bullets, and adversarial cases.
+- [x] A dataset format covering entries → expected facts, facts → bullets, and adversarial cases.
   - Fictional data is committed.
   - Private cases go in `local/evals/`, which git ignores.
-- [ ] `wj eval <suite>` reports altered numbers, inflated claims, fact recall and cost.
+- [x] `wj eval <suite>` reports altered numbers, inflated claims, fact recall and cost.
 - [ ] A baseline report is committed.
-- [ ] `CLAUDE.md` says to run it before changing prompts or model routing.
+- [x] `CLAUDE.md` says to run it before changing prompts or model routing.
+
+**Built (2026-10-13):** one TOML file per suite (`extraction`, `writing`, `adversarial`) in `backend/evals/`, described in its README. Notes and facts that try to trick a step are cases in that step's suite. Extraction is scored on the model's reply before the code checks, so a prompt that invents numbers shows up even though the checks drop them. The baseline needs a run with the owner's key (`uv run wj eval all --out evals/baseline.md`), since CI never calls the API.
 
 ### T-017 · Resume writer
 **Status:** ☑ · **Size:** M · **Depends on:** T-015 · **Requirements:** FR-WRT-1, FR-WRT-4, FR-FID-7 · **PR:** [#34](https://github.com/matchastack/work-journal/pull/34)
