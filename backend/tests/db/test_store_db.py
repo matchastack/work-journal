@@ -91,19 +91,22 @@ async def test_saving_a_fact_again_replaces_it(session: AsyncSession, user: uuid
 async def test_saving_a_fact_again_records_when_it_changed(
     session: AsyncSession, user: uuid.UUID
 ) -> None:
-    """FR-REV-6: a refresh finds the facts edited since the last one."""
+    """FR-REV-6: an edited fact waits for the next refresh again, as a new one does."""
     await save_facts(session, user, [EXPORT])
     earlier = datetime(2026, 1, 1, tzinfo=UTC)
-    when = text("SELECT created_at, updated_at FROM facts WHERE user_id = :user")
-    created_at, updated_at = (await session.execute(when, {"user": user})).one()
-    assert created_at == updated_at
+    when = text("SELECT created_at, updated_at, refreshed_at FROM facts WHERE user_id = :user")
+    created_at, updated_at, refreshed_at = (await session.execute(when, {"user": user})).one()
+    assert (created_at, refreshed_at) == (updated_at, None)
     await session.execute(
-        text("UPDATE facts SET updated_at = :earlier WHERE user_id = :user"),
+        text(
+            "UPDATE facts SET updated_at = :earlier, refreshed_at = :earlier WHERE user_id = :user"
+        ),
         {"earlier": earlier, "user": user},
     )
     await save_facts(session, user, [EXPORT.model_copy(update={"statement": "Cut it to 12."})])
-    _, updated_at = (await session.execute(when, {"user": user})).one()
+    _, updated_at, refreshed_at = (await session.execute(when, {"user": user})).one()
     assert updated_at > earlier
+    assert refreshed_at is None
 
 
 async def test_variants_are_saved_listed_and_deleted(

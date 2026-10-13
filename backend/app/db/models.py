@@ -198,8 +198,77 @@ class FactRow(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
-    """When the fact was saved or last changed: a refresh covers the facts added or edited since
-    the last one (FR-REV-6)."""
+    """When the fact was saved or last changed."""
+    refreshed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    """When a refresh covered the fact (FR-REV-6). None while it waits for the next one: it's
+    new, or it was edited since (`save_facts` clears it)."""
+
+
+class Refresh(Base):
+    """One `/refresh` (FR-REV-6, FR-REV-7): the changes it proposed from the journal facts that
+    no earlier refresh covered, and the update of the outputs that follows (`app/refresh.py`).
+
+    It's `running` until its proposals are saved (`proposed`), it finds nothing to propose
+    (`nothing_new`), or it fails (`failed`). A user has at most one running. Once its change set
+    is decided, or at once when there's nothing to propose, its outputs are due (`outputs` is
+    `pending`) at the newest profile version, `output_version`. They're `updated` when the master
+    resume is rendered from that version, `failed` when it can't be, and `superseded` when a later
+    refresh's outputs fell due first."""
+
+    __tablename__ = "refreshes"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('running', 'proposed', 'nothing_new', 'failed')", name="status"
+        ),
+        CheckConstraint("(status = 'running') = (finished_at IS NULL)", name="finished"),
+        CheckConstraint(
+            "outputs IN ('pending', 'updated', 'failed', 'superseded')", name="outputs"
+        ),
+        CheckConstraint("(outputs IS NULL) = (output_version IS NULL)", name="output_version"),
+        CheckConstraint(
+            "(outputs = 'updated') = (master_pdf_sha256 IS NOT NULL)", name="master_pdf"
+        ),
+        ForeignKeyConstraint(
+            ["user_id", "master_pdf_sha256"], ["artifacts.user_id", "artifacts.sha256"]
+        ),
+        Index(
+            "uq_refreshes_one_running",
+            "user_id",
+            unique=True,
+            postgresql_where=text("status = 'running'"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, server_default=func.gen_random_uuid())
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    requested_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    status: Mapped[Literal["running", "proposed", "nothing_new", "failed"]] = mapped_column(
+        String(16), server_default="running"
+    )
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    """When its job started proposing. A job that finds it set knows an earlier try didn't
+    finish, and fails the refresh rather than call the heavy-tier model again."""
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    fact_count: Mapped[int | None]
+    """How many facts it covered."""
+    change_set_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("change_sets.id", ondelete="SET NULL")
+    )
+    """The change set it proposed, if it proposed one."""
+    outputs: Mapped[Literal["pending", "updated", "failed", "superseded"] | None] = mapped_column(
+        String(16)
+    )
+    output_version: Mapped[int | None]
+    """The profile version the outputs show once they're updated."""
+    outputs_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    """When `outputs` last changed."""
+    master_pdf_sha256: Mapped[str | None] = mapped_column(String(64))
+    """The master resume rendered from `output_version` (FR-RES-5), in `artifacts`."""
+    master_pages: Mapped[int | None]
 
 
 class VariantRow(Base):
