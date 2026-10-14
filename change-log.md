@@ -2,6 +2,14 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-14 · T-024 LinkedIn pack generator · PR pending
+**Changed:** `wj linkedin` writes your LinkedIn headline, About and position descriptions from your profile's public content, in the first person and within LinkedIn's limits, and prints only the sections that changed since you last ran `wj linkedin done`. Each section passes the verifier; positions use each role's first approved title, and a current title that differs from your latest application's is flagged.
+
+**Verify:**
+- With your key: `uv run pytest -m llm tests/test_linkedin_live.py` passes
+- `uv run wj linkedin --db` prints all four kinds of section, each reading as you'd put it on LinkedIn, with no claim your profile doesn't make
+- After `uv run wj linkedin done --db`, running `wj linkedin --db` again says nothing changed, without calling Claude
+
 ## 2026-10-13 · T-063 Post-deploy script · [#42](https://github.com/matchastack/work-journal/pull/42)
 **Changed:** added `backend/scripts/post-deploy.sh`, to run after each deploy. It waits for the app, migrates the database and runs `wj telegram set-webhook`; every step is safe to repeat. It stops first if `backend/.env` points at this computer, and migrations that start at the same time, such as the script's and Vercel's build, now take turns instead of failing.
 
