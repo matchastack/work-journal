@@ -344,21 +344,23 @@ As the owner, I want a pasted posting broken into structured requirements, so th
 - [x] Tests use the fake client, with three fictional postings as fixtures.
 
 ### T-020 · Tailoring: selection and assembly
-**Status:** ☐ · **Size:** L · **Depends on:** T-009, T-010, T-019, T-060 · **Requirements:** FR-TLR-2, FR-TLR-3, FR-TLR-4, FR-TLR-5, FR-TLR-7, R1–R10 · **PR:** —
+**Status:** ◐ · **Size:** L · **Depends on:** T-009, T-010, T-019, T-060 · **Requirements:** FR-TLR-2, FR-TLR-3, FR-TLR-4, FR-TLR-5, FR-TLR-7, R1–R10 · **PR:** [#47](https://github.com/matchastack/work-journal/pull/47)
 
 As the owner, I want a one-page resume tailored to a posting from my master profile, so that each application takes minutes and stays truthful.
 
-- [ ] A heavy-tier step selects content:
+- [x] A heavy-tier step selects content:
   - bullets, by relevance, strength and verification status
   - respecting keep/cut rules and load-bearing roles
   - the title variant and a coursework subset of 4–6 courses
   - skills lines, using the posting's exact spelling and only skills in the catalogue
   - an optional summary variant and the placement of the skills section
-- [ ] Approved swaps are used first. The writer is asked for a new phrasing only when no swap fits, and new phrasings are verified and marked for approval.
-- [ ] The resume rules (T-009) and the verifier pass, and the result is fitted to one page (T-010).
-- [ ] A skill marked verify-before-shipping is listed only once you confirm it for this resume (`wj tailor --confirm <skill>`); otherwise the T-009 check blocks the render.
-- [ ] `wj tailor <posting-file>` writes the PDF.
-- [ ] Tests use the fake client, plus an opt-in evaluation on fictional postings.
+- [x] Approved swaps are used first. The writer is asked for a new phrasing only when no swap fits, and new phrasings are verified and marked for approval.
+- [x] The resume rules (T-009) and the verifier pass, and the result is fitted to one page (T-010).
+- [x] A skill marked verify-before-shipping is listed only once you confirm it for this resume (`wj tailor --confirm <skill>`); otherwise the T-009 check blocks the render.
+- [x] `wj tailor <posting-file>` writes the PDF.
+- [x] Tests use the fake client, plus an opt-in evaluation on fictional postings.
+
+**Built (2026-10-14):** the plan is checked in code before anything renders: an item or bullet the profile doesn't allow is left out with a note, load-bearing roles and items kept for the role type always appear, and too few courses are topped up from the role type's subset. A bullet's relevance to the posting becomes its priority, so fitting cuts the least relevant first. The posting can be text or `wj posting parse` JSON, and its spellings of skills aren't spelling warnings. You approve each new phrasing (`--yes` for all); approved ones are used and saved as swaps. The coverage report and the application log are T-021.
 
 ### T-021 · Tailoring: coverage report and application log
 **Status:** ☐ · **Size:** S · **Depends on:** T-020 · **Requirements:** FR-TLR-6, FR-TLR-8, FR-FID-8 · **PR:** —
