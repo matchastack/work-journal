@@ -22,7 +22,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 
 | Milestone | Tasks | Status |
 |---|---|---|
-| M0: Documents | T-000, T-055 and T-056 | ◐ |
+| M0: Documents | T-000, T-055 and T-056 | ☑ |
 | M1: Engine and command line | T-001 – T-024, T-054 and T-060 (T-007 dropped) | ◐ |
 | M2: Journal loop | T-025 – T-053, T-057 – T-059 and T-061 – T-064 | ◐ |
 | M3: Quality and habit | Epics (at the end of this file) | — |
@@ -601,7 +601,7 @@ As the owner, I want a short guided interview on first use, so that the months s
 - [ ] The owner can stop at any time and resume later.
 
 ### T-038 · Refresh: proposals on demand and the master resume
-**Status:** ◐ · **Size:** M · **Depends on:** T-010, T-018, T-027, T-028, T-033 · **Requirements:** FR-REV-6, FR-REV-7, FR-REM-6, FR-RES-5 · **PR:** —
+**Status:** ☑ · **Size:** M · **Depends on:** T-010, T-018, T-027, T-028, T-033 · **Requirements:** FR-REV-6, FR-REV-7, FR-REM-6, FR-RES-5 · **PR:** [#43](https://github.com/matchastack/work-journal/pull/43)
 
 As the owner, I want my profile and master resume updated only when I ask, so that months of small journal entries become one review when I need a current resume.
 
