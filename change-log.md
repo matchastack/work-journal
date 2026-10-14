@@ -2,7 +2,7 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-14 · T-024 LinkedIn pack generator · PR pending
+## 2026-10-14 · T-024 LinkedIn pack generator · [#44](https://github.com/matchastack/work-journal/pull/44)
 **Changed:** `wj linkedin` writes your LinkedIn headline, About and position descriptions from your profile's public content, in the first person and within LinkedIn's limits, and prints only the sections that changed since you last ran `wj linkedin done`. Each section passes the verifier; positions use each role's first approved title, and a current title that differs from your latest application's is flagged.
 
 **Verify:**

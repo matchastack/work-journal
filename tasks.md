@@ -393,7 +393,7 @@ As the owner, I want my profile rendered as a portfolio page in the style of my 
 - [x] Snapshot tests run against the fictional fixture.
 
 ### T-024 · LinkedIn pack generator
-**Status:** ◐ · **Size:** M · **Depends on:** T-013, T-015 · **Requirements:** FR-LIN-1, FR-LIN-2, FR-LIN-4 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-013, T-015 · **Requirements:** FR-LIN-1, FR-LIN-2, FR-LIN-4 · **PR:** [#44](https://github.com/matchastack/work-journal/pull/44)
 
 As the owner, I want LinkedIn text generated from my profile, and only for what changed, so that updating LinkedIn takes minutes.
 
