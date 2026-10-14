@@ -20,8 +20,9 @@ stays rejected. They're rejected without a reason of their own, so they add no s
 
 Once every operation is decided, `apply_change_set` applies the accepted ones to the latest
 version, atomically, as one new version (FR-REV-3), and the reasons given for rejections become
-style notes (FR-REV-4). A change set with nothing accepted is closed as rejected. Fact text is
-decrypted only for the signed-in owner, and never logged.
+style notes (FR-REV-4). A change set with nothing accepted is closed as rejected. Either way,
+when a refresh proposed it, the refresh's outputs fall due (FR-REV-7, `app/refresh.py`). Fact
+text is decrypted only for the signed-in owner, and never logged.
 """
 
 import asyncio
@@ -49,6 +50,7 @@ from app.db.settings import add_style_notes, get_style_notes
 from app.inbox.describe import DiffPart, Output, describe, word_diff
 from app.llm.client import LLMClient
 from app.profile_ops import ProfileOpError, apply
+from app.refresh import change_set_decided
 from app.review import needs
 from app.schema.changes import AddBullet, Author, ChangeOp, EditBullet, OpStatus, ReviewedOp
 from app.schema.common import Model
@@ -250,8 +252,8 @@ async def apply_change_set(
     session: AsyncSession, user_id: uuid.UUID, change_set_id: uuid.UUID, *, now: datetime
 ) -> int | None:
     """Apply the accepted operations as one new profile version, and keep the reasons given for
-    rejections as style notes. Returns the new version's number, or None when nothing was
-    accepted."""
+    rejections as style notes. A refresh's outputs fall due. Returns the new version's number,
+    or None when nothing was accepted."""
     saved = await _open(session, user_id, change_set_id)
     ops = saved.change_set.ops
     waiting = sum(1 for reviewed in ops if reviewed.status == "proposed")
@@ -273,6 +275,7 @@ async def apply_change_set(
         )
         number = version.number
     await close_change_set(session, user_id, change_set_id, "applied" if accepted else "rejected")
+    await change_set_decided(session, user_id, change_set_id, now=now)
     reasons = [r.reason for r in ops if r.status == "rejected" and r.reason]
     await add_style_notes(session, user_id, reasons, source="rejection", now=now)
     return number
