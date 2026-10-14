@@ -10,12 +10,20 @@ from app.config import Settings
 from app.llm.client import LLMClient
 from app.llm.fake import FakeMessages, reply
 from app.llm.usage import MemoryCallLog
+from app.profile_ops import apply
 from app.schema.fact import Fact
 from app.schema.jobs import JobPosting
-from app.schema.profile import Profile
+from app.schema.profile import Profile, Swap
 from app.schema.verification import VerifierReport
 from app.validate.claims import ClaimReply, JudgedClaim
-from app.writing import WrittenBullet, write_bullet, writing_context
+from app.writing import (
+    LINKEDIN_CONTEXT,
+    WrittenBullet,
+    apply_swap,
+    swap_op,
+    write_bullet,
+    writing_context,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures"
 PROFILE = Profile.model_validate_json((FIXTURES / "profile.json").read_text(encoding="utf-8"))
@@ -69,6 +77,19 @@ def write(
     client = LLMClient(Settings(llm_model_standard="standard-model"), fake, MemoryCallLog())
     options = {"entry_id": "northwind", **options}
     return write_bullet(facts, PROFILE, client, **options), fake
+
+
+def swap(
+    *replies: BetaMessage | ClaimReply,
+    swap: Swap,
+    facts: tuple[Fact, ...] = (QUEUE,),
+    **options: Any,
+) -> tuple[VerifierReport, FakeMessages]:
+    """Apply a swap to the bullet `nw_orders` with scripted replies, as `write` does."""
+    fake = FakeMessages(*(r if isinstance(r, BetaMessage) else reply(r) for r in replies))
+    client = LLMClient(Settings(llm_model_standard="standard-model"), fake, MemoryCallLog())
+    options = {"bullet_id": "nw_orders", **options}
+    return apply_swap(facts, PROFILE, client, swap=swap, **options), fake
 
 
 def user_message(fake: FakeMessages, request: int) -> str:
@@ -221,3 +242,74 @@ def test_only_the_posting_style_takes_a_posting() -> None:
         write(style="posting")
     with pytest.raises(ValueError, match="only it takes one"):
         write(style="linkedin", posting=POSTING)
+
+
+def test_a_swap_is_worked_into_its_bullet_and_checked_as_a_replacement() -> None:
+    fragment = Swap(text="event-driven Python services", replaces="Python services")
+    text = "Built event-driven Python services that process order events from a message queue."
+    report, fake = swap(written(text), SUPPORTED, swap=fragment)
+    assert (report.text, report.passed) == (text, True)
+    assert "duplicates" not in [finding.code for finding in report.findings]
+    assert fake.requests[0]["system"][0]["text"].startswith("You work an approved phrase")
+    message = user_message(fake, 0)
+    assert message.startswith('The bullet is under the role "northwind".')
+    assert "<bullet>\nBuild and maintain Python services that process order" in message
+    assert "<swap>\nevent-driven Python services\n</swap>" in message
+    assert "<replaces>\nPython services\n</replaces>" in message
+    facts = message.split("<facts>\n")[1].split("\n</facts>")[0]
+    assert [fact["id"] for fact in json.loads(facts)] == ["fact_nw_queue"]
+
+
+def test_a_swap_that_fails_is_worked_in_again() -> None:
+    fragment = Swap(text="event-driven Python services")
+    first = "Built event-driven Python services on Kafka that process order events."
+    second = "Built event-driven Python services that process order events from a message queue."
+    report, fake = swap(written(first), ADDED_KAFKA, written(second), SUPPORTED, swap=fragment)
+    assert (report.text, report.passed, report.attempts) == (second, True, 2)
+    retry = user_message(fake, 2)
+    assert "<replaces>\nnot given\n</replaces>" in retry
+    assert f"<attempt>\n{first}\n</attempt>" in retry
+
+
+def test_an_approved_swap_for_the_whole_bullet_is_only_checked() -> None:
+    whole = Swap(
+        text="Helped move order processing from a cron job to a message queue.", origin="approved"
+    )
+    report, fake = swap(SUPPORTED, swap=whole, posting=POSTING)
+    assert (report.text, report.passed, report.attempts) == (whole.text, True, 1)
+    assert len(fake.requests) == 1, "no writer call, just the claim check"
+    assert "<posting_terms>\n- APIs" in user_message(fake, 0)
+
+
+def test_a_swap_needs_facts_a_known_bullet_and_a_resume_context() -> None:
+    fragment = Swap(text="event-driven Python services")
+    with pytest.raises(ValueError, match="at least one fact"):
+        swap(swap=fragment, facts=())
+    with pytest.raises(ValueError, match="no bullet 'nw_billing'"):
+        swap(swap=fragment, bullet_id="nw_billing")
+    linkedin = Swap(text="I build Python services.", contexts=(LINKEDIN_CONTEXT,))
+    with pytest.raises(ValueError, match="written for LinkedIn"):
+        swap(swap=linkedin)
+
+
+def test_an_approved_phrasing_is_saved_as_a_swap_on_its_bullet() -> None:
+    text = "I cut the nightly export job from 50 to 12 minutes by batching PostgreSQL writes."
+    report, _ = write(written(text), SUPPORTED, style="linkedin", edit="nw_export")
+    op = swap_op("nw_export", report, style="linkedin")
+    assert op.fact_ids == ("fact_nw_export",)
+    assert op.swap == Swap(text=text, contexts=("LinkedIn",), origin="approved")
+    updated = apply(PROFILE, [op])
+    bullet = next(b for b in updated.work[0].highlights if b.id == "nw_export")
+    assert bullet.swaps == (op.swap,)
+    assert bullet.text == PROFILE.work[0].highlights[1].text, "the bullet itself stays"
+
+
+def test_a_swap_names_the_posting_it_was_written_for() -> None:
+    report, _ = write(written(GOOD), SUPPORTED, style="posting", posting=POSTING)
+    op = swap_op("nw_export", report, style="posting", posting=POSTING)
+    assert op.swap.contexts == ("Senior Backend Engineer, Payments at Fabrikam Logistics",)
+    untitled = POSTING.model_copy(update={"company": None})
+    assert swap_op("nw_export", report, style="posting", posting=untitled).swap.contexts == (
+        "Senior Backend Engineer, Payments",
+    )
+    assert swap_op("nw_export", report, style="resume").swap.contexts == ()
