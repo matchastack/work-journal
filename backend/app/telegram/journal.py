@@ -5,11 +5,12 @@ first, so nothing is lost, then the journal message in it. Only private chats li
 become journal messages, grouped into entries (`app/telegram/entries.py`). `/start <token>` from
 a link to the bot links a chat (`app/telegram/linking.py`); any other unlinked chat is told how
 to link itself. Commands aren't journaled: `/done` closes the open entry, `/skip` skips the
-follow-up question, and `/help` lists the commands (FR-CAP-7), as Telegram's command menu does
-(`COMMANDS`). Button presses, and the message that names a new role, answer which role an entry
-is about (`app/telegram/roles.py`). A message that answers a closed entry's follow-up question
-joins that entry, and its Skip button skips the question (`app/telegram/follow_up.py`). Message
-text is never logged.
+follow-up question, `/refresh` proposes profile changes from the facts since the last refresh
+(`app/telegram/refresh.py`), and `/help` lists the commands (FR-CAP-7), as Telegram's command
+menu does (`COMMANDS`). Button presses, and the message that names a new role, answer which
+role an entry is about (`app/telegram/roles.py`). A message that answers a closed entry's
+follow-up question joins that entry, and its Skip button skips the question
+(`app/telegram/follow_up.py`). Message text is never logged.
 """
 
 import uuid
@@ -26,6 +27,7 @@ from app.telegram.api import BotCall, send
 from app.telegram.entries import DEFAULT_TIMEOUT, close_open_entry, entry_for
 from app.telegram.follow_up import SKIP, answered, awaiting, lapsed, press_skip, skip
 from app.telegram.linking import link_chat, start_token
+from app.telegram.refresh import refresh
 from app.telegram.roles import Answer, name_role, naming_entry, press
 from app.telegram.updates import CallbackQuery, Message, Update
 
@@ -39,6 +41,7 @@ UNKNOWN = "I don't know that command, so I didn't journal it."
 COMMANDS: tuple[tuple[str, str], ...] = (
     ("done", "close the current entry now"),
     ("skip", "skip the question about the last entry"),
+    ("refresh", "propose profile changes from your new facts"),
     ("help", "list the commands"),
 )
 """The commands `/help` lists and Telegram's command menu shows, without their "/". Later tasks
@@ -61,10 +64,12 @@ class Handled:
     """What came of an update: the Bot API calls that answer it, in order, and the entry whose
     jobs can run right away (FR-CAP-5), if there is one: an entry the update closed, so that the
     bot asks about it, one whose follow-up question it answered or skipped, so that the bot asks
-    which role it's about, or one whose role it chose, so that its facts are extracted."""
+    which role it's about, or one whose role it chose, so that its facts are extracted. A
+    `/refresh` hands on its refresh instead, whose job can run right away too."""
 
     calls: tuple[BotCall, ...] = ()
     ready: uuid.UUID | None = None
+    refresh: uuid.UUID | None = None
 
     @classmethod
     def of(cls, answer: Answer) -> Self:
@@ -72,11 +77,15 @@ class Handled:
 
 
 async def handle_update(
-    session: AsyncSession, payload: str, *, entry_timeout: timedelta = DEFAULT_TIMEOUT
+    session: AsyncSession,
+    payload: str,
+    *,
+    entry_timeout: timedelta = DEFAULT_TIMEOUT,
+    app_url: str | None = None,
 ) -> Handled:
     """Store an update from Telegram, given as the JSON it arrived as, and the journal message in
-    it. Returns the calls that answer it, and the entry whose jobs can run. An update Telegram
-    sent before is ignored.
+    it. Returns the calls that answer it, and the entry or refresh whose jobs can run. An update
+    Telegram sent before is ignored. `app_url` is the web app's address, for links to it.
 
     Raises `pydantic.ValidationError` when the payload isn't an update.
     """
@@ -84,7 +93,7 @@ async def handle_update(
     if not await _store_raw(session, update.update_id, payload):
         return Handled()
     if update.message is not None:
-        return await _new_message(session, update.message, entry_timeout)
+        return await _new_message(session, update.message, entry_timeout, app_url)
     if update.edited_message is not None:
         await _edit(session, update.edited_message)
     if update.callback_query is not None:
@@ -119,7 +128,7 @@ async def _chat_owner(session: AsyncSession, chat_id: int) -> uuid.UUID | None:
 
 
 async def _new_message(
-    session: AsyncSession, message: Message, entry_timeout: timedelta
+    session: AsyncSession, message: Message, entry_timeout: timedelta, app_url: str | None
 ) -> Handled:
     chat_id = message.chat.id
     if message.chat.type != "private":
@@ -133,7 +142,9 @@ async def _new_message(
     if body is None:
         return Handled()
     if body.startswith("/"):
-        return await _command(session, owner, chat_id, body, message.sent_at, entry_timeout)
+        return await _command(
+            session, owner, chat_id, body, message.sent_at, entry_timeout, app_url
+        )
     if (naming := await naming_entry(session, owner)) is not None:
         return Handled.of(name_role(naming, chat_id, body))
     asked = await awaiting(session, owner)
@@ -179,17 +190,21 @@ async def _command(
     body: str,
     sent_at: datetime,
     entry_timeout: timedelta,
+    app_url: str | None,
 ) -> Handled:
     """The bot's answer to a command sent at `sent_at`. `/done` closes the open entry as of then,
-    and `/skip` skips the follow-up question that waits for an answer. `/start` and `/help` get
-    the list of commands, and so does an unknown command, with a note that it wasn't
-    journaled."""
+    `/skip` skips the follow-up question that waits for an answer, and `/refresh` starts a
+    refresh. `/start` and `/help` get the list of commands, and so does an unknown command, with
+    a note that it wasn't journaled."""
     command = body.split(maxsplit=1)[0].split("@", 1)[0].lower()
     if command == "/done":
         closed = await close_open_entry(session, owner, sent_at)
         return Handled((send(chat_id, DONE if closed else NOTHING_OPEN),), closed)
     if command == "/skip":
         return Handled.of(await skip(session, owner, chat_id))
+    if command == "/refresh":
+        answer = await refresh(session, owner, chat_id, app_url=app_url)
+        return Handled(answer.calls, refresh=answer.refresh)
     if command in ("/start", "/help"):
         return Handled((send(chat_id, help_text(entry_timeout)),))
     return Handled((send(chat_id, f"{UNKNOWN}\n\n{help_text(entry_timeout)}"),))

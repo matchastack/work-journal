@@ -405,7 +405,7 @@ At list prices in September 2026: about US$2/month for regular journaling, plus 
 | C3 | Telegram's Bot API can't fetch chat history, so updates must be stored as they arrive. Bots are not told when a message is deleted. |
 | C4 | v1 has one user, the owner. The data model is ready for more: every row belongs to a user. |
 | C5 | The resume template needs pdfLaTeX (it uses `\pdfgentounicode`). |
-| C6 | Hosting is free: Vercel's Hobby plan (for personal, non-commercial use) runs the app, and Neon's free plan holds Postgres. Neither runs an always-on process, so Vercel's cron calls the app's tick once a day, the most its free plan allows (§13). That's enough: the owner journals at the end of the day, `/done` runs the jobs that follow at once, and the database, whose free plan counts the hours it's awake, wakes only when it's used. Vercel can't run LaTeX, so resumes render on the owner's machine for now (`wj render --db`). |
+| C6 | Hosting is free: Vercel's Hobby plan (for personal, non-commercial use) runs the app, and Neon's free plan holds Postgres. Neither runs an always-on process, so Vercel's cron calls the app's tick once a day, the most its free plan allows (§13). That's enough: the owner journals at the end of the day, `/done` runs the jobs that follow at once, and the database, whose free plan counts the hours it's awake, wakes only when it's used. Vercel can't run LaTeX, so resumes render on the owner's machine for now: a refresh's master resume when `wj tick` or `wj worker` runs there, and any version with `wj render --db`. |
 | A1 | The owner provides `master-resume.tex` (received). The JSON twin isn't needed (OQ-1). Past applications aren't imported; the app's application log starts with the first tailored resume. |
 | A2 | The owner refreshes only when they need current outputs, such as before a job hunt, so refreshes may be months apart. |
 
@@ -437,10 +437,10 @@ Owner's machine: the `wj` commands, including `wj render --db` (LaTeX)
 | Component | Responsibility |
 |---|---|
 | FastAPI app (a Vercel function) | API, the Telegram webhook, the tick, public portfolio pages and the React web app's built files |
-| Tick (`/internal/tick`) | Called once a day by Vercel's cron, with a secret (`CRON_SECRET`). It defers the scheduled tasks that are due, then runs queued jobs (extraction, synthesis, reminders and purges) for about 20 s. A request that queues jobs, such as `/done`, runs them itself right after answering, so replies don't wait for a tick. Locally, `wj worker` does both without stopping. |
+| Tick (`/internal/tick`) | Called once a day by Vercel's cron, with a secret (`CRON_SECRET`). It defers the scheduled tasks that are due, then runs queued jobs (extraction, synthesis, reminders and purges) for about 20 s; a job that has started may finish within the function's 300 s. A request that queues jobs, such as `/done`, runs them itself right after answering, so replies don't wait for a tick. Locally, `wj worker` does both without stopping. |
 | PostgreSQL (Neon) | All data and the job queue. Profile versions are stored as immutable JSONB snapshots, and PDFs as bytes keyed by content hash. |
 | Claude API | Extraction, writing, verification, synthesis and tailoring, routed by tier (§10) |
-| TeX Live | Resume rendering on the owner's machine (`wj render --db`), until rendering moves to a host that can run it |
+| TeX Live | Resume rendering on the owner's machine (a refresh's master resume through `wj tick` or `wj worker`, and `wj render --db`), until rendering moves to a host that can run it |
 
 ### Stack
 

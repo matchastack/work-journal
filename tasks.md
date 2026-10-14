@@ -24,7 +24,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 |---|---|---|
 | M0: Documents | T-000, T-055 and T-056 | ☑ |
 | M1: Engine and command line | T-001 – T-024, T-054 and T-060 (T-007 dropped) | ◐ |
-| M2: Journal loop | T-025 – T-053, T-057 – T-059, T-061 and T-062 | ◐ |
+| M2: Journal loop | T-025 – T-053, T-057 – T-059 and T-061 – T-064 | ◐ |
 | M3: Quality and habit | Epics (at the end of this file) | — |
 | M4: Open to others | Epics (at the end of this file) | — |
 
@@ -599,18 +599,24 @@ As the owner, I want a short guided interview on first use, so that the months s
 - [ ] The owner can stop at any time and resume later.
 
 ### T-038 · Refresh: proposals on demand and the master resume
-**Status:** ☐ · **Size:** M · **Depends on:** T-010, T-018, T-027, T-028, T-033 · **Requirements:** FR-REV-6, FR-REV-7, FR-REM-6, FR-RES-5 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-010, T-018, T-027, T-028, T-033 · **Requirements:** FR-REV-6, FR-REV-7, FR-REM-6, FR-RES-5 · **PR:** —
 
 As the owner, I want my profile and master resume updated only when I ask, so that months of small journal entries become one review when I need a current resume.
 
-- [ ] `/refresh` queues profile synthesis on the facts added or edited since the last refresh. Nothing runs on a schedule or when an entry closes.
-- [ ] The bot sends "N updates proposed → Review" with a link, or says there's nothing new.
-- [ ] An output-update job runs when the owner applies a refresh's changes (T-040): it re-renders the master resume.
-- [ ] A refresh with no new facts still runs the output update, so edits made in the web app reach the master resume.
-- [ ] Tailored resumes already made are not changed.
-- [ ] Tests use the fake LLM client.
+- [x] `/refresh` queues profile synthesis on the facts added or edited since the last refresh. Nothing runs on a schedule or when an entry closes.
+- [x] The bot sends "N updates proposed → Review" with a link, or says there's nothing new.
+- [x] An output-update job runs when the owner applies a refresh's changes (T-040): it re-renders the master resume.
+- [x] A refresh with no new facts still runs the output update, so edits made in the web app reach the master resume.
+- [x] Tailored resumes already made are not changed.
+- [x] Tests use the fake LLM client.
 
 **Split at the owner's request (2026-10-12):** the master resume comes first, so regenerating the LinkedIn pack and moving the portfolio page moved to T-061.
+
+**Built (2026-10-13):**
+- A refresh covers every journal fact no refresh has covered, including the ones its proposals leave out: those wait in the brag bank until they're edited. `wj propose --db` is a refresh too.
+- It doesn't start while proposed changes wait for review. Each try calls the heavy-tier model, so a refresh is never retried; one that fails, or never finishes, says so and the owner sends `/refresh` again.
+- Vercel's function may now run for 300 s, the most its free plan allows with Fluid compute, so a refresh's synthesis can finish within the tick it runs in.
+- Vercel can't run LaTeX (C6), so the output update waits on a queue that only a worker with TeX Live takes: `wj tick` or `wj worker` on the owner's computer. The PDF is kept with the refresh, for the Resumes page (T-044).
 
 ### T-061 · Refresh: the LinkedIn pack and the portfolio page
 **Status:** ☐ · **Size:** S · **Depends on:** T-024, T-038, T-046 · **Requirements:** FR-REV-7, FR-LIN-1, FR-PRT-3 · **PR:** —
@@ -620,6 +626,17 @@ As the owner, I want a refresh to update my LinkedIn text and portfolio page too
 - [ ] The output-update job (T-038) also regenerates the LinkedIn pack, and moves the portfolio page to the new version if it's published.
 - [ ] A refresh with no new facts still brings both up to date with the latest version.
 - [ ] Tests use the fake LLM client.
+
+### T-064 · Refreshes of months of facts within the time limit
+**Status:** ☐ · **Size:** S · **Depends on:** T-038 · **Requirements:** FR-REV-6, NFR-PERF-1 (and G3) · **PR:** —
+
+As the owner, I want a refresh after months away to finish, so that a long gap never stops me getting a current resume.
+
+A refresh runs within one Vercel function call, 300 s at most. The plan takes one heavy-tier call, then each bullet is written and verified in turn, so a refresh of many facts can run out of time; it then says it didn't finish, and `wj propose --db` on the owner's computer is the way round.
+
+- [ ] Bullets are written and verified a few at a time, or across jobs, so a refresh of 100 facts finishes within the limit.
+- [ ] The fake client's tests stay deterministic.
+- [ ] Tests.
 
 ### T-039 · Web app scaffold
 **Status:** ☑ · **Size:** M · **Depends on:** T-029 · **Requirements:** NFR-MAINT-1, NFR-A11Y-1 · **PR:** [#18](https://github.com/matchastack/work-journal/pull/18)
