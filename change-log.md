@@ -2,6 +2,12 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-14 · Milestone and task statuses · PR link below
+**Changed:** `tasks.md` marks M0 done, since T-000, T-055 and T-056 are merged, and marks the merged T-040, T-041, T-062 and T-063 done.
+
+**Verify:**
+- The overview table shows M0 as done, and M1 and M2 still in progress
+
 ## 2026-10-13 · T-063 Post-deploy script · [#42](https://github.com/matchastack/work-journal/pull/42)
 **Changed:** added `backend/scripts/post-deploy.sh`, to run after each deploy. It waits for the app, migrates the database and runs `wj telegram set-webhook`; every step is safe to repeat. It stops first if `backend/.env` points at this computer, and migrations that start at the same time, such as the script's and Vercel's build, now take turns instead of failing.
 

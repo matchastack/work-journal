@@ -22,7 +22,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 
 | Milestone | Tasks | Status |
 |---|---|---|
-| M0: Documents | T-000, T-055 and T-056 | ◐ |
+| M0: Documents | T-000, T-055 and T-056 | ☑ |
 | M1: Engine and command line | T-001 – T-024, T-054 and T-060 (T-007 dropped) | ◐ |
 | M2: Journal loop | T-025 – T-053, T-057 – T-059, T-061 and T-062 | ◐ |
 | M3: Quality and habit | Epics (at the end of this file) | — |
@@ -549,7 +549,7 @@ As the owner, I want to say which role each journal entry is about when I submit
 - [x] Tests.
 
 ### T-062 · Migrations follow the production database
-**Status:** ◐ · **Size:** S · **Depends on:** T-034, T-051 · **Requirements:** NFR-REL-1 · **PR:** [#41](https://github.com/matchastack/work-journal/pull/41)
+**Status:** ☑ · **Size:** S · **Depends on:** T-034, T-051 · **Requirements:** NFR-REL-1 · **PR:** [#41](https://github.com/matchastack/work-journal/pull/41)
 
 As the owner, I want `main` to deploy, so that the follow-up question (T-034) reaches the bot.
 
@@ -633,7 +633,7 @@ As a developer, I want the React app set up with typed API access and sign-in, s
 - [ ] ESLint, tsc and Vitest run in CI.
 
 ### T-040 · Inbox
-**Status:** ◐ · **Size:** M · **Depends on:** T-027, T-039, T-041 · **Requirements:** FR-REV-1, FR-REV-2, FR-REV-3, FR-REV-4 · **PR:** [#36](https://github.com/matchastack/work-journal/pull/36)
+**Status:** ☑ · **Size:** M · **Depends on:** T-027, T-039, T-041 · **Requirements:** FR-REV-1, FR-REV-2, FR-REV-3, FR-REV-4 · **PR:** [#36](https://github.com/matchastack/work-journal/pull/36)
 
 As the owner, I want to review each proposed change with its sources and checks, so that I stay in control of what my profile says.
 
@@ -645,7 +645,7 @@ The Inbox reviews the change sets stored by T-027, whoever proposes them, so it 
 - [x] Works with the keyboard. Tests for the API and components.
 
 ### T-041 · Journal page
-**Status:** ◐ · **Size:** M · **Depends on:** T-033, T-039 · **Requirements:** FR-JRN-5, FR-JRN-6, FR-JRN-7, FR-EXT-3 · **PR:** [#35](https://github.com/matchastack/work-journal/pull/35)
+**Status:** ☑ · **Size:** M · **Depends on:** T-033, T-039 · **Requirements:** FR-JRN-5, FR-JRN-6, FR-JRN-7, FR-EXT-3 · **PR:** [#35](https://github.com/matchastack/work-journal/pull/35)
 
 As the owner, I want to read my journal as one document and correct it, so that my record stays accurate.
 
@@ -756,7 +756,7 @@ As the owner, I want the app deployed for free and updated automatically, so tha
 - [x] A deployment runbook in `docs/deploy.md`.
 
 ### T-063 · Post-deploy script
-**Status:** ◐ · **Size:** S · **Depends on:** T-051 · **Requirements:** C6 · **PR:** [#42](https://github.com/matchastack/work-journal/pull/42)
+**Status:** ☑ · **Size:** S · **Depends on:** T-051 · **Requirements:** C6 · **PR:** [#42](https://github.com/matchastack/work-journal/pull/42)
 
 As the owner, I want one command to run after each deploy, so that I don't have to work out which commands a deploy needs.
 
