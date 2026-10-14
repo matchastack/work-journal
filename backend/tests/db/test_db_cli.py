@@ -4,6 +4,7 @@ import asyncio
 import json
 import uuid
 from collections.abc import Iterator
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -16,11 +17,21 @@ from app import cli as cli_module
 from app.cli import cli
 from app.config import Settings, get_settings
 from app.db.crypto import new_key, use_key_ring
-from app.db.models import ChangeOpRow, ChangeSetRow, FactRow, ProfileVersionRow, User
+from app.db.models import (
+    ApplicationRow,
+    ChangeOpRow,
+    ChangeSetRow,
+    FactRow,
+    ProfileVersionRow,
+    Setting,
+    User,
+)
+from app.linkedin import WrittenSection
 from app.llm.client import LLMClient
 from app.llm.fake import FakeMessages, reply
 from app.llm.usage import MemoryCallLog
 from app.schema.fact import Fact
+from app.schema.jobs import Application, JobPosting
 from app.synthesis import PlannedBullet, SynthesisPlan
 from app.validate.claims import ClaimReply, JudgedClaim
 from app.writing import WrittenBullet
@@ -274,3 +285,60 @@ def test_apply_saves_nothing_unless_you_confirm(
     assert scalars(
         database_url, select(ChangeSetRow.status).where(ChangeSetRow.user_id == user)
     ) == ["proposed"]
+
+
+def test_linkedin_uses_the_database_and_remembers_what_was_marked_done(
+    database_url: str, owner: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    loaded = invoke("db", "load-profile", str(FIXTURES / "profile.json"), "--user", owner)
+    assert loaded.exit_code == 0, loaded.output
+    user = select(User.id).where(User.github_login == owner).scalar_subquery()
+    notes = {"avoid": ["spearheaded"], "notes": []}
+    scalars(database_url, insert(Setting).values(user_id=user, key="style_notes", value=notes))
+    posting = JobPosting(title="Backend Engineer")
+    application = Application(
+        id="app_1",
+        applied_on=date(2026, 9, 1),
+        company="Example Corp",
+        position="Backend Engineer",
+        posting=posting,
+        posting_text="A posting.",
+        title_variant="Backend Engineer",
+    )
+    row = {"user_id": user, "id": "app_1", "applied_on": application.applied_on}
+    scalars(
+        database_url,
+        insert(ApplicationRow).values(**row, data=application.model_dump(mode="json")),
+    )
+    judged = JudgedClaim(claim="Python", reason="As stated.", verdict="supported")
+    texts = [
+        "Software Engineer | Python",
+        "I build Python services.",
+        "I build services.",
+        "I built tools.",
+    ]
+    replies = [
+        m
+        for t in texts
+        for m in (reply(WrittenSection(text=t)), reply(ClaimReply(claims=(judged,))))
+    ]
+    fake = FakeMessages(*replies)
+    llm = LLMClient(Settings(llm_model_standard="standard-model"), fake, MemoryCallLog())
+    monkeypatch.setattr(cli_module, "_llm_client", lambda: llm)
+
+    result = invoke("linkedin", "--db", "--user", owner)
+    assert result.exit_code == 0, result.output
+    assert "<avoid>\n- spearheaded\n</avoid>" in fake.requests[0]["messages"][0]["content"]
+    assert 'your latest application (Example Corp, 2026-09-01) used "Backend Engineer"' in (
+        result.stdout
+    )
+    assert result.stdout.endswith("run `wj linkedin done --db`.\n")
+    done = invoke("linkedin", "done", "--db", "--user", owner)
+    assert done.exit_code == 0, done.output
+    assert done.stdout == "Marked 4 sections done.\n"
+    keys = select(Setting.key).where(Setting.user_id == user).order_by(Setting.key)
+    assert scalars(database_url, keys) == ["linkedin_done", "linkedin_pack", "style_notes"]
+
+    again = invoke("linkedin", "--db", "--user", owner)
+    assert again.exit_code == 0, again.output
+    assert again.stdout == "Nothing changed since you last marked the pack done.\n"
