@@ -43,6 +43,7 @@ from app.llm.client import LLMClient
 from app.llm.fake import FakeMessages, refusal, reply
 from app.llm.usage import CallLog, MemoryCallLog
 from app.refresh import (
+    UNFINISHED_AFTER,
     Blocked,
     OutputsJob,
     Proposals,
@@ -217,8 +218,16 @@ async def test_a_refresh_covers_the_journal_facts_no_refresh_covered(
     assert inputs.version.number == 1
     row = await refresh_row(session, inputs.refresh_id)
     assert row.started_at == NOW
+
+
+async def test_a_try_leaves_a_refresh_another_started_recently(session: AsyncSession) -> None:
+    """Such as `wj propose --db`, still at work; one that started long ago never finished."""
+    user_id = await new_user(session, ALERT)
+    inputs = await started(session, user_id)
+    later = NOW + UNFINISHED_AFTER
+    assert await begin_proposals(session, inputs.refresh_id, now=later) is None
     with pytest.raises(RefreshInterrupted):
-        await begin_proposals(session, inputs.refresh_id, now=NOW)
+        await begin_proposals(session, inputs.refresh_id, now=later + timedelta(seconds=1))
 
 
 async def test_the_proposals_are_saved_and_the_facts_covered(session: AsyncSession) -> None:
@@ -500,14 +509,23 @@ async def test_a_refusal_fails_the_refresh_and_its_facts_wait(
 async def test_a_refresh_that_never_finished_isnt_tried_again(
     committed: Committed, chat_id: int, claude: Callable[..., FakeMessages], telegram: Telegram
 ) -> None:
-    """Such as one cut off at the function's time limit: another try would call the heavy-tier
-    model again, and likely be cut off again."""
+    """Such as one whose function was stopped: another try would call the heavy-tier model
+    again. One that started recently is left to the try that started it, such as
+    `wj propose --db`."""
     _, refresh_id = await committed(ALERT, chat_id=chat_id)
+    fake = claude()
+    recently = datetime.now(UTC) - timedelta(minutes=5)
+    async with database() as session:
+        await session.execute(
+            update(Refresh).where(Refresh.id == refresh_id).values(started_at=recently)
+        )
+    await run_refresh(refresh_id)
+    assert (telegram.sent, (await committed_row(refresh_id)).status) == ([], "running")
+
     async with database() as session:
         await session.execute(
             update(Refresh).where(Refresh.id == refresh_id).values(started_at=NOW)
         )
-    fake = claude()
     await run_refresh(refresh_id)
     assert telegram.sent == [{"chat_id": chat_id, "text": failure_text("it didn't finish in time")}]
     assert fake.requests == []

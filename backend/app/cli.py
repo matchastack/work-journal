@@ -413,8 +413,8 @@ def apply_changes(
 def _refresh(login: str | None) -> None:
     """A refresh, run here (`app/refresh.py`): propose changes from the facts since the last
     one, and save them for review. When there's nothing to propose, the outputs fall due."""
-    refresh_id = asyncio.run(_start_refresh(login))
-    inputs = asyncio.run(_begin_refresh(refresh_id))
+    inputs = asyncio.run(_start_refresh(login))
+    refresh_id = inputs.refresh_id
     try:
         synthesis = Synthesis(change_set=None)
         if inputs.facts:
@@ -555,22 +555,18 @@ _BLOCKED = {
 }
 
 
-async def _start_refresh(login: str | None) -> uuid.UUID:
-    """Start a refresh for the user. Exits when one can't start."""
+async def _start_refresh(login: str | None) -> RefreshInputs:
+    """Start a refresh for the user, and read what it proposes changes from, at once, so that
+    the bot's job leaves it to this command. Exits when one can't start."""
     async with _database() as session:
         started = await start_refresh(session, await _user(session, login))
+        inputs = None
+        if not isinstance(started, Blocked):
+            inputs = await begin_proposals(session, started, now=datetime.now(UTC))
     if isinstance(started, Blocked):
         typer.echo(_BLOCKED[started.reason], err=True)
         raise typer.Exit(1)
-    return started
-
-
-async def _begin_refresh(refresh_id: uuid.UUID) -> RefreshInputs:
-    async with _database() as session:
-        inputs = await begin_proposals(session, refresh_id, now=datetime.now(UTC))
-    if inputs is None:
-        typer.echo("The refresh stopped before it began.", err=True)
-        raise typer.Exit(1)
+    assert inputs is not None, "a refresh just started is running, with a profile"
     return inputs
 
 

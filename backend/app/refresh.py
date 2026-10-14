@@ -24,7 +24,7 @@ Nothing here runs on a schedule or when an entry closes. Fact text is never logg
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Literal
 
 from sqlalchemy import func, select, tuple_, update
@@ -41,6 +41,10 @@ from app.schema.profile import Profile
 from app.synthesis import Synthesis
 
 PDF = "application/pdf"
+UNFINISHED_AFTER = timedelta(minutes=30)
+"""How long after a try at a refresh started it counts as unfinished: well past the 300 s a try
+may run in a tick, and time enough for `wj propose --db`, which has no limit. Until then, another
+try leaves it to the one that started it."""
 
 
 @dataclass(frozen=True)
@@ -54,8 +58,9 @@ class Blocked:
 
 
 class RefreshInterrupted(Exception):
-    """An earlier try at the refresh started and never finished, such as one cut off at the
-    function's time limit. It isn't tried again: each try calls the heavy-tier model."""
+    """An earlier try at the refresh started more than `UNFINISHED_AFTER` ago and never finished,
+    such as one whose function was stopped. It isn't tried again: each try calls the heavy-tier
+    model."""
 
     def __init__(self, user_id: uuid.UUID) -> None:
         super().__init__("an earlier try at the refresh didn't finish")
@@ -141,9 +146,10 @@ async def begin_proposals(
     session: AsyncSession, refresh_id: uuid.UUID, *, now: datetime
 ) -> RefreshInputs | None:
     """Mark the refresh started, and read what it proposes changes from. Returns None when it
-    isn't running, such as when it's done already.
+    isn't running, such as when it's done already, or when another try started it recently and
+    may still be at work, such as `wj propose --db`.
 
-    Raises `RefreshInterrupted` when an earlier try started it and didn't finish.
+    Raises `RefreshInterrupted` when an earlier try started it long ago and didn't finish.
     """
     refresh = await session.scalar(
         select(Refresh).where(Refresh.id == refresh_id).with_for_update()
@@ -151,6 +157,8 @@ async def begin_proposals(
     if refresh is None or refresh.status != "running":
         return None
     if refresh.started_at is not None:
+        if refresh.started_at >= now - UNFINISHED_AFTER:
+            return None
         raise RefreshInterrupted(refresh.user_id)
     version = await latest_version(session, refresh.user_id)
     if version is None:
