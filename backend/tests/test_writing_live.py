@@ -1,7 +1,8 @@
-"""Opt-in evaluation of the resume writer on facts about the fictional person.
+"""Opt-in evaluation of the writer on facts about the fictional person.
 
-Each bullet must pass the verifier, written once more if need be, and keep what matters about its
-facts, such as their numbers or a modest part in the work. The writer and the claim check call
+Each text must pass the verifier, written once more if need be, and keep what matters about its
+facts, such as their numbers or a modest part in the work. The LinkedIn and posting styles and
+applying a swap have cases of their own. The writer and the claim check call
 the standard-tier model, so these run only with `pytest -m llm` and need ANTHROPIC_API_KEY and
 LLM_MODEL_STANDARD.
 """
@@ -16,8 +17,9 @@ from pydantic import TypeAdapter
 from app.config import Settings
 from app.llm.client import LLMClient
 from app.schema.fact import Fact
-from app.schema.profile import Profile
-from app.writing import write_bullet
+from app.schema.jobs import JobPosting
+from app.schema.profile import Profile, Swap
+from app.writing import Style, apply_swap, write_bullet
 
 pytestmark = pytest.mark.llm
 
@@ -49,7 +51,17 @@ PIPELINE = Fact(
     ownership="contributed",
     role_id="northwind",
 )
-MORE_FACTS = {fact.id: fact for fact in (ALERTS, INSTRUCTIONS, PIPELINE)}
+ORDERS = Fact(
+    id="fact_nw_orders",
+    statement="Built and maintained Python services that process order events from a message "
+    "queue.",
+    ownership="owned",
+    role_id="northwind",
+)
+MORE_FACTS = {fact.id: fact for fact in (ALERTS, INSTRUCTIONS, PIPELINE, ORDERS)}
+POSTING = JobPosting.model_validate_json(
+    (FIXTURES / "postings" / "backend.json").read_text(encoding="utf-8")
+)
 
 
 @dataclass(frozen=True)
@@ -57,6 +69,7 @@ class Case:
     facts: tuple[str, ...]
     entry_id: str = "northwind"
     edit: str | None = None
+    style: Style = "resume"
     keeps: tuple[str, ...] = ()
     """Words the bullet must contain, such as its facts' numbers."""
     never: tuple[str, ...] = ()
@@ -76,6 +89,23 @@ CASES = {
     "an honesty boundary holds": Case(
         ("fact_nw_deploy_fix",), never=(r"\b(owned|led|managed)\b[^.]*pipeline",)
     ),
+    "linkedin: the first person, with the numbers": Case(
+        ("fact_nw_export",), style="linkedin", keeps=("50", "12"), never=(r"^(Cut|Reduced)\b",)
+    ),
+    "linkedin: a modest part stays modest": Case(
+        ("fact_nw_queue",), style="linkedin", never=(r"\bI (led|owned|spearheaded|drove)\b",)
+    ),
+    "linkedin: retells a bullet": Case(
+        ("fact_nw_export",), edit="nw_export", style="linkedin", keeps=("50", "12")
+    ),
+    "posting: no term the facts don't back": Case(
+        ("fact_nw_queue",),
+        style="posting",
+        never=(r"\bKafka\b", r"\bTerraform\b", r"\bpayments?\b"),
+    ),
+    "posting: keeps the numbers": Case(
+        ("fact_nw_export",), edit="nw_export", style="posting", keeps=("50", "12")
+    ),
 }
 
 
@@ -91,9 +121,29 @@ def client(tmp_path_factory: pytest.TempPathFactory) -> LLMClient:
 @pytest.mark.parametrize("case", CASES.values(), ids=CASES.keys())
 def test_the_bullet_passes_the_verifier_and_keeps_its_facts(case: Case, client: LLMClient) -> None:
     facts = [{**FACTS, **MORE_FACTS}[fact_id] for fact_id in case.facts]
-    report = write_bullet(facts, PROFILE, client, entry_id=case.entry_id, edit=case.edit)
+    posting = POSTING if case.style == "posting" else None
+    report = write_bullet(
+        facts,
+        PROFILE,
+        client,
+        entry_id=case.entry_id,
+        edit=case.edit,
+        style=case.style,
+        posting=posting,
+    )
     assert report.passed, (report.text, [finding.message for finding in report.errors])
     for word in case.keeps:
         assert word in report.text, report.text
     for pattern in case.never:
         assert not re.search(pattern, report.text, re.IGNORECASE), report.text
+
+
+@pytest.mark.parametrize("posting", [None, POSTING], ids=["master", "posting"])
+def test_a_swap_is_worked_into_its_bullet(posting: JobPosting | None, client: LLMClient) -> None:
+    fragment = Swap(text="event-driven Python services", replaces="Python services")
+    report = apply_swap(
+        [ORDERS], PROFILE, client, bullet_id="nw_orders", swap=fragment, posting=posting
+    )
+    assert report.passed, (report.text, [finding.message for finding in report.errors])
+    assert "event-driven Python services" in report.text
+    assert "message queue" in report.text
