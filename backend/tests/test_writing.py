@@ -11,6 +11,7 @@ from app.llm.client import LLMClient
 from app.llm.fake import FakeMessages, reply
 from app.llm.usage import MemoryCallLog
 from app.schema.fact import Fact
+from app.schema.jobs import JobPosting
 from app.schema.profile import Profile
 from app.schema.verification import VerifierReport
 from app.validate.claims import ClaimReply, JudgedClaim
@@ -22,6 +23,9 @@ FACTS = TypeAdapter(tuple[Fact, ...]).validate_json(
     (FIXTURES / "facts.json").read_text(encoding="utf-8")
 )
 EXPORT, QUEUE, RECIPES = FACTS
+POSTING = JobPosting.model_validate_json(
+    (FIXTURES / "postings" / "backend.json").read_text(encoding="utf-8")
+)
 GOOD = "Cut the nightly export job from 50 to 12 minutes by batching PostgreSQL writes."
 SUPPORTED = ClaimReply(
     claims=(
@@ -172,3 +176,48 @@ def test_a_bullet_needs_facts_and_a_known_item_and_bullet() -> None:
         write(edit="ct_sensors")
     with pytest.raises(ValueError, match="the profile has no bullet 'nw_billing'"):
         write(edit="nw_billing")
+
+
+def test_the_linkedin_style_is_written_in_the_first_person_and_checked_as_linkedin_text() -> None:
+    text = "I cut our nightly export job from 50 to 12 minutes by batching PostgreSQL writes."
+    report, fake = write(written(text), SUPPORTED, style="linkedin", edit="nw_export")
+    assert (report.text, report.passed, report.attempts) == (text, True, 1)
+    assert [finding.code for finding in report.findings] == [], "pronouns are fine on LinkedIn"
+    assert fake.requests[0]["system"][0]["text"].startswith(
+        "You write one short passage for someone's LinkedIn profile"
+    )
+    assert fake.requests[0]["system"][1]["text"] == writing_context(PROFILE)
+    message = user_message(fake, 0)
+    assert message.startswith('The passage goes under the role "northwind".')
+    assert "<current>\nCut the nightly export job from 50 to 12 minutes" in message
+
+
+def test_linkedin_text_over_the_limit_is_written_again() -> None:
+    long = "I cut the nightly export job from 50 to 12 minutes. " * 40
+    report, _ = write(written(long), SUPPORTED, written(long), SUPPORTED, style="linkedin")
+    assert (report.passed, report.attempts) == (False, 2)
+    assert [finding.code for finding in report.errors] == ["too_long"]
+
+
+def test_the_posting_style_gets_the_posting_and_its_terms_are_checked() -> None:
+    text = "Cut the nightly export job from 50 to 12 minutes by batching PostgreSQL writes."
+    report, fake = write(written(text), SUPPORTED, style="posting", posting=POSTING)
+    assert report.passed
+    system = fake.requests[0]["system"][0]["text"]
+    assert system.startswith("You write one bullet for a resume tailored to a job posting")
+    message = user_message(fake, 0)
+    posting = json.loads(message.split("<posting>\n")[1].split("\n</posting>")[0])
+    assert posting["title"] == "Senior Backend Engineer, Payments"
+    assert posting["mustHave"][:2] == ["Python", "Go"]
+    assert "url" not in posting
+    judged = user_message(fake, 1)
+    assert "<posting_terms>\n- APIs\n- event-driven systems\n" in judged, (
+        "the judge flags posting terms the facts don't back"
+    )
+
+
+def test_only_the_posting_style_takes_a_posting() -> None:
+    with pytest.raises(ValueError, match="the posting style needs a job posting"):
+        write(style="posting")
+    with pytest.raises(ValueError, match="only it takes one"):
+        write(style="linkedin", posting=POSTING)
