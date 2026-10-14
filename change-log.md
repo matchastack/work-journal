@@ -2,7 +2,13 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-13 · T-038 Refresh: proposals on demand and the master resume
+## 2026-10-14 · Milestone and task statuses · [#45](https://github.com/matchastack/work-journal/pull/45)
+**Changed:** `tasks.md` marks M0 done, since T-000, T-055 and T-056 are merged, and marks the merged T-038, T-040, T-041, T-062 and T-063 done, with T-038 linked to #43.
+
+**Verify:**
+- The overview table shows M0 as done, and M1 and M2 still in progress
+
+## 2026-10-13 · T-038 Refresh: proposals on demand and the master resume · [#43](https://github.com/matchastack/work-journal/pull/43)
 **Changed:** `/refresh` proposes changes to your profile from the facts added or edited since your last refresh, and the bot says how many wait in the Inbox, with a link, or that there's nothing new. Once you've decided on them, or at once when there's nothing new, your master resume is due to be rendered from the newest version; Vercel can't run LaTeX, so `wj tick` on your computer renders it. `wj propose --db` is a refresh too.
 
 **Verify:**
