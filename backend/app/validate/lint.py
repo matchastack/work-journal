@@ -121,10 +121,16 @@ def lint_profile(profile: Profile) -> LintReport:
 
 
 def check_sendable(
-    selection: Selection, profile: Profile, confirmed: Collection[str] = ()
+    selection: Selection,
+    profile: Profile,
+    confirmed: Collection[str] = (),
+    *,
+    posting_spellings: Collection[str] = (),
 ) -> LintReport:
     """Check what a sendable resume prints. `confirmed` lists the skills marked
-    verify-before-shipping that the owner confirmed for this resume (R3)."""
+    verify-before-shipping that the owner confirmed for this resume (R3). `posting_spellings`
+    are the job posting's spellings of skills, which a resume tailored to it may use instead of
+    the preferred ones (FR-TLR-4)."""
     content = _selection_content(selection)
     findings = [
         *_placeholders(content),
@@ -139,7 +145,7 @@ def check_sendable(
         *_unapproved_titles(selection, profile),
         *_shared_metrics(content, allowed_terms(profile)),
         *_duplicates(content),
-        *_spelling(content, profile.skills),
+        *_spelling(content, profile.skills, allowed=posting_spellings),
         *_dates(content),
     ]
     notes: list[str] = []
@@ -165,11 +171,15 @@ def check_sendable(
 
 
 def require_sendable(
-    selection: Selection, profile: Profile, confirmed: Collection[str] = ()
+    selection: Selection,
+    profile: Profile,
+    confirmed: Collection[str] = (),
+    *,
+    posting_spellings: Collection[str] = (),
 ) -> LintReport:
     """`check_sendable`, raising `NotSendable` if there are errors. Otherwise returns the report,
     which then holds only warnings."""
-    report = check_sendable(selection, profile, confirmed)
+    report = check_sendable(selection, profile, confirmed, posting_spellings=posting_spellings)
     if not report.ok:
         raise NotSendable(report)
     return report
@@ -553,9 +563,13 @@ def _duplicates(content: _Content) -> Iterator[Finding]:
             )
 
 
-def _spelling(content: _Content, skills: Sequence[Skill]) -> Iterator[Finding]:
+def _spelling(
+    content: _Content, skills: Sequence[Skill], *, allowed: Collection[str] = ()
+) -> Iterator[Finding]:
     """Aliases are always wrong. Other capitalisations are wrong in lists, and in text when they
-    can't be an ordinary word (`Javascript` for `JavaScript`, but not `react` for `React`)."""
+    can't be an ordinary word (`Javascript` for `JavaScript`, but not `react` for `React`). The
+    `allowed` spellings are never wrong, such as a job posting's for a resume tailored to it."""
+    exempt = set(allowed)
     searched = [
         (spelling, skill.name)
         for skill in skills
@@ -567,6 +581,7 @@ def _spelling(content: _Content, skills: Sequence[Skill]) -> Iterator[Finding]:
             for spelling, preferred in searched
             for match in _term_pattern(spelling, True).finditer(text.text)
             if match[0] != preferred
+            and match[0] not in exempt
             and (spelling != preferred or _miscapitalised(match[0], preferred))
         }
         for written, preferred in dict.fromkeys(found[start] for start in sorted(found)):
@@ -578,7 +593,7 @@ def _spelling(content: _Content, skills: Sequence[Skill]) -> Iterator[Finding]:
     }
     for term in content.terms:
         preferred = preferred_for.get(term.name.casefold())
-        if preferred is not None and term.name != preferred:
+        if preferred is not None and term.name != preferred and term.name not in exempt:
             yield _misspelt(term.location, term.name, preferred)
 
 

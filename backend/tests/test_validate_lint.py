@@ -175,6 +175,20 @@ def test_aliases_and_wrong_capitals_are_spelling_warnings() -> None:
     ]
 
 
+def test_a_resume_tailored_to_a_posting_may_use_its_spellings() -> None:
+    def change(data: Json) -> None:
+        bullet(data, "nw_orders").update(text="Built NodeJS and Postgresql services.")
+        data["skillPresets"][0]["lines"][1]["skills"] = ["FastAPI", "NodeJS"]
+
+    profile = edited(change)
+    selection = select(profile, Variant(id="tailored", name="Tailored", role_type="backend"))
+    spellings = [("spelling", 'write "Postgresql" as "PostgreSQL"')]
+    report = check_sendable(selection, profile, posting_spellings=["NodeJS", "Go"])
+    assert [(f.rule, f.message) for f in report.findings] == spellings
+    report = check_sendable(selection, profile)
+    assert len([f for f in report.findings if f.rule == "spelling"]) == 3
+
+
 def test_ordinary_words_are_not_spelling_mistakes() -> None:
     def change(data: Json) -> None:
         data["skills"].append({"name": "REST", "category": "Backend & APIs"})
