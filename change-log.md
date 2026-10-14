@@ -2,6 +2,16 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-14 · T-060 LinkedIn and job-posting writers, and swaps · [#46](https://github.com/matchastack/work-journal/pull/46)
+**Changed:** `wj write --style linkedin` writes facts as first-person LinkedIn text, and `--style posting --posting <file>` writes a resume bullet in a posting's words, using a term only where your facts back it. `wj write --edit <bullet> --swap <n>` works one of the bullet's swaps into it, and `--save-swap` saves a phrasing you approve as a swap on the bullet. Everything passes the verifier, and with `--db` your words to avoid apply.
+
+**Verify:**
+- CI is green on #46
+- With your key, `uv run pytest -m llm tests/test_writing_live.py` passes (13 cases), and `uv run wj eval all` still meets the bar
+- `wj write --db --style linkedin --edit <bullet>` reads as you'd write it on LinkedIn, and says no more than the bullet
+- With a posting from `wj posting parse`, `--style posting` uses the posting's words only where they're true
+- `--save-swap` saves the next profile version only when you answer yes
+
 ## 2026-10-13 · T-063 Post-deploy script · [#42](https://github.com/matchastack/work-journal/pull/42)
 **Changed:** added `backend/scripts/post-deploy.sh`, to run after each deploy. It waits for the app, migrates the database and runs `wj telegram set-webhook`; every step is safe to repeat. It stops first if `backend/.env` points at this computer, and migrations that start at the same time, such as the script's and Vercel's build, now take turns instead of failing.
 
