@@ -2,7 +2,7 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-14 · Milestone and task statuses · PR link below
+## 2026-10-14 · Milestone and task statuses · [#45](https://github.com/matchastack/work-journal/pull/45)
 **Changed:** `tasks.md` marks M0 done, since T-000, T-055 and T-056 are merged, and marks the merged T-040, T-041, T-062 and T-063 done.
 
 **Verify:**
