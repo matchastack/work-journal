@@ -38,7 +38,8 @@ class SavedPosting:
 
 
 async def save_facts(session: AsyncSession, user_id: uuid.UUID, facts: Sequence[Fact]) -> None:
-    """Store facts, replacing any stored under the same IDs."""
+    """Store facts, replacing any stored under the same IDs. A replaced fact waits for the next
+    refresh again, as a new one does (FR-REV-6)."""
     if not facts:
         return
     rows = [
@@ -58,6 +59,7 @@ async def save_facts(session: AsyncSession, user_id: uuid.UUID, facts: Sequence[
         name: query.excluded[name] for name in rows[0] if name not in ("user_id", "id")
     }
     replaced["updated_at"] = func.now()
+    replaced["refreshed_at"] = None
     await session.execute(
         query.on_conflict_do_update(index_elements=[FactRow.user_id, FactRow.id], set_=replaced)
     )

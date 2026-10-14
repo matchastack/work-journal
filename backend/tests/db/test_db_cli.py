@@ -16,7 +16,15 @@ from app import cli as cli_module
 from app.cli import cli
 from app.config import Settings, get_settings
 from app.db.crypto import new_key, use_key_ring
-from app.db.models import ChangeOpRow, ChangeSetRow, FactRow, ProfileVersionRow, Setting, User
+from app.db.models import (
+    ChangeOpRow,
+    ChangeSetRow,
+    FactRow,
+    ProfileVersionRow,
+    Refresh,
+    Setting,
+    User,
+)
 from app.llm.client import LLMClient
 from app.llm.fake import FakeMessages, reply
 from app.llm.usage import MemoryCallLog
@@ -249,9 +257,22 @@ def use_planner(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(cli_module, "_llm_client", lambda: llm)
 
 
+def refreshes(database_url: str, login: str) -> list[tuple[Any, ...]]:
+    """The user's refreshes, oldest first: status, facts covered, outputs and their version."""
+    user = select(User.id).where(User.github_login == login).scalar_subquery()
+    query = (
+        select(Refresh.status, Refresh.fact_count, Refresh.outputs, Refresh.output_version)
+        .where(Refresh.user_id == user)
+        .order_by(Refresh.requested_at)
+    )
+    return run_rows(database_url, query)
+
+
 def test_propose_and_apply_save_the_accepted_changes_as_the_next_version(
     tmp_path: Path, database_url: str, owner: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """With --db, `wj propose` is a refresh, as `/refresh` starts (T-038), and once its changes
+    are decided, the outputs are due at the new version."""
     loaded = invoke("db", "load-profile", str(journal_files(tmp_path)), "--user", owner)
     assert loaded.exit_code == 0, loaded.output
     use_planner(monkeypatch)
@@ -262,6 +283,7 @@ def test_propose_and_apply_save_the_accepted_changes_as_the_next_version(
     waiting = invoke("propose", "--db", "--user", owner)
     assert waiting.exit_code == 1
     assert "A proposal still waits for review" in waiting.stderr
+    assert refreshes(database_url, owner) == [("proposed", 1, None, None)]
 
     applied = invoke("apply", "--db", "--user", owner, "--yes")
     assert applied.exit_code == 0, applied.output
@@ -277,8 +299,14 @@ def test_propose_and_apply_save_the_accepted_changes_as_the_next_version(
     ops = select(ChangeOpRow.status).where(ChangeOpRow.user_id == user)
     assert scalars(database_url, ops) == ["accepted"]
 
+    assert refreshes(database_url, owner) == [("proposed", 1, "pending", 2)]
+
     nothing_new = invoke("propose", "--db", "--user", owner)
     assert nothing_new.stdout == "There are no new facts to propose changes from.\n"
+    assert refreshes(database_url, owner) == [
+        ("proposed", 1, "superseded", 2),
+        ("nothing_new", 0, "pending", 2),
+    ]
     nothing_waiting = invoke("apply", "--db", "--user", owner)
     assert (
         nothing_waiting.stdout == "No proposal waits for review. Make one with `wj propose --db`.\n"

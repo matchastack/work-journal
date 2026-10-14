@@ -5,7 +5,7 @@ before the answer, and storing it twice does nothing (NFR-REL-1). The answer can
 reply as a Bot API call, which Telegram makes itself, so replying needs no request of its own.
 Any further calls, such as editing a message after a button press, are made right after the
 answer. When the update closes an entry or chooses its role, the entry's jobs run right after
-that (FR-CAP-5).
+that (FR-CAP-5), and after `/refresh`, the refresh's job (FR-REV-6).
 """
 
 import logging
@@ -21,7 +21,7 @@ from pydantic import SecretStr, ValidationError
 from app.deps import AppSettings, Db
 from app.telegram.api import BotApi, BotCall, TelegramError
 from app.telegram.journal import handle_update
-from app.tick import extract_now
+from app.tick import extract_now, refresh_now
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/telegram", tags=["telegram"])
@@ -42,7 +42,9 @@ async def webhook(
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Unknown sender")
     timeout = timedelta(minutes=settings.entry_timeout_minutes)
     try:
-        handled = await handle_update(db, (await request.body()).decode(), entry_timeout=timeout)
+        handled = await handle_update(
+            db, (await request.body()).decode(), entry_timeout=timeout, app_url=settings.app_url
+        )
     except (UnicodeDecodeError, ValidationError):
         logger.warning("Telegram sent an update the bot can't read; it was skipped")
         return Response(status_code=status.HTTP_200_OK)
@@ -53,6 +55,8 @@ async def webhook(
         )
     if handled.ready is not None:
         background.add_task(extract_now, handled.ready)
+    if handled.refresh is not None:
+        background.add_task(refresh_now, handled.refresh)
     if not handled.calls:
         return Response(status_code=status.HTTP_200_OK)
     return JSONResponse(handled.calls[0].webhook_body())
