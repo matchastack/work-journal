@@ -20,7 +20,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.crypto import KeyRing, new_key, use_key_ring
 from app.db.engine import MIGRATION_LOCK
-from app.db.models import JournalEntry, JournalMessage, ProfileVersionRow, User
+from app.db.models import (
+    ChangeOpRow,
+    ChangeSetRow,
+    FactRow,
+    JournalEntry,
+    JournalMessage,
+    ProfileVersionRow,
+    User,
+)
 
 BACKEND = Path(__file__).parents[2]
 VERSIONS = BACKEND / "migrations" / "versions"
@@ -150,3 +158,34 @@ async def test_messages_from_before_entries_are_grouped(session: AsyncSession) -
         (sent[3] + timedelta(minutes=30), "quiet"),
         (None, None),
     ], "closed as the tick would close them; the recent one stays open"
+
+
+@pytest.mark.anyio
+async def test_facts_a_change_set_cites_were_covered_before_refreshes(
+    session: AsyncSession,
+) -> None:
+    """Migration 0012: before refreshes, `wj propose --db` used the journal facts no change set
+    cited, so those a change set cites don't wait for the first refresh. Others do."""
+    user = await session.scalar(insert(User).returning(User.id))
+    proposed = datetime(2026, 10, 12, 9, 0, tzinfo=UTC)
+    change_set = await session.scalar(
+        insert(ChangeSetRow)
+        .values(user_id=user, author="ai", status="applied", created_at=proposed)
+        .returning(ChangeSetRow.id)
+    )
+    op = {"op": "add_skill", "skill": {"name": "Go"}, "factIds": ["e1_1", "imp_1"]}
+    await session.execute(
+        insert(ChangeOpRow).values(user_id=user, change_set_id=change_set, position=0, op=op)
+    )
+    use_key_ring(KeyRing.parse(new_key("k1")))
+    try:
+        for fact_id, origin in (("e1_1", "journal"), ("e1_2", "journal"), ("imp_1", "import")):
+            session.add(FactRow(user_id=user, id=fact_id, data="{}", origin=origin))
+        await session.flush()
+    finally:
+        use_key_ring(None)
+    await session.execute(text(migration("0012_refreshes").COVER_PROPOSED_FACTS))
+    rows = await session.execute(
+        select(FactRow.id, FactRow.refreshed_at).where(FactRow.user_id == user).order_by(FactRow.id)
+    )
+    assert list(rows) == [("e1_1", proposed), ("e1_2", None), ("imp_1", None)]

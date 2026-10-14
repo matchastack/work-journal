@@ -6,7 +6,7 @@ import logging
 import uuid
 from collections.abc import AsyncGenerator, Callable, Coroutine, Sequence
 from contextlib import asynccontextmanager
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, Any
@@ -37,7 +37,6 @@ from app.db.profiles import (
     latest_version,
     list_change_sets,
     load_master_profile,
-    propose_change_set,
     save_version,
 )
 from app.db.settings import (
@@ -62,6 +61,16 @@ from app.main import create_app
 from app.portfolio.build import Download, build_portfolio
 from app.profile_ops import ProfileOpError
 from app.profile_ops import apply as apply_operations
+from app.refresh import (
+    Blocked,
+    Proposals,
+    RefreshInputs,
+    begin_proposals,
+    change_set_decided,
+    fail_refresh,
+    record_proposals,
+    start_refresh,
+)
 from app.render.compile import CompileError
 from app.render.fit import FitError
 from app.render.resume import RenderError, render_resume
@@ -79,7 +88,7 @@ from app.telegram.api import BotApi, TelegramError
 from app.telegram.journal import COMMANDS
 from app.telegram.linking import deep_link, new_link_token
 from app.telegram.polling import poll
-from app.tick import TICK_BUDGET_S, extract_now, tick
+from app.tick import TICK_BUDGET_S, extract_now, refresh_now, tick
 from app.validate.lint import format_report, lint_profile
 from app.writing import locate_bullet, write_bullet
 
@@ -325,20 +334,13 @@ def propose(
     """Propose changes to the profile from the journal facts it doesn't use yet.
 
     Calls the heavy-tier model to plan the changes, and the standard-tier model to write and
-    check each bullet. Nothing changes until you review the proposal with `wj apply`.
+    check each bullet. Nothing changes until you review the proposal with `wj apply`. With --db,
+    it's a refresh, as `/refresh` starts: it covers the facts added or edited since the last one.
     """
     if db and (profile or facts_file):
         raise typer.BadParameter("use either --db or files", param_hint="--profile, --facts-file")
     if db:
-        user_id, version, pool, earlier = asyncio.run(_proposal_inputs(user))
-        if any(saved.change_set.status == "proposed" for saved in earlier):
-            typer.echo("A proposal still waits for review: run `wj apply --db` first.", err=True)
-            raise typer.Exit(1)
-        new = new_facts(version.profile, pool, [saved.change_set for saved in earlier])
-        synthesis = _synthesize(version.profile, new, pool, base_version=version.number)
-        if synthesis.change_set is not None:
-            asyncio.run(_store_proposal(user_id, synthesis.change_set))
-            typer.echo("Saved the proposal. Review it with `wj apply --db`.")
+        _refresh(user)
         return
     loaded = _read_profile(profile, db, user)
     pool = _read_facts(facts_file or [LOCAL_DIR / "facts.json"])
@@ -421,8 +423,38 @@ def apply_changes(
         typer.echo(f"Wrote {path}. Render the master resume with `wj render`.")
 
 
+def _refresh(login: str | None) -> None:
+    """A refresh, run here (`app/refresh.py`): propose changes from the facts since the last
+    one, and save them for review. When there's nothing to propose, the outputs fall due."""
+    inputs = asyncio.run(_start_refresh(login))
+    refresh_id = inputs.refresh_id
+    try:
+        synthesis = Synthesis(change_set=None)
+        if inputs.facts:
+            synthesis = _synthesize(
+                inputs.version.profile,
+                inputs.facts,
+                inputs.sources,
+                base_version=inputs.version.number,
+                avoid=inputs.avoid,
+            )
+    except BaseException:
+        asyncio.run(_fail_refresh(refresh_id))
+        raise
+    proposals = asyncio.run(_record_refresh(inputs, synthesis))
+    if not inputs.facts:
+        typer.echo("There are no new facts to propose changes from.")
+    elif proposals.changes:
+        typer.echo("Saved the proposal. Review it with `wj apply --db`.")
+
+
 def _synthesize(
-    profile: Profile, new: Sequence[Fact], pool: Sequence[Fact], *, base_version: int | None
+    profile: Profile,
+    new: Sequence[Fact],
+    pool: Sequence[Fact],
+    *,
+    base_version: int | None,
+    avoid: Sequence[str] = (),
 ) -> Synthesis:
     """Propose changes from the new facts, and print them."""
     if not new:
@@ -430,7 +462,9 @@ def _synthesize(
         raise typer.Exit(0)
     typer.echo(f"Planning changes from {_count(len(new), 'new fact')}.")
     try:
-        synthesis = synthesize(profile, new, _llm_client(), sources=pool, base_version=base_version)
+        synthesis = synthesize(
+            profile, new, _llm_client(), sources=pool, base_version=base_version, avoid=avoid
+        )
     except LLMConfigError as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(1) from None
@@ -527,21 +561,40 @@ def _read_change_set(path: Path) -> ChangeSet:
     return ChangeSet.model_validate_json(path.read_text(encoding="utf-8"))
 
 
-async def _proposal_inputs(
-    login: str | None,
-) -> tuple[uuid.UUID, Version, list[Fact], list[SavedChangeSet]]:
-    """The user, their newest profile version, their facts and their change sets."""
-    async with _database() as session:
-        user_id = await _user(session, login)
-        version = await _latest(session, user_id)
-        facts = await list_facts(session, user_id)
-        change_sets = await list_change_sets(session, user_id, status=None)
-    return user_id, version, facts, change_sets
+_BLOCKED = {
+    "no_profile": "The database has no profile yet; load one with `wj db load-profile`.",
+    "running": "A refresh is running already; its proposal will wait for `wj apply --db`.",
+    "waiting": "A proposal still waits for review: run `wj apply --db` first.",
+}
 
 
-async def _store_proposal(user_id: uuid.UUID, change_set: ChangeSet) -> None:
+async def _start_refresh(login: str | None) -> RefreshInputs:
+    """Start a refresh for the user, and read what it proposes changes from, at once, so that
+    the bot's job leaves it to this command. Exits when one can't start."""
     async with _database() as session:
-        await propose_change_set(session, user_id, change_set)
+        started = await start_refresh(session, await _user(session, login))
+        inputs = None
+        if not isinstance(started, Blocked):
+            inputs = await begin_proposals(session, started, now=datetime.now(UTC))
+    if isinstance(started, Blocked):
+        typer.echo(_BLOCKED[started.reason], err=True)
+        raise typer.Exit(1)
+    assert inputs is not None, "a refresh just started is running, with a profile"
+    return inputs
+
+
+async def _record_refresh(inputs: RefreshInputs, synthesis: Synthesis) -> Proposals:
+    async with _database() as session:
+        proposals = await record_proposals(session, inputs, synthesis, now=datetime.now(UTC))
+    if proposals is None:
+        typer.echo("The refresh stopped before its proposal was saved.", err=True)
+        raise typer.Exit(1)
+    return proposals
+
+
+async def _fail_refresh(refresh_id: uuid.UUID) -> None:
+    async with _database() as session:
+        await fail_refresh(session, refresh_id, now=datetime.now(UTC))
 
 
 async def _review_inputs(
@@ -590,6 +643,7 @@ async def _save_review(
                 session, user_id, updated, author="ai", change_set_id=change_set_id
             )
         await close_change_set(session, user_id, change_set_id, decided.status)
+        await change_set_decided(session, user_id, change_set_id, now=datetime.now(UTC))
     return None if saved is None else saved.number
 
 
@@ -1243,12 +1297,14 @@ async def _poll(database_url: str) -> int:
     engine = create_engine(database_url)
     try:
         async with _telegram_http() as http:
-            entry_timeout = timedelta(minutes=get_settings().entry_timeout_minutes)
+            settings = get_settings()
             return await poll(
                 _bot_api(http),
                 session_factory(engine),
-                entry_timeout=entry_timeout,
+                entry_timeout=timedelta(minutes=settings.entry_timeout_minutes),
+                app_url=settings.app_url,
                 run_jobs=extract_now,
+                run_refresh=refresh_now,
             )
     finally:
         await engine.dispose()

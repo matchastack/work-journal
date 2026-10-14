@@ -10,6 +10,17 @@ One short entry per pull request, newest first: what changed and what to verify.
 - `uv run wj linkedin --db` prints all four kinds of section, each reading as you'd put it on LinkedIn, with no claim your profile doesn't make
 - After `uv run wj linkedin done --db`, running `wj linkedin --db` again says nothing changed, without calling Claude
 
+## 2026-10-13 · T-038 Refresh: proposals on demand and the master resume
+**Changed:** `/refresh` proposes changes to your profile from the facts added or edited since your last refresh, and the bot says how many wait in the Inbox, with a link, or that there's nothing new. Once you've decided on them, or at once when there's nothing new, your master resume is due to be rendered from the newest version; Vercel can't run LaTeX, so `wj tick` on your computer renders it. `wj propose --db` is a refresh too.
+
+**Verify:**
+- CI is green on the PR
+- Before the deploy: Vercel's Settings, Functions shows Fluid compute on (the app may now run for 300 s)
+- After the deploy, `scripts/post-deploy.sh`, so the command menu shows `/refresh`
+- With a few journal entries since your last proposal, `/refresh` gets "Looking for changes", then within a few minutes "N updates proposed" with a link that opens the Inbox
+- Sending `/refresh` again before you apply them says they still wait; after you apply them, `/refresh` says there's nothing new
+- After you apply them, `uv run wj tick` on your computer (TeX Live and the Claude settings in `backend/.env`) logs that the master resume shows the new version
+
 ## 2026-10-13 · T-063 Post-deploy script · [#42](https://github.com/matchastack/work-journal/pull/42)
 **Changed:** added `backend/scripts/post-deploy.sh`, to run after each deploy. It waits for the app, migrates the database and runs `wj telegram set-webhook`; every step is safe to repeat. It stops first if `backend/.env` points at this computer, and migrations that start at the same time, such as the script's and Vercel's build, now take turns instead of failing.
 

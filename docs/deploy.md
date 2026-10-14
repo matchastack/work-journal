@@ -89,6 +89,10 @@ both.
    Singapore. Otherwise Vercel runs the app in Washington, D.C. (`iad1`), and every database
    query makes the trip. Then redeploy.
 
+   On the same page, keep **Fluid compute** on, as Vercel sets it for new projects.
+   `backend/vercel.json` lets the app run for up to 300 s, which a refresh needs; without Fluid
+   compute, the free plan allows 60 s and the deploy fails.
+
 Each later merge to `main` deploys the same way.
 
 ## 4. Let GitHub sign you in
@@ -143,6 +147,25 @@ stops before touching the database or Telegram if they point at this computer or
 Telegram secrets. If the build is migrating at the same moment, one migration waits for the
 other.
 
+## Refresh, and your master resume
+
+Send `/refresh` when you want your profile to catch up with your journal. The bot proposes
+changes from the facts since your last refresh and sends a link to the Inbox, where you review
+them. Once you apply them, or at once when there's nothing new, your master resume is due to be
+rendered from the newest version.
+
+Vercel can't run LaTeX, so that render waits for your computer. With TeX Live installed
+(`backend/templates/README.md`) and `backend/.env` as in step 6, plus the Claude settings
+(`ANTHROPIC_API_KEY` and the `LLM_MODEL_*` variables) as on Vercel, run from `backend/`:
+
+```
+uv run wj tick
+```
+
+It runs a tick as Vercel's cron does, and also renders the master resume and keeps it in the
+database, with the refresh. `uv run wj render --db` writes the newest version to
+`local/resumes/master.pdf` at any time.
+
 ## Check it works
 
 - `https://<project>.vercel.app/healthz` answers `{"status":"ok","database":"ok"}`.
@@ -154,6 +177,8 @@ other.
   `SELECT task, outcome FROM llm_calls ORDER BY at DESC LIMIT 2;` shows the calls.
 - Vercel lists the tick among the project's cron jobs, and the logs of each run show it
   answering 200.
+- Send `/refresh`. Within a few minutes, the bot says how many updates it proposes, with a link
+  to the Inbox, or that there's nothing new.
 
 ## When something goes wrong
 
@@ -165,6 +190,7 @@ other.
 | The tick answers 401 | Set `CRON_SECRET` in Vercel (step 3), then redeploy: Vercel sends it with each call. |
 | A command fails with `relation "..." does not exist` | The database is missing tables: run `uv run alembic upgrade head` (step 6). |
 | The bot stops receiving messages | `wj telegram poll` turns the webhook off; run `wj telegram set-webhook` again. |
+| The bot says a refresh didn't finish in time | Check that Fluid compute is on (step 3). If months of facts still take too long, run `uv run wj propose --db` from your computer, which has no time limit. |
 | Tapping a role under the bot's question does nothing | Telegram doesn't send the webhook button presses yet: run `wj telegram set-webhook` again. |
 | The database is asleep or slow on the first request | Neon wakes in about a second; the next requests are quick. |
 | Every request is slow, not just the first | Vercel runs the app far from the database: set the function region (step 3), then redeploy. |
