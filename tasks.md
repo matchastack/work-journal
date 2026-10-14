@@ -599,7 +599,7 @@ As the owner, I want a short guided interview on first use, so that the months s
 - [ ] The owner can stop at any time and resume later.
 
 ### T-038 · Refresh: proposals on demand and the master resume
-**Status:** ◐ · **Size:** M · **Depends on:** T-010, T-018, T-027, T-028, T-033 · **Requirements:** FR-REV-6, FR-REV-7, FR-REM-6, FR-RES-5 · **PR:** —
+**Status:** ☑ · **Size:** M · **Depends on:** T-010, T-018, T-027, T-028, T-033 · **Requirements:** FR-REV-6, FR-REV-7, FR-REM-6, FR-RES-5 · **PR:** [#43](https://github.com/matchastack/work-journal/pull/43)
 
 As the owner, I want my profile and master resume updated only when I ask, so that months of small journal entries become one review when I need a current resume.
 
