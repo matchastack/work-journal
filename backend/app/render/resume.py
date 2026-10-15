@@ -24,6 +24,9 @@ _MAIN = "resume.tex"
 @dataclass(frozen=True)
 class RenderedResume:
     pdf: bytes
+    tex: str
+    """The LaTeX source the PDF was compiled from, after the cuts. It needs the template's other
+    files, if it has any, to compile."""
     pages: int
     text: str
     """The PDF's extractable text."""
@@ -58,12 +61,14 @@ def render_resume(
         if path.is_file() and path.name != _MAIN
     }
 
-    def render(chosen: Selection) -> CompiledPdf:
+    def source(chosen: Selection) -> str:
         try:
-            source = template.render(selection=chosen, contact=contact_items(chosen.contact))
+            return template.render(selection=chosen, contact=contact_items(chosen.contact))
         except (TemplateError, TemplateValueError) as error:
             raise RenderError(f"the {name} template failed: {error}") from error
-        return compile_latex(source, files=files, timeout=timeout)
+
+    def render(chosen: Selection) -> CompiledPdf:
+        return compile_latex(source(chosen), files=files, timeout=timeout)
 
     fitted = fit(selection, render)
     if not fitted.pdf.text.strip():
@@ -76,6 +81,7 @@ def render_resume(
         )
     return RenderedResume(
         pdf=fitted.pdf.pdf,
+        tex=source(fitted.selection),
         pages=fitted.pdf.pages,
         text=fitted.pdf.text,
         cuts=fitted.cuts,

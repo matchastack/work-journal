@@ -2,6 +2,8 @@ from pathlib import Path
 
 import pytest
 
+import app.render.resume as resume_module
+from app.render.compile import CompiledPdf
 from app.render.resume import RenderError, contact_items, render_resume
 from app.schema.profile import Profile, SocialProfile
 from app.schema.variant import Variant
@@ -114,6 +116,24 @@ def test_a_resume_over_its_page_limit_is_cut_to_fit() -> None:
         ("project", "recipe_box"),
     ]
     assert "Northwind Traders" in rendered.text  # the load-bearing role stays
+
+
+def test_the_tex_is_the_source_of_the_fitted_pdf(monkeypatch: pytest.MonkeyPatch) -> None:
+    compiled: list[str] = []
+
+    def compile_latex(source: str, **_: object) -> CompiledPdf:
+        """One page per three bullets, so the tiny template's selection needs cuts."""
+        compiled.append(source)
+        pages = 1 + source.count("\n- ") // 3
+        return CompiledPdf(pdf=b"%PDF", pages=pages, text=source, bitmap_fonts=False)
+
+    monkeypatch.setattr(resume_module, "compile_latex", compile_latex)
+    rendered = render_resume(selection(template="tiny", max_pages=1), TEMPLATES)
+    assert rendered.cuts
+    assert rendered.tex == rendered.text  # the fake PDF's text is the source it was given
+    assert rendered.tex in compiled
+    for cut in rendered.cuts:
+        assert cut.text not in rendered.tex
 
 
 @pytest.mark.latex
