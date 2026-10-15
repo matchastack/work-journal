@@ -397,15 +397,17 @@ As the owner, I want my profile rendered as a portfolio page in the style of my 
 - [x] Snapshot tests run against the fictional fixture.
 
 ### T-024 · LinkedIn pack generator
-**Status:** ☐ · **Size:** M · **Depends on:** T-060 · **Requirements:** FR-LIN-1, FR-LIN-2, FR-LIN-4 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-013, T-015 · **Requirements:** FR-LIN-1, FR-LIN-2, FR-LIN-4 · **PR:** [#44](https://github.com/matchastack/work-journal/pull/44)
 
 As the owner, I want LinkedIn text generated from my profile, and only for what changed, so that updating LinkedIn takes minutes.
 
-- [ ] The standard-tier writer produces the headline (≤ 220 characters), About (≤ 2,600) and position descriptions (≤ 2,000), in the first person.
-- [ ] Titles come from the approved variants, and a mismatch with the latest application's title is flagged.
-- [ ] Output is compared with the last "done" snapshot, and only changed sections are listed.
-- [ ] Every sentence is verified.
-- [ ] `wj linkedin` prints the pack.
+- [x] The standard-tier writer produces the headline (≤ 220 characters), About (≤ 2,600) and position descriptions (≤ 2,000), in the first person.
+- [x] Titles come from the approved variants, and a mismatch with the latest application's title is flagged.
+- [x] Output is compared with the last "done" snapshot, and only changed sections are listed.
+- [x] Every sentence is verified.
+- [x] `wj linkedin` prints the pack.
+
+**Dependency changed (2026-10-14):** T-024 no longer waits for T-060. The pack has its own standard-tier prompt, and the verifier already checks LinkedIn text (T-013's limits, T-015's claims). T-060 keeps the LinkedIn style for single bullets and swaps, which tailoring uses.
 
 ### T-054 · ASCII characters everywhere
 **Status:** ☑ · **Size:** S · **Depends on:** T-006 · **Requirements:** FR-WRT-6 · **PR:** [#19](https://github.com/matchastack/work-journal/pull/19)

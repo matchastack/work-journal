@@ -104,9 +104,11 @@ class Verifier:
             entry_id=self.entry_id if bullet else None,
             replaces=self.replaces if bullet else None,
         )
+        # LinkedIn text sums up many facts, so leaving most of their numbers out is by design.
         number_findings = [
             VerifierFinding(check="numbers", severity=f.severity, code=f.code, message=f.message)
             for f in numbers.findings
+            if bullet or f.code != "metric_dropped"
         ]
         style_findings = [
             VerifierFinding(check="style", severity=f.severity, code=f.code, message=f.message)

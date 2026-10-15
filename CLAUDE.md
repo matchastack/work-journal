@@ -57,6 +57,7 @@ Run these from `backend/` (uv project, Python 3.12):
 | Tailor a one-page resume to a job posting, as text or `wj posting parse` JSON (needs the LLM settings and TeX Live; `--confirm <skill>` for a skill marked verify-before-shipping, `--yes` to use every new phrasing that passed) | `uv run wj tailor <posting-file>` (add `--db` for your profile and facts in the database) |
 | Propose profile changes from the journal facts since the last refresh, as `/refresh` does (needs the LLM settings) | `uv run wj propose --db` |
 | Review the proposed changes one by one and save the accepted ones as the next version, then render | `uv run wj apply --db`, then `uv run wj render --db` |
+| Write the LinkedIn pack: the headline, About and position texts that changed since you last marked it done (needs the LLM settings) | `uv run wj linkedin --db`, then, once pasted into LinkedIn, `uv run wj linkedin done --db` |
 | Evaluate the LLM steps on the fictional cases, against the bar (needs `ANTHROPIC_API_KEY` and `LLM_MODEL_STANDARD`; `evals/README.md`) | `uv run wj eval all` (add `--private` for your cases in `local/evals/`) |
 | Lint | `uv run ruff check .` |
 | Format | `uv run ruff format .` |

@@ -14,7 +14,7 @@ from typing import Annotated, Any
 
 import httpx2
 import typer
-from pydantic import TypeAdapter, ValidationError
+from pydantic import BaseModel, TypeAdapter, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import __version__
@@ -40,8 +40,14 @@ from app.db.profiles import (
     load_master_profile,
     save_version,
 )
-from app.db.settings import get_style_notes
-from app.db.store import list_facts, save_facts
+from app.db.settings import (
+    get_linkedin_done,
+    get_linkedin_pack,
+    get_style_notes,
+    save_linkedin_done,
+    save_linkedin_pack,
+)
+from app.db.store import list_applications, list_facts, save_facts
 from app.db.users import UnknownUserError, only_user, user_for_login
 from app.evals.dataset import FICTIONAL_DIR, SUITES, Dataset, DatasetError, load_dataset
 from app.evals.report import evaluation_report
@@ -49,6 +55,7 @@ from app.evals.run import CaseResult, Evaluation, SuiteResult, run_suite
 from app.extraction import extract_facts
 from app.importers.master_resume import MasterResumeError, import_master_resume
 from app.jobs import run_worker
+from app.linkedin import LinkedInDone, LinkedInPack, PackSection, mark_done, write_pack
 from app.llm.client import LLMCallError, LLMClient, LLMConfigError
 from app.llm.usage import CallLog, CallLogs, JsonlCallLog, MemoryCallLog
 from app.main import create_app
@@ -72,7 +79,7 @@ from app.review import describe, needs, report_lines
 from app.schema.changes import AddSwap, ChangeOp, ChangeSet, ChangeSetStatus, OpStatus, ReviewedOp
 from app.schema.export import write_json_schemas
 from app.schema.fact import Fact
-from app.schema.jobs import JobPosting
+from app.schema.jobs import Application, JobPosting
 from app.schema.profile import Profile
 from app.schema.verification import VerifierReport
 from app.selection import MASTER_VARIANT, select
@@ -89,6 +96,8 @@ from app.writing import Style, apply_swap, locate_bullet, swap_op, write_bullet
 
 LOCAL_DIR = Path(__file__).resolve().parents[2] / "local"
 """The repository's git-ignored folder for personal data (`backend/app/cli.py` is two below)."""
+LINKEDIN_PACK_FILE = LOCAL_DIR / "linkedin" / "pack.json"
+LINKEDIN_DONE_FILE = LOCAL_DIR / "linkedin" / "done.json"
 
 cli = typer.Typer(help="Work Journal command-line tool.", no_args_is_help=True)
 schema_cli = typer.Typer(help="JSON Schemas for the core data models.", no_args_is_help=True)
@@ -98,6 +107,7 @@ portfolio_cli = typer.Typer(help="The portfolio page.", no_args_is_help=True)
 import_cli = typer.Typer(help="Import existing resume data.", no_args_is_help=True)
 db_cli = typer.Typer(help="Your data in the database (DATABASE_URL).", no_args_is_help=True)
 telegram_cli = typer.Typer(help="The Telegram bot (TELEGRAM_BOT_TOKEN).", no_args_is_help=True)
+linkedin_cli = typer.Typer()
 cli.add_typer(schema_cli, name="schema")
 cli.add_typer(posting_cli, name="posting")
 cli.add_typer(portfolio_cli, name="portfolio")
@@ -105,6 +115,7 @@ cli.add_typer(keys_cli, name="keys")
 cli.add_typer(import_cli, name="import")
 cli.add_typer(db_cli, name="db")
 cli.add_typer(telegram_cli, name="telegram")
+cli.add_typer(linkedin_cli, name="linkedin")
 
 DbOption = Annotated[
     bool, typer.Option("--db", help="Use the database (DATABASE_URL) instead of local files.")
@@ -1194,6 +1205,170 @@ def build_portfolio_page(
         loaded, out, year=date.today().year, site_url=site_url, downloads=downloads
     )
     typer.echo(f"Wrote {page}")
+
+
+@linkedin_cli.callback(invoke_without_command=True)
+def linkedin(
+    ctx: typer.Context,
+    profile: ProfileOption = None,
+    everything: Annotated[
+        bool,
+        typer.Option("--all", help="Write every section again, and print them all."),
+    ] = False,
+    db: DbOption = False,
+    user: UserOption = None,
+) -> None:
+    """Write the LinkedIn pack from your profile, and print the sections that changed since you
+    last marked it done.
+
+    Calls the standard-tier model to write each section whose content changed, and to check its
+    claims; the other sections are carried over. With --db, your style notes apply and a current
+    role's title is checked against your latest application. Once you've pasted the sections
+    into LinkedIn, run `wj linkedin done`. Exits with status 1 when a section is flagged.
+    """
+    if ctx.invoked_subcommand is not None:
+        return
+    if db:
+        if profile is not None:
+            raise typer.BadParameter("use either --profile or --db", param_hint="--profile")
+        user_id, version, done, latest, avoid, preferences = asyncio.run(_linkedin_inputs(user))
+        loaded, number = version.profile, version.number
+    else:
+        loaded, number = _read_profile(profile, db, user), None
+        user_id, latest, avoid, preferences = None, None, (), ()
+        done = _read_model(LINKEDIN_DONE_FILE, LinkedInDone)
+    try:
+        pack = write_pack(
+            loaded,
+            _llm_client(),
+            done=done,
+            latest_application=latest,
+            avoid=avoid,
+            preferences=preferences,
+            everything=everything,
+            profile_version=number,
+        )
+    except LLMConfigError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from None
+    except LLMCallError as error:
+        typer.echo(f"The pack couldn't be written: {error}", err=True)
+        raise typer.Exit(1) from None
+    if user_id is not None:
+        asyncio.run(_save_linkedin_pack(user_id, pack))
+    else:
+        LINKEDIN_PACK_FILE.parent.mkdir(parents=True, exist_ok=True)
+        LINKEDIN_PACK_FILE.write_text(pack.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    shown = pack.sections if everything else pack.changed
+    for section in shown:
+        _echo_section(section)
+    unchanged = len(pack.sections) - len(pack.changed)
+    if not pack.changed:
+        typer.echo("Nothing changed since you last marked the pack done.")
+    elif unchanged and not everything:
+        typer.echo(f"{_count(unchanged, 'section')} unchanged, not shown (--all shows them).")
+    for label in pack.removed:
+        typer.echo(f"Take this off LinkedIn, as your public profile no longer has it: {label}")
+    if pack.changed:
+        typer.echo(
+            f"Once you've pasted them into LinkedIn, run `wj linkedin done{' --db' if db else ''}`."
+        )
+    if any(section.flagged for section in shown):
+        raise typer.Exit(1)
+
+
+@linkedin_cli.command("done")
+def linkedin_done(db: DbOption = False, user: UserOption = None) -> None:
+    """Mark the last pack done, once you've pasted it into LinkedIn.
+
+    From then on, `wj linkedin` prints only the sections that change. A flagged section isn't
+    marked done, so it's written again next time.
+    """
+    if db:
+        marked = asyncio.run(_mark_linkedin_done(user))
+        if marked is None:
+            typer.echo("There's no pack to mark done; write one with `wj linkedin --db`.", err=True)
+            raise typer.Exit(1)
+        pack, flagged, newest = marked
+        if pack.profile_version is not None and pack.profile_version != newest:
+            typer.echo(
+                f"Note: the pack was written from version {pack.profile_version} of your "
+                f"profile; the newest is {newest}. `wj linkedin --db` writes it again."
+            )
+    else:
+        if user is not None:
+            raise typer.BadParameter("goes with --db", param_hint="--user")
+        pack = _read_model(LINKEDIN_PACK_FILE, LinkedInPack)
+        if pack is None:
+            typer.echo("There's no pack to mark done; write one with `wj linkedin`.", err=True)
+            raise typer.Exit(1)
+        previous = _read_model(LINKEDIN_DONE_FILE, LinkedInDone)
+        done, flagged = mark_done(pack, previous, now=datetime.now().astimezone())
+        LINKEDIN_DONE_FILE.write_text(done.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    typer.echo(f"Marked {_count(len(pack.sections) - len(flagged), 'section')} done.")
+    if flagged:
+        labels = ", ".join(section.label for section in flagged)
+        typer.echo(f"Not marked, as the checks flagged them: {labels}. They're written again.")
+
+
+def _echo_section(section: PackSection) -> None:
+    """One section: a heading with its length, the text, and what the verifier found."""
+    typer.echo(f"== {section.label} ({section.length:,}/{section.limit:,} characters) ==")
+    typer.echo(section.text)
+    for note in section.notes:
+        typer.echo(f"Note: {note}")
+    if section.report is None:
+        typer.echo("Unchanged since you last marked the pack done.", err=True)
+    else:
+        _echo_report(section.report)
+    typer.echo()
+
+
+async def _linkedin_inputs(
+    login: str | None,
+) -> tuple[
+    uuid.UUID, Version, LinkedInDone | None, Application | None, tuple[str, ...], tuple[str, ...]
+]:
+    """The user, their newest profile version, the pack last marked done, their latest
+    application, and their words to avoid and style preferences."""
+    async with _database() as session:
+        user_id = await _user(session, login)
+        version = await _latest(session, user_id)
+        done = await get_linkedin_done(session, user_id)
+        applications = await list_applications(session, user_id)
+        notes = await get_style_notes(session, user_id)
+    preferences = tuple(note.text for note in notes.notes)
+    latest = applications[0] if applications else None
+    return user_id, version, done, latest, notes.avoid, preferences
+
+
+async def _save_linkedin_pack(user_id: uuid.UUID, pack: LinkedInPack) -> None:
+    async with _database() as session:
+        await save_linkedin_pack(session, user_id, pack)
+
+
+async def _mark_linkedin_done(
+    login: str | None,
+) -> tuple[LinkedInPack, tuple[PackSection, ...], int] | None:
+    """Mark the user's last pack done. Returns it, its flagged sections, which stay unmarked,
+    and the number of the newest profile version; None when there's no pack."""
+    async with _database() as session:
+        user_id = await _user(session, login)
+        pack = await get_linkedin_pack(session, user_id)
+        if pack is None:
+            return None
+        newest = await _latest(session, user_id)
+        previous = await get_linkedin_done(session, user_id)
+        done, flagged = mark_done(pack, previous, now=datetime.now().astimezone())
+        await save_linkedin_done(session, user_id, done)
+    return pack, flagged, newest.number
+
+
+def _read_model[M: BaseModel](path: Path, model: type[M]) -> M | None:
+    """The model saved in `path`, or None when there's no such file."""
+    if not path.is_file():
+        return None
+    return model.model_validate_json(path.read_text(encoding="utf-8"))
 
 
 @keys_cli.command("new")
