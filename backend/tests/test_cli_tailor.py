@@ -63,7 +63,9 @@ def rendered(monkeypatch: pytest.MonkeyPatch) -> list[Selection]:
     def render(selection: Selection) -> RenderedResume:
         selections.append(selection)
         cut = Cut(kind="bullet", id="rb_app", text="cut")
-        return RenderedResume(pdf=b"%PDF-1.5 fake", pages=1, text="", cuts=(cut,), warnings=())
+        return RenderedResume(
+            pdf=b"%PDF-1.5 fake", pages=1, text="", cuts=(cut,), warnings=(), selection=selection
+        )
 
     monkeypatch.setattr(cli_module, "render_resume", render)
     return selections

@@ -114,6 +114,7 @@ def test_a_resume_over_its_page_limit_is_cut_to_fit() -> None:
         ("project", "recipe_box"),
     ]
     assert "Northwind Traders" in rendered.text  # the load-bearing role stays
+    assert [role.id for role in rendered.selection.work] == ["northwind"], "what the PDF shows"
 
 
 @pytest.mark.latex
