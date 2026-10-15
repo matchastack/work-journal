@@ -47,7 +47,14 @@ from app.db.settings import (
     save_linkedin_done,
     save_linkedin_pack,
 )
-from app.db.store import list_applications, list_facts, save_facts
+from app.db.store import (
+    list_applications,
+    list_facts,
+    save_application,
+    save_facts,
+    save_job_posting,
+    store_artifact,
+)
 from app.db.users import UnknownUserError, only_user, user_for_login
 from app.evals.dataset import FICTIONAL_DIR, SUITES, Dataset, DatasetError, load_dataset
 from app.evals.report import evaluation_report
@@ -84,6 +91,8 @@ from app.schema.profile import Profile
 from app.schema.verification import VerifierReport
 from app.selection import MASTER_VARIANT, select
 from app.synthesis import Synthesis, new_facts, synthesize
+from app.tailoring.applications import LoggedApplication, ResumeChecks, record
+from app.tailoring.coverage import report_lines as coverage_lines
 from app.tailoring.posting import parse_posting
 from app.tailoring.tailor import posting_spellings, tailor, use_phrasings
 from app.telegram.api import BotApi, TelegramError
@@ -1035,7 +1044,7 @@ def tailor_resume(
     if db and (profile or facts_file):
         raise typer.BadParameter("use either --db or files", param_hint="--profile, --facts-file")
     client = _llm_client()
-    parsed = _posting_to_tailor(posting, client)
+    parsed, posting_text = _posting_to_tailor(posting, client)
     avoid: Sequence[str] = ()
     if db:
         loaded, pool, avoid = asyncio.run(_writing_inputs(user))
@@ -1109,13 +1118,102 @@ def tailor_resume(
         typer.echo(f"Cut to fit one page: {cut}.")
     for warning in rendered.warnings:
         typer.echo(f"Warning: {warning}", err=True)
+    application, checks = record(
+        tailored,
+        rendered.selection,
+        accepted=accepted,
+        rules=report,
+        posting_text=posting_text,
+        pdf=rendered.pdf,
+        applied_on=_today(),
+        suffix=uuid.uuid4().hex[:6],
+    )
+    for line in coverage_lines(checks.coverage):
+        typer.echo(line)
+    if db:
+        asyncio.run(_log_application(user, application, checks, rendered.pdf))
+    else:
+        logged = LoggedApplication(application=application, checks=checks, pdf=str(out))
+        path = LOCAL_DIR / "applications" / f"{application.id}.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(logged.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    typer.echo(f"Logged it as application {application.id}; `wj applications` lists them.")
 
 
-def _posting_to_tailor(path: Path, client: LLMClient) -> JobPosting:
-    """The posting in `path`: JSON as `wj posting parse` prints it, or text to parse."""
+@cli.command("applications")
+def list_application_log(db: DbOption = False, user: UserOption = None) -> None:
+    """List the applications `wj tailor` logged, newest first: the date, company, role, the title
+    the resume gave your current role, and what it showed."""
+    if db:
+        applications = asyncio.run(_applications(user))
+    elif user is not None:
+        raise typer.BadParameter("goes with --db", param_hint="--user")
+    else:
+        applications = _local_applications()
+    if not applications:
+        typer.echo("No applications yet. `wj tailor <posting>` logs one with each resume.")
+        return
+    for application in applications:
+        shown = _count(len(application.bullet_ids), "bullet")
+        if application.swaps_used:
+            shown += f", {_count(len(application.swaps_used), 'swap')}"
+        typer.echo(
+            f"{application.applied_on}  {application.company}: {application.position}  "
+            f"({application.title_variant}; {shown})  {application.id}"
+        )
+
+
+def _today() -> date:
+    """The date an application is logged on (tests replace it)."""
+    return date.today()
+
+
+async def _log_application(
+    login: str | None, application: Application, checks: ResumeChecks, pdf: bytes
+) -> None:
+    """Store the application, with its posting, its PDF and its checks (FR-TLR-8, FR-FID-8)."""
+    async with _database() as session:
+        user_id = await _user(session, login)
+        posting_id = await save_job_posting(
+            session, user_id, application.posting_text, application.posting
+        )
+        await store_artifact(session, user_id, pdf, "application/pdf")
+        await save_application(
+            session,
+            user_id,
+            application,
+            posting_id=posting_id,
+            verifier_report=checks.model_dump(mode="json"),
+        )
+
+
+async def _applications(login: str | None) -> list[Application]:
+    async with _database() as session:
+        user_id = await _user(session, login)
+        return await list_applications(session, user_id)
+
+
+def _local_applications() -> list[Application]:
+    """The applications logged in local/applications/, newest first."""
+    folder = LOCAL_DIR / "applications"
+    paths = sorted(folder.glob("*.json"), key=lambda path: path.stat().st_mtime)
+    logged: list[Application] = []
+    for path in paths:
+        try:
+            logged.append(
+                LoggedApplication.model_validate_json(path.read_text(encoding="utf-8")).application
+            )
+        except ValidationError:
+            typer.echo(f"Skipped {path}: it isn't a logged application.", err=True)
+    return sorted(logged, key=lambda application: application.applied_on, reverse=True)
+
+
+def _posting_to_tailor(path: Path, client: LLMClient) -> tuple[JobPosting, str]:
+    """The posting in `path`, and the file's text: JSON as `wj posting parse` prints it, or text
+    to parse."""
     text = path.read_text(encoding="utf-8")
     try:
-        return JobPosting.model_validate_json(text)
+        return JobPosting.model_validate_json(text), text
     except ValidationError:
         pass
     try:
@@ -1129,7 +1227,7 @@ def _posting_to_tailor(path: Path, client: LLMClient) -> JobPosting:
     if parsed.dropped:
         dropped = ", ".join(f'"{term}"' for term in parsed.dropped)
         typer.echo(f"Left out terms the posting doesn't contain: {dropped}", err=True)
-    return parsed.posting
+    return parsed.posting, text
 
 
 def _slug(posting: JobPosting) -> str:

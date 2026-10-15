@@ -19,9 +19,11 @@ from app.config import Settings, get_settings
 from app.db.crypto import new_key, use_key_ring
 from app.db.models import (
     ApplicationRow,
+    Artifact,
     ChangeOpRow,
     ChangeSetRow,
     FactRow,
+    JobPostingRow,
     ProfileVersionRow,
     Refresh,
     Setting,
@@ -31,10 +33,13 @@ from app.linkedin import WrittenSection
 from app.llm.client import LLMClient
 from app.llm.fake import FakeMessages, reply
 from app.llm.usage import MemoryCallLog
+from app.render.resume import RenderedResume
 from app.schema.fact import Fact
 from app.schema.jobs import Application, JobPosting
 from app.schema.profile import Profile, Swap
+from app.selection import Selection
 from app.synthesis import PlannedBullet, SynthesisPlan
+from app.tailoring.tailor import PlannedItem, TailoringPlan
 from app.validate.claims import ClaimReply, JudgedClaim
 from app.writing import WrittenBullet
 
@@ -227,6 +232,45 @@ def test_write_saves_an_approved_phrasing_as_the_next_version(
     bullets = [bullet for role in Profile.model_validate(data).work for bullet in role.highlights]
     [export] = [bullet for bullet in bullets if bullet.id == "nw_export"]
     assert export.swaps == (Swap(text=text, contexts=("LinkedIn",), origin="approved"),)
+
+
+def test_tailor_logs_the_application_in_the_database(
+    tmp_path: Path, database_url: str, owner: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """FR-TLR-8 and FR-FID-8: the posting, the PDF and the checks are kept with it."""
+    loaded = invoke("db", "load-profile", str(FIXTURES / "profile.json"), "--user", owner)
+    assert loaded.exit_code == 0, loaded.output
+    plan = TailoringPlan(role_type="backend", work=(PlannedItem(id="northwind"),))
+    llm = LLMClient(
+        Settings(llm_model_heavy="heavy-model"), FakeMessages(reply(plan)), MemoryCallLog()
+    )
+    monkeypatch.setattr(cli_module, "_llm_client", lambda: llm)
+
+    def render(selection: Selection) -> RenderedResume:
+        return RenderedResume(
+            pdf=b"%PDF-1.5 tailored", pages=1, text="", cuts=(), warnings=(), selection=selection
+        )
+
+    monkeypatch.setattr(cli_module, "render_resume", render)
+    posting = FIXTURES / "postings" / "backend.json"
+    out = tmp_path / "resume.pdf"
+    result = invoke("tailor", str(posting), "--db", "--user", owner, "--out", str(out))
+    assert result.exit_code == 0, result.output
+    user = select(User.id).where(User.github_login == owner).scalar_subquery()
+    [report] = scalars(
+        database_url, select(ApplicationRow.verifier_report).where(ApplicationRow.user_id == user)
+    )
+    assert report["coverage"]["covered"][0]["term"] == "Python"
+    assert report["rules"]["findings"] == []
+    [pdf] = scalars(database_url, select(Artifact.data).where(Artifact.user_id == user))
+    assert bytes(pdf) == b"%PDF-1.5 tailored"
+    [text] = scalars(database_url, select(JobPostingRow.text).where(JobPostingRow.user_id == user))
+    assert text == posting.read_text(encoding="utf-8").strip()
+    listed = invoke("applications", "--db", "--user", owner)
+    assert listed.exit_code == 0, listed.output
+    assert "Fabrikam Logistics: Senior Backend Engineer, Payments  (Software Engineer;" in (
+        listed.stdout
+    )
 
 
 def journal_files(tmp_path: Path) -> Path:

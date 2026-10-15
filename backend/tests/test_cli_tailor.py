@@ -1,5 +1,6 @@
 import json
 import re
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -17,6 +18,7 @@ from app.render.resume import RenderedResume
 from app.schema.jobs import JobPosting
 from app.schema.profile import Profile, Swap
 from app.selection import Selection
+from app.tailoring.applications import LoggedApplication
 from app.tailoring.tailor import (
     PlannedBullet,
     PlannedItem,
@@ -53,18 +55,25 @@ def isolated_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.chdir(tmp_path)
     for name in Settings.model_fields:
         monkeypatch.delenv(name.upper(), raising=False)
+    monkeypatch.setattr(cli_module, "LOCAL_DIR", tmp_path / "local")
+    monkeypatch.setattr(cli_module, "_today", lambda: date(2026, 10, 15))
 
 
 @pytest.fixture
 def rendered(monkeypatch: pytest.MonkeyPatch) -> list[Selection]:
-    """Stands in for LaTeX: records each selection rendered, and cuts one bullet to fit."""
+    """Stands in for LaTeX: records each selection rendered, and cuts the project to fit."""
     selections: list[Selection] = []
 
     def render(selection: Selection) -> RenderedResume:
         selections.append(selection)
         cut = Cut(kind="bullet", id="rb_app", text="cut")
         return RenderedResume(
-            pdf=b"%PDF-1.5 fake", pages=1, text="", cuts=(cut,), warnings=(), selection=selection
+            pdf=b"%PDF-1.5 fake",
+            pages=1,
+            text="",
+            cuts=(cut,),
+            warnings=(),
+            selection=selection.model_copy(update={"projects": ()}),
         )
 
     monkeypatch.setattr(cli_module, "render_resume", render)
@@ -107,11 +116,23 @@ def test_tailor_writes_the_resume_for_a_parsed_posting(
     result = tailor(own_profile(tmp_path), str(POSTINGS / "backend.json"), "--out", str(out))
     assert result.exit_code == 0, result.output
     assert out.read_bytes() == b"%PDF-1.5 fake"
-    assert result.stdout.splitlines() == [
+    lines = result.stdout.splitlines()
+    assert lines[:-1] == [
         "Tailoring your resume to Senior Backend Engineer, Payments at Fabrikam Logistics.",
         f"Wrote {out} (1 page).",
         "Cut to fit one page: rb_app.",
-    ]
+        "Covers 1 of the posting's 14 skills and key terms:",
+        "   Python (must-have): skills[Languages]",
+        "Gaps, which are never added:",
+        "   must-have: Go, PostgreSQL, Kafka, CI/CD, Terraform",
+        "   nice-to-have: payments, ledgers, Kubernetes, gRPC",
+        "   key term: APIs, event-driven systems, infrastructure as code, observability",
+    ], "PostgreSQL was only in the project cut to fit"
+    assert re.fullmatch(
+        r"Logged it as application 20261015-fabrikam-logistics-senior-backend-engineer-[0-9a-f]{6};"
+        r" `wj applications` lists them\.",
+        lines[-1],
+    )
     assert [request["model"] for request in fake.requests] == ["heavy-model"]
     [selection] = rendered
     assert [role.id for role in selection.work] == ["northwind"]
@@ -132,7 +153,6 @@ def test_a_posting_as_text_is_parsed_first(
 def test_the_default_file_is_named_after_the_posting(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, rendered: list[Selection]
 ) -> None:
-    monkeypatch.setattr(cli_module, "LOCAL_DIR", tmp_path / "local")
     use_fake(monkeypatch, reply(PLAN))
     result = tailor(own_profile(tmp_path), str(POSTINGS / "backend.json"))
     assert result.exit_code == 0, result.output
@@ -245,3 +265,77 @@ def test_tailor_renders_a_one_page_pdf(tmp_path: Path, monkeypatch: pytest.Monke
     assert result.exit_code == 0, result.output
     assert out.read_bytes().startswith(b"%PDF")
     assert f"Wrote {out} (1 page)." in result.stdout
+
+
+def logged(tmp_path: Path) -> list[LoggedApplication]:
+    folder = tmp_path / "local" / "applications"
+    return [
+        LoggedApplication.model_validate_json(path.read_text(encoding="utf-8"))
+        for path in sorted(folder.glob("*.json"))
+    ]
+
+
+def test_each_resume_is_logged_as_an_application(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, rendered: list[Selection]
+) -> None:
+    rephrasing(monkeypatch)
+    out = tmp_path / "resume.pdf"
+    posting = POSTINGS / "backend.json"
+    result = tailor(own_profile(tmp_path), str(posting), "--out", str(out), answer="y\n")
+    assert result.exit_code == 0, result.output
+    [entry] = logged(tmp_path)
+    application = entry.application
+    assert application.applied_on == date(2026, 10, 15)
+    assert (application.company, application.position) == (
+        "Fabrikam Logistics",
+        "Senior Backend Engineer, Payments",
+    )
+    assert application.posting_text == posting.read_text(encoding="utf-8").strip()
+    assert application.title_variant == "Software Engineer"
+    assert application.bullet_ids == ("nw_export", "ss_minor"), "not the project cut to fit"
+    assert [use.text for use in application.swaps_used] == [REPHRASED]
+    assert entry.pdf == str(out)
+    assert [report.text for report in entry.checks.texts] == [REPHRASED]
+    assert [term.term for term in entry.checks.coverage.covered] == ["Python", "PostgreSQL"]
+
+
+def test_applications_lists_the_log_newest_first(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, rendered: list[Selection]
+) -> None:
+    result = runner.invoke(cli, ["applications"])
+    assert result.exit_code == 0, result.output
+    assert (
+        result.stdout == "No applications yet. `wj tailor <posting>` logs one with each resume.\n"
+    )
+    use_fake(monkeypatch, reply(PLAN))
+    assert (
+        tailor(own_profile(tmp_path), str(POSTINGS / "backend.json"), "--out", "a.pdf").exit_code
+        == 0
+    )
+    monkeypatch.setattr(cli_module, "_today", lambda: date(2026, 10, 16))
+    use_fake(monkeypatch, reply(PLAN))
+    assert (
+        tailor(own_profile(tmp_path), str(POSTINGS / "data.json"), "--out", "b.pdf").exit_code == 0
+    )
+    result = runner.invoke(cli, ["applications"])
+    assert result.exit_code == 0, result.output
+    first, second = result.stdout.splitlines()
+    assert first.startswith(
+        "2026-10-16  Tailspin Analytics: Data Engineer  (Software Engineer; 2 bullets)  20261016-"
+    )
+    assert second.startswith("2026-10-15  Fabrikam Logistics: Senior Backend Engineer, Payments")
+
+
+def test_a_file_that_isnt_an_application_is_skipped(tmp_path: Path) -> None:
+    folder = tmp_path / "local" / "applications"
+    folder.mkdir(parents=True)
+    (folder / "notes.json").write_text("{}", encoding="utf-8")
+    result = runner.invoke(cli, ["applications"])
+    assert result.exit_code == 0
+    assert "isn't a logged application" in result.stderr
+    assert result.stdout.startswith("No applications yet.")
+
+
+def test_applications_takes_a_user_only_with_the_database() -> None:
+    result = runner.invoke(cli, ["applications", "--user", "casey"])
+    assert result.exit_code == 2
