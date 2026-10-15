@@ -2,11 +2,11 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-15 · The master resume's LaTeX source
+## 2026-10-15 · The master resume's LaTeX source · [#48](https://github.com/matchastack/work-journal/pull/48)
 **Changed:** `wj render` also writes the LaTeX source the PDF was compiled from, after any cuts, beside the PDF (`local/resumes/master.tex` by default).
 
 **Verify:**
-- CI is green on the PR
+- CI is green on #48
 - `uv run wj render --db` says it wrote `master.pdf` and its source, `master.tex`, and the `.tex` compiles on its own to the same resume
 
 ## 2026-10-14 · T-020 Tailoring: selection and assembly · [#47](https://github.com/matchastack/work-journal/pull/47)
