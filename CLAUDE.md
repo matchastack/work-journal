@@ -54,6 +54,7 @@ Run these from `backend/` (uv project, Python 3.12):
 | Render the master resume (needs TeX Live: `backend/templates/README.md`) | `uv run wj render` |
 | Extract the facts in a journal note (needs the LLM settings) | `uv run wj extract <file>` |
 | Write facts as a resume bullet, LinkedIn text (`--style linkedin`) or a bullet in a posting's words (`--style posting --posting <file>`), checked by the verifier (needs the LLM settings; `--edit <bullet>` writes a new version of one, `--swap <n>` works in one of its swaps, `--save-swap` saves the result as a swap) | `uv run wj write --facts <ids>` (add `--db` for facts in the database) |
+| Tailor a one-page resume to a job posting, as text or `wj posting parse` JSON (needs the LLM settings and TeX Live; `--confirm <skill>` for a skill marked verify-before-shipping, `--yes` to use every new phrasing that passed) | `uv run wj tailor <posting-file>` (add `--db` for your profile and facts in the database) |
 | Propose profile changes from the journal facts since the last refresh, as `/refresh` does (needs the LLM settings) | `uv run wj propose --db` |
 | Review the proposed changes one by one and save the accepted ones as the next version, then render | `uv run wj apply --db`, then `uv run wj render --db` |
 | Write the LinkedIn pack: the headline, About and position texts that changed since you last marked it done (needs the LLM settings) | `uv run wj linkedin --db`, then, once pasted into LinkedIn, `uv run wj linkedin done --db` |

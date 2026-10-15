@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import re
 import uuid
 from collections.abc import AsyncGenerator, Callable, Coroutine, Sequence
 from contextlib import asynccontextmanager
@@ -84,12 +85,13 @@ from app.schema.verification import VerifierReport
 from app.selection import MASTER_VARIANT, select
 from app.synthesis import Synthesis, new_facts, synthesize
 from app.tailoring.posting import parse_posting
+from app.tailoring.tailor import posting_spellings, tailor, use_phrasings
 from app.telegram.api import BotApi, TelegramError
 from app.telegram.journal import COMMANDS
 from app.telegram.linking import deep_link, new_link_token
 from app.telegram.polling import poll
 from app.tick import TICK_BUDGET_S, extract_now, refresh_now, tick
-from app.validate.lint import format_report, lint_profile
+from app.validate.lint import NotSendable, format_report, lint_profile, require_sendable
 from app.writing import Style, apply_swap, locate_bullet, swap_op, write_bullet
 
 LOCAL_DIR = Path(__file__).resolve().parents[2] / "local"
@@ -390,8 +392,7 @@ def _read_posting(path: Path) -> JobPosting:
 
 
 def _save_swap(op: AddSwap, *, passed: bool, path: Path | None, db: bool, user: str | None) -> None:
-    """Ask whether to save the phrasing as a swap on its bullet, and save it: with --db as the
-    profile's next version, and otherwise to the profile's file."""
+    """Ask whether to save the phrasing as a swap on its bullet, and save it."""
     question = (
         f"Save this phrasing as a swap on {op.bullet_id}?"
         if passed
@@ -400,21 +401,29 @@ def _save_swap(op: AddSwap, *, passed: bool, path: Path | None, db: bool, user: 
     if not typer.confirm(question, default=passed):
         typer.echo("Nothing was saved.")
         return
+    _save_swaps([op], path=path, db=db, user=user)
+
+
+def _save_swaps(ops: Sequence[AddSwap], *, path: Path | None, db: bool, user: str | None) -> None:
+    """Save the swaps: with --db as the profile's next version, and otherwise to the profile's
+    file."""
+    bullets = ", ".join(op.bullet_id for op in ops)
+    noun = "swap" if len(ops) == 1 else "swaps"
     if db:
-        number = asyncio.run(_save_swap_version(user, op))
-        typer.echo(f"Saved version {number} of your profile, with the swap on {op.bullet_id}.")
+        number = asyncio.run(_save_swap_version(user, ops))
+        typer.echo(f"Saved version {number} of your profile, with the {noun} on {bullets}.")
         return
     path = path or LOCAL_DIR / "profile.json"
-    updated = _with_ops(_read_profile(path, False, None), [op])
+    updated = _with_ops(_read_profile(path, False, None), ops)
     path.write_text(updated.model_dump_json(indent=2) + "\n", encoding="utf-8")
-    typer.echo(f"Saved the swap on {op.bullet_id} to {path}.")
+    typer.echo(f"Saved the {noun} on {bullets} to {path}.")
 
 
-async def _save_swap_version(login: str | None, op: AddSwap) -> int:
+async def _save_swap_version(login: str | None, ops: Sequence[AddSwap]) -> int:
     async with _database() as session:
         user_id = await _user(session, login)
         version = await _latest(session, user_id)
-        updated = _with_ops(version.profile, [op])
+        updated = _with_ops(version.profile, ops)
         saved = await save_version(session, user_id, updated, author="owner")
     return saved.number
 
@@ -978,6 +987,155 @@ def render(
         typer.echo(f"Note: {note}")
     for warning in rendered.warnings:
         typer.echo(f"Warning: {warning}", err=True)
+
+
+@cli.command("tailor")
+def tailor_resume(
+    posting: Annotated[
+        Path,
+        typer.Argument(
+            help="The job posting: its text as pasted, or JSON from `wj posting parse`.",
+            exists=True,
+            dir_okay=False,
+        ),
+    ],
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Where to write the PDF. Default: local/resumes/<company>-<title>.pdf."),
+    ] = None,
+    confirm: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--confirm",
+            help="A skill marked verify-before-shipping that you can defend for this resume. "
+            "Repeat for more.",
+        ),
+    ] = None,
+    yes: Annotated[
+        bool,
+        typer.Option(
+            "--yes",
+            help="Use every new phrasing that passed the checks, and save it as a swap, without "
+            "asking.",
+        ),
+    ] = False,
+    profile: ProfileOption = None,
+    facts_file: FactsFilesOption = None,
+    db: DbOption = False,
+    user: UserOption = None,
+) -> None:
+    """Tailor a one-page resume to a job posting from your profile, and write it as a PDF.
+
+    Calls the light-tier model to parse a posting given as text, the heavy-tier model to choose
+    what the resume shows, and the standard-tier model to work in swaps and write new phrasings,
+    each checked by the verifier. You approve each new phrasing: approved ones are used and
+    saved as swaps on their bullets. The resume rules must pass before it renders, and it's
+    fitted to one page. Needs TeX Live. With --db, your words to avoid apply.
+    """
+    if db and (profile or facts_file):
+        raise typer.BadParameter("use either --db or files", param_hint="--profile, --facts-file")
+    client = _llm_client()
+    parsed = _posting_to_tailor(posting, client)
+    avoid: Sequence[str] = ()
+    if db:
+        loaded, pool, avoid = asyncio.run(_writing_inputs(user))
+    else:
+        loaded = _read_profile(profile, db, user)
+        default_facts = LOCAL_DIR / "facts.json"
+        pool = _read_facts(facts_file or ([default_facts] if default_facts.is_file() else []))
+    confirmed = confirm or []
+    at = f" at {parsed.company}" if parsed.company else ""
+    typer.echo(f"Tailoring your resume to {parsed.title}{at}.")
+    try:
+        tailored = tailor(loaded, parsed, client, facts=pool, confirmed=confirmed, avoid=avoid)
+    except LLMConfigError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from None
+    except LLMCallError as error:
+        typer.echo(f"The resume couldn't be tailored: {error}", err=True)
+        raise typer.Exit(1) from None
+    for swap in tailored.swaps:
+        typer.echo(f"Worked a swap into {swap.bullet_id}: {swap.text}")
+    for note in tailored.notes:
+        typer.echo(f"Note: {note}")
+    accepted: list[str] = []
+    for proposal in tailored.proposals:
+        typer.echo("")
+        typer.echo(f"A new phrasing of {proposal.bullet_id}, in the posting's words:")
+        typer.echo(f"   was: {proposal.original}")
+        typer.echo(f"   now: {proposal.text}")
+        if yes or typer.confirm("   Use it, and save it as a swap?", default=True):
+            accepted.append(proposal.bullet_id)
+    if accepted:
+        ops = [
+            swap_op(p.bullet_id, p.report, style="posting", posting=parsed)
+            for p in tailored.proposals
+            if p.bullet_id in accepted
+        ]
+        _save_swaps(ops, path=profile, db=db, user=user)
+    selection = use_phrasings(tailored, accepted)
+    try:
+        report = require_sendable(
+            selection, loaded, confirmed, posting_spellings=posting_spellings(parsed)
+        )
+    except NotSendable as error:
+        typer.echo(format_report(error.report), err=True)
+        if any(finding.rule == "R3" for finding in error.report.errors):
+            typer.echo(
+                "Confirm a skill marked verify-before-shipping with --confirm <skill> only if "
+                "you can defend it in an interview.",
+                err=True,
+            )
+        typer.echo("The resume breaks the rules above, so it wasn't rendered.", err=True)
+        raise typer.Exit(1) from None
+    for finding in report.warnings:
+        typer.echo(f"Warning: {finding.location}: {finding.message}", err=True)
+    out = out or LOCAL_DIR / "resumes" / f"{_slug(parsed)}.pdf"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        rendered = render_resume(selection)
+    except CompileError as error:
+        log = out.with_suffix(".log")
+        log.write_text(error.log, encoding="utf-8")
+        typer.echo(f"{error}. The full log is in {log}.", err=True)
+        raise typer.Exit(1) from None
+    except (RenderError, FitError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from None
+    out.write_bytes(rendered.pdf)
+    typer.echo(f"Wrote {out} (1 page).")
+    if rendered.cuts:
+        cut = ", ".join(cut.id for cut in rendered.cuts)
+        typer.echo(f"Cut to fit one page: {cut}.")
+    for warning in rendered.warnings:
+        typer.echo(f"Warning: {warning}", err=True)
+
+
+def _posting_to_tailor(path: Path, client: LLMClient) -> JobPosting:
+    """The posting in `path`: JSON as `wj posting parse` prints it, or text to parse."""
+    text = path.read_text(encoding="utf-8")
+    try:
+        return JobPosting.model_validate_json(text)
+    except ValidationError:
+        pass
+    try:
+        parsed = parse_posting(text, client)
+    except LLMConfigError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from None
+    except LLMCallError as error:
+        typer.echo(f"The posting couldn't be parsed: {error}", err=True)
+        raise typer.Exit(1) from None
+    if parsed.dropped:
+        dropped = ", ".join(f'"{term}"' for term in parsed.dropped)
+        typer.echo(f"Left out terms the posting doesn't contain: {dropped}", err=True)
+    return parsed.posting
+
+
+def _slug(posting: JobPosting) -> str:
+    """A file name for a resume tailored to `posting`, e.g. `fabrikam-backend-engineer`."""
+    words = " ".join(part for part in (posting.company, posting.title) if part)
+    return re.sub(r"[^a-z0-9]+", "-", words.casefold()).strip("-") or "tailored"
 
 
 @schema_cli.command("export")

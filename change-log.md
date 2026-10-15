@@ -2,6 +2,16 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-14 · T-020 Tailoring: selection and assembly · [#47](https://github.com/matchastack/work-journal/pull/47)
+**Changed:** `wj tailor <posting>` writes a one-page resume tailored to a job posting. It chooses the roles, bullets, titles, courses and skills from your profile, works in your approved swaps, offers new phrasings in the posting's words for you to approve (approved ones are saved as swaps), checks the resume rules, and fits the result to one page.
+
+**Verify:**
+- CI is green on the PR
+- With your key, `uv run pytest -m llm tests/test_tailoring_tailor_live.py` passes (4 cases)
+- `uv run wj tailor <posting.txt> --db` writes a one-page PDF to `local/resumes/` that reads as tailored to the posting, with nothing your profile doesn't claim
+- A skill marked verify-before-shipping is left out of the skills unless you pass `--confirm <skill>`
+- Answering no to a new phrasing keeps the bullet's own words, and nothing is saved
+
 ## 2026-10-14 · T-060 LinkedIn and job-posting writers, and swaps · [#46](https://github.com/matchastack/work-journal/pull/46)
 **Changed:** `wj write --style linkedin` writes facts as first-person LinkedIn text, and `--style posting --posting <file>` writes a resume bullet in a posting's words, using a term only where your facts back it. `wj write --edit <bullet> --swap <n>` works one of the bullet's swaps into it, and `--save-swap` saves a phrasing you approve as a swap on the bullet. Everything passes the verifier, and with `--db` your words to avoid apply.
 
