@@ -123,6 +123,14 @@ def test_linkedin_text_is_checked_as_linkedin_text() -> None:
     assert found(report) == [("style", "error", "too_long")]
 
 
+def test_linkedin_text_may_leave_numbers_out() -> None:
+    about, _ = make(SUPPORTED, kind="linkedin_about", entry_id=None)
+    assert about.check("I build Python services at Northwind Traders.").findings == ()
+    bullet, _ = make(SUPPORTED)
+    report = bullet.check("Reduced the nightly export job by batching PostgreSQL writes.")
+    assert found(report) == [("numbers", "warning", "metric_dropped")]
+
+
 def test_the_judge_gets_the_boundaries_gaps_and_posting_terms() -> None:
     posting = JobPosting(
         title="Backend Engineer",
