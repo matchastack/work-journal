@@ -970,13 +970,13 @@ def render(
     ] = None,
     out: Annotated[
         Path,
-        typer.Option(help="Where to write the PDF."),
+        typer.Option(help="Where to write the PDF. Its LaTeX source goes beside it, as .tex."),
     ] = LOCAL_DIR / "resumes" / "master.pdf",
     db: DbOption = False,
     user: UserOption = None,
 ) -> None:
-    """Render the profile's full master document as a PDF. One-page resumes are tailored to a
-    posting instead (OQ-6)."""
+    """Render the profile's full master document as a PDF, with the LaTeX source it was compiled
+    from. One-page resumes are tailored to a posting instead (OQ-6)."""
     selection = select(_read_profile(profile, db, user), MASTER_VARIANT)
     out.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -989,9 +989,11 @@ def render(
     except (RenderError, FitError) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(1) from None
+    tex = out.with_suffix(".tex")
     out.write_bytes(rendered.pdf)
+    tex.write_text(rendered.tex, encoding="utf-8")
     pages = f"{rendered.pages} page{'' if rendered.pages == 1 else 's'}"
-    typer.echo(f"Wrote {out} ({pages}).")
+    typer.echo(f"Wrote {out} ({pages}) and its source, {tex}.")
     for note in selection.notes:
         typer.echo(f"Note: {note}")
     for warning in rendered.warnings:

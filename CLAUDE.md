@@ -51,7 +51,7 @@ Run these from `backend/` (uv project, Python 3.12):
 | Print a one-time link (15 minutes) that links your Telegram chat to your journal (needs `TELEGRAM_BOT_TOKEN` and `DATABASE_URL`) | `uv run wj telegram link --user <github-login>` |
 | Check the profile against the resume rules | `uv run wj lint` |
 | Build the portfolio page (after editing its template, run `scripts/build-portfolio-css.sh`) | `uv run wj portfolio build --out /tmp/site` |
-| Render the master resume (needs TeX Live: `backend/templates/README.md`) | `uv run wj render` |
+| Render the master resume as a PDF, with its LaTeX source beside it as `.tex` (needs TeX Live: `backend/templates/README.md`) | `uv run wj render` |
 | Extract the facts in a journal note (needs the LLM settings) | `uv run wj extract <file>` |
 | Write facts as a resume bullet, LinkedIn text (`--style linkedin`) or a bullet in a posting's words (`--style posting --posting <file>`), checked by the verifier (needs the LLM settings; `--edit <bullet>` writes a new version of one, `--swap <n>` works in one of its swaps, `--save-swap` saves the result as a swap) | `uv run wj write --facts <ids>` (add `--db` for facts in the database) |
 | Tailor a one-page resume to a job posting, as text or `wj posting parse` JSON, print its keyword coverage and log the application (needs the LLM settings and TeX Live; `--confirm <skill>` for a skill marked verify-before-shipping, `--yes` to use every new phrasing that passed) | `uv run wj tailor <posting-file>` (add `--db` for your profile and facts in the database) |

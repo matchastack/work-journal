@@ -69,6 +69,7 @@ def rendered(monkeypatch: pytest.MonkeyPatch) -> list[Selection]:
         cut = Cut(kind="bullet", id="rb_app", text="cut")
         return RenderedResume(
             pdf=b"%PDF-1.5 fake",
+            tex="",
             pages=1,
             text="",
             cuts=(cut,),

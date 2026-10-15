@@ -248,7 +248,13 @@ def test_tailor_logs_the_application_in_the_database(
 
     def render(selection: Selection) -> RenderedResume:
         return RenderedResume(
-            pdf=b"%PDF-1.5 tailored", pages=1, text="", cuts=(), warnings=(), selection=selection
+            pdf=b"%PDF-1.5 tailored",
+            tex="",
+            pages=1,
+            text="",
+            cuts=(),
+            warnings=(),
+            selection=selection,
         )
 
     monkeypatch.setattr(cli_module, "render_resume", render)
