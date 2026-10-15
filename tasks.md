@@ -305,15 +305,17 @@ As the owner, I want facts written up as resume bullets, so that my journal turn
 **Split at the owner's request (2026-10-12):** the master resume comes first, so the LinkedIn and job-posting styles, swaps and saving approved phrasings moved to T-060.
 
 ### T-060 · LinkedIn and job-posting writers, and swaps
-**Status:** ☐ · **Size:** M · **Depends on:** T-017 · **Requirements:** FR-WRT-2, FR-WRT-3, FR-WRT-4, FR-WRT-5 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-017 · **Requirements:** FR-WRT-2, FR-WRT-3, FR-WRT-4, FR-WRT-5 · **PR:** [#46](https://github.com/matchastack/work-journal/pull/46)
 
 As the owner, I want facts written in LinkedIn's voice and in a posting's vocabulary, and the phrasings I approve kept, so that tailoring and LinkedIn reuse wording I've already checked.
 
-- [ ] The writer (T-017) also handles the LinkedIn and job-posting styles, and can apply a swap fragment to a bullet.
-- [ ] Every output passes the combined verifier, and failures are flagged.
-- [ ] Approved new phrasings can be saved as swaps (the AddSwap op).
-- [ ] `wj write --style resume|linkedin --facts <ids>`
-- [ ] Tests use the fake client, plus an opt-in evaluation.
+- [x] The writer (T-017) also handles the LinkedIn and job-posting styles, and can apply a swap fragment to a bullet.
+- [x] Every output passes the combined verifier, and failures are flagged.
+- [x] Approved new phrasings can be saved as swaps (the AddSwap op).
+- [x] `wj write --style resume|linkedin --facts <ids>`
+- [x] Tests use the fake client, plus an opt-in evaluation.
+
+**Built (2026-10-14):** each style has its own prompt. The posting style takes a posting parsed by `wj posting parse` (`--style posting --posting <file>`), and the claim judge checks its terms. `wj write --edit <bullet> --swap <n>` works one of the bullet's swaps into it, and `--save-swap` saves the new phrasing as a swap, as the profile's next version with `--db`. Only the words to avoid reach the writer for now; the style notes' preferences need a new version of the resume prompt.
 
 ### T-018 · Profile synthesis
 **Status:** ☑ · **Size:** M · **Depends on:** T-004, T-017 · **Requirements:** FR-REV-1, FR-PRF-2, FR-EXT-4 · **PR:** [#37](https://github.com/matchastack/work-journal/pull/37)

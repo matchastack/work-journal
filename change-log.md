@@ -2,6 +2,16 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-14 · T-060 LinkedIn and job-posting writers, and swaps · [#46](https://github.com/matchastack/work-journal/pull/46)
+**Changed:** `wj write --style linkedin` writes facts as first-person LinkedIn text, and `--style posting --posting <file>` writes a resume bullet in a posting's words, using a term only where your facts back it. `wj write --edit <bullet> --swap <n>` works one of the bullet's swaps into it, and `--save-swap` saves a phrasing you approve as a swap on the bullet. Everything passes the verifier, and with `--db` your words to avoid apply.
+
+**Verify:**
+- CI is green on #46
+- With your key, `uv run pytest -m llm tests/test_writing_live.py` passes (13 cases), and `uv run wj eval all` still meets the bar
+- `wj write --db --style linkedin --edit <bullet>` reads as you'd write it on LinkedIn, and says no more than the bullet
+- With a posting from `wj posting parse`, `--style posting` uses the posting's words only where they're true
+- `--save-swap` saves the next profile version only when you answer yes
+
 ## 2026-10-14 · T-024 LinkedIn pack generator · [#44](https://github.com/matchastack/work-journal/pull/44)
 **Changed:** `wj linkedin` writes your LinkedIn headline, About and position descriptions from your profile's public content, in the first person and within LinkedIn's limits, and prints only the sections that changed since you last ran `wj linkedin done`. Each section passes the verifier; positions use each role's first approved title, and a current title that differs from your latest application's is flagged.
 
@@ -10,7 +20,6 @@ One short entry per pull request, newest first: what changed and what to verify.
 - `uv run wj linkedin --db` prints all four kinds of section, each reading as you'd put it on LinkedIn, with no claim your profile doesn't make
 - After `uv run wj linkedin done --db`, running `wj linkedin --db` again says nothing changed, without calling Claude
 
-## 2026-10-13 · T-038 Refresh: proposals on demand and the master resume
 ## 2026-10-14 · Milestone and task statuses · [#45](https://github.com/matchastack/work-journal/pull/45)
 **Changed:** `tasks.md` marks M0 done, since T-000, T-055 and T-056 are merged, and marks the merged T-038, T-040, T-041, T-062 and T-063 done, with T-038 linked to #43.
 

@@ -33,6 +33,7 @@ from app.llm.fake import FakeMessages, reply
 from app.llm.usage import MemoryCallLog
 from app.schema.fact import Fact
 from app.schema.jobs import Application, JobPosting
+from app.schema.profile import Profile, Swap
 from app.synthesis import PlannedBullet, SynthesisPlan
 from app.validate.claims import ClaimReply, JudgedClaim
 from app.writing import WrittenBullet
@@ -199,6 +200,33 @@ def test_write_reads_the_profile_and_facts_from_the_database(
     message = fake.requests[0]["messages"][0]["content"]
     assert '"id": "fact_nw_export"' in message, "the facts the bullet was written from"
     assert '"id": "fact_nw_queue"' in message
+
+
+def test_write_saves_an_approved_phrasing_as_the_next_version(
+    database_url: str, owner: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    loaded = invoke("db", "load-profile", str(FIXTURES / "profile.json"), "--user", owner)
+    assert loaded.exit_code == 0, loaded.output
+    user = select(User.id).where(User.github_login == owner).scalar_subquery()
+    avoid = {"avoid": ["spearheaded"]}
+    scalars(database_url, insert(Setting).values(user_id=user, key="style_notes", value=avoid))
+    text = "I cut the nightly export job from 50 to 12 minutes by batching database writes."
+    judged = JudgedClaim(claim="I cut the export job", reason="As stated.", verdict="supported")
+    fake = FakeMessages(reply(WrittenBullet(text=text)), reply(ClaimReply(claims=(judged,))))
+    llm = LLMClient(Settings(llm_model_standard="standard-model"), fake, MemoryCallLog())
+    monkeypatch.setattr(cli_module, "_llm_client", lambda: llm)
+    options = ["--db", "--user", owner, "--style", "linkedin", "--edit", "nw_export"]
+    result = runner.invoke(cli, ["write", *options, "--save-swap"], input="y\n")
+    assert result.exit_code == 0, result.output
+    assert "Saved version 2 of your profile, with the swap on nw_export." in result.stdout
+    assert "<avoid>\n- spearheaded\n</avoid>" in fake.requests[0]["messages"][0]["content"]
+    second = (ProfileVersionRow.user_id == user, ProfileVersionRow.number == 2)
+    [author] = scalars(database_url, select(ProfileVersionRow.author).where(*second))
+    assert author == "owner"
+    [data] = scalars(database_url, select(ProfileVersionRow.profile).where(*second))
+    bullets = [bullet for role in Profile.model_validate(data).work for bullet in role.highlights]
+    [export] = [bullet for bullet in bullets if bullet.id == "nw_export"]
+    assert export.swaps == (Swap(text=text, contexts=("LinkedIn",), origin="approved"),)
 
 
 def journal_files(tmp_path: Path) -> Path:

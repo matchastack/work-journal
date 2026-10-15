@@ -13,7 +13,7 @@ from typing import Annotated, Any
 
 import httpx2
 import typer
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, TypeAdapter, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import __version__
@@ -75,10 +75,10 @@ from app.render.compile import CompileError
 from app.render.fit import FitError
 from app.render.resume import RenderError, render_resume
 from app.review import describe, needs, report_lines
-from app.schema.changes import ChangeSet, ChangeSetStatus, OpStatus, ReviewedOp
+from app.schema.changes import AddSwap, ChangeOp, ChangeSet, ChangeSetStatus, OpStatus, ReviewedOp
 from app.schema.export import write_json_schemas
 from app.schema.fact import Fact
-from app.schema.jobs import Application
+from app.schema.jobs import Application, JobPosting
 from app.schema.profile import Profile
 from app.schema.verification import VerifierReport
 from app.selection import MASTER_VARIANT, select
@@ -90,7 +90,7 @@ from app.telegram.linking import deep_link, new_link_token
 from app.telegram.polling import poll
 from app.tick import TICK_BUDGET_S, extract_now, refresh_now, tick
 from app.validate.lint import format_report, lint_profile
-from app.writing import locate_bullet, write_bullet
+from app.writing import Style, apply_swap, locate_bullet, swap_op, write_bullet
 
 LOCAL_DIR = Path(__file__).resolve().parents[2] / "local"
 """The repository's git-ignored folder for personal data (`backend/app/cli.py` is two below)."""
@@ -199,11 +199,28 @@ def extract(
         typer.echo(f"Note: {message}", err=True)
 
 
+class WritingStyle(StrEnum):
+    RESUME = "resume"
+    LINKEDIN = "linkedin"
+    POSTING = "posting"
+
+
+_STYLES: dict[WritingStyle, Style] = {
+    WritingStyle.RESUME: "resume",
+    WritingStyle.LINKEDIN: "linkedin",
+    WritingStyle.POSTING: "posting",
+}
+
+
 @cli.command()
 def write(
     facts: Annotated[
-        str, typer.Option(help="The IDs of the facts to write from, separated by commas.")
-    ],
+        str,
+        typer.Option(
+            help="The IDs of the facts to write from, separated by commas. With --edit, the "
+            "facts the bullet was written from are added, so these are only the new ones."
+        ),
+    ] = "",
     under: Annotated[
         str | None,
         typer.Option(
@@ -218,6 +235,37 @@ def write(
             "are added."
         ),
     ] = None,
+    style: Annotated[
+        WritingStyle,
+        typer.Option(
+            help="resume: a resume bullet. linkedin: first-person text for LinkedIn. posting: a "
+            "resume bullet in a job posting's words (needs --posting)."
+        ),
+    ] = WritingStyle.RESUME,
+    posting: Annotated[
+        Path | None,
+        typer.Option(
+            help="With --style posting: the posting, as JSON from `wj posting parse`.",
+            exists=True,
+            dir_okay=False,
+        ),
+    ] = None,
+    swap: Annotated[
+        int | None,
+        typer.Option(
+            help="With --edit: work the bullet's swap with this number (1 for its first) into "
+            "the bullet, instead of writing it from facts.",
+            min=1,
+        ),
+    ] = None,
+    save_swap: Annotated[
+        bool,
+        typer.Option(
+            "--save-swap",
+            help="With --edit: offer to save the new phrasing as a swap on the bullet, so it can "
+            "be used again.",
+        ),
+    ] = False,
     profile: Annotated[
         Path | None,
         typer.Option(help="The profile. Default: local/profile.json.", exists=True, dir_okay=False),
@@ -235,17 +283,34 @@ def write(
     db: DbOption = False,
     user: UserOption = None,
 ) -> None:
-    """Write facts as a resume bullet, check it with the verifier, and print it.
+    """Write facts as a resume bullet, LinkedIn text or a bullet in a posting's words, check it
+    with the verifier, and print it.
 
-    Calls the standard-tier model to write the bullet and to check its claims. Nothing is saved.
-    Exits with status 1 when the bullet is flagged: it failed the checks, even when written again.
+    Calls the standard-tier model to write the text and to check its claims. Nothing is saved,
+    unless you say yes to --save-swap. With --db, your words to avoid apply. Exits with status 1
+    when the text is flagged: it failed the checks, even when written again.
     """
     if db and facts_file:
         raise typer.BadParameter("use either --facts-file or --db", param_hint="--facts-file")
+    if (style == WritingStyle.POSTING) != (posting is not None):
+        raise typer.BadParameter(
+            "--style posting needs a posting, and only it takes one", param_hint="--posting"
+        )
+    if edit is None and (swap is not None or save_swap):
+        hint = "--swap" if swap is not None else "--save-swap"
+        raise typer.BadParameter("goes with --edit", param_hint=hint)
+    if swap is not None and (save_swap or style == WritingStyle.LINKEDIN):
+        raise typer.BadParameter(
+            "a swap is worked into a resume bullet: use --style resume or posting, without "
+            "--save-swap",
+            param_hint="--swap",
+        )
+    parsed = _read_posting(posting) if posting else None
+    avoid: Sequence[str] = ()
     if db:
         if profile is not None:
             raise typer.BadParameter("use either --profile or --db", param_hint="--profile")
-        loaded, pool = asyncio.run(_newest_profile_and_facts(user))
+        loaded, pool, avoid = asyncio.run(_writing_inputs(user))
     else:
         loaded = _read_profile(profile, db, user)
         pool = _read_facts(facts_file or [LOCAL_DIR / "facts.json"])
@@ -254,8 +319,7 @@ def write(
     if unknown := [fact_id for fact_id in ids if fact_id not in by_id]:
         raise typer.BadParameter(f"there's no fact {unknown[0]!r}", param_hint="--facts")
     chosen = [by_id[fact_id] for fact_id in ids]
-    if not chosen:
-        raise typer.BadParameter("name at least one fact", param_hint="--facts")
+    bullet = None
     if edit is not None:
         try:
             parent, bullet = locate_bullet(loaded, edit)
@@ -267,21 +331,100 @@ def write(
                 typer.echo(f"Note: {edit} cites fact {source}, which wasn't found.", err=True)
             elif source not in ids:
                 chosen.insert(0, by_id[source])
+    if not chosen:
+        raise typer.BadParameter("name at least one fact", param_hint="--facts")
     entry_id = under or _item_of(chosen)
+    client = _llm_client()
     try:
-        report = write_bullet(chosen, loaded, _llm_client(), entry_id=entry_id, edit=edit)
+        if swap is not None and edit is not None and bullet is not None:
+            if swap > len(bullet.swaps):
+                raise typer.BadParameter(
+                    f"{edit} has {_count(len(bullet.swaps), 'swap')}", param_hint="--swap"
+                )
+            report = apply_swap(
+                chosen,
+                loaded,
+                client,
+                bullet_id=edit,
+                swap=bullet.swaps[swap - 1],
+                posting=parsed,
+                avoid=avoid,
+            )
+        else:
+            report = write_bullet(
+                chosen,
+                loaded,
+                client,
+                entry_id=entry_id,
+                edit=edit,
+                style=_STYLES[style],
+                posting=parsed,
+                avoid=avoid,
+            )
     except ValueError as error:
-        raise typer.BadParameter(str(error), param_hint="--under") from None
+        hint = "--swap" if swap is not None else "--under"
+        raise typer.BadParameter(str(error), param_hint=hint) from None
     except LLMConfigError as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(1) from None
     except LLMCallError as error:
-        typer.echo(f"The bullet couldn't be written: {error}", err=True)
+        typer.echo(f"The text couldn't be written: {error}", err=True)
         raise typer.Exit(1) from None
     typer.echo(report.text)
     _echo_report(report)
+    if save_swap and edit is not None:
+        op = swap_op(edit, report, style=_STYLES[style], posting=parsed)
+        _save_swap(op, passed=report.passed, path=profile, db=db, user=user)
     if not report.passed:
         raise typer.Exit(1)
+
+
+def _read_posting(path: Path) -> JobPosting:
+    try:
+        return JobPosting.model_validate_json(path.read_text(encoding="utf-8"))
+    except ValidationError:
+        raise typer.BadParameter(
+            f"{path} isn't a parsed posting; make one with `wj posting parse`",
+            param_hint="--posting",
+        ) from None
+
+
+def _save_swap(op: AddSwap, *, passed: bool, path: Path | None, db: bool, user: str | None) -> None:
+    """Ask whether to save the phrasing as a swap on its bullet, and save it: with --db as the
+    profile's next version, and otherwise to the profile's file."""
+    question = (
+        f"Save this phrasing as a swap on {op.bullet_id}?"
+        if passed
+        else f"It was flagged. Save it as a swap on {op.bullet_id} anyway?"
+    )
+    if not typer.confirm(question, default=passed):
+        typer.echo("Nothing was saved.")
+        return
+    if db:
+        number = asyncio.run(_save_swap_version(user, op))
+        typer.echo(f"Saved version {number} of your profile, with the swap on {op.bullet_id}.")
+        return
+    path = path or LOCAL_DIR / "profile.json"
+    updated = _with_ops(_read_profile(path, False, None), [op])
+    path.write_text(updated.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    typer.echo(f"Saved the swap on {op.bullet_id} to {path}.")
+
+
+async def _save_swap_version(login: str | None, op: AddSwap) -> int:
+    async with _database() as session:
+        user_id = await _user(session, login)
+        version = await _latest(session, user_id)
+        updated = _with_ops(version.profile, [op])
+        saved = await save_version(session, user_id, updated, author="owner")
+    return saved.number
+
+
+def _with_ops(profile: Profile, ops: Sequence[ChangeOp]) -> Profile:
+    try:
+        return apply_operations(profile, ops)
+    except ProfileOpError as error:
+        typer.echo(f"The change can't be applied, so nothing changed: {error}", err=True)
+        raise typer.Exit(1) from None
 
 
 def _item_of(facts: Sequence[Fact]) -> str:
@@ -1329,18 +1472,21 @@ def _read_profile(path: Path | None, db: bool, user: str | None) -> Profile:
 
 
 async def _newest_profile(login: str | None) -> Profile:
-    return (await _newest_profile_and_facts(login, facts=False))[0]
-
-
-async def _newest_profile_and_facts(
-    login: str | None, *, facts: bool = True
-) -> tuple[Profile, list[Fact]]:
-    """The newest profile version in the database and, unless `facts` is false, every fact."""
+    """The newest profile version in the database."""
     async with _database() as session:
         user_id = await _user(session, login)
         version = await _latest(session, user_id)
-        stored = await list_facts(session, user_id) if facts else []
-    return version.profile, stored
+    return version.profile
+
+
+async def _writing_inputs(login: str | None) -> tuple[Profile, list[Fact], tuple[str, ...]]:
+    """The newest profile version in the database, every fact, and the words to avoid."""
+    async with _database() as session:
+        user_id = await _user(session, login)
+        version = await _latest(session, user_id)
+        stored = await list_facts(session, user_id)
+        notes = await get_style_notes(session, user_id)
+    return version.profile, stored, notes.avoid
 
 
 async def _latest(session: AsyncSession, user_id: uuid.UUID) -> Version:

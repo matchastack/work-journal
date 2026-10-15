@@ -53,7 +53,7 @@ Run these from `backend/` (uv project, Python 3.12):
 | Build the portfolio page (after editing its template, run `scripts/build-portfolio-css.sh`) | `uv run wj portfolio build --out /tmp/site` |
 | Render the master resume (needs TeX Live: `backend/templates/README.md`) | `uv run wj render` |
 | Extract the facts in a journal note (needs the LLM settings) | `uv run wj extract <file>` |
-| Write facts as a resume bullet, checked by the verifier (needs the LLM settings; `--edit <bullet>` writes a new version of one) | `uv run wj write --facts <ids>` (add `--db` for facts in the database) |
+| Write facts as a resume bullet, LinkedIn text (`--style linkedin`) or a bullet in a posting's words (`--style posting --posting <file>`), checked by the verifier (needs the LLM settings; `--edit <bullet>` writes a new version of one, `--swap <n>` works in one of its swaps, `--save-swap` saves the result as a swap) | `uv run wj write --facts <ids>` (add `--db` for facts in the database) |
 | Propose profile changes from the journal facts since the last refresh, as `/refresh` does (needs the LLM settings) | `uv run wj propose --db` |
 | Review the proposed changes one by one and save the accepted ones as the next version, then render | `uv run wj apply --db`, then `uv run wj render --db` |
 | Write the LinkedIn pack: the headline, About and position texts that changed since you last marked it done (needs the LLM settings) | `uv run wj linkedin --db`, then, once pasted into LinkedIn, `uv run wj linkedin done --db` |
