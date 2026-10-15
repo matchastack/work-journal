@@ -305,7 +305,7 @@ As the owner, I want facts written up as resume bullets, so that my journal turn
 **Split at the owner's request (2026-10-12):** the master resume comes first, so the LinkedIn and job-posting styles, swaps and saving approved phrasings moved to T-060.
 
 ### T-060 · LinkedIn and job-posting writers, and swaps
-**Status:** ◐ · **Size:** M · **Depends on:** T-017 · **Requirements:** FR-WRT-2, FR-WRT-3, FR-WRT-4, FR-WRT-5 · **PR:** [#46](https://github.com/matchastack/work-journal/pull/46)
+**Status:** ☑ · **Size:** M · **Depends on:** T-017 · **Requirements:** FR-WRT-2, FR-WRT-3, FR-WRT-4, FR-WRT-5 · **PR:** [#46](https://github.com/matchastack/work-journal/pull/46)
 
 As the owner, I want facts written in LinkedIn's voice and in a posting's vocabulary, and the phrasings I approve kept, so that tailoring and LinkedIn reuse wording I've already checked.
 
@@ -397,7 +397,7 @@ As the owner, I want my profile rendered as a portfolio page in the style of my 
 - [x] Snapshot tests run against the fictional fixture.
 
 ### T-024 · LinkedIn pack generator
-**Status:** ◐ · **Size:** M · **Depends on:** T-013, T-015 · **Requirements:** FR-LIN-1, FR-LIN-2, FR-LIN-4 · **PR:** [#44](https://github.com/matchastack/work-journal/pull/44)
+**Status:** ☑ · **Size:** M · **Depends on:** T-013, T-015 · **Requirements:** FR-LIN-1, FR-LIN-2, FR-LIN-4 · **PR:** [#44](https://github.com/matchastack/work-journal/pull/44)
 
 As the owner, I want LinkedIn text generated from my profile, and only for what changed, so that updating LinkedIn takes minutes.
 
