@@ -81,10 +81,10 @@ class UserSession(Base):
 
 
 class Setting(Base):
-    """One of a user's settings: a key such as `style_notes`, and its value as JSON.
+    """One of a user's settings, or a small piece of saved state such as the LinkedIn pack: a key
+    such as `style_notes`, and its value as JSON.
 
-    Each feature validates its own keys with a Pydantic model, so a new setting needs no
-    migration.
+    Each feature validates its own keys with a Pydantic model, so a new key needs no migration.
     """
 
     __tablename__ = "settings"

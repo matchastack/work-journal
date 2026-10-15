@@ -1,4 +1,8 @@
-"""The owner's settings: one JSON value per key and user (`Setting` in `app/db/models.py`)."""
+"""The owner's settings: one JSON value per key and user (`Setting` in `app/db/models.py`).
+
+Besides preferences, two keys keep the LinkedIn pack's state (T-024): the pack last written, and
+the snapshot of the sections last marked done.
+"""
 
 import uuid
 from collections.abc import Sequence
@@ -10,28 +14,23 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Setting
+from app.linkedin import LinkedInDone, LinkedInPack
+from app.schema.common import Model
 from app.schema.settings import StyleNote, StyleNotes
 
 STYLE_NOTES = "style_notes"
+LINKEDIN_PACK = "linkedin_pack"
+LINKEDIN_DONE = "linkedin_done"
 
 
 async def get_style_notes(session: AsyncSession, user_id: uuid.UUID) -> StyleNotes:
     """The user's style notes; none until they have some."""
-    value = await session.scalar(
-        select(Setting.value).where(Setting.user_id == user_id, Setting.key == STYLE_NOTES)
-    )
+    value = await _get(session, user_id, STYLE_NOTES)
     return StyleNotes() if value is None else StyleNotes.model_validate(value)
 
 
 async def save_style_notes(session: AsyncSession, user_id: uuid.UUID, notes: StyleNotes) -> None:
-    value = notes.model_dump(mode="json", by_alias=True)
-    query = insert(Setting).values(user_id=user_id, key=STYLE_NOTES, value=value)
-    await session.execute(
-        query.on_conflict_do_update(
-            index_elements=[Setting.user_id, Setting.key],
-            set_={"value": query.excluded.value, "updated_at": func.now()},
-        )
-    )
+    await _save(session, user_id, STYLE_NOTES, notes)
 
 
 async def add_style_notes(
@@ -55,3 +54,40 @@ async def add_style_notes(
     if added:
         notes = current.model_copy(update={"notes": (*current.notes, *added)})
         await save_style_notes(session, user_id, notes)
+
+
+async def get_linkedin_pack(session: AsyncSession, user_id: uuid.UUID) -> LinkedInPack | None:
+    """The LinkedIn pack last written; None before the first."""
+    value = await _get(session, user_id, LINKEDIN_PACK)
+    return None if value is None else LinkedInPack.model_validate(value)
+
+
+async def save_linkedin_pack(session: AsyncSession, user_id: uuid.UUID, pack: LinkedInPack) -> None:
+    await _save(session, user_id, LINKEDIN_PACK, pack)
+
+
+async def get_linkedin_done(session: AsyncSession, user_id: uuid.UUID) -> LinkedInDone | None:
+    """The sections last marked done; None until the owner first marks a pack done."""
+    value = await _get(session, user_id, LINKEDIN_DONE)
+    return None if value is None else LinkedInDone.model_validate(value)
+
+
+async def save_linkedin_done(session: AsyncSession, user_id: uuid.UUID, done: LinkedInDone) -> None:
+    await _save(session, user_id, LINKEDIN_DONE, done)
+
+
+async def _get(session: AsyncSession, user_id: uuid.UUID, key: str) -> dict[str, object] | None:
+    return await session.scalar(
+        select(Setting.value).where(Setting.user_id == user_id, Setting.key == key)
+    )
+
+
+async def _save(session: AsyncSession, user_id: uuid.UUID, key: str, value: Model) -> None:
+    data = value.model_dump(mode="json", by_alias=True)
+    query = insert(Setting).values(user_id=user_id, key=key, value=data)
+    await session.execute(
+        query.on_conflict_do_update(
+            index_elements=[Setting.user_id, Setting.key],
+            set_={"value": query.excluded.value, "updated_at": func.now()},
+        )
+    )
