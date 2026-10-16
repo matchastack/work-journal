@@ -5,6 +5,8 @@ The `extract_entry` job (`app/jobs.py`) first asks which role the closed entry i
 
 1. Triage (`app/triage.py`) labels the entry's text: an entry that isn't about work gives no
    facts.
+   An answer in the catch-up interview is read after the question it answers
+   (`app/catch_up.py`).
 2. Extraction (`app/extraction.py`) finds the facts in an entry about work. They're checked
    against the entry's text and saved encrypted, with the entry's ID, linked to its role.
 3. The reply lists the saved facts, up to three, with a link to the entry in the web app.
@@ -25,6 +27,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.catch_up import answer_note
 from app.db.models import JournalEntry, JournalMessage, TelegramLink
 from app.db.profiles import latest_version
 from app.db.store import save_facts
@@ -74,6 +77,8 @@ async def process_entry(
         return None
     if entry.role_id is None and entry.new_role is None:
         return None
+    if entry.question is not None:
+        note = answer_note(entry.question, note)
     label = await asyncio.to_thread(triage, note, client)
     facts: tuple[Fact, ...] = ()
     left_out = 0

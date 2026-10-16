@@ -400,8 +400,8 @@ class JournalEntry(Base):
     """Messages grouped into one journal entry (FR-CAP-4). A user has at most one open entry; it
     closes after a quiet spell (`closed_by` is `quiet`) or on `/done` (`done`), and stays closed.
     An answer in the catch-up interview (`CatchUp`) is an entry of its own, closed as it's made
-    (`catchup`), with the question it answers. Once closed, the bot may ask one follow-up question (FR-CAP-6), then asks which role it's about
-    (FR-CAP-11). When the owner has answered, it
+    (`catchup`), with the question it answers. Once closed, the bot may ask one follow-up question
+    (FR-CAP-6), then asks which role it's about (FR-CAP-11). When the owner has answered, it
     triages the entry, saves its facts and replies (`processed_at`), or gives up after its retries
     (`failed_at`)."""
 

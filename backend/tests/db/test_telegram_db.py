@@ -328,6 +328,7 @@ def test_polling_journals_updates_as_the_webhook_does(database_url: str, chat_id
         "done",
         "skip",
         "refresh",
+        "catchup",
         "help",
     ]
     assert calls[3][1] == {"chat_id": stranger, "text": LINK_HINT}

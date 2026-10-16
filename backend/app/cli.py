@@ -100,7 +100,7 @@ from app.telegram.api import BotApi, TelegramError
 from app.telegram.journal import COMMANDS
 from app.telegram.linking import deep_link, new_link_token
 from app.telegram.polling import poll
-from app.tick import TICK_BUDGET_S, extract_now, refresh_now, tick
+from app.tick import TICK_BUDGET_S, catch_up_now, extract_now, refresh_now, tick
 from app.validate.lint import NotSendable, format_report, lint_profile, require_sendable
 from app.writing import Style, apply_swap, locate_bullet, swap_op, write_bullet
 
@@ -1711,6 +1711,7 @@ async def _poll(database_url: str) -> int:
                 app_url=settings.app_url,
                 run_jobs=extract_now,
                 run_refresh=refresh_now,
+                run_catch_up=catch_up_now,
             )
     finally:
         await engine.dispose()

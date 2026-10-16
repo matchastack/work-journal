@@ -4,8 +4,10 @@ When an entry closes, the `extract_entry` job (`app/jobs.py`) decides once wheth
 question before it asks which role the entry is about (`app/telegram/roles.py`). It asks when the
 light-tier check (`app/follow_up.py`) finds the numbers, impact or the owner's part missing, but
 only while the owner is likely still in the chat: within the entry timeout of the entry closing,
-and with no other entry open or waiting for an answer, so that the answer can't be taken for
-anything else. The question replies to the entry's first message, with a Skip button.
+and with no other entry open or waiting for an answer, and no catch-up interview under way
+(`app/telegram/catch_up.py`), so that the answer can't be taken for anything else. An answer in
+the interview gets no follow-up question: the interview asks its own. The question replies to the
+entry's first message, with a Skip button.
 
 - The owner's next message, unless it's a command, is the answer if it comes within the entry
   timeout of the question. It joins the entry, after its other messages, so extraction reads it.
@@ -26,7 +28,7 @@ from typing import Any
 from sqlalchemy import and_, exists, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import JournalEntry
+from app.db.models import CatchUp, JournalEntry
 from app.follow_up import follow_up_question
 from app.llm.client import LLMClient, LLMInvalidOutput, LLMRefusal
 from app.telegram.api import BotCall, send
@@ -79,6 +81,8 @@ async def follow_up(
             entry.awaiting_follow_up = False
         return None
     if entry.follow_up_at is not None or entry.role_asked_at is not None or has_role(entry):
+        return None
+    if entry.question is not None:
         return None
     entry.follow_up_at = now
     if now - entry.closed_at >= timeout or await _busy(session, entry, now, timeout):
@@ -174,7 +178,8 @@ async def _busy(
     session: AsyncSession, entry: JournalEntry, now: datetime, timeout: timedelta
 ) -> bool:
     """Whether the owner has another entry open, or one that waits for their next message: a new
-    role's name or a follow-up answer. Another entry's lapsed question stops waiting here."""
+    role's name or a follow-up answer, or a catch-up interview under way. Another entry's lapsed
+    question stops waiting here."""
     others = (JournalEntry.user_id == entry.user_id, JournalEntry.id != entry.id)
     await session.execute(
         update(JournalEntry)
@@ -189,7 +194,11 @@ async def _busy(
             JournalEntry.failed_at.is_(None),
         ),
     )
-    return bool(await session.scalar(select(exists().where(*others, waiting))))
+    interviewing = exists().where(
+        CatchUp.user_id == entry.user_id, CatchUp.status.in_(("thinking", "asking"))
+    )
+    entries = exists().where(*others, waiting)
+    return bool(await session.scalar(select(or_(entries, interviewing))))
 
 
 def _answer(query: CallbackQuery, text: str | None = None) -> BotCall:

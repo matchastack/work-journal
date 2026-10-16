@@ -13,7 +13,8 @@ stopping, in bounded time:
 
 An update that closes a journal entry also runs a tick, right after the bot answers, which first
 queues the entry's extraction (`extract_now`, FR-CAP-5), and so does `/refresh`, for its refresh
-(`refresh_now`, FR-REV-6).
+(`refresh_now`, FR-REV-6), and an update that moves the catch-up interview on, for its next
+question (`catch_up_now`, FR-REM-4).
 """
 
 import asyncio
@@ -26,7 +27,7 @@ from collections.abc import Awaitable, Callable, Generator
 import procrastinate
 from procrastinate.periodic import PeriodicDeferrer, PeriodicRegistry
 
-from app.jobs import jobs, queue_extraction, queue_refresh, worker_queues
+from app.jobs import jobs, queue_catch_up, queue_extraction, queue_refresh, worker_queues
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +104,18 @@ async def refresh_now(refresh_id: uuid.UUID) -> None:
         await queue_refresh(refresh_id)
 
     await _run_now(queue, f"refresh {refresh_id}")
+
+
+async def catch_up_now(catch_up_id: uuid.UUID) -> None:
+    """Queue the catch-up interview's next question and run a tick, so it follows the owner's
+    answer at once (FR-REM-4). The webhook does this right after answering, and
+    `wj telegram poll` too. If a tick is already running in this process, or this one fails, the
+    next tick queues it instead (`queue_catch_up_questions`), as does `/catchup`."""
+
+    async def queue() -> None:
+        await queue_catch_up(catch_up_id)
+
+    await _run_now(queue, f"catch-up {catch_up_id}")
 
 
 async def _run_now(queue: Callable[[], Awaitable[object]], what: str) -> None:
