@@ -3,7 +3,8 @@
 `record` turns a tailored resume, as fitted to its page, into an `Application`: the posting and
 its text as given, the bullets and swaps it shows, the title it gives the current role, and the
 PDF's hash. The checks are kept with it: the verifier's report on each swap and new phrasing it
-uses, the resume rules' warnings and the keyword coverage report. With the database, `wj tailor`
+uses, the resume rules' warnings, the keyword coverage report and the ATS check of the PDF's
+text (`app/tailoring/ats.py`). With the database, `wj tailor`
 stores the PDF and the posting beside it; without, it writes a `LoggedApplication` file.
 """
 
@@ -16,6 +17,7 @@ from app.schema.common import Model
 from app.schema.jobs import Application, JobPosting, SwapUse
 from app.schema.verification import VerifierReport
 from app.selection import Selection
+from app.tailoring.ats import AtsReport, check_text
 from app.tailoring.coverage import CoverageReport, coverage
 from app.tailoring.tailor import Tailored
 from app.validate.lint import LintReport
@@ -33,6 +35,8 @@ class ResumeChecks(Model):
     rules: LintReport = LintReport()
     """The resume rules' findings: warnings only, since errors block the render."""
     coverage: CoverageReport = CoverageReport()
+    ats: AtsReport | None = None
+    """The ATS check of the PDF's text; None in applications logged before it existed."""
 
 
 class LoggedApplication(Model):
@@ -52,13 +56,15 @@ def record(
     rules: LintReport,
     posting_text: str,
     pdf: bytes,
+    text: str,
     applied_on: date,
     suffix: str,
 ) -> tuple[Application, ResumeChecks]:
     """The application for a tailored resume, and its checks.
 
-    `printed` is what the PDF shows, after cuts to fit the page, and `accepted` the bullets
-    whose new phrasings the owner approved. `suffix` makes the ID unique, such as random hex.
+    `printed` is what the PDF shows, after cuts to fit the page, `text` the PDF's text as pypdf
+    extracts it, and `accepted` the bullets whose new phrasings the owner approved. `suffix`
+    makes the ID unique, such as random hex.
     """
     posting = tailored.posting
     bullet_ids = tuple(
@@ -85,10 +91,12 @@ def record(
         swaps_used=tuple(SwapUse(bullet_id=p.bullet_id, text=p.text) for p in used),
         pdf_sha256=hashlib.sha256(pdf).hexdigest(),
     )
+    report = coverage(printed, posting)
     checks = ResumeChecks(
         texts=tuple(phrasing.report for phrasing in used),
         rules=rules,
-        coverage=coverage(printed, posting),
+        coverage=report,
+        ats=check_text(text, printed, [entry.term for entry in report.covered]),
     )
     return application, checks
 

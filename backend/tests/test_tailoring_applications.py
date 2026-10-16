@@ -13,6 +13,8 @@ from app.tailoring.applications import (
     application_id,
     record,
 )
+from app.tailoring.ats import SECTION_HEADINGS, printed_sections
+from app.tailoring.coverage import printed_texts
 from app.tailoring.tailor import Phrasing, Tailored
 from app.validate.lint import Finding, LintReport
 
@@ -26,6 +28,12 @@ TODAY = date(2026, 10, 15)
 SWAPPED = "Built event-driven Python services that process order events from a message queue."
 REPHRASED = "Cut the nightly export job from 50 to 12 minutes by batching PostgreSQL writes."
 WARNING = Finding(rule="R4", severity="warning", location="x", message="shared metric")
+
+
+def pdf_text(printed: Selection) -> str:
+    """Text as pypdf would extract it from the PDF of `printed`: its headings, then the rest."""
+    headings = [SECTION_HEADINGS[section] for section in printed_sections(printed)]
+    return "\n".join([*headings, *(text for _, text in printed_texts(printed))])
 
 
 def resume() -> Selection:
@@ -55,6 +63,7 @@ def run(printed: Selection, accepted: set[str]) -> tuple[Application, ResumeChec
         rules=LintReport(findings=(WARNING,)),
         posting_text="Senior Backend Engineer, Payments at Fabrikam Logistics...",
         pdf=PDF,
+        text=pdf_text(printed),
         applied_on=TODAY,
         suffix="3f9a2c",
     )
@@ -69,6 +78,7 @@ def test_an_application_records_what_went_into_the_resume() -> None:
         rules=LintReport(findings=(WARNING,)),
         posting_text="the posting as pasted",
         pdf=PDF,
+        text=pdf_text(printed),
         applied_on=TODAY,
         suffix="3f9a2c",
     )
@@ -90,6 +100,27 @@ def test_an_application_records_what_went_into_the_resume() -> None:
     assert [report.text for report in checks.texts] == [SWAPPED, REPHRASED]
     assert checks.rules.findings == (WARNING,)
     assert [entry.term for entry in checks.coverage.covered][:2] == ["Python", "PostgreSQL"]
+    assert checks.ats is not None
+    assert checks.ats.passed, checks.ats.findings
+    assert checks.ats.terms == len(checks.coverage.covered)
+
+
+def test_the_ats_check_of_the_pdfs_text_is_kept() -> None:
+    printed = resume()
+    _, checks = record(
+        tailored(printed),
+        printed,
+        accepted=set(),
+        rules=LintReport(),
+        posting_text="text",
+        pdf=PDF,
+        text="Education\nWork Experience",
+        applied_on=TODAY,
+        suffix="ab12cd",
+    )
+    assert checks.ats is not None
+    codes = {finding.code for finding in checks.ats.findings}
+    assert codes == {"term_missing", "section_missing"}
 
 
 def test_only_what_the_pdf_shows_is_recorded() -> None:
@@ -107,6 +138,7 @@ def test_only_what_the_pdf_shows_is_recorded() -> None:
         rules=LintReport(),
         posting_text="text",
         pdf=PDF,
+        text=pdf_text(fitted),
         applied_on=TODAY,
         suffix="ab12cd",
     )
@@ -128,6 +160,7 @@ def test_without_a_company_or_a_role_the_application_still_reads() -> None:
         rules=LintReport(),
         posting_text="text",
         pdf=PDF,
+        text=pdf_text(printed),
         applied_on=TODAY,
         suffix="ab12cd",
     )
