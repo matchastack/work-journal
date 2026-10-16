@@ -40,7 +40,7 @@ class CoverageReport(Model):
 
 def coverage(selection: Selection, posting: JobPosting) -> CoverageReport:
     """Which of the posting's terms `selection`, the resume as printed, shows, and where."""
-    texts = list(_texts(selection))
+    texts = list(printed_texts(selection))
     covered: list[TermCoverage] = []
     missing: list[TermCoverage] = []
     seen: set[str] = set()
@@ -54,7 +54,7 @@ def coverage(selection: Selection, posting: JobPosting) -> CoverageReport:
             if term.casefold() in seen:
                 continue
             seen.add(term.casefold())
-            pattern = _pattern(term)
+            pattern = term_pattern(term)
             locations = tuple(where for where, text in texts if pattern.search(text))
             entry = TermCoverage(term=term, kind=kind, locations=locations)
             (covered if locations else missing).append(entry)
@@ -80,7 +80,7 @@ def report_lines(report: CoverageReport) -> list[str]:
     return lines
 
 
-def _texts(selection: Selection) -> Iterator[tuple[str, str]]:
+def printed_texts(selection: Selection) -> Iterator[tuple[str, str]]:
     """What the resume prints, as (location, text) pairs."""
     if selection.summary:
         yield "summary", selection.summary
@@ -109,7 +109,7 @@ def _bullets(where: str, bullets: tuple[SelectedBullet, ...]) -> Iterator[tuple[
         yield f"{where}.highlights[{bullet.id}]", bullet.text
 
 
-def _pattern(term: str) -> re.Pattern[str]:
+def term_pattern(term: str) -> re.Pattern[str]:
     """`term` as whole words, ignoring case and how the words are spaced."""
     body = r"\s+".join(re.escape(word) for word in term.split())
     return re.compile(rf"(?<!\w){body}(?!\w)", re.IGNORECASE)

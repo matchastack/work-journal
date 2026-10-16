@@ -363,7 +363,7 @@ As the owner, I want a one-page resume tailored to a posting from my master prof
 **Built (2026-10-14):** the plan is checked in code before anything renders: an item or bullet the profile doesn't allow is left out with a note, load-bearing roles and items kept for the role type always appear, and too few courses are topped up from the role type's subset. A bullet's relevance to the posting becomes its priority, so fitting cuts the least relevant first. The posting can be text or `wj posting parse` JSON, and its spellings of skills aren't spelling warnings. You approve each new phrasing (`--yes` for all); approved ones are used and saved as swaps. The coverage report and the application log are T-021.
 
 ### T-021 · Tailoring: coverage report and application log
-**Status:** ◐ · **Size:** S · **Depends on:** T-020 · **Requirements:** FR-TLR-6, FR-TLR-8, FR-FID-8 · **PR:** [#49](https://github.com/matchastack/work-journal/pull/49)
+**Status:** ☑ · **Size:** S · **Depends on:** T-020 · **Requirements:** FR-TLR-6, FR-TLR-8, FR-FID-8 · **PR:** [#49](https://github.com/matchastack/work-journal/pull/49)
 
 As the owner, I want to see which of the posting's terms my resume covers, and keep a record of what I sent, so that gaps are honest and every application can be traced.
 
@@ -375,14 +375,16 @@ As the owner, I want to see which of the posting's terms my resume covers, and k
 **Built (2026-10-15):** the report and the log are made from what the PDF shows, after cuts to fit the page. A term counts where the resume shows it as the posting spells it, in whole words. The verifier report kept with an application holds the reports on its swaps and new phrasings, the resume rules' warnings and the coverage report. Without the database, applications are logged in `local/applications/`.
 
 ### T-022 · ATS check
-**Status:** ☐ · **Size:** S · **Depends on:** T-010, T-021 · **Requirements:** FR-TLR-9, FR-RES-4 · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-010, T-021 · **Requirements:** FR-TLR-9, FR-RES-4 · **PR:** [#50](https://github.com/matchastack/work-journal/pull/50)
 
 As the owner, I want each PDF checked the way an applicant-tracking system reads it, so that the words I tailored for are actually machine-readable.
 
-- [ ] Text is extracted from the PDF with pypdf.
-- [ ] Every covered key term is found, the sections appear in the expected order, and there are no ligature or encoding problems.
-- [ ] The result is included in the tailoring report.
-- [ ] Tests on fixture PDFs.
+- [x] Text is extracted from the PDF with pypdf.
+- [x] Every covered key term is found, the sections appear in the expected order, and there are no ligature or encoding problems.
+- [x] The result is included in the tailoring report.
+- [x] Tests on fixture PDFs.
+
+**Built (2026-10-16):** the check reads the text the render already extracts with pypdf. A term split by a hyphen at the end of a line is reported, and so are missing or reordered section headings, ligatures and unmapped glyphs; bitmap fonts stay a render warning. A failed check doesn't block the PDF: `wj tailor` lists what's wrong, and the result is kept with the application. The fixture PDF is a real render of the fictional resume.
 
 ### T-023 · Portfolio template and static build
 **Status:** ☑ · **Size:** M · **Depends on:** T-008 · **Requirements:** FR-PRT-2, FR-PRT-4, FR-PRT-6, FR-PRT-8, NFR-A11Y-1 · **PR:** [#13](https://github.com/matchastack/work-journal/pull/13)

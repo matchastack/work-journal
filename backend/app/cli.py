@@ -92,6 +92,7 @@ from app.schema.verification import VerifierReport
 from app.selection import MASTER_VARIANT, select
 from app.synthesis import Synthesis, new_facts, synthesize
 from app.tailoring.applications import LoggedApplication, ResumeChecks, record
+from app.tailoring.ats import report_lines as ats_lines
 from app.tailoring.coverage import report_lines as coverage_lines
 from app.tailoring.posting import parse_posting
 from app.tailoring.tailor import posting_spellings, tailor, use_phrasings
@@ -1127,11 +1128,15 @@ def tailor_resume(
         rules=report,
         posting_text=posting_text,
         pdf=rendered.pdf,
+        text=rendered.text,
         applied_on=_today(),
         suffix=uuid.uuid4().hex[:6],
     )
     for line in coverage_lines(checks.coverage):
         typer.echo(line)
+    if checks.ats is not None:
+        for line in ats_lines(checks.ats):
+            typer.echo(line)
     if db:
         asyncio.run(_log_application(user, application, checks, rendered.pdf))
     else:
