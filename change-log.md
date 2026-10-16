@@ -2,6 +2,14 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-16 · T-022 ATS check · [#50](https://github.com/matchastack/work-journal/pull/50)
+**Changed:** `wj tailor` now reads the PDF's text back the way an applicant tracking system does, and says whether it has every covered term and the section headings in order, or what it lacks (a term split by a hyphen at a line end, a missing heading, ligatures or garbled characters). The result is kept with the application.
+
+**Verify:**
+- CI is green on the PR
+- `uv run wj tailor <posting.txt> --db` ends with "ATS check passed: ..." for your resume
+- If it reports a problem, the PDF opened in a viewer shows the same thing, such as a covered term broken across two lines
+
 ## 2026-10-15 · T-021 Tailoring: coverage report and application log · [#49](https://github.com/matchastack/work-journal/pull/49)
 **Changed:** `wj tailor` now prints which of the posting's skills and key terms the resume shows, and where, and lists the rest as gaps, which are never added. It logs each resume as an application, with the posting, the PDF and the checks, and `wj applications` lists the log.
 
