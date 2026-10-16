@@ -19,6 +19,8 @@ from app.schema.jobs import JobPosting
 from app.schema.profile import Profile, Swap
 from app.selection import Selection
 from app.tailoring.applications import LoggedApplication
+from app.tailoring.ats import SECTION_HEADINGS, printed_sections
+from app.tailoring.coverage import printed_texts
 from app.tailoring.tailor import (
     PlannedBullet,
     PlannedItem,
@@ -67,18 +69,25 @@ def rendered(monkeypatch: pytest.MonkeyPatch) -> list[Selection]:
     def render(selection: Selection) -> RenderedResume:
         selections.append(selection)
         cut = Cut(kind="bullet", id="rb_app", text="cut")
+        printed = selection.model_copy(update={"projects": ()})
         return RenderedResume(
             pdf=b"%PDF-1.5 fake",
             tex="",
             pages=1,
-            text="",
+            text=pdf_text(printed),
             cuts=(cut,),
             warnings=(),
-            selection=selection.model_copy(update={"projects": ()}),
+            selection=printed,
         )
 
     monkeypatch.setattr(cli_module, "render_resume", render)
     return selections
+
+
+def pdf_text(printed: Selection) -> str:
+    """Text as pypdf would extract it from the PDF of `printed`: its headings, then the rest."""
+    headings = [SECTION_HEADINGS[section] for section in printed_sections(printed)]
+    return "\n".join([*headings, *(text for _, text in printed_texts(printed))])
 
 
 def use_fake(monkeypatch: pytest.MonkeyPatch, *replies: BetaMessage) -> FakeMessages:
@@ -128,6 +137,7 @@ def test_tailor_writes_the_resume_for_a_parsed_posting(
         "   must-have: Go, PostgreSQL, Kafka, CI/CD, Terraform",
         "   nice-to-have: payments, ledgers, Kubernetes, gRPC",
         "   key term: APIs, event-driven systems, infrastructure as code, observability",
+        "ATS check passed: the PDF's text has its 1 covered term and its 3 sections, in order.",
     ], "PostgreSQL was only in the project cut to fit"
     assert re.fullmatch(
         r"Logged it as application 20261015-fabrikam-logistics-senior-backend-engineer-[0-9a-f]{6};"
@@ -266,6 +276,7 @@ def test_tailor_renders_a_one_page_pdf(tmp_path: Path, monkeypatch: pytest.Monke
     assert result.exit_code == 0, result.output
     assert out.read_bytes().startswith(b"%PDF")
     assert f"Wrote {out} (1 page)." in result.stdout
+    assert "ATS check passed: the PDF's text has its" in result.stdout, "a real render reads back"
 
 
 def logged(tmp_path: Path) -> list[LoggedApplication]:
@@ -340,3 +351,35 @@ def test_a_file_that_isnt_an_application_is_skipped(tmp_path: Path) -> None:
 def test_applications_takes_a_user_only_with_the_database() -> None:
     result = runner.invoke(cli, ["applications", "--user", "casey"])
     assert result.exit_code == 2
+
+
+def test_the_ats_check_reports_what_the_pdfs_text_lacks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def render(selection: Selection) -> RenderedResume:
+        return RenderedResume(
+            pdf=b"%PDF-1.5 fake",
+            tex="",
+            pages=1,
+            text="Education\nWork Experience\nLanguages: Pyth\ufb01on",
+            cuts=(),
+            warnings=(),
+            selection=selection,
+        )
+
+    monkeypatch.setattr(cli_module, "render_resume", render)
+    use_fake(monkeypatch, reply(PLAN))
+    result = tailor(own_profile(tmp_path), str(POSTINGS / "backend.json"), "--out", "r.pdf")
+    assert result.exit_code == 0, result.output
+    lines = result.stdout.splitlines()
+    start = lines.index("The ATS check found problems in the PDF's text:")
+    assert lines[start + 1 : start + 5] == [
+        '   "Python" is on the resume but not in the text extracted from the PDF.',
+        '   "PostgreSQL" is on the resume but not in the text extracted from the PDF.',
+        '   The "Projects" heading isn\'t a line of its own in the text.',
+        '   The "Technical Skills" heading isn\'t a line of its own in the text.',
+    ]
+    assert lines[start + 5].startswith("   The text has ligatures (U+FB01)")
+    [entry] = logged(tmp_path)
+    assert entry.checks.ats is not None
+    assert not entry.checks.ats.passed

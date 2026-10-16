@@ -268,6 +268,9 @@ def test_tailor_logs_the_application_in_the_database(
     )
     assert report["coverage"]["covered"][0]["term"] == "Python"
     assert report["rules"]["findings"] == []
+    assert report["ats"]["findings"] == [
+        {"code": "no_text", "message": "The PDF has no text an applicant tracking system can read."}
+    ], "the stand-in PDF has no text"
     [pdf] = scalars(database_url, select(Artifact.data).where(Artifact.user_id == user))
     assert bytes(pdf) == b"%PDF-1.5 tailored"
     [text] = scalars(database_url, select(JobPostingRow.text).where(JobPostingRow.user_id == user))
