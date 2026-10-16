@@ -29,7 +29,13 @@ def test_render_writes_the_tex_source_beside_the_pdf(
 ) -> None:
     def render_resume(selection: Selection) -> RenderedResume:
         return RenderedResume(
-            pdf=b"%PDF", tex="\\documentclass{article}", pages=2, text="", cuts=(), warnings=()
+            pdf=b"%PDF",
+            tex="\\documentclass{article}",
+            pages=2,
+            text="",
+            cuts=(),
+            warnings=(),
+            selection=selection,
         )
 
     monkeypatch.setattr(cli_module, "render_resume", render_resume)

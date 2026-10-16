@@ -2,6 +2,15 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-15 · T-021 Tailoring: coverage report and application log · [#49](https://github.com/matchastack/work-journal/pull/49)
+**Changed:** `wj tailor` now prints which of the posting's skills and key terms the resume shows, and where, and lists the rest as gaps, which are never added. It logs each resume as an application, with the posting, the PDF and the checks, and `wj applications` lists the log.
+
+**Verify:**
+- CI is green on the PR
+- `uv run wj tailor <posting.txt> --db` ends with the coverage report and "Logged it as application ..."; a term that's in the PDF is listed as covered, and one that isn't is a gap
+- `uv run wj applications --db` lists that application first, with the title it gave your current role
+- After the next tailored resume, `uv run wj linkedin --db` compares your current role's title with that application's
+
 ## 2026-10-15 · The master resume's LaTeX source · [#48](https://github.com/matchastack/work-journal/pull/48)
 **Changed:** `wj render` also writes the LaTeX source the PDF was compiled from, after any cuts, beside the PDF (`local/resumes/master.tex` by default).
 

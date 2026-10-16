@@ -344,7 +344,7 @@ As the owner, I want a pasted posting broken into structured requirements, so th
 - [x] Tests use the fake client, with three fictional postings as fixtures.
 
 ### T-020 · Tailoring: selection and assembly
-**Status:** ◐ · **Size:** L · **Depends on:** T-009, T-010, T-019, T-060 · **Requirements:** FR-TLR-2, FR-TLR-3, FR-TLR-4, FR-TLR-5, FR-TLR-7, R1–R10 · **PR:** [#47](https://github.com/matchastack/work-journal/pull/47)
+**Status:** ☑ · **Size:** L · **Depends on:** T-009, T-010, T-019, T-060 · **Requirements:** FR-TLR-2, FR-TLR-3, FR-TLR-4, FR-TLR-5, FR-TLR-7, R1–R10 · **PR:** [#47](https://github.com/matchastack/work-journal/pull/47)
 
 As the owner, I want a one-page resume tailored to a posting from my master profile, so that each application takes minutes and stays truthful.
 
@@ -363,14 +363,16 @@ As the owner, I want a one-page resume tailored to a posting from my master prof
 **Built (2026-10-14):** the plan is checked in code before anything renders: an item or bullet the profile doesn't allow is left out with a note, load-bearing roles and items kept for the role type always appear, and too few courses are topped up from the role type's subset. A bullet's relevance to the posting becomes its priority, so fitting cuts the least relevant first. The posting can be text or `wj posting parse` JSON, and its spellings of skills aren't spelling warnings. You approve each new phrasing (`--yes` for all); approved ones are used and saved as swaps. The coverage report and the application log are T-021.
 
 ### T-021 · Tailoring: coverage report and application log
-**Status:** ☐ · **Size:** S · **Depends on:** T-020 · **Requirements:** FR-TLR-6, FR-TLR-8, FR-FID-8 · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-020 · **Requirements:** FR-TLR-6, FR-TLR-8, FR-FID-8 · **PR:** [#49](https://github.com/matchastack/work-journal/pull/49)
 
 As the owner, I want to see which of the posting's terms my resume covers, and keep a record of what I sent, so that gaps are honest and every application can be traced.
 
-- [ ] The coverage report lists covered terms (and where they appear) and missing terms. Missing terms are never added.
-- [ ] Each tailored resume is saved as an Application with company, role, date, posting text, the bullet IDs and swaps used, the title variant, the verifier report and the PDF.
-- [ ] `wj tailor` prints the report, and `wj applications` lists the log.
-- [ ] Tests.
+- [x] The coverage report lists covered terms (and where they appear) and missing terms. Missing terms are never added.
+- [x] Each tailored resume is saved as an Application with company, role, date, posting text, the bullet IDs and swaps used, the title variant, the verifier report and the PDF.
+- [x] `wj tailor` prints the report, and `wj applications` lists the log.
+- [x] Tests.
+
+**Built (2026-10-15):** the report and the log are made from what the PDF shows, after cuts to fit the page. A term counts where the resume shows it as the posting spells it, in whole words. The verifier report kept with an application holds the reports on its swaps and new phrasings, the resume rules' warnings and the coverage report. Without the database, applications are logged in `local/applications/`.
 
 ### T-022 · ATS check
 **Status:** ☐ · **Size:** S · **Depends on:** T-010, T-021 · **Requirements:** FR-TLR-9, FR-RES-4 · **PR:** —

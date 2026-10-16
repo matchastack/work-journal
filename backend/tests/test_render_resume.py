@@ -116,6 +116,7 @@ def test_a_resume_over_its_page_limit_is_cut_to_fit() -> None:
         ("project", "recipe_box"),
     ]
     assert "Northwind Traders" in rendered.text  # the load-bearing role stays
+    assert [role.id for role in rendered.selection.work] == ["northwind"], "what the PDF shows"
 
 
 def test_the_tex_is_the_source_of_the_fitted_pdf(monkeypatch: pytest.MonkeyPatch) -> None:

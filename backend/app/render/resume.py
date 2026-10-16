@@ -33,6 +33,8 @@ class RenderedResume:
     cuts: tuple[Cut, ...]
     """What was cut to fit the page limit, in the order it was cut."""
     warnings: tuple[str, ...]
+    selection: Selection
+    """What the PDF shows: the selection without what was cut."""
 
 
 class RenderError(Exception):
@@ -86,6 +88,7 @@ def render_resume(
         text=fitted.pdf.text,
         cuts=fitted.cuts,
         warnings=tuple(warnings),
+        selection=fitted.selection,
     )
 
 
