@@ -11,6 +11,7 @@ Work Journal turns informal Telegram journal messages into facts. Only when the 
 | [project-requirements.md](project-requirements.md) | The source of truth. Read the parts relevant to a task before starting it. |
 | [tasks.md](tasks.md) | The backlog. One task = one PR. |
 | [change-log.md](change-log.md) | A short entry per PR: what changed and what the owner must verify |
+| [user-guide.md](user-guide.md) | How to use the Telegram bot, the web app (`frontend/`) and the command-line tool (`backend/`) |
 
 ## Workflow
 
@@ -27,9 +28,27 @@ Work Journal turns informal Telegram journal messages into facts. Only when the 
 4. **Check before pushing.** Lint, type-check and tests must pass (see Commands).
 5. **Update the docs in the same PR.**
    - In `tasks.md`, set the task's status and PR link.
+   - In `user-guide.md`, update the parts the PR affects (see [Keep the user guide current](#keep-the-user-guide-current)).
    - In `change-log.md`, add a **short** entry: one line on what changed, and a few plain bullets on what to verify. **No checkboxes:** verification is ticked only in the PR. Don't copy the PR description; the details live in the PR.
 6. **Open the PR** titled `T-XXX: <task title>`, using the PR template. Never push to `main`, and never merge.
 7. **Change the requirements first.** If scope needs to change, update `project-requirements.md` in the PR and call it out in the PR description.
+
+## Keep the user guide current
+
+[user-guide.md](user-guide.md) tells the owner how to use what exists today. **When a PR creates or changes a feature, it updates the user guide in the same PR.** That covers:
+
+- a Telegram command or bot behaviour (`/done`, `/refresh`, the questions the bot asks)
+- a web app page, or a page's actions (`frontend/src/pages.ts` lists the pages)
+- a `wj` command or option, or a setting in `backend/.env.example`
+- setup, sign-in or maintenance steps
+
+How:
+
+- Edit the chapter the feature belongs to, and change a page or command from **Coming** to built when its task merges. Remove the task's mention once nothing is coming.
+- Write for someone using the product: what to do and what they will see, not how the code works. Keep it ASCII, and use no real personal data in examples.
+- Check each command and option against `uv run wj <command> --help`, and each page against the running app.
+- A change with nothing to tell a user (a refactor, a test, CI) doesn't touch the guide. Say "no user-facing change" in the PR instead.
+- Where the guide and `CLAUDE.md` both list a command, keep both right. `CLAUDE.md` is the developer's list; the guide explains how to use it.
 
 ## Commands
 

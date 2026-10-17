@@ -11,11 +11,12 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
   - Types match the commit types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `ci`, `build`.
   - Branch from `main`. When a task depends only lightly on an unmerged PR, stack it on that PR's branch and write "Stacked on #N". When it depends heavily, wait for the merge. `CLAUDE.md` step 1 has the rule.
 - **Commits:** atomic. Each commit is one logical change, with its tests in the same commit. Messages use `type(scope): summary`.
-- **PR:** titled `T-XXX: <task title>`, using the PR template. The same PR updates this file (status and PR link) and adds a short entry to [change-log.md](change-log.md).
+- **PR:** titled `T-XXX: <task title>`, using the PR template. The same PR updates this file (status and PR link), adds a short entry to [change-log.md](change-log.md), and updates [user-guide.md](user-guide.md) when a user can see the change.
 - **Definition of done:**
   - All acceptance criteria are met.
   - Lint, type-check and tests pass in CI.
   - The change-log entry says in one line what changed and lists what to verify, without checkboxes.
+  - The user guide describes any feature the PR creates or changes.
   - No personal data or secrets are committed.
 
 ## Overview
