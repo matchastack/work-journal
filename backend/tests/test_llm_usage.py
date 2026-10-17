@@ -1,7 +1,9 @@
 import json
 import threading
+import time
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any, Self, TextIO
 
 import pytest
 
@@ -48,14 +50,43 @@ def test_jsonl_log_appends_one_line_per_call(tmp_path: Path) -> None:
     assert json.loads(lines[0])["inputTokens"] == 1200
 
 
+class Halves:
+    """A file that takes each write in two parts, with a pause between."""
+
+    def __init__(self, file: TextIO) -> None:
+        self.file = file
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.file.close()
+
+    def write(self, text: str) -> int:
+        half = len(text) // 2
+        self.file.write(text[:half])
+        self.file.flush()
+        time.sleep(0.001)
+        return self.file.write(text[half:])
+
+
+class HalvedPath(Path):
+    """A path whose file takes each write in two parts. The system keeps one short appended
+    write whole, so writes are split to show whether calls append one at a time."""
+
+    def open(self, *args: Any, **kwargs: Any) -> Any:
+        return Halves(super().open(*args, **kwargs))
+
+
 def test_calls_from_several_threads_append_whole_lines(tmp_path: Path) -> None:
     """Such as a refresh's bullets, written several at a time by `wj propose`."""
-    log = JsonlCallLog(tmp_path / "calls.jsonl")
+    path = tmp_path / "calls.jsonl"
+    log = JsonlCallLog(HalvedPath(path))
     start = threading.Barrier(8, timeout=5)
 
     def append(thread: int) -> None:
         start.wait()
-        for number in range(50):
+        for number in range(10):
             log.record(record(request_id=f"req_{thread}_{number}"))
 
     threads = [threading.Thread(target=append, args=(thread,)) for thread in range(8)]
@@ -63,9 +94,9 @@ def test_calls_from_several_threads_append_whole_lines(tmp_path: Path) -> None:
         thread.start()
     for thread in threads:
         thread.join()
-    lines = log.path.read_text(encoding="utf-8").splitlines()
+    lines = path.read_text(encoding="utf-8").splitlines()
     assert sorted(json.loads(line)["requestId"] for line in lines) == sorted(
-        f"req_{thread}_{number}" for thread in range(8) for number in range(50)
+        f"req_{thread}_{number}" for thread in range(8) for number in range(10)
     )
 
 
