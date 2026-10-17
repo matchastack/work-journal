@@ -7,20 +7,24 @@ It ends the interview when there's little left worth asking, and code ends it af
 `MAX_QUESTIONS` questions, skipped ones included.
 
 Code checks each question before the bot asks it, as it does the follow-up question: one short
-sentence that ends with "?" and has no digits, so that it can't put a figure in the owner's mouth,
-and one not asked before. The question joins the answer's journal entry, so extraction reads the
-answer in its context; without digits, it can't back a number in a fact. A question that fails
-the check, or a refusal or an unusable reply, gives way to the next fixed question not yet asked.
+sentence that ends with "?", with no digits or number words, so that it can't put a figure in the
+owner's mouth, and one not asked before. A question that fails the check, or a failed call to the
+model, gives way to the next fixed question not yet asked.
+
+The question goes to the owner and is kept with the answer's journal entry, but it's never
+evidence: triage and extraction read the owner's answer alone, as they read any note, so nothing
+the bot wrote can become a fact (FR-EXT-2, R1).
 """
 
 from collections.abc import Sequence
 from xml.sax.saxutils import escape
 
 from app.extraction import profile_context
-from app.llm.client import LLMClient, LLMInvalidOutput, LLMRefusal
+from app.llm.client import LLMCallError, LLMClient
 from app.llm.prompts import Prompt, load_prompt
 from app.schema.common import Model
 from app.schema.profile import Profile
+from app.validate.quantities import find_quantities
 
 PROMPT_NAME = "catch_up_interview"
 PROMPT_VERSION = 1
@@ -77,7 +81,7 @@ def next_question(
             },
             context=profile_context(profile) if profile is not None else NO_PROFILE_CONTEXT,
         )
-    except (LLMRefusal, LLMInvalidOutput):
+    except LLMCallError:
         return fixed_question(turns)
     reply = result.output
     if reply.done and turns:
@@ -94,11 +98,14 @@ def fixed_question(turns: Sequence[Turn]) -> str | None:
 
 
 def usable(question: str) -> bool:
-    """Whether the model's question can be asked as it is."""
+    """Whether the model's question can be asked as it is: one sentence, ending with "?", with
+    no number in digits or words."""
     return (
         0 < len(question) <= QUESTION_LIMIT
         and question.endswith("?")
+        and not any(mark in question[:-1] for mark in ".!?")
         and not any(character.isdigit() for character in question)
+        and not find_quantities(question)
     )
 
 
@@ -117,9 +124,3 @@ def interview_text(turns: Sequence[Turn]) -> str:
             f'<turn n="{number}">\n<question>{escape(turn.question)}</question>\n{answer}\n</turn>'
         )
     return "\n".join(parts)
-
-
-def answer_note(question: str, answer: str) -> str:
-    """An answer's journal entry as extraction and triage read it: the answer, after the question
-    it answers."""
-    return f"Asked: {question}\n\n{answer}"

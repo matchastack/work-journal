@@ -50,8 +50,9 @@ KEYBOARD = {
 }
 INTRO = (
     "Let's catch up on your work since your resume was last updated. I'll ask up to "
-    f"{MAX_QUESTIONS} questions, one at a time: answer each in one message, or press Skip. "
-    "Press Stop for now, or send /done, to pause, and /catchup to carry on."
+    f"{MAX_QUESTIONS} questions, one at a time. Answer each in one message that makes sense on "
+    "its own, as you'd write a note, or press Skip. Press Stop for now, or send /done, to pause, "
+    "and /catchup to carry on."
 )
 RESUMED = "Let's carry on with the catch-up."
 THINKING = "I'm thinking of the next catch-up question."

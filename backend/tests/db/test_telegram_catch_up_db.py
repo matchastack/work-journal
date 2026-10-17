@@ -522,7 +522,8 @@ async def test_an_answer_gets_no_follow_up_question(session: AsyncSession, chat_
     assert fake.requests == []
 
 
-async def test_an_answer_is_read_after_its_question(session: AsyncSession, chat_id: int) -> None:
+async def test_an_answer_is_read_alone(session: AsyncSession, chat_id: int) -> None:
+    """The bot's question is never evidence: nothing it wrote can become a fact (FR-EXT-2)."""
     await asking_interview(session, chat_id)
     handled = await handle(session, message(chat_id, ANSWER))
     assert handled.ready is not None
@@ -531,8 +532,7 @@ async def test_an_answer_is_read_after_its_question(session: AsyncSession, chat_
     entry.role_id = "northwind"
     client, fake = llm(reply(TriageReply(label="other")))
     await process_entry(session, entry.id, client, now=SENT, app_url="https://example.com")
-    content = fake.requests[0]["messages"][0]["content"]
-    assert content == f"<note>\nAsked: {ASKED}\n\n{ANSWER}\n</note>"
+    assert fake.requests[0]["messages"][0]["content"] == f"<note>\n{ANSWER}\n</note>"
 
 
 # --- The catch_up_question job --------------------------------------------------------------------

@@ -1,6 +1,8 @@
 from pathlib import Path
 
+import httpx2
 import pytest
+from anthropic import APIConnectionError
 
 from app.catch_up import (
     FIXED_QUESTIONS,
@@ -10,7 +12,6 @@ from app.catch_up import (
     QUESTION_LIMIT,
     InterviewReply,
     Turn,
-    answer_note,
     fixed_question,
     interview_text,
     next_question,
@@ -114,6 +115,10 @@ def test_it_ends_after_the_most_questions_without_asking_the_model() -> None:
         "How much faster than 50 minutes did it get?",
         "What did you work on since 2025?",
         "Tell me about the migration.",
+        "What did you and the other two engineers ship?",
+        "What did it change for the hundreds of merchants using it?",
+        "You led the migration. What did it change for merchants?",
+        "Did it ship! What changed?",
         "",
         "What " + "really " * 40 + "changed?",
     ],
@@ -159,5 +164,13 @@ def test_an_empty_interview() -> None:
     assert interview_text([]) == "No questions asked yet."
 
 
-def test_an_answer_is_read_after_its_question() -> None:
-    assert answer_note("What changed?", "A new team.") == "Asked: What changed?\n\nA new team."
+def test_a_question_without_numbers_in_one_sentence_passes() -> None:
+    assert usable("What did the platform team work on after you joined?")
+
+
+def test_any_failed_call_gives_way_to_a_fixed_question() -> None:
+    """Not only a refusal or an unusable reply: the interview keeps moving."""
+    request = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
+    fake = FakeMessages(APIConnectionError(request=request))
+    llm = LLMClient(Settings(llm_model_standard="standard-model"), fake, MemoryCallLog())
+    assert next_question(None, [], llm) == FIXED_QUESTIONS[0]
