@@ -40,7 +40,7 @@ from app.jobs import (
     run_refresh,
 )
 from app.llm.client import LLMClient
-from app.llm.fake import FakeMessages, refusal, reply
+from app.llm.fake import Answer, FakeMessages, output_name, prompt_text, refusal, reply
 from app.llm.usage import CallLog, MemoryCallLog
 from app.refresh import (
     UNFINISHED_AFTER,
@@ -366,10 +366,11 @@ def job_settings(database_url: str, monkeypatch: pytest.MonkeyPatch) -> Iterator
 
 @pytest.fixture
 def claude(monkeypatch: pytest.MonkeyPatch) -> Callable[..., FakeMessages]:
-    """Script the replies the job's Claude client gets."""
+    """Script the replies the job's Claude client gets, or `answer` each request by what it
+    asks."""
 
-    def script(*replies: Any) -> FakeMessages:
-        fake = FakeMessages(*replies)
+    def script(*replies: Any, answer: Answer | None = None) -> FakeMessages:
+        fake = FakeMessages(*replies, answer=answer)
 
         def client(log: CallLog) -> LLMClient:
             return LLMClient(llm_settings(), fake, log)
@@ -454,6 +455,58 @@ async def test_the_job_proposes_changes_and_tells_the_owner(
             select(LlmCallRow.task).where(LlmCallRow.user_id == user_id).order_by(LlmCallRow.at)
         )
         assert list(calls) == ["profile_synthesis", "bullet_writing", "claim_verification"]
+
+
+async def test_the_job_writes_a_refreshs_bullets_refresh_concurrency_at_a_time(
+    committed: Committed, claude: Callable[..., FakeMessages], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """T-064: so a refresh of months of facts finishes within one function call. The first bullet
+    goes alone; the calls of every thread are logged."""
+    monkeypatch.setenv("REFRESH_CONCURRENCY", "2")
+    get_settings.cache_clear()
+    dashboard = Fact(
+        id="e1_3",
+        statement="Built a dashboard of the nightly export's runs.",
+        date="2026-09",
+        role_id="northwind",
+    )
+    texts = {
+        ALERT.id: BULLET,
+        RUNBOOK.id: "Wrote the runbook for the nightly export job.",
+        dashboard.id: "Built a dashboard of the nightly export job's runs.",
+    }
+    plan = SynthesisPlan(
+        bullets=tuple(PlannedBullet(under="northwind", fact_ids=(fact_id,)) for fact_id in texts)
+    )
+    judged = JudgedClaim(claim="Added an alert", reason="As stated.", verdict="supported")
+    # Holds the second and third writes until both are in flight; one by one, it times out.
+    together = threading.Barrier(2, timeout=5)
+
+    def answer(request: dict[str, Any]) -> BetaMessage:
+        if output_name(request) == "SynthesisPlan":
+            return reply(plan)
+        if output_name(request) == "ClaimReply":
+            return reply(ClaimReply(claims=(judged,)))
+        sent = prompt_text(request).split("<facts>\n")[1].split("\n</facts>")[0]
+        [fact] = json.loads(sent)
+        if fact["id"] != ALERT.id:
+            together.wait()
+        return reply(WrittenBullet(text=texts[fact["id"]]))
+
+    user_id, refresh_id = await committed(ALERT, RUNBOOK, dashboard)
+    claude(answer=answer)
+    await run_refresh(refresh_id)
+    assert (await committed_row(refresh_id)).status == "proposed"
+    async with database() as session:
+        [saved] = await list_change_sets(session, user_id)
+        calls = await session.scalars(select(LlmCallRow.task).where(LlmCallRow.user_id == user_id))
+        tasks = list(calls)
+    assert [reviewed.op.fact_ids for reviewed in saved.change_set.ops] == [
+        (fact_id,) for fact_id in texts
+    ]
+    assert sorted(tasks) == sorted(
+        ["profile_synthesis", *["bullet_writing", "claim_verification"] * 3]
+    )
 
 
 async def test_the_bot_runs_the_refresh_right_after_answering(

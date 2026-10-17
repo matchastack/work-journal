@@ -163,6 +163,15 @@ def test_the_entry_timeout_is_at_least_a_minute(monkeypatch: pytest.MonkeyPatch)
         Settings()
 
 
+def test_a_refresh_writes_ten_bullets_at_once_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert Settings().refresh_concurrency == 10
+    monkeypatch.setenv("REFRESH_CONCURRENCY", "4")
+    assert Settings().refresh_concurrency == 4
+    monkeypatch.setenv("REFRESH_CONCURRENCY", "0")
+    with pytest.raises(ValidationError, match="greater than or equal to 1"):
+        Settings()
+
+
 def test_telegram_secrets_stay_out_of_reprs(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123456:token-value")
     monkeypatch.setenv("TELEGRAM_WEBHOOK_SECRET", "webhook-secret_1")
