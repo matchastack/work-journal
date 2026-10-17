@@ -15,6 +15,7 @@ from datetime import timedelta
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.reminders import DEFAULT_SCHEDULE, Schedule
 from app.telegram.api import POLL_TIMEOUT_S, BotApi
 from app.telegram.entries import DEFAULT_TIMEOUT
 from app.telegram.journal import COMMANDS, handle_update
@@ -30,6 +31,7 @@ async def poll(
     timeout: int = POLL_TIMEOUT_S,
     entry_timeout: timedelta = DEFAULT_TIMEOUT,
     app_url: str | None = None,
+    reminders: Schedule = DEFAULT_SCHEDULE,
     run_jobs: Callable[[uuid.UUID], Awaitable[object]] | None = None,
     run_refresh: Callable[[uuid.UUID], Awaitable[object]] | None = None,
 ) -> int:
@@ -52,7 +54,11 @@ async def poll(
             async with sessions() as session, session.begin():
                 try:
                     result = await handle_update(
-                        session, json.dumps(update), entry_timeout=entry_timeout, app_url=app_url
+                        session,
+                        json.dumps(update),
+                        entry_timeout=entry_timeout,
+                        app_url=app_url,
+                        reminders=reminders,
                     )
                 except ValidationError:
                     logger.warning("Telegram sent an update the bot can't read; it was skipped")

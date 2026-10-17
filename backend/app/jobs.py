@@ -30,7 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.db.engine import create_engine, session_factory, with_query
-from app.db.models import JournalEntry
+from app.db.models import JournalEntry, TelegramLink
 from app.llm.client import LLMClient, LLMConfigError, LLMInvalidOutput, LLMRefusal
 from app.llm.usage import CallLog, DatabaseCallLog
 from app.refresh import (
@@ -44,6 +44,7 @@ from app.refresh import (
     render_master,
     running_refreshes,
 )
+from app.reminders import default_schedule
 from app.render.compile import CompileError
 from app.render.fit import FitError
 from app.render.resume import RenderError
@@ -55,6 +56,7 @@ from app.telegram.journal import purge_updates
 from app.telegram.processing import chat_of, entry_link, failure_text, process_entry
 from app.telegram.refresh import failure_text as refresh_failure_text
 from app.telegram.refresh import proposals_text
+from app.telegram.reminders import record_sent, reminder_due
 from app.telegram.roles import record_question, role_question
 
 logger = logging.getLogger(__name__)
@@ -130,6 +132,38 @@ async def close_quiet_entries_task(timestamp: int) -> None:
     async with database() as session:
         queued = await queue_extractions(session, now=now, timeout=timeout)
     logger.info("closed %d quiet journal entries; queued %d for extraction", len(closed), queued)
+
+
+@jobs.periodic(cron="* * * * *")
+@jobs.task(name="send_reminders")
+async def send_reminders(timestamp: int) -> None:
+    """Send each linked owner their reminder, when it's due (FR-REM-1). Due every minute, so it
+    runs on every tick, and every minute under `wj worker`.
+
+    It decides as of when it runs, and never before `timestamp`, the time it was deferred for. A
+    job can wait in the queue, behind slower ones, until a later tick: by then, the reminder it
+    was due to send may be too late, and on Vercel, a day late (C6).
+
+    Each owner has a transaction of their own, in which the reminder is sent before it's recorded.
+    When Telegram fails, only that owner's record is undone, and the next run tries again while
+    the reminder is still on time. So the job isn't retried."""
+    now = max(datetime.fromtimestamp(timestamp, UTC), _clock())
+    defaults = default_schedule(get_settings())
+    async with database() as session:
+        owners = list(await session.scalars(select(TelegramLink.user_id)))
+    sent = 0
+    for owner in owners:
+        try:
+            async with database() as session:
+                reminder = await reminder_due(session, owner, now=now, defaults=defaults)
+                if reminder is None:
+                    continue
+                message_id = await _send(reminder.chat_id, reminder.text, **reminder.options)
+                await record_sent(session, owner, reminder, message_id)
+                sent += 1
+        except TelegramError as error:
+            logger.warning("couldn't send user %s their reminder: %s", owner, error)
+    logger.info("sent %d reminders", sent)
 
 
 @jobs.task(name="extract_entry", retry=RETRY, pass_context=True)
@@ -420,6 +454,11 @@ async def _send(chat_id: int, text: str, **options: Any) -> int | None:
 def _llm_client(log: CallLog) -> LLMClient:
     """The Claude client for one job, logging its calls to `log` (tests replace it with a fake)."""
     return LLMClient.from_settings(log=log)
+
+
+def _clock() -> datetime:
+    """The time now, which tests freeze."""
+    return datetime.now(UTC)
 
 
 def _telegram_http() -> httpx2.AsyncClient:

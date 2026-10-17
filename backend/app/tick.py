@@ -1,8 +1,8 @@
 """One tick of background work, for hosting without an always-on worker (requirements §13).
 
 Vercel's cron calls `/internal/tick` once a day (`backend/vercel.json`), the most its free plan
-allows, and `wj tick` does the same by hand. Each tick does what `wj worker` does without
-stopping, in bounded time:
+allows, at 18:00 Singapore time, when the default reminder is due (FR-REM-1, C6). `wj tick` does
+the same by hand. Each tick does what `wj worker` does without stopping, in bounded time:
 
 1. It defers the scheduled tasks that are due. The database keeps a task from being deferred
    twice for the same time, so ticks may overlap or repeat.

@@ -79,6 +79,7 @@ from app.refresh import (
     record_proposals,
     start_refresh,
 )
+from app.reminders import default_schedule
 from app.render.compile import CompileError
 from app.render.fit import FitError
 from app.render.resume import RenderError, render_resume
@@ -1709,6 +1710,7 @@ async def _poll(database_url: str) -> int:
                 session_factory(engine),
                 entry_timeout=timedelta(minutes=settings.entry_timeout_minutes),
                 app_url=settings.app_url,
+                reminders=default_schedule(settings),
                 run_jobs=extract_now,
                 run_refresh=refresh_now,
             )

@@ -1,4 +1,5 @@
 import re
+from datetime import time
 from pathlib import Path
 
 import pytest
@@ -186,3 +187,42 @@ def test_a_relative_web_app_folder_is_inside_backend(monkeypatch: pytest.MonkeyP
     """On Vercel, the build puts the web app in `backend/webapp`."""
     monkeypatch.setenv("WEB_DIST_DIR", "webapp")
     assert Settings().web_dist_dir == BACKEND / "webapp"
+
+
+def test_reminders_default_to_friday_at_six_in_singapore() -> None:
+    """FR-REM-1, OQ-4."""
+    settings = Settings()
+    assert settings.reminder_days == ("fri",)
+    assert settings.reminder_time == time(18, 0)
+    assert settings.reminder_time_zone == "Asia/Singapore"
+
+
+def test_reminder_days_are_a_list_in_week_order(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("REMINDER_DAYS", "Fri, mon,,FRI")
+    monkeypatch.setenv("REMINDER_TIME", "07:30")
+    monkeypatch.setenv("REMINDER_TIME_ZONE", "Europe/London")
+    settings = Settings()
+    assert settings.reminder_days == ("mon", "fri")
+    assert settings.reminder_time == time(7, 30)
+    assert settings.reminder_time_zone == "Europe/London"
+
+
+@pytest.mark.parametrize(
+    ("name", "value", "error"),
+    [
+        ("REMINDER_DAYS", "friday", "Input should be 'mon'"),
+        ("REMINDER_DAYS", " , ", "at least 1 item"),
+        ("REMINDER_TIME", "18:00+08:00", "must be a local time"),
+        ("REMINDER_TIME", "18:00:30", "in hours and minutes"),
+        ("REMINDER_TIME", "6pm", "time"),
+        ("REMINDER_TIME_ZONE", "Singapore/Asia", "not a time zone"),
+        ("REMINDER_TIME_ZONE", "../etc/passwd", "not a time zone"),
+        ("REMINDER_TIME_ZONE", "America", "not a time zone"),
+    ],
+)
+def test_a_reminder_schedule_that_cant_be_followed_is_rejected(
+    monkeypatch: pytest.MonkeyPatch, name: str, value: str, error: str
+) -> None:
+    monkeypatch.setenv(name, value)
+    with pytest.raises(ValidationError, match=error):
+        Settings()
