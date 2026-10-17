@@ -1,4 +1,5 @@
 import json
+import threading
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -45,6 +46,27 @@ def test_jsonl_log_appends_one_line_per_call(tmp_path: Path) -> None:
     lines = log.path.read_text(encoding="utf-8").splitlines()
     assert [json.loads(line)["outcome"] for line in lines] == ["ok", "refusal"]
     assert json.loads(lines[0])["inputTokens"] == 1200
+
+
+def test_calls_from_several_threads_append_whole_lines(tmp_path: Path) -> None:
+    """Such as a refresh's bullets, written several at a time by `wj propose`."""
+    log = JsonlCallLog(tmp_path / "calls.jsonl")
+    start = threading.Barrier(8, timeout=5)
+
+    def append(thread: int) -> None:
+        start.wait()
+        for number in range(50):
+            log.record(record(request_id=f"req_{thread}_{number}"))
+
+    threads = [threading.Thread(target=append, args=(thread,)) for thread in range(8)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    lines = log.path.read_text(encoding="utf-8").splitlines()
+    assert sorted(json.loads(line)["requestId"] for line in lines) == sorted(
+        f"req_{thread}_{number}" for thread in range(8) for number in range(50)
+    )
 
 
 def test_memory_log_keeps_records() -> None:
