@@ -5,8 +5,8 @@ For each linked owner, `reminder_due` decides with `app/reminders.py` whether th
 due: it returns the reminder to send, or records a skipped one, and `record_sent` records one
 sent. The reminder's text is fixed, so no model writes it. Its buttons (FR-REM-3):
 
-- "Nothing this week" is logged in the reminder record, as the Monday of the week it's pressed
-  in, and skips that week's later reminders.
+- "Nothing this week" is logged in the reminder record, as the Monday of the reminder's week,
+  and skips that week's later reminders. A press after the weekend means the week just ended.
 - "Remind me tomorrow" brings the reminder back the next day at the schedule's time.
 
 Only the newest reminder's buttons work; a press on an older one changes nothing. `/pause` and
@@ -143,13 +143,14 @@ async def press_reminder(
         return Answer((_answer(query, PASSED),))
     schedule = effective(await get_reminder_settings(session, owner), defaults)
     if query.data == NOTHING_THIS_WEEK:
-        weeks = tuple(sorted({*state.nothing_weeks, week_of(now, schedule.zone)}))
+        week = week_of(state.message_slot or now, schedule.zone)
+        weeks = tuple(sorted({*state.nothing_weeks, week}))
         changes: dict[str, object] = {"nothing_weeks": weeks, "snoozed_until": None}
         text = NOTED
     else:
         changes = {"snoozed_until": tomorrow(schedule, now)}
         text = snoozed_text(schedule.time)
-    changed = state.model_copy(update={**changes, "message_id": None})
+    changed = state.model_copy(update={**changes, "message_id": None, "message_slot": None})
     await save_reminder_state(session, owner, changed)
     chat_id = message.chat.id
     calls = (_answer(query), _without_buttons(chat_id, message.message_id), send(chat_id, text))

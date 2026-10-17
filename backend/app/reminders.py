@@ -150,6 +150,7 @@ def recorded(
     }
     if sent:
         changes["message_id"] = message_id
+        changes["message_slot"] = None if message_id is None else slot
     return state.model_copy(update=changes)
 
 

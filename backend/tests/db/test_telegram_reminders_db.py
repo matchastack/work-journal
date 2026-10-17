@@ -246,6 +246,11 @@ def reminder(chat_id: int) -> dict[str, Any]:
     return {"chat_id": chat_id, "text": REMINDER, "reply_markup": KEYBOARD}
 
 
+def sent(slot: datetime, message_id: int = FIRST_ID) -> ReminderState:
+    """The record once the reminder for `slot` went out as `message_id`."""
+    return ReminderState(last_slot=slot, message_id=message_id, message_slot=slot)
+
+
 async def test_the_reminder_goes_out_once_with_its_buttons(
     owner: Owner, chat_id: int, telegram: Telegram
 ) -> None:
@@ -254,7 +259,7 @@ async def test_the_reminder_goes_out_once_with_its_buttons(
     assert telegram.to(chat_id) == []
     await sweep(FRIDAY)
     assert telegram.to(chat_id) == [reminder(chat_id)]
-    assert await state_of(user_id) == ReminderState(last_slot=FRIDAY, message_id=FIRST_ID)
+    assert await state_of(user_id) == sent(FRIDAY)
     await sweep(FRIDAY + timedelta(minutes=1))
     await sweep(FRIDAY + timedelta(hours=2))
     assert telegram.to(chat_id) == [reminder(chat_id)], "once"
@@ -297,8 +302,7 @@ async def test_each_owner_has_their_own_schedule_and_time_zone(
     await sweep(datetime(2026, 10, 16, 6, 30, tzinfo=UTC))
     await sweep(FRIDAY)
     assert telegram.to(chat_id) == [reminder(chat_id)]
-    slot = datetime(2026, 10, 16, 6, 30, tzinfo=UTC)
-    assert await state_of(user_id) == ReminderState(last_slot=slot, message_id=FIRST_ID)
+    assert await state_of(user_id) == sent(datetime(2026, 10, 16, 6, 30, tzinfo=UTC))
 
 
 async def test_a_reminder_telegram_refuses_is_tried_again_while_its_on_time(
@@ -314,7 +318,7 @@ async def test_a_reminder_telegram_refuses_is_tried_again_while_its_on_time(
     telegram.failing.clear()
     await sweep(FRIDAY + timedelta(minutes=5))
     assert telegram.to(chat_id) == [reminder(chat_id)]
-    assert await state_of(user_id) == ReminderState(last_slot=FRIDAY, message_id=FIRST_ID)
+    assert await state_of(user_id) == sent(FRIDAY)
 
 
 async def test_a_reminder_the_bot_cant_send_still_counts_as_sent(
@@ -385,9 +389,26 @@ async def test_nothing_this_week_is_logged_and_skips_the_rest_of_the_week(
     next_friday = FRIDAY + timedelta(days=7)
     await sweep(next_friday)
     assert telegram.to(chat_id) == [reminder(chat_id)] * 2
-    assert await state_of(user_id) == ReminderState(
-        last_slot=next_friday, message_id=FIRST_ID + 1, nothing_weeks=(monday,)
+    assert await state_of(user_id) == sent(next_friday, FIRST_ID + 1).model_copy(
+        update={"nothing_weeks": (monday,)}
     )
+
+
+async def test_nothing_this_week_pressed_after_the_weekend_means_the_reminders_week(
+    owner: Owner, chat_id: int, telegram: Telegram
+) -> None:
+    """Pressed under Friday's reminder at 09:00 on Monday in Singapore, it logs the week that
+    just ended, and the next Friday's reminder still goes out."""
+    user_id = await owner()
+    await sweep(FRIDAY)
+    monday = datetime(2026, 10, 19, 1, 0, tzinfo=UTC)
+    handled = await handle(press(chat_id, NOTHING_THIS_WEEK), now=monday)
+    assert handled == Handled((answered(), without_buttons(chat_id), send(chat_id, NOTED)))
+    noted = ReminderState(last_slot=FRIDAY, nothing_weeks=(date(2026, 10, 12),))
+    assert await state_of(user_id) == noted
+
+    await sweep(FRIDAY + timedelta(days=7))
+    assert telegram.to(chat_id) == [reminder(chat_id)] * 2
 
 
 async def test_remind_me_tomorrow_brings_the_reminder_back_the_next_evening(
@@ -405,7 +426,7 @@ async def test_remind_me_tomorrow_brings_the_reminder_back_the_next_evening(
     assert telegram.to(chat_id) == [reminder(chat_id)]
     await sweep(SATURDAY)
     assert telegram.to(chat_id) == [reminder(chat_id)] * 2
-    assert await state_of(user_id) == ReminderState(last_slot=SATURDAY, message_id=FIRST_ID + 1)
+    assert await state_of(user_id) == sent(SATURDAY, FIRST_ID + 1)
 
 
 @pytest.mark.parametrize(

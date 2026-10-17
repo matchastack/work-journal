@@ -51,12 +51,13 @@ def test_the_reminder_record_round_trips_through_json() -> None:
     state = ReminderState(
         last_slot=datetime(2026, 10, 16, 10, 0, tzinfo=UTC),
         message_id=42,
+        message_slot=datetime(2026, 10, 16, 10, 0, tzinfo=UTC),
         snoozed_until=datetime(2026, 10, 17, 10, 0, tzinfo=UTC),
         nothing_weeks=(date(2026, 10, 12),),
     )
     assert ReminderState.model_validate_json(state.model_dump_json()) == state
     assert ReminderState() == ReminderState(
-        last_slot=None, message_id=None, snoozed_until=None, nothing_weeks=()
+        last_slot=None, message_id=None, message_slot=None, snoozed_until=None, nothing_weeks=()
     )
 
 

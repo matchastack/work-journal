@@ -83,8 +83,10 @@ class ReminderState(Model):
     """The latest reminder time dealt with: sent, or skipped. None before the first."""
     message_id: int | None = None
     """The newest reminder message, whose buttons still work, until one is pressed."""
+    message_slot: AwareDatetime | None = None
+    """The reminder time that message was for: "Nothing this week" means its week."""
     snoozed_until: AwareDatetime | None = None
     """When "Remind me tomorrow" brings the reminder back, if it was pressed."""
     nothing_weeks: tuple[date, ...] = ()
-    """The weeks "Nothing this week" was pressed in (FR-REM-3), as their Mondays in the owner's
-    time zone, oldest first."""
+    """The weeks of the reminders whose "Nothing this week" was pressed (FR-REM-3), as their
+    Mondays in the owner's time zone, oldest first."""

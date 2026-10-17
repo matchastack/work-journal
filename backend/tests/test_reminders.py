@@ -85,7 +85,7 @@ def test_a_late_evening_reminder_is_missed_at_midnight() -> None:
 
 def test_a_slot_is_dealt_with_once() -> None:
     state = recorded(LAST_WEEK, FRIDAY, message_id=7, sent=True)
-    assert state == ReminderState(last_slot=FRIDAY, message_id=7)
+    assert state == ReminderState(last_slot=FRIDAY, message_id=7, message_slot=FRIDAY)
     assert outcome_at(at(16, 10, 1), state=state) is None
     assert outcome_at(at(16, 13), state=state) is None
 
@@ -141,12 +141,13 @@ def test_remind_me_tomorrow_brings_it_back_the_next_evening() -> None:
     saturday = tomorrow(DEFAULT_SCHEDULE, at(16, 10, 30))
     assert saturday == at(17, 10)
     assert tomorrow(DEFAULT_SCHEDULE, at(16, 16, 30)) == at(18, 10), "00:30 Saturday local"
-    snoozed = sent.model_copy(update={"snoozed_until": saturday, "message_id": None})
+    pressed = {"snoozed_until": saturday, "message_id": None, "message_slot": None}
+    snoozed = sent.model_copy(update=pressed)
     assert outcome_at(at(17, 9, 59), state=snoozed) is None
     assert outcome_at(at(17, 10, 30), state=snoozed) == Due(saturday, "send")
     assert outcome_at(at(17, 14), state=snoozed) == Due(saturday, "missed")
     done = recorded(snoozed, saturday, message_id=8, sent=True)
-    assert done == ReminderState(last_slot=saturday, message_id=8)
+    assert done == ReminderState(last_slot=saturday, message_id=8, message_slot=saturday)
 
 
 def test_a_snooze_follows_the_same_rules() -> None:
@@ -165,9 +166,12 @@ def test_a_later_slot_uses_up_an_earlier_snooze() -> None:
 
 
 def test_a_message_that_couldnt_be_sent_still_takes_over_the_buttons() -> None:
-    state = ReminderState(last_slot=FRIDAY - timedelta(days=7), message_id=6)
-    assert recorded(state, FRIDAY, sent=True).message_id is None
-    assert recorded(state, FRIDAY).message_id == 6, "a skipped slot leaves them"
+    last_week = FRIDAY - timedelta(days=7)
+    state = ReminderState(last_slot=last_week, message_id=6, message_slot=last_week)
+    unsent = recorded(state, FRIDAY, sent=True)
+    assert (unsent.message_id, unsent.message_slot) == (None, None)
+    skipped = recorded(state, FRIDAY)
+    assert (skipped.message_id, skipped.message_slot) == (6, last_week), "a skip leaves them"
 
 
 def test_slots_follow_daylight_saving_time() -> None:
