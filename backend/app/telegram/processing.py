@@ -6,8 +6,11 @@ The `extract_entry` job (`app/jobs.py`) first asks which role the closed entry i
 1. Triage (`app/triage.py`) labels the entry's text: an entry that isn't about work gives no
    facts.
 2. Extraction (`app/extraction.py`) finds the facts in an entry about work. They're checked
-   against the entry's text and saved encrypted, with the entry's ID, linked to its role.
-3. The reply lists the saved facts, up to three, with a link to the entry in the web app.
+   against the entry's text and saved encrypted, with the entry's ID, linked to its role. An
+   answer to an open question (FR-EXT-4) is read alone, as any note, and its facts also link to
+   the question, while it's in the profile.
+3. The reply lists the saved facts, up to three, with a link to the entry in the web app. For an
+   answer, it says that the next `/refresh` can use them.
 
 The entry is marked processed in the transaction that saves its facts, and the job sends the
 reply before that transaction commits. So a failure anywhere rolls everything back for the retry,
@@ -87,12 +90,15 @@ async def process_entry(
             written=entry.opened_at.date(),
             entry_id=str(entry.id),
             role=RoleChoice(role_id=entry.role_id, new_role=entry.new_role),
+            question_id=entry.open_question_id,
         )
         await save_facts(session, entry.user_id, extraction.facts)
         facts, left_out = extraction.facts, len(extraction.dropped)
     entry.triage, entry.processed_at = label, now
     chat_id = await chat_of(session, entry.user_id)
-    return Processed(chat_id, reply_text(label, facts, left_out, entry_link(app_url, entry_id)))
+    answers = any(fact.question_id is not None for fact in facts)
+    link = entry_link(app_url, entry_id)
+    return Processed(chat_id, reply_text(label, facts, left_out, link, answers=answers))
 
 
 async def entry_text(session: AsyncSession, entry_id: uuid.UUID) -> str:
@@ -135,8 +141,11 @@ def entry_link(app_url: str, entry_id: uuid.UUID) -> str:
     return f"{app_url}/journal#{entry_id}"
 
 
-def reply_text(label: Label, facts: Sequence[Fact], left_out: int, link: str) -> str:
-    """The bot's reply to a processed entry: the facts it saved, as saved (FR-CAP-5)."""
+def reply_text(
+    label: Label, facts: Sequence[Fact], left_out: int, link: str, *, answers: bool = False
+) -> str:
+    """The bot's reply to a processed entry: the facts it saved, as saved (FR-CAP-5). When they
+    `answers` an open question (FR-EXT-4), it says when they're used."""
     if label == "other":
         return "Noted. This doesn't look like work, so I saved no facts from it."
     if facts:
@@ -148,6 +157,12 @@ def reply_text(label: Label, facts: Sequence[Fact], left_out: int, link: str) ->
         lines = ["I didn't find a fact to save in this entry."]
     if left_out:
         lines.append(f"I left out {_count(left_out, 'fact')} with numbers your note doesn't give.")
+    if facts and answers:
+        lines.append(
+            "It answers your open question, so your next /refresh can use it."
+            if len(facts) == 1
+            else "They answer your open question, so your next /refresh can use them."
+        )
     lines += ["", "See them in your journal:" if facts else "It's in your journal:", link]
     return "\n".join(lines)
 

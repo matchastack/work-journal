@@ -13,7 +13,9 @@ context. Code then checks each fact against the note before keeping it:
 - Tools: a tool the note doesn't name is removed from the fact, unless the note names one of its
   aliases in the skills catalogue (R1).
 - Links: a role or project ID that isn't in the profile is removed. When the owner chose the
-  entry's role (FR-CAP-11), every fact links to it instead of the role the model picked.
+  entry's role (FR-CAP-11), every fact links to it instead of the role the model picked. When the
+  note answers an open question (FR-EXT-4), every fact links to it while it's in the profile. The
+  model reads only the note, never the question, so the question backs no fact.
 
 A note unrelated to work gives no facts (FR-CAP-8).
 """
@@ -134,12 +136,14 @@ def extract_facts(
     written: date,
     entry_id: str | None = None,
     role: RoleChoice | None = None,
+    question_id: str | None = None,
     prompt: Prompt | None = None,
 ) -> Extraction:
     """Extract the facts in `note`, written on `written`, with the standard-tier model. With the
-    owner's `role`, the facts link to it."""
+    owner's `role`, the facts link to it, and when the note answers the open question
+    `question_id`, they link to that too."""
     reply = ask_for_facts(note, profile, client, written=written, prompt=prompt)
-    return check_facts(reply, note, profile, entry_id=entry_id, role=role)
+    return check_facts(reply, note, profile, entry_id=entry_id, role=role, question_id=question_id)
 
 
 def ask_for_facts(
@@ -192,12 +196,14 @@ def check_facts(
     *,
     entry_id: str | None = None,
     role: RoleChoice | None = None,
+    question_id: str | None = None,
 ) -> Extraction:
     """Keep the facts the note backs, as described in the module docstring."""
     skill_names = [name for skill in profile.skills for name in (skill.name, *skill.aliases)]
     note_quantities = find_quantities(note, skill_names)
     roles = {role.id for role in profile.work}
     projects = {project.id for project in profile.projects}
+    questions = {question.id for question in profile.open_questions}
     facts: list[Fact] = []
     dropped: list[DroppedFact] = []
     notes: list[str] = []
@@ -216,6 +222,7 @@ def check_facts(
         chosen = extracted.role_id if role is None else role.role_id
         role_id = _known(chosen, roles, "role", fact_id, notes)
         project_id = _known(extracted.project_id, projects, "project", fact_id, notes)
+        answers = _known(question_id, questions, "open question", fact_id, notes)
         facts.append(
             Fact(
                 id=fact_id,
@@ -230,6 +237,7 @@ def check_facts(
                 project_id=project_id,
                 proposed_item=extracted.proposed_item,
                 proposed_role=None if role is None else role.new_role,
+                question_id=answers,
                 origin="journal",
                 entry_id=entry_id,
             )
@@ -318,7 +326,8 @@ def _known(
 ) -> str | None:
     if item_id is None or item_id in known:
         return item_id
+    article = "an" if kind[0] in "aeiou" else "a"
     notes.append(
-        f'{fact_id}: removed the link to "{item_id}", which isn\'t a {kind} in the profile'
+        f'{fact_id}: removed the link to "{item_id}", which isn\'t {article} {kind} in the profile'
     )
     return None

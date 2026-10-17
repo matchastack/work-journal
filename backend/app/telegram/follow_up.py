@@ -5,7 +5,8 @@ question before it asks which role the entry is about (`app/telegram/roles.py`).
 light-tier check (`app/follow_up.py`) finds the numbers, impact or the owner's part missing, but
 only while the owner is likely still in the chat: within the entry timeout of the entry closing,
 and with no other entry open or waiting for an answer, so that the answer can't be taken for
-anything else. The question replies to the entry's first message, with a Skip button.
+anything else. The question replies to the entry's first message, with a Skip button. An answer
+to an open question (FR-EXT-4) gets none: it's one message, written to answer a question already.
 
 - The owner's next message, unless it's a command, is the answer if it comes within the entry
   timeout of the question. It joins the entry, after its other messages, so extraction reads it.
@@ -79,6 +80,8 @@ async def follow_up(
             entry.awaiting_follow_up = False
         return None
     if entry.follow_up_at is not None or entry.role_asked_at is not None or has_role(entry):
+        return None
+    if entry.open_question_id is not None:
         return None
     entry.follow_up_at = now
     if now - entry.closed_at >= timeout or await _busy(session, entry, now, timeout):

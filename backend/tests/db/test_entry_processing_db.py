@@ -258,6 +258,82 @@ async def test_a_new_roles_name_goes_with_every_fact(session: AsyncSession, chat
     ]
 
 
+ANSWER_NOTE = "The order services handle about 40,000 events a day, more on sale days."
+"""An answer to the fixture profile's open question, `q_nw_volume`."""
+VOLUME = "The order services handle about 40,000 events a day."
+VOLUME_REPLY = ExtractionReply.model_validate(
+    {
+        "facts": [
+            {
+                "statement": VOLUME,
+                "kind": "accomplishment",
+                "metrics": [
+                    {
+                        "subject": "order events a day",
+                        "kind": "single",
+                        "numbers": [40000],
+                        "unit": "events",
+                        "qualifier": "approximately",
+                    }
+                ],
+            }
+        ]
+    }
+)
+
+
+async def test_an_answers_facts_link_to_its_open_question(
+    session: AsyncSession, chat_id: int
+) -> None:
+    """FR-EXT-4: triage and extraction read the answer alone, as any note, and code links its
+    facts to the question. The reply says the next /refresh can use them."""
+    user_id, entry_id = await new_entry(
+        session, ANSWER_NOTE, chat_id=chat_id, profile=PROFILE, open_question_id="q_nw_volume"
+    )
+    fake = FakeMessages(reply(WORK), reply(VOLUME_REPLY))
+    client = LLMClient(llm_settings(), fake, MemoryCallLog())
+    processed = await process_entry(session, entry_id, client, now=NOW, app_url=APP_URL)
+    assert processed == Processed(
+        chat_id,
+        "Saved 1 fact from this entry:\n"
+        f"- {VOLUME}\n"
+        "It answers your open question, so your next /refresh can use it.\n"
+        "\n"
+        "See them in your journal:\n"
+        f"{APP_URL}/journal#{entry_id}",
+    )
+    triage_request, extraction_request = fake.requests
+    assert triage_request["messages"][0]["content"] == f"<note>\n{ANSWER_NOTE}\n</note>"
+    assert extraction_request["messages"][0]["content"] == (
+        f"The note was written on 2026-10-04.\n\n<note>\n{ANSWER_NOTE}\n</note>"
+    )
+    question = PROFILE.open_questions[0].question
+    assert question not in json.dumps(fake.requests), "the question is never evidence"
+    [saved] = await list_facts(session, user_id)
+    assert (saved.statement, saved.role_id, saved.question_id) == (
+        VOLUME,
+        ROLE,
+        "q_nw_volume",
+    )
+
+
+async def test_an_answer_to_a_question_gone_from_the_profile_links_to_none(
+    session: AsyncSession, chat_id: int
+) -> None:
+    """Such as one the owner closed while the answer waited. Its facts are saved all the same."""
+    user_id, entry_id = await new_entry(
+        session, ANSWER_NOTE, chat_id=chat_id, profile=PROFILE, open_question_id="q_nw_latency"
+    )
+    client = LLMClient(
+        llm_settings(), FakeMessages(reply(WORK), reply(VOLUME_REPLY)), MemoryCallLog()
+    )
+    processed = await process_entry(session, entry_id, client, now=NOW, app_url=APP_URL)
+    assert processed is not None
+    assert "open question" not in processed.reply
+    [saved] = await list_facts(session, user_id)
+    assert (saved.statement, saved.question_id) == (VOLUME, None)
+
+
 async def test_an_entry_waiting_for_its_role_is_not_processed(session: AsyncSession) -> None:
     _, entry_id = await new_entry(session, NOTE, role_id=None, role_asked_at=OPENED)
     fake = FakeMessages()
@@ -729,6 +805,24 @@ async def test_another_entrys_lapsed_question_doesnt_stop_a_new_one(
     assert telegram.sent == [follow_up_question(chat_id, "Who uses the export now?")]
     assert (await follow_up_state(entry_id))[2] is True
     assert (await follow_up_state(other.id))[2] is False
+
+
+async def test_an_answer_to_an_open_question_gets_no_follow_up_question(
+    committed: Committed, chat_id: int, claude: Callable[..., FakeMessages], telegram: Telegram
+) -> None:
+    """It was written to answer a question already (FR-EXT-4). One whose role code couldn't
+    choose goes on to its role question, without a call to the model."""
+    _, entry_id = await committed(
+        ANSWER_NOTE,
+        chat_id=chat_id,
+        profile=PROFILE,
+        **just_closed(open_question_id="q_nw_volume"),
+    )
+    fake = claude()
+    await run_extraction(entry_id, last_attempt=never)
+    assert fake.requests == []
+    assert telegram.sent == [question(chat_id, *ROLES)]
+    assert await follow_up_state(entry_id) == (False, None, False, True)
 
 
 async def test_an_entry_already_asked_about_its_role_gets_no_question(
