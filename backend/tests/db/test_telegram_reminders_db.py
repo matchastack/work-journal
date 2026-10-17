@@ -11,6 +11,7 @@ import random
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from datetime import UTC, date, datetime, time, timedelta
+from pathlib import Path
 from typing import Any
 
 import httpx2
@@ -18,7 +19,7 @@ import pytest
 from sqlalchemy import delete, func, select
 
 import app.jobs as job_module
-from app.config import get_settings
+from app.config import Settings, get_settings
 from app.db.crypto import KeyRing, new_key, use_key_ring
 from app.db.models import JournalMessage, TelegramLink, User
 from app.db.settings import (
@@ -70,12 +71,16 @@ def chat_id() -> int:
 
 
 @pytest.fixture
-def job_settings(database_url: str, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    """Jobs read their settings as the worker does, with the default schedule."""
+def job_settings(
+    database_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> Iterator[None]:
+    """Jobs read their settings as the worker does, with the default schedule: from an empty
+    directory, so that no `backend/.env` adds a bot token or another schedule."""
+    monkeypatch.chdir(tmp_path)
+    for name in Settings.model_fields:
+        monkeypatch.delenv(name.upper(), raising=False)
     monkeypatch.setenv("DATABASE_URL", database_url)
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123456:test-token")
-    for name in ("REMINDER_DAYS", "REMINDER_TIME", "REMINDER_TIME_ZONE"):
-        monkeypatch.delenv(name, raising=False)
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
