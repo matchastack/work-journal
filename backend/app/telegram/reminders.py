@@ -1,0 +1,113 @@
+"""The owner's reminders in Telegram (FR-REM-1, FR-REM-2, FR-REM-3).
+
+The `send_reminders` job (`app/jobs.py`) runs every minute under `wj worker` and on every tick.
+For each linked owner, `reminder_due` decides with `app/reminders.py` whether their reminder is
+due: it returns the reminder to send, or records a skipped one, and `record_sent` records one
+sent. The reminder's text is fixed, so no model writes it.
+
+The owner's `telegram_links` row, locked, serializes every change to the reminder record and
+setting, so that two runs can't both send one reminder. Only user IDs, times and outcomes are
+logged.
+"""
+
+import logging
+import uuid
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
+
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.models import JournalMessage, TelegramLink
+from app.db.settings import (
+    get_reminder_settings,
+    get_reminder_state,
+    save_reminder_state,
+)
+from app.reminders import Schedule, due, effective, recorded
+
+logger = logging.getLogger(__name__)
+
+NOTHING_THIS_WEEK = "+nothing"
+"""The "Nothing this week" button's data. Role buttons carry a role's ID, which never starts with
+"+"."""
+REMIND_TOMORROW = "+tomorrow"
+"""The "Remind me tomorrow" button's data."""
+BUTTONS = (NOTHING_THIS_WEEK, REMIND_TOMORROW)
+KEYBOARD = {
+    "inline_keyboard": [
+        [{"text": "Nothing this week", "callback_data": NOTHING_THIS_WEEK}],
+        [{"text": "Remind me tomorrow", "callback_data": REMIND_TOMORROW}],
+    ]
+}
+REMINDER = (
+    "A gentle nudge: anything from work lately worth keeping? A few lines are enough, with "
+    "numbers if you have them."
+)
+
+
+@dataclass(frozen=True)
+class Reminder:
+    """A reminder to send."""
+
+    chat_id: int
+    slot: datetime
+    """The time it's for, in UTC."""
+    text: str
+    options: dict[str, Any]
+    """`sendMessage`'s other parameters: the buttons."""
+
+
+async def reminder_due(
+    session: AsyncSession, owner: uuid.UUID, *, now: datetime, defaults: Schedule
+) -> Reminder | None:
+    """The owner's reminder, if one is to go out at `now`, on their schedule or else `defaults`.
+    A reminder skipped at `now` is recorded as dealt with instead. Keep the transaction open
+    until the reminder is sent and `record_sent` records it: it holds the owner's lock."""
+    chat_id = await _lock(session, owner)
+    if chat_id is None:
+        return None
+    schedule = effective(await get_reminder_settings(session, owner), defaults)
+    state = await get_reminder_state(session, owner)
+    found = due(schedule, state, now=now, last_journaled=await _last_journaled(session, owner))
+    if found is None:
+        return None
+    if found.outcome != "send":
+        await save_reminder_state(session, owner, recorded(state, found.slot))
+        logger.info(
+            "skipped the reminder for user %s at %s: %s",
+            owner,
+            found.slot.isoformat(),
+            found.outcome,
+        )
+        return None
+    text = REMINDER  # T-036 adds an open question here (FR-REM-5).
+    return Reminder(chat_id, found.slot, text, {"reply_markup": KEYBOARD})
+
+
+async def record_sent(
+    session: AsyncSession, owner: uuid.UUID, reminder: Reminder, message_id: int | None
+) -> None:
+    """Record the reminder as sent, as `message_id`, whose buttons now work instead of any older
+    reminder's. None means the bot couldn't send it: it's dealt with all the same."""
+    state = await get_reminder_state(session, owner)
+    changed = recorded(state, reminder.slot, message_id=message_id, sent=True)
+    await save_reminder_state(session, owner, changed)
+
+
+async def _lock(session: AsyncSession, owner: uuid.UUID) -> int | None:
+    """Lock the owner's Telegram link until the transaction ends, and return its chat. None when
+    the owner has no linked chat."""
+    return await session.scalar(
+        select(TelegramLink.chat_id).where(TelegramLink.user_id == owner).with_for_update()
+    )
+
+
+async def _last_journaled(session: AsyncSession, owner: uuid.UUID) -> datetime | None:
+    """When the owner last sent the journal a message (FR-REM-2)."""
+    return await session.scalar(
+        select(func.max(JournalMessage.sent_at)).where(
+            JournalMessage.user_id == owner, JournalMessage.sender == "owner"
+        )
+    )
