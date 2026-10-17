@@ -2,8 +2,9 @@
 
 It starts once, when the owner first links their chat, and again on `/catchup`. The bot asks
 about the time since the profile was last updated, one question at a time (`app/catch_up.py`),
-each with Skip and Stop for now buttons. The `catch_up_question` job (`app/jobs.py`) writes and
-sends each question, so a question's message ID is always kept.
+each with Skip and Stop for now buttons. The `catch_up_question` job (`app/jobs.py`) writes each
+question with no transaction open (`plan`), keeps it before sending it (`store`), so that a retry
+sends the same one, and marks it asked once it's sent (`record_question`).
 
 - The owner's next message, unless it's a command, answers the question, if it's sent after the
   question and within the entry timeout. It becomes a journal entry of its own, closed at once
@@ -21,7 +22,6 @@ it runs, the bot asks no follow-up questions about other entries (`app/telegram/
 so that the owner's next message is never ambiguous. Questions and answers are never logged.
 """
 
-import asyncio
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -31,10 +31,10 @@ from pydantic import TypeAdapter
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.catch_up import MAX_QUESTIONS, Turn, next_question
+from app.catch_up import MAX_QUESTIONS, Turn
 from app.db.models import CatchUp, JournalEntry
 from app.db.profiles import latest_version
-from app.llm.client import LLMClient
+from app.schema.profile import Profile
 from app.telegram.api import BotCall, send
 from app.telegram.follow_up import stop_waiting
 from app.telegram.processing import chat_of
@@ -82,6 +82,17 @@ class CatchUpAnswer:
     calls: tuple[BotCall, ...]
     ready: uuid.UUID | None = None
     catch_up: uuid.UUID | None = None
+
+
+@dataclass(frozen=True)
+class Plan:
+    """What the job reads to write an interview's next question."""
+
+    turns: tuple[Turn, ...]
+    profile: Profile | None
+    question: str | None
+    """A question written earlier but not asked yet, such as one the bot couldn't send: it's
+    sent again, without writing a new one."""
 
 
 @dataclass(frozen=True)
@@ -234,52 +245,69 @@ async def press(session: AsyncSession, owner: uuid.UUID, query: CallbackQuery) -
     return CatchUpAnswer((_answer(query), *pause(interview, chat_id), send(chat_id, PAUSED)))
 
 
-async def next_message(
+async def plan(session: AsyncSession, catch_up_id: uuid.UUID) -> Plan | None:
+    """What the job needs to write the next question of an interview that's writing one. None
+    when there's nothing to do: it isn't writing a question, or there's no chat to ask in, which
+    pauses it."""
+    interview = await _thinking(session, catch_up_id)
+    if interview is None:
+        return None
+    if await chat_of(session, interview.user_id) is None:
+        interview.status = "paused"
+        return None
+    profile = None
+    if interview.question is None:
+        version = await latest_version(session, interview.user_id)
+        profile = version.profile if version is not None else None
+    return Plan(tuple(turns_of(interview)), profile, interview.question)
+
+
+async def store(
     session: AsyncSession,
     catch_up_id: uuid.UUID,
-    client: LLMClient,
+    planned: Plan,
+    question: str | None,
     *,
     now: datetime,
 ) -> Question | None:
-    """The message to send for an interview that's writing its next question: the question it
-    has waiting, a new one, or the interview's end. Marks it asking as of `now`, or finished.
-    None when there's nothing to send: it isn't writing a question, or there's no chat to ask in,
-    which pauses it."""
-    interview = await session.scalar(
-        select(CatchUp).where(CatchUp.id == catch_up_id).with_for_update()
-    )
-    if interview is None or interview.status != "thinking":
+    """Keep the question written from `planned` before the bot sends it, so that a retry sends
+    the same one, or finish the interview as of `now` when there's no question. Returns the
+    message to send. None when the interview moved on while the question was written, such as a
+    pause, and there's nothing to send."""
+    interview = await _thinking(session, catch_up_id)
+    if interview is None or len(turns_of(interview)) != len(planned.turns):
         return None
     chat_id = await chat_of(session, interview.user_id)
     if chat_id is None:
         interview.status = "paused"
         return None
-    turns = turns_of(interview)
-    question = interview.question
-    if question is None:
-        version = await latest_version(session, interview.user_id)
-        profile = version.profile if version is not None else None
-        question = await asyncio.to_thread(next_question, profile, turns, client)
     if question is None:
         interview.status, interview.finished_at = "finished", now
-        answered = any(turn.answer is not None for turn in turns)
+        answered = any(turn.answer is not None for turn in planned.turns)
         return Question(chat_id, FINISHED if answered else NO_ANSWERS, {}, waits=False)
-    interview.status, interview.question, interview.asked_at = "asking", question, now
+    interview.question = question
     return Question(chat_id, question, {"reply_markup": KEYBOARD}, waits=True)
 
 
 async def record_question(
-    session: AsyncSession, catch_up_id: uuid.UUID, message_id: int | None
+    session: AsyncSession,
+    catch_up_id: uuid.UUID,
+    question: str,
+    message_id: int | None,
+    *,
+    now: datetime,
 ) -> None:
-    """Keep the ID of the message that asked, so that its buttons answer for the interview. When
-    the bot couldn't send it, the interview pauses, to ask again on `/catchup`."""
-    interview = await session.get(CatchUp, catch_up_id, with_for_update=True)
-    if interview is None:
+    """Mark the interview asking as of `now`, just after the bot sent `question`, and keep the
+    message's ID, so that its buttons answer for the interview. Only a message sent from then on
+    answers it. When the bot couldn't send it, the interview pauses, to ask again on `/catchup`.
+    An interview that moved on meanwhile is left as it is."""
+    interview = await _thinking(session, catch_up_id)
+    if interview is None or interview.question != question:
         return
     if message_id is None:
         interview.status = "paused"
-    else:
-        interview.question_id = message_id
+        return
+    interview.status, interview.question_id, interview.asked_at = "asking", message_id, now
 
 
 async def fail(session: AsyncSession, catch_up_id: uuid.UUID) -> uuid.UUID | None:
@@ -297,6 +325,12 @@ def failure_text(reason: str) -> str:
         f"I couldn't think of the next catch-up question because {reason}. "
         "Send /catchup to try again."
     )
+
+
+async def _thinking(session: AsyncSession, catch_up_id: uuid.UUID) -> CatchUp | None:
+    """The interview, locked, if it's writing its next question."""
+    interview = await session.get(CatchUp, catch_up_id, with_for_update=True)
+    return interview if interview is not None and interview.status == "thinking" else None
 
 
 def _next(interview: CatchUp, turn: Turn) -> None:

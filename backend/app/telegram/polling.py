@@ -33,11 +33,12 @@ async def poll(
     app_url: str | None = None,
     run_jobs: Callable[[uuid.UUID], Awaitable[object]] | None = None,
     run_refresh: Callable[[uuid.UUID], Awaitable[object]] | None = None,
-    run_catch_up: Callable[[uuid.UUID], Awaitable[object]] | None = None,
+    run_catch_up: Callable[[uuid.UUID, uuid.UUID | None], Awaitable[object]] | None = None,
 ) -> int:
     """Journal the bot's updates as the webhook would, and send its replies. When an update
     closes an entry or chooses its role, `run_jobs` gets the entry, `run_refresh` gets the
-    refresh `/refresh` starts, and `run_catch_up` gets the catch-up interview it moves on. Asks
+    refresh `/refresh` starts, and `run_catch_up` gets the catch-up interview it moves on, with
+    the entry, so that the next question comes first. Asks
     Telegram `rounds` times, or until cancelled. Returns how many updates it handled."""
     await api.set_my_commands(COMMANDS)
     await api.delete_webhook()
@@ -61,11 +62,11 @@ async def poll(
                     continue
             for call in result.calls:
                 await api.make(call)
-            if result.ready is not None and run_jobs is not None:
+            if result.catch_up is not None and run_catch_up is not None:
+                await run_catch_up(result.catch_up, result.ready)
+            elif result.ready is not None and run_jobs is not None:
                 await run_jobs(result.ready)
             if result.refresh is not None and run_refresh is not None:
                 await run_refresh(result.refresh)
-            if result.catch_up is not None and run_catch_up is not None:
-                await run_catch_up(result.catch_up)
             handled += 1
     return handled

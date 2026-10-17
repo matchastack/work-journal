@@ -12,22 +12,30 @@ from typing import Any
 
 import httpx2
 import pytest
+from anthropic import APIConnectionError
+from procrastinate.testing import InMemoryConnector
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import app.jobs as job_module
-from app.catch_up import FIXED_QUESTIONS, InterviewReply, Turn
+from app.catch_up import FIXED_QUESTIONS, InterviewReply, Turn, next_question
 from app.config import Settings, get_settings
 from app.db.crypto import KeyRing, new_key, use_key_ring
 from app.db.models import CatchUp, JournalEntry, JournalMessage, TelegramLink, User
 from app.db.profiles import save_version
 from app.follow_up import FollowUpReply
-from app.jobs import database, run_catch_up
+from app.jobs import (
+    database,
+    jobs,
+    queue_catch_up,
+    queue_catch_up_questions,
+    run_catch_up,
+)
 from app.llm.client import LLMClient
 from app.llm.fake import FakeMessages, reply
 from app.llm.usage import CallLog, MemoryCallLog
 from app.schema.profile import Profile
-from app.telegram.api import BotCall
+from app.telegram.api import BotCall, TelegramError
 from app.telegram.catch_up import (
     FINISHED,
     INTRO,
@@ -40,15 +48,18 @@ from app.telegram.catch_up import (
     SKIPPED,
     STOP,
     THINKING,
+    Question,
     lapsed_text,
-    next_message,
+    plan,
     record_question,
+    store,
     turns_of,
 )
 from app.telegram.follow_up import follow_up
 from app.telegram.journal import DONE_AND_PAUSED, Handled, handle_update
 from app.telegram.linking import LINKED, new_link_token
 from app.telegram.processing import process_entry
+from app.tick import catch_up_now
 from app.triage import TriageReply
 
 pytestmark = pytest.mark.anyio
@@ -411,28 +422,39 @@ async def thinking_interview(
     return interview.id
 
 
+async def write(
+    session: AsyncSession, interview_id: uuid.UUID, client: LLMClient
+) -> Question | None:
+    """What the job does before sending: plan, write the question unless one waits, and keep it."""
+    planned = await plan(session, interview_id)
+    assert planned is not None
+    question = planned.question
+    if question is None:
+        question = next_question(planned.profile, planned.turns, client)
+    return await store(session, interview_id, planned, question, now=SENT)
+
+
 async def test_the_next_question_comes_from_the_standard_tier_with_buttons(
     session: AsyncSession, chat_id: int
 ) -> None:
+    """It's kept before it's sent, and asked only once it's sent: messages from then on answer
+    it."""
     interview_id = await thinking_interview(session, chat_id, Turn(question="What changed?"))
     client, fake = llm(reply(InterviewReply(done=False, question=ASKED)))
-    question = await next_message(session, interview_id, client, now=SENT)
-    assert question is not None
-    assert (question.chat_id, question.text, question.options, question.waits) == (
-        chat_id,
-        ASKED,
-        {"reply_markup": KEYBOARD},
-        True,
-    )
+    question = await write(session, interview_id, client)
+    assert question == Question(chat_id, ASKED, {"reply_markup": KEYBOARD}, waits=True)
     assert fake.requests[0]["model"] == "standard-model"
     assert PROFILE.work[0].id in fake.requests[0]["system"][1]["text"]
-    await record_question(session, interview_id, QUESTION_ID)
+    interview = await interview_of(session, interview_id)
+    assert (interview.status, interview.question, interview.asked_at) == ("thinking", ASKED, None)
+    sent_at = SENT + timedelta(seconds=2)
+    await record_question(session, interview_id, ASKED, QUESTION_ID, now=sent_at)
     interview = await interview_of(session, interview_id)
     assert (interview.status, interview.question, interview.question_id, interview.asked_at) == (
         "asking",
         ASKED,
         QUESTION_ID,
-        SENT,
+        sent_at,
     )
 
 
@@ -441,11 +463,9 @@ async def test_a_waiting_question_is_asked_again_without_a_call(
 ) -> None:
     interview_id = await thinking_interview(session, chat_id)
     (await interview_of(session, interview_id)).question = ASKED
-    client, fake = llm()
-    question = await next_message(session, interview_id, client, now=SENT)
-    assert question is not None
-    assert question.text == ASKED
-    assert fake.requests == []
+    planned = await plan(session, interview_id)
+    assert planned is not None
+    assert (planned.question, planned.profile) == (ASKED, None)
 
 
 async def test_without_a_profile_the_interview_still_asks(
@@ -453,18 +473,24 @@ async def test_without_a_profile_the_interview_still_asks(
 ) -> None:
     interview_id = await thinking_interview(session, chat_id, profile=None)
     client, _ = llm(reply(InterviewReply(done=True)))
-    question = await next_message(session, interview_id, client, now=SENT)
+    question = await write(session, interview_id, client)
     assert question is not None
     assert question.text == FIXED_QUESTIONS[0], "never ends before its first question"
+
+
+async def test_without_a_chat_the_interview_pauses(session: AsyncSession, chat_id: int) -> None:
+    interview_id = await thinking_interview(session, chat_id)
+    await session.execute(delete(TelegramLink).where(TelegramLink.chat_id == chat_id))
+    assert await plan(session, interview_id) is None
+    assert (await interview_of(session, interview_id)).status == "paused"
 
 
 async def test_the_end_offers_a_refresh(session: AsyncSession, chat_id: int) -> None:
     turn = Turn(question="What changed?", answer=ANSWER)
     interview_id = await thinking_interview(session, chat_id, turn)
     client, _ = llm(reply(InterviewReply(done=True)))
-    question = await next_message(session, interview_id, client, now=SENT)
-    assert question is not None
-    assert (question.text, question.options, question.waits) == (FINISHED, {}, False)
+    question = await write(session, interview_id, client)
+    assert question == Question(chat_id, FINISHED, {}, waits=False)
     interview = await interview_of(session, interview_id)
     assert (interview.status, interview.finished_at) == ("finished", SENT)
 
@@ -474,9 +500,34 @@ async def test_an_interview_without_answers_ends_without_a_refresh(
 ) -> None:
     interview_id = await thinking_interview(session, chat_id, Turn(question="What changed?"))
     client, _ = llm(reply(InterviewReply(done=True)))
-    question = await next_message(session, interview_id, client, now=SENT)
+    question = await write(session, interview_id, client)
     assert question is not None
     assert question.text == NO_ANSWERS
+
+
+async def test_a_question_written_after_a_pause_isnt_kept(
+    session: AsyncSession, chat_id: int
+) -> None:
+    """The owner sent `/done` while the bot wrote it: there's nothing to send."""
+    interview_id = await thinking_interview(session, chat_id)
+    planned = await plan(session, interview_id)
+    assert planned is not None
+    (await interview_of(session, interview_id)).status = "paused"
+    assert await store(session, interview_id, planned, ASKED, now=SENT) is None
+    interview = await interview_of(session, interview_id)
+    assert (interview.status, interview.question) == ("paused", None)
+
+
+async def test_a_question_sent_after_a_pause_isnt_marked_asked(
+    session: AsyncSession, chat_id: int
+) -> None:
+    interview_id = await thinking_interview(session, chat_id)
+    client, _ = llm(reply(InterviewReply(done=False, question=ASKED)))
+    await write(session, interview_id, client)
+    (await interview_of(session, interview_id)).status = "paused"
+    await record_question(session, interview_id, ASKED, QUESTION_ID, now=SENT)
+    interview = await interview_of(session, interview_id)
+    assert (interview.status, interview.question_id) == ("paused", None)
 
 
 async def test_catchup_after_the_end_starts_a_new_interview(
@@ -495,8 +546,8 @@ async def test_a_question_that_cant_be_sent_pauses_the_interview(
 ) -> None:
     interview_id = await thinking_interview(session, chat_id)
     client, _ = llm(reply(InterviewReply(done=False, question=ASKED)))
-    await next_message(session, interview_id, client, now=SENT)
-    await record_question(session, interview_id, None)
+    await write(session, interview_id, client)
+    await record_question(session, interview_id, ASKED, None, now=SENT)
     assert (await interview_of(session, interview_id)).status == "paused"
 
 
@@ -504,8 +555,7 @@ async def test_only_an_interview_writing_its_question_asks(
     session: AsyncSession, chat_id: int
 ) -> None:
     _, interview_id = await asking_interview(session, chat_id)
-    client, _ = llm()
-    assert await next_message(session, interview_id, client, now=SENT) is None
+    assert await plan(session, interview_id) is None
 
 
 # --- Answers' entries -----------------------------------------------------------------------------
@@ -571,12 +621,16 @@ async def test_an_answer_is_read_alone(session: AsyncSession, chat_id: int) -> N
 
 
 class Telegram:
-    """A stand-in for the Bot API that keeps each message sent."""
+    """A stand-in for the Bot API that keeps each message sent, and fails the first `failures`."""
 
     def __init__(self) -> None:
         self.sent: list[dict[str, Any]] = []
+        self.failures = 0
 
     def handle(self, request: httpx2.Request) -> httpx2.Response:
+        if self.failures:
+            self.failures -= 1
+            return httpx2.Response(502, text="Bad Gateway")
         self.sent.append(json.loads(request.content))
         return httpx2.Response(200, json={"ok": True, "result": {"message_id": QUESTION_ID}})
 
@@ -626,6 +680,10 @@ def never(error: BaseException) -> bool:
     return False
 
 
+def always(error: BaseException) -> bool:
+    return True
+
+
 async def test_the_job_asks_and_keeps_the_questions_message(
     committed: uuid.UUID, chat_id: int, telegram: Telegram, claude: Callable[..., FakeMessages]
 ) -> None:
@@ -635,6 +693,104 @@ async def test_the_job_asks_and_keeps_the_questions_message(
     async with database() as session:
         interview = await interview_of(session, committed)
         assert (interview.status, interview.question_id) == ("asking", QUESTION_ID)
+        assert interview.asked_at is not None
+
+
+async def test_a_question_that_wasnt_sent_is_sent_again_without_a_call(
+    committed: uuid.UUID, chat_id: int, telegram: Telegram, claude: Callable[..., FakeMessages]
+) -> None:
+    """The retry sends the question kept before Telegram failed, so the owner gets one."""
+    claude(reply(InterviewReply(done=False, question=ASKED)))
+    telegram.failures = 1
+    with pytest.raises(TelegramError):
+        await run_catch_up(committed, last_attempt=never)
+    async with database() as session:
+        interview = await interview_of(session, committed)
+        assert (interview.status, interview.question) == ("thinking", ASKED)
+    fake = claude()
+    await run_catch_up(committed, last_attempt=never)
+    assert telegram.sent == [{"chat_id": chat_id, "text": ASKED, "reply_markup": KEYBOARD}]
+    assert fake.requests == []
+
+
+async def test_the_last_failed_attempt_pauses_the_interview_and_tells_the_owner(
+    committed: uuid.UUID, chat_id: int, telegram: Telegram, claude: Callable[..., FakeMessages]
+) -> None:
+    claude(reply(InterviewReply(done=False, question=ASKED)))
+    telegram.failures = 1
+    with pytest.raises(TelegramError):
+        await run_catch_up(committed, last_attempt=always)
+    assert telegram.sent == [
+        {
+            "chat_id": chat_id,
+            "text": "I couldn't think of the next catch-up question because of an error that "
+            "kept coming back. Send /catchup to try again.",
+        }
+    ]
+    async with database() as session:
+        assert (await interview_of(session, committed)).status == "paused"
+
+
+async def test_the_model_being_unavailable_gives_a_fixed_question(
+    committed: uuid.UUID, chat_id: int, telegram: Telegram, claude: Callable[..., FakeMessages]
+) -> None:
+    """The interview keeps moving rather than wait for retries."""
+    request = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
+    claude(*[APIConnectionError(request=request)] * 4)
+    await run_catch_up(committed, last_attempt=never)
+    assert telegram.sent == [
+        {"chat_id": chat_id, "text": FIXED_QUESTIONS[0], "reply_markup": KEYBOARD}
+    ]
+
+
+async def test_an_answer_runs_the_next_question_ahead_of_its_entry(
+    committed: uuid.UUID, chat_id: int, telegram: Telegram, claude: Callable[..., FakeMessages]
+) -> None:
+    """What the webhook runs after an answer: a tick that queues the next question first."""
+    claude(reply(InterviewReply(done=False, question=ASKED)))
+    with jobs.replace_connector(InMemoryConnector()):
+        await catch_up_now(committed)
+    assert telegram.sent == [{"chat_id": chat_id, "text": ASKED, "reply_markup": KEYBOARD}]
+
+
+def queued(connector: InMemoryConnector) -> list[dict[str, Any]]:
+    return [job for job in connector.jobs.values() if job["task_name"] == "catch_up_question"]
+
+
+async def test_an_interview_is_queued_once_and_not_while_its_job_runs(
+    committed: uuid.UUID,
+) -> None:
+    """A second copy queued while one runs would clash with that one's retry."""
+    connector = InMemoryConnector()
+    with jobs.replace_connector(connector):
+        assert await queue_catch_up(committed)
+        assert not await queue_catch_up(committed)
+        [job] = queued(connector)
+        assert (job["lock"], job["queueing_lock"]) == (
+            f"catch_up:{committed}",
+            f"catch_up_question:{committed}",
+        )
+        job["status"] = "doing"
+        assert not await queue_catch_up(committed)
+    assert len(queued(connector)) == 1
+
+
+async def test_the_sweep_queues_only_interviews_writing_a_question(
+    committed: uuid.UUID, chat_id: int
+) -> None:
+    async with database() as session:
+        _, asking_id = await asking_interview(session, chat_id + 1)
+        asking_user = (await interview_of(session, asking_id)).user_id
+    connector = InMemoryConnector()
+    try:
+        with jobs.replace_connector(connector):
+            await queue_catch_up_questions(timestamp=int(SENT.timestamp()))
+        ids = [job["args"]["catch_up_id"] for job in queued(connector)]
+        assert str(committed) in ids
+        assert str(asking_id) not in ids
+    finally:
+        async with database() as session:
+            await session.execute(delete(User).where(User.id == asking_user))
 
 
 async def test_missing_model_settings_pause_the_interview_and_tell_the_owner(

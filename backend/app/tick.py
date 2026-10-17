@@ -14,7 +14,8 @@ stopping, in bounded time:
 An update that closes a journal entry also runs a tick, right after the bot answers, which first
 queues the entry's extraction (`extract_now`, FR-CAP-5), and so does `/refresh`, for its refresh
 (`refresh_now`, FR-REV-6), and an update that moves the catch-up interview on, for its next
-question (`catch_up_now`, FR-REM-4).
+question and the entry of the answer, if there is one (`catch_up_now`, FR-REM-4). The interview
+waits for a tick already running, rather than leave its next question to a later one.
 """
 
 import asyncio
@@ -37,6 +38,8 @@ JOB_GRACE_S = 240.0
 """How long a job that started within the budget may still run: long enough for a refresh's
 synthesis. With the budget, this stays under the function's 300 s limit (`backend/vercel.json`),
 the most Vercel's free plan allows."""
+WAIT_FOR_TICK_S = 60.0
+"""How long `catch_up_now` waits for a tick already running in this process to finish."""
 MISSED_SCHEDULE_S = 25 * 3600
 """A scheduled task due within the last 25 hours still runs: the tick comes once a day, at any
 time within its hour, so each daily task runs once a day."""
@@ -62,7 +65,12 @@ async def tick(
         await _defer_due_tasks(app, time.time() if now is None else now)
         stalled = list(await app.job_manager.get_stalled_jobs())
         for job in stalled:
-            await app.job_manager.retry_job(job)
+            try:
+                await app.job_manager.retry_job(job)
+            except Exception as error:
+                # One job that can't be retried, such as one whose copy is queued already,
+                # mustn't stop every tick. Only the error's type: it can quote the statement.
+                logger.warning("couldn't retry stalled job %s: %s", job.id, type(error).__name__)
         with _without_schedule(app):
             worker = asyncio.create_task(
                 app.run_worker_async(
@@ -106,21 +114,36 @@ async def refresh_now(refresh_id: uuid.UUID) -> None:
     await _run_now(queue, f"refresh {refresh_id}")
 
 
-async def catch_up_now(catch_up_id: uuid.UUID) -> None:
-    """Queue the catch-up interview's next question and run a tick, so it follows the owner's
+async def catch_up_now(catch_up_id: uuid.UUID, entry_id: uuid.UUID | None = None) -> None:
+    """Queue the catch-up interview's next question, then the extraction of the entry the update
+    closed, if any, such as the answer's, and run a tick, so the question follows the owner's
     answer at once (FR-REM-4). The webhook does this right after answering, and
-    `wj telegram poll` too. If a tick is already running in this process, or this one fails, the
-    next tick queues it instead (`queue_catch_up_questions`), as does `/catchup`."""
+    `wj telegram poll` too. If a tick is already running in this process, this waits up to
+    `WAIT_FOR_TICK_S` for it to finish. If that's not enough, or the tick fails, the next tick
+    queues them instead (`queue_catch_up_questions`, `close_quiet_entries`), as does `/catchup`."""
 
     async def queue() -> None:
         await queue_catch_up(catch_up_id)
+        if entry_id is not None:
+            await queue_extraction(entry_id)
 
-    await _run_now(queue, f"catch-up {catch_up_id}")
+    await _run_now(queue, f"catch-up {catch_up_id}", wait_s=WAIT_FOR_TICK_S)
 
 
-async def _run_now(queue: Callable[[], Awaitable[object]], what: str) -> None:
+async def _run_now(
+    queue: Callable[[], Awaitable[object]], what: str, *, wait_s: float = 0.0
+) -> None:
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + wait_s
     try:
         retried = await tick(first=queue)
+        while retried is None and loop.time() < deadline:
+            try:
+                async with asyncio.timeout(deadline - loop.time()), _running:
+                    pass
+            except TimeoutError:
+                break
+            retried = await tick(first=queue)
     except Exception as error:
         # Only the error's type: a database error can quote the statement that failed.
         logger.warning("couldn't run %s's jobs now: %s", what, type(error).__name__)

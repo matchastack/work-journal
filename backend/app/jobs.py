@@ -28,6 +28,7 @@ from psycopg_pool import AsyncConnectionPool
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.catch_up import next_question
 from app.config import get_settings
 from app.db.engine import create_engine, session_factory, with_query
 from app.db.models import CatchUp, JournalEntry
@@ -262,11 +263,13 @@ async def catch_up_question(context: procrastinate.JobContext, catch_up_id: str)
 
 
 async def queue_catch_up(catch_up_id: uuid.UUID) -> bool:
-    """Queue `catch_up_question` for one interview, unless it's queued already. Returns whether
-    it was queued."""
-    job = catch_up_question.configure(
-        lock=f"catch_up:{catch_up_id}", queueing_lock=f"catch_up_question:{catch_up_id}"
-    )
+    """Queue `catch_up_question` for one interview, unless it's queued or running already: a
+    second copy queued while one runs would clash with that one's retry. Returns whether it was
+    queued."""
+    lock = f"catch_up:{catch_up_id}"
+    if list(await jobs.job_manager.list_jobs_async(lock=lock, status="doing")):
+        return False
+    job = catch_up_question.configure(lock=lock, queueing_lock=f"catch_up_question:{catch_up_id}")
     try:
         await job.defer_async(catch_up_id=str(catch_up_id))
     except AlreadyEnqueued:
@@ -277,25 +280,40 @@ async def queue_catch_up(catch_up_id: uuid.UUID) -> bool:
 async def run_catch_up(
     catch_up_id: uuid.UUID, *, last_attempt: Callable[[BaseException], bool]
 ) -> None:
-    """Send the interview's next question (`app/telegram/catch_up.py`), before the result is
-    committed, and keep its message ID. Missing model settings won't change on a retry, so they
+    """Write the interview's next question (`app/telegram/catch_up.py`) with no transaction
+    open, so that the owner's messages don't wait for the model, and keep it. Then send it, and
+    mark it asked. A question kept but not sent, such as when Telegram failed, is sent again on
+    the retry without writing a new one. Missing model settings won't change on a retry, so they
     fail at once; anything else is retried, and fails when `last_attempt` says this was the last
-    try. A refusal or an unusable reply gives way to a fixed question (`app/catch_up.py`)."""
+    try. A failed call to the model gives way to a fixed question (`app/catch_up.py`)."""
     async with database() as session:
         user_id = await session.scalar(select(CatchUp.user_id).where(CatchUp.id == catch_up_id))
     if user_id is None:
         return
     log = DatabaseCallLog(user_id)
     try:
-        client = _llm_client(log)
         async with database() as session:
-            message = await catch_up.next_message(
-                session, catch_up_id, client, now=datetime.now(UTC)
+            planned = await catch_up.plan(session, catch_up_id)
+        if planned is None:
+            return
+        question = planned.question
+        if question is None:
+            client = _llm_client(log)
+            question = await asyncio.to_thread(
+                next_question, planned.profile, planned.turns, client
             )
-            if message is not None:
-                message_id = await _send(message.chat_id, message.text, **message.options)
-                if message.waits:
-                    await catch_up.record_question(session, catch_up_id, message_id)
+        async with database() as session:
+            message = await catch_up.store(
+                session, catch_up_id, planned, question, now=datetime.now(UTC)
+            )
+        if message is None:
+            return
+        message_id = await _send(message.chat_id, message.text, **message.options)
+        if message.waits:
+            async with database() as session:
+                await catch_up.record_question(
+                    session, catch_up_id, message.text, message_id, now=datetime.now(UTC)
+                )
     except LLMConfigError as error:
         await _catch_up_failed(catch_up_id, error)
     except Exception as error:
