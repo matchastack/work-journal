@@ -10,6 +10,7 @@ One short entry per pull request, newest first: what changed and what to verify.
 - With your key, `uv run pytest -m llm tests/test_catch_up_live.py` passes
 - After the deploy, "/" in the chat lists `/catchup`, and `/catchup` asks a first question with Skip and Stop for now
 - An answer gets the role question, then the next question follows; after the last question, `/refresh` proposes changes from your answers
+- The Journal page shows each answer with its question above it
 
 ## 2026-10-16 · T-022 ATS check · [#50](https://github.com/matchastack/work-journal/pull/50)
 **Changed:** `wj tailor` now reads the PDF's text back the way an applicant tracking system does, and says whether it has every covered term and the section headings in order, or what it lacks (a term split by a hyphen at a line end, a missing heading, ligatures or garbled characters). The result is kept with the application.
