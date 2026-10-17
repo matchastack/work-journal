@@ -266,7 +266,10 @@ def _bullet(profile: Profile, bullet_id: str) -> tuple[Item | None, Bullet | Non
     return None, None
 
 
-def _label(item: Item | None, fallback: str) -> str:
+def item_label(item: Item) -> str:
+    """What the owner calls a role, education entry or project, e.g. `Engineer, Northwind
+    Traders`, `Bachelor of Science in Computer Science, Springfield State University` or
+    `Recipe Box`."""
     match item:
         case Role():
             return f"{item.position}, {item.name}"
@@ -274,8 +277,10 @@ def _label(item: Item | None, fallback: str) -> str:
             return f"{item.study_type} in {item.area}, {item.institution}"
         case Project():
             return item.name
-        case None:
-            return fallback
+
+
+def _label(item: Item | None, fallback: str) -> str:
+    return fallback if item is None else item_label(item)
 
 
 def _bullet_outputs(bullet: Bullet, parent: Item | None) -> tuple[Output, ...]:
