@@ -1,13 +1,14 @@
 """When reminders go out (FR-REM-1, FR-REM-2, FR-REM-3, C6), with a frozen clock: every `now` is
 given."""
 
+import json
 from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pytest
 
-from app.config import Settings
+from app.config import BACKEND, Settings
 from app.reminders import (
     DEFAULT_SCHEDULE,
     Due,
@@ -213,3 +214,13 @@ def test_the_default_schedule_matches_the_settings(
     for name in ("REMINDER_DAYS", "REMINDER_TIME", "REMINDER_TIME_ZONE"):
         monkeypatch.delenv(name, raising=False)
     assert default_schedule(Settings()) == DEFAULT_SCHEDULE
+
+
+@pytest.mark.parametrize("minute", [0, 1, 30, 59])
+def test_vercels_daily_tick_comes_when_the_default_reminder_is_due(minute: int) -> None:
+    """C6: Vercel's cron ticks once a day, at any minute of its hour (`backend/vercel.json`).
+    On a Friday, that tick sends the default reminder, rather than finding it missed."""
+    [cron] = json.loads((BACKEND / "vercel.json").read_text(encoding="utf-8"))["crons"]
+    at_minute, hour, *every_day = cron["schedule"].split()
+    assert (at_minute, every_day) == ("0", ["*", "*", "*"])
+    assert outcome_at(at(16, int(hour), minute)) == Due(FRIDAY, "send")
