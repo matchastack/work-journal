@@ -402,7 +402,8 @@ class JournalEntry(Base):
     Once closed, the bot may ask one follow-up question (FR-CAP-6), then asks which role it's about
     (FR-CAP-11). When the owner has answered, it
     triages the entry, saves its facts and replies (`processed_at`), or gives up after its retries
-    (`failed_at`)."""
+    (`failed_at`). An answer to an open question (FR-EXT-4) is an entry of its own, closed as
+    `done` once its one message arrives."""
 
     __tablename__ = "journal_entries"
     __table_args__ = (
@@ -469,6 +470,9 @@ class JournalEntry(Base):
     awaiting_follow_up: Mapped[bool] = mapped_column(server_default=text("false"))
     """Whether the follow-up question waits for the owner's answer or Skip. At most one of a
     user's entries waits for one."""
+    open_question_id: Mapped[str | None] = mapped_column(String(64))
+    """The open question in the profile this entry answers (FR-EXT-4); set only on an answer,
+    which is an entry of its own."""
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
