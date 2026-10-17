@@ -508,7 +508,8 @@ class CatchUp(Base):
         String(16), server_default="thinking"
     )
     transcript: Mapped[str] = mapped_column(EncryptedText("catch_ups.transcript"))
-    """The questions answered or skipped so far, with the answers, as JSON (`Turn`s)."""
+    """The questions answered or skipped so far, each with the journal entry of its answer, as
+    JSON (`Asked`). The answers' text stays in the journal."""
     question: Mapped[str | None] = mapped_column(EncryptedText("catch_ups.question"))
     """The question that waits for an answer: asked, or to ask again when a paused interview
     resumes."""

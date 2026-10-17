@@ -4,7 +4,8 @@ It starts once, when the owner first links their chat, and again on `/catchup`. 
 about the time since the profile was last updated, one question at a time (`app/catch_up.py`),
 each with Skip and Stop for now buttons. The `catch_up_question` job (`app/jobs.py`) writes each
 question with no transaction open (`plan`), keeps it before sending it (`store`), so that a retry
-sends the same one, and marks it asked once it's sent (`record_question`).
+sends the same one, and marks it asked once it's sent (`record_question`). The interview ends the
+same way: it's marked finished only once its last message is sent (`finish`).
 
 - The owner's next message, unless it's a command, answers the question, if it's sent after the
   question and within the entry timeout. It becomes a journal entry of its own, closed at once
@@ -19,7 +20,9 @@ sends the same one, and marks it asked once it's sent (`record_question`).
 After the last question, the bot offers `/refresh` to turn the answers into proposed changes.
 Starting or resuming the interview stops a follow-up question that waits for an answer, and while
 it runs, the bot asks no follow-up questions about other entries (`app/telegram/follow_up.py`),
-so that the owner's next message is never ambiguous. Questions and answers are never logged.
+so that the owner's next message is never ambiguous. The interview keeps each question with the
+journal entry of its answer, not the answer's text: the text stays in the journal, so editing or
+deleting the entry there reaches the interview too. Questions and answers are never logged.
 """
 
 import uuid
@@ -34,10 +37,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.catch_up import MAX_QUESTIONS, Turn
 from app.db.models import CatchUp, JournalEntry
 from app.db.profiles import latest_version
+from app.schema.common import Model
 from app.schema.profile import Profile
 from app.telegram.api import BotCall, send
 from app.telegram.follow_up import stop_waiting
-from app.telegram.processing import chat_of
+from app.telegram.processing import chat_of, entry_text
 from app.telegram.updates import CallbackQuery
 
 SKIP_QUESTION = "+catchup-skip"
@@ -71,7 +75,16 @@ NO_ANSWERS = (
 )
 NOT_WAITING = "This question doesn't wait for an answer any more."
 
-_turns = TypeAdapter(list[Turn])
+
+class Asked(Model):
+    """One question in the interview, as kept: the question, and the journal entry of the
+    owner's answer, or None when they skipped it."""
+
+    question: str
+    entry_id: uuid.UUID | None = None
+
+
+_turns = TypeAdapter(list[Asked])
 
 
 @dataclass(frozen=True)
@@ -89,6 +102,8 @@ class Plan:
     """What the job reads to write an interview's next question."""
 
     turns: tuple[Turn, ...]
+    """The questions so far, with the answers' current text from the journal. An answer whose
+    entry was deleted reads as skipped."""
     profile: Profile | None
     question: str | None
     """A question written earlier but not asked yet, such as one the bot couldn't send: it's
@@ -107,7 +122,7 @@ class Question:
     """Whether it's a question, whose message ID is to be kept."""
 
 
-def turns_of(interview: CatchUp) -> list[Turn]:
+def turns_of(interview: CatchUp) -> list[Asked]:
     return _turns.validate_json(interview.transcript)
 
 
@@ -212,7 +227,7 @@ async def answer(
     session.add(entry)
     await session.flush()
     calls = _without_buttons(chat_id, interview)
-    _next(interview, Turn(question=question, answer=body))
+    _next(interview, Asked(question=question, entry_id=entry.id))
     return entry.id, CatchUpAnswer(calls, ready=entry.id, catch_up=interview.id)
 
 
@@ -220,7 +235,7 @@ def skip(interview: CatchUp, chat_id: int) -> CatchUpAnswer:
     """Answer `/skip`: move on to the next question."""
     calls = (send(chat_id, SKIPPED), *_without_buttons(chat_id, interview))
     assert interview.question is not None, "an interview that asks has a question"
-    _next(interview, Turn(question=interview.question))
+    _next(interview, Asked(question=interview.question))
     return CatchUpAnswer(calls, catch_up=interview.id)
 
 
@@ -255,11 +270,15 @@ async def plan(session: AsyncSession, catch_up_id: uuid.UUID) -> Plan | None:
     if await chat_of(session, interview.user_id) is None:
         interview.status = "paused"
         return None
+    turns: list[Turn] = []
+    for asked in turns_of(interview):
+        answer = None if asked.entry_id is None else await entry_text(session, asked.entry_id)
+        turns.append(Turn(question=asked.question, answer=answer or None))
     profile = None
     if interview.question is None:
         version = await latest_version(session, interview.user_id)
         profile = version.profile if version is not None else None
-    return Plan(tuple(turns_of(interview)), profile, interview.question)
+    return Plan(tuple(turns), profile, interview.question)
 
 
 async def store(
@@ -271,9 +290,9 @@ async def store(
     now: datetime,
 ) -> Question | None:
     """Keep the question written from `planned` before the bot sends it, so that a retry sends
-    the same one, or finish the interview as of `now` when there's no question. Returns the
-    message to send. None when the interview moved on while the question was written, such as a
-    pause, and there's nothing to send."""
+    the same one. Returns the message to send: the question, or, when there's none, the
+    interview's end, which `finish` records once it's sent. None when the interview moved on
+    while the question was written, such as a pause, and there's nothing to send."""
     interview = await _thinking(session, catch_up_id)
     if interview is None or len(turns_of(interview)) != len(planned.turns):
         return None
@@ -282,8 +301,7 @@ async def store(
         interview.status = "paused"
         return None
     if question is None:
-        interview.status, interview.finished_at = "finished", now
-        answered = any(turn.answer is not None for turn in planned.turns)
+        answered = any(asked.entry_id is not None for asked in turns_of(interview))
         return Question(chat_id, FINISHED if answered else NO_ANSWERS, {}, waits=False)
     interview.question = question
     return Question(chat_id, question, {"reply_markup": KEYBOARD}, waits=True)
@@ -296,18 +314,34 @@ async def record_question(
     message_id: int | None,
     *,
     now: datetime,
-) -> None:
+) -> bool:
     """Mark the interview asking as of `now`, just after the bot sent `question`, and keep the
     message's ID, so that its buttons answer for the interview. Only a message sent from then on
     answers it. When the bot couldn't send it, the interview pauses, to ask again on `/catchup`.
-    An interview that moved on meanwhile is left as it is."""
+    An interview that moved on meanwhile, such as one paused while the question was sent, is
+    left as it is. Returns whether the question waits for an answer: when it doesn't, the caller
+    removes its buttons."""
     interview = await _thinking(session, catch_up_id)
     if interview is None or interview.question != question:
-        return
+        return False
     if message_id is None:
         interview.status = "paused"
-        return
+        return False
     interview.status, interview.question_id, interview.asked_at = "asking", message_id, now
+    return True
+
+
+async def finish(
+    session: AsyncSession, catch_up_id: uuid.UUID, planned: Plan, *, now: datetime
+) -> None:
+    """Mark the interview finished as of `now`, once the bot sent its last message. If that
+    message couldn't be sent, the interview is still writing it, and a retry sends it again. An
+    interview that moved on meanwhile is left as it is."""
+    interview = await _thinking(session, catch_up_id)
+    if interview is None or interview.question is not None:
+        return
+    if len(turns_of(interview)) == len(planned.turns):
+        interview.status, interview.finished_at = "finished", now
 
 
 async def fail(session: AsyncSession, catch_up_id: uuid.UUID) -> uuid.UUID | None:
@@ -333,7 +367,7 @@ async def _thinking(session: AsyncSession, catch_up_id: uuid.UUID) -> CatchUp | 
     return interview if interview is not None and interview.status == "thinking" else None
 
 
-def _next(interview: CatchUp, turn: Turn) -> None:
+def _next(interview: CatchUp, turn: Asked) -> None:
     """Record the turn, and have the job write the next question."""
     interview.transcript = _turns.dump_json([*turns_of(interview), turn]).decode()
     interview.question, interview.question_id, interview.asked_at = None, None, None

@@ -50,7 +50,7 @@ from app.render.fit import FitError
 from app.render.resume import RenderError
 from app.synthesis import Synthesis, synthesize
 from app.telegram import catch_up
-from app.telegram.api import BotApi, TelegramError
+from app.telegram.api import BotApi, BotCall, TelegramError
 from app.telegram.entries import close_quiet_entries
 from app.telegram.follow_up import follow_up, record_follow_up
 from app.telegram.journal import purge_updates
@@ -283,9 +283,11 @@ async def run_catch_up(
     """Write the interview's next question (`app/telegram/catch_up.py`) with no transaction
     open, so that the owner's messages don't wait for the model, and keep it. Then send it, and
     mark it asked. A question kept but not sent, such as when Telegram failed, is sent again on
-    the retry without writing a new one. Missing model settings won't change on a retry, so they
-    fail at once; anything else is retried, and fails when `last_attempt` says this was the last
-    try. A failed call to the model gives way to a fixed question (`app/catch_up.py`)."""
+    the retry without writing a new one, and so is the interview's last message, after which it
+    finishes. A question that no longer waits once it's sent, such as one the owner paused
+    while it was on its way, loses its buttons. Missing model settings won't change on a retry,
+    so they fail at once; anything else is retried, and fails when `last_attempt` says this was
+    the last try. A failed call to the model gives way to a fixed question (`app/catch_up.py`)."""
     async with database() as session:
         user_id = await session.scalar(select(CatchUp.user_id).where(CatchUp.id == catch_up_id))
     if user_id is None:
@@ -309,11 +311,15 @@ async def run_catch_up(
         if message is None:
             return
         message_id = await _send(message.chat_id, message.text, **message.options)
-        if message.waits:
-            async with database() as session:
-                await catch_up.record_question(
-                    session, catch_up_id, message.text, message_id, now=datetime.now(UTC)
-                )
+        async with database() as session:
+            if not message.waits:
+                await catch_up.finish(session, catch_up_id, planned, now=datetime.now(UTC))
+                return
+            waits = await catch_up.record_question(
+                session, catch_up_id, message.text, message_id, now=datetime.now(UTC)
+            )
+        if not waits and message_id is not None:
+            await _remove_buttons(message.chat_id, message_id)
     except LLMConfigError as error:
         await _catch_up_failed(catch_up_id, error)
     except Exception as error:
@@ -518,6 +524,19 @@ async def _send(chat_id: int, text: str, **options: Any) -> int | None:
         return None
     async with _telegram_http() as http:
         return await BotApi(token, http).send_message(chat_id, text, **options)
+
+
+async def _remove_buttons(chat_id: int, message_id: int) -> None:
+    """Remove the buttons under one of the bot's messages. A failure is only logged."""
+    token = get_settings().telegram_bot_token
+    if token is None:
+        return
+    call = BotCall("editMessageReplyMarkup", {"chat_id": chat_id, "message_id": message_id})
+    async with _telegram_http() as http:
+        try:
+            await BotApi(token, http).make(call)
+        except TelegramError:
+            logger.warning("couldn't remove the buttons under message %s", message_id)
 
 
 def _llm_client(log: CallLog) -> LLMClient:
