@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse
 from pydantic import SecretStr, ValidationError
 
 from app.deps import AppSettings, Db
+from app.reminders import default_schedule
 from app.telegram.api import BotApi, BotCall, TelegramError
 from app.telegram.journal import handle_update
 from app.tick import extract_now, refresh_now
@@ -43,7 +44,11 @@ async def webhook(
     timeout = timedelta(minutes=settings.entry_timeout_minutes)
     try:
         handled = await handle_update(
-            db, (await request.body()).decode(), entry_timeout=timeout, app_url=settings.app_url
+            db,
+            (await request.body()).decode(),
+            entry_timeout=timeout,
+            app_url=settings.app_url,
+            reminders=default_schedule(settings),
         )
     except (UnicodeDecodeError, ValidationError):
         logger.warning("Telegram sent an update the bot can't read; it was skipped")

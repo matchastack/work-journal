@@ -6,16 +6,18 @@ become journal messages, grouped into entries (`app/telegram/entries.py`). `/sta
 a link to the bot links a chat (`app/telegram/linking.py`); any other unlinked chat is told how
 to link itself. Commands aren't journaled: `/done` closes the open entry, `/skip` skips the
 follow-up question, `/refresh` proposes profile changes from the facts since the last refresh
-(`app/telegram/refresh.py`), and `/help` lists the commands (FR-CAP-7), as Telegram's command
+(`app/telegram/refresh.py`), `/pause` and `/resume` stop and restart the reminders
+(`app/telegram/reminders.py`), and `/help` lists the commands (FR-CAP-7), as Telegram's command
 menu does (`COMMANDS`). Button presses, and the message that names a new role, answer which
 role an entry is about (`app/telegram/roles.py`). A message that answers a closed entry's
 follow-up question joins that entry, and its Skip button skips the question
-(`app/telegram/follow_up.py`). Message text is never logged.
+(`app/telegram/follow_up.py`). A reminder's buttons say there's nothing this week or ask for it
+again tomorrow. Message text is never logged.
 """
 
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Self
 
 from sqlalchemy import delete, select
@@ -23,11 +25,14 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import JournalMessage, JournalMessageEdit, TelegramLink, TelegramUpdate
+from app.reminders import DEFAULT_SCHEDULE, Schedule
 from app.telegram.api import BotCall, send
 from app.telegram.entries import DEFAULT_TIMEOUT, close_open_entry, entry_for
 from app.telegram.follow_up import SKIP, answered, awaiting, lapsed, press_skip, skip
 from app.telegram.linking import link_chat, start_token
 from app.telegram.refresh import refresh
+from app.telegram.reminders import BUTTONS as REMINDER_BUTTONS
+from app.telegram.reminders import pause, press_reminder, resume
 from app.telegram.roles import Answer, name_role, naming_entry, press
 from app.telegram.updates import CallbackQuery, Message, Update
 
@@ -42,6 +47,8 @@ COMMANDS: tuple[tuple[str, str], ...] = (
     ("done", "close the current entry now"),
     ("skip", "skip the question about the last entry"),
     ("refresh", "propose profile changes from your new facts"),
+    ("pause", "stop reminders"),
+    ("resume", "restart reminders"),
     ("help", "list the commands"),
 )
 """The commands `/help` lists and Telegram's command menu shows, without their "/". Later tasks
@@ -82,10 +89,14 @@ async def handle_update(
     *,
     entry_timeout: timedelta = DEFAULT_TIMEOUT,
     app_url: str | None = None,
+    reminders: Schedule = DEFAULT_SCHEDULE,
+    now: datetime | None = None,
 ) -> Handled:
     """Store an update from Telegram, given as the JSON it arrived as, and the journal message in
     it. Returns the calls that answer it, and the entry or refresh whose jobs can run. An update
-    Telegram sent before is ignored. `app_url` is the web app's address, for links to it.
+    Telegram sent before is ignored. `app_url` is the web app's address, for links to it, and
+    `reminders` the schedule of an owner who hasn't chosen theirs. `now`, by default the time
+    the update is handled, is when a button was pressed: a press carries no time of its own.
 
     Raises `pydantic.ValidationError` when the payload isn't an update.
     """
@@ -93,11 +104,12 @@ async def handle_update(
     if not await _store_raw(session, update.update_id, payload):
         return Handled()
     if update.message is not None:
-        return await _new_message(session, update.message, entry_timeout, app_url)
+        return await _new_message(session, update.message, entry_timeout, app_url, reminders)
     if update.edited_message is not None:
         await _edit(session, update.edited_message)
     if update.callback_query is not None:
-        return await _press(session, update.callback_query)
+        pressed_at = datetime.now(UTC) if now is None else now
+        return await _press(session, update.callback_query, pressed_at, reminders)
     return Handled()
 
 
@@ -128,7 +140,11 @@ async def _chat_owner(session: AsyncSession, chat_id: int) -> uuid.UUID | None:
 
 
 async def _new_message(
-    session: AsyncSession, message: Message, entry_timeout: timedelta, app_url: str | None
+    session: AsyncSession,
+    message: Message,
+    entry_timeout: timedelta,
+    app_url: str | None,
+    reminders: Schedule,
 ) -> Handled:
     chat_id = message.chat.id
     if message.chat.type != "private":
@@ -143,7 +159,7 @@ async def _new_message(
         return Handled()
     if body.startswith("/"):
         return await _command(
-            session, owner, chat_id, body, message.sent_at, entry_timeout, app_url
+            session, owner, chat_id, body, message.sent_at, entry_timeout, app_url, reminders
         )
     if (naming := await naming_entry(session, owner)) is not None:
         return Handled.of(name_role(naming, chat_id, body))
@@ -170,8 +186,10 @@ async def _new_message(
     return handled
 
 
-async def _press(session: AsyncSession, query: CallbackQuery) -> Handled:
-    """A button under one of the bot's messages, in a linked private chat."""
+async def _press(
+    session: AsyncSession, query: CallbackQuery, now: datetime, reminders: Schedule
+) -> Handled:
+    """A button under one of the bot's messages, in a linked private chat, pressed at `now`."""
     message = query.message
     owner = None
     if message is not None and message.chat.type == "private":
@@ -180,6 +198,9 @@ async def _press(session: AsyncSession, query: CallbackQuery) -> Handled:
         return Handled((BotCall("answerCallbackQuery", {"callback_query_id": query.id}),))
     if query.data == SKIP:
         return Handled.of(await press_skip(session, owner, query))
+    if query.data in REMINDER_BUTTONS:
+        answer = await press_reminder(session, owner, query, now=now, defaults=reminders)
+        return Handled.of(answer)
     return Handled.of(await press(session, owner, query))
 
 
@@ -191,11 +212,12 @@ async def _command(
     sent_at: datetime,
     entry_timeout: timedelta,
     app_url: str | None,
+    reminders: Schedule,
 ) -> Handled:
     """The bot's answer to a command sent at `sent_at`. `/done` closes the open entry as of then,
-    `/skip` skips the follow-up question that waits for an answer, and `/refresh` starts a
-    refresh. `/start` and `/help` get the list of commands, and so does an unknown command, with
-    a note that it wasn't journaled."""
+    `/skip` skips the follow-up question that waits for an answer, `/refresh` starts a refresh,
+    and `/pause` and `/resume` stop and restart the reminders. `/start` and `/help` get the list
+    of commands, and so does an unknown command, with a note that it wasn't journaled."""
     command = body.split(maxsplit=1)[0].split("@", 1)[0].lower()
     if command == "/done":
         closed = await close_open_entry(session, owner, sent_at)
@@ -205,6 +227,10 @@ async def _command(
     if command == "/refresh":
         answer = await refresh(session, owner, chat_id, app_url=app_url)
         return Handled(answer.calls, refresh=answer.refresh)
+    if command == "/pause":
+        return Handled.of(await pause(session, owner, chat_id))
+    if command == "/resume":
+        return Handled.of(await resume(session, owner, chat_id, defaults=reminders))
     if command in ("/start", "/help"):
         return Handled((send(chat_id, help_text(entry_timeout)),))
     return Handled((send(chat_id, f"{UNKNOWN}\n\n{help_text(entry_timeout)}"),))

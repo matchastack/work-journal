@@ -1,6 +1,7 @@
-"""The owner's reminders in Telegram, against the test database (FR-REM-1, FR-REM-2): the
-`send_reminders` job. Every run is given its time, so the clock is frozen. When reminders are due
-is tested in `test_reminders.py`.
+"""The owner's reminders in Telegram, against the test database (FR-REM-1, FR-REM-2, FR-REM-3):
+the `send_reminders` job, the reminder's buttons, and `/pause` and `/resume`. Every run and press
+is given its time, so the clock is frozen. When reminders are due is tested in
+`test_reminders.py`.
 
 The test database is shared by the whole session, and other tests leave linked chats in it, which
 the job sends reminders to as well; each test looks only at its own chat."""
@@ -9,28 +10,49 @@ import json
 import random
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
-from datetime import UTC, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
 
 import httpx2
 import pytest
-from sqlalchemy import delete
+from sqlalchemy import delete, func, select
 
 import app.jobs as job_module
 from app.config import get_settings
 from app.db.crypto import KeyRing, new_key, use_key_ring
 from app.db.models import JournalMessage, TelegramLink, User
-from app.db.settings import get_reminder_state, save_reminder_settings, save_reminder_state
+from app.db.settings import (
+    get_reminder_settings,
+    get_reminder_state,
+    save_reminder_settings,
+    save_reminder_state,
+)
 from app.jobs import database, send_reminders
+from app.reminders import DEFAULT_SCHEDULE, Schedule
 from app.schema.settings import ReminderSettings, ReminderState
-from app.telegram.reminders import KEYBOARD, REMINDER
+from app.telegram.api import BotCall, send
+from app.telegram.journal import Handled, handle_update
+from app.telegram.reminders import (
+    ALREADY_PAUSED,
+    KEYBOARD,
+    NOTED,
+    NOTHING_THIS_WEEK,
+    PASSED,
+    PAUSED,
+    REMIND_TOMORROW,
+    REMINDER,
+)
 
 pytestmark = pytest.mark.anyio
 
 FRIDAY = datetime(2026, 10, 16, 10, 0, tzinfo=UTC)
 """Friday 16 October 2026 at 18:00 in Singapore, when the default reminder is due."""
+SATURDAY = FRIDAY + timedelta(days=1)
+PRESSED = FRIDAY + timedelta(minutes=30)
+"""When the owner presses a button under Friday's reminder."""
 FIRST_ID = 701
 """The ID of the first message the bot sends to a chat (`Telegram`)."""
+QUERY_ID = "4382bfdwdsb323b2d9"
 NOTE = "Paired with the new hire on the billing service."
 _random = random.SystemRandom()
 
@@ -144,6 +166,73 @@ async def state_of(user_id: uuid.UUID) -> ReminderState:
         return await get_reminder_state(session, user_id)
 
 
+async def setting_of(user_id: uuid.UUID) -> ReminderSettings:
+    async with database() as session:
+        return await get_reminder_settings(session, user_id)
+
+
+async def handle(
+    payload: str, *, now: datetime = PRESSED, reminders: Schedule = DEFAULT_SCHEDULE
+) -> Handled:
+    """Handle an update as the webhook does, committed."""
+    async with database() as session:
+        return await handle_update(session, payload, now=now, reminders=reminders)
+
+
+def press(chat_id: int, data: str, *, message_id: int = FIRST_ID) -> str:
+    """An update for a press of the button carrying `data`, under message `message_id`."""
+    return json.dumps(
+        {
+            "update_id": _random.randrange(10**9, 10**12),
+            "callback_query": {
+                "id": QUERY_ID,
+                "from": {"id": chat_id, "is_bot": False, "first_name": "Casey"},
+                "chat_instance": "-1234",
+                "message": {
+                    "message_id": message_id,
+                    "from": {"id": 99, "is_bot": True, "first_name": "Journal"},
+                    "chat": {"id": chat_id, "type": "private"},
+                    "date": int(FRIDAY.timestamp()),
+                    "text": REMINDER,
+                },
+                "data": data,
+            },
+        }
+    )
+
+
+def command(chat_id: int, text: str) -> str:
+    return json.dumps(
+        {
+            "update_id": _random.randrange(10**9, 10**12),
+            "message": {
+                "message_id": _random.randrange(1, 10**6),
+                "from": {"id": chat_id, "is_bot": False, "first_name": "Casey"},
+                "chat": {"id": chat_id, "type": "private"},
+                "date": int(PRESSED.timestamp()),
+                "text": text,
+            },
+        }
+    )
+
+
+def answered(notice: str | None = None) -> BotCall:
+    params: dict[str, Any] = {"callback_query_id": QUERY_ID}
+    if notice is not None:
+        params["text"] = notice
+    return BotCall("answerCallbackQuery", params)
+
+
+def without_buttons(chat_id: int, message_id: int = FIRST_ID) -> BotCall:
+    return BotCall("editMessageReplyMarkup", {"chat_id": chat_id, "message_id": message_id})
+
+
+async def journaled(chat_id: int) -> int:
+    async with database() as session:
+        count = select(func.count()).where(JournalMessage.chat_id == chat_id)
+        return await session.scalar(count) or 0
+
+
 def reminder(chat_id: int) -> dict[str, Any]:
     """The reminder, as the bot sends it."""
     return {"chat_id": chat_id, "text": REMINDER, "reply_markup": KEYBOARD}
@@ -240,3 +329,109 @@ async def test_a_reminder_too_late_is_skipped(
     await sweep(FRIDAY + timedelta(hours=9))
     assert telegram.to(chat_id) == []
     assert await state_of(user_id) == ReminderState(last_slot=FRIDAY)
+
+
+# --- The reminder's buttons (FR-REM-3) -----------------------------------------------------------
+
+
+async def test_nothing_this_week_is_logged_and_skips_the_rest_of_the_week(
+    owner: Owner, chat_id: int, telegram: Telegram
+) -> None:
+    """Logged as the week's Monday in the owner's time zone. With reminders on Fridays and
+    Saturdays, Saturday's is skipped, and the next Friday's goes out."""
+    user_id = await owner(reminders=ReminderSettings(days=("fri", "sat")))
+    await sweep(FRIDAY)
+    handled = await handle(press(chat_id, NOTHING_THIS_WEEK))
+    assert handled == Handled((answered(), without_buttons(chat_id), send(chat_id, NOTED)))
+    monday = date(2026, 10, 12)
+    assert await state_of(user_id) == ReminderState(last_slot=FRIDAY, nothing_weeks=(monday,))
+
+    await sweep(SATURDAY)
+    assert telegram.to(chat_id) == [reminder(chat_id)]
+    next_friday = FRIDAY + timedelta(days=7)
+    await sweep(next_friday)
+    assert telegram.to(chat_id) == [reminder(chat_id)] * 2
+    assert await state_of(user_id) == ReminderState(
+        last_slot=next_friday, message_id=FIRST_ID + 1, nothing_weeks=(monday,)
+    )
+
+
+async def test_remind_me_tomorrow_brings_the_reminder_back_the_next_evening(
+    owner: Owner, chat_id: int, telegram: Telegram
+) -> None:
+    """At the schedule's time, when the daily tick comes on Vercel."""
+    user_id = await owner()
+    await sweep(FRIDAY)
+    handled = await handle(press(chat_id, REMIND_TOMORROW))
+    snoozed = send(chat_id, "OK, I'll remind you tomorrow at 18:00.")
+    assert handled == Handled((answered(), without_buttons(chat_id), snoozed))
+    assert await state_of(user_id) == ReminderState(last_slot=FRIDAY, snoozed_until=SATURDAY)
+
+    await sweep(SATURDAY - timedelta(minutes=1))
+    assert telegram.to(chat_id) == [reminder(chat_id)]
+    await sweep(SATURDAY)
+    assert telegram.to(chat_id) == [reminder(chat_id)] * 2
+    assert await state_of(user_id) == ReminderState(last_slot=SATURDAY, message_id=FIRST_ID + 1)
+
+
+@pytest.mark.parametrize(
+    ("message_id", "newest"),
+    [
+        pytest.param(FIRST_ID, FIRST_ID + 1, id="an older reminder"),
+        pytest.param(FIRST_ID, None, id="a reminder already answered"),
+    ],
+)
+@pytest.mark.parametrize("data", [NOTHING_THIS_WEEK, REMIND_TOMORROW])
+async def test_only_the_newest_reminders_buttons_work(
+    owner: Owner, chat_id: int, message_id: int, newest: int | None, data: str
+) -> None:
+    state = ReminderState(last_slot=FRIDAY, message_id=newest)
+    user_id = await owner(state=state)
+    handled = await handle(press(chat_id, data, message_id=message_id))
+    assert handled == Handled((answered(PASSED),))
+    assert await state_of(user_id) == state
+
+
+# --- /pause and /resume (FR-REM-3, FR-SET-2) -----------------------------------------------------
+
+
+async def test_pause_stops_reminders_and_resume_restarts_them(
+    owner: Owner, chat_id: int, telegram: Telegram
+) -> None:
+    """Neither command is journaled. A reminder whose time passed while paused isn't sent late,
+    and the pause leaves the schedule following the defaults."""
+    user_id = await owner()
+    assert await handle(command(chat_id, "/pause")) == Handled((send(chat_id, PAUSED),))
+    assert await setting_of(user_id) == ReminderSettings(paused=True)
+    assert await handle(command(chat_id, "/pause")) == Handled((send(chat_id, ALREADY_PAUSED),))
+    await sweep(FRIDAY)
+    assert telegram.to(chat_id) == []
+
+    resumed = "Reminders are back on: Fridays at 18:00 (Asia/Singapore)."
+    assert await handle(command(chat_id, "/resume")) == Handled((send(chat_id, resumed),))
+    assert await setting_of(user_id) == ReminderSettings()
+    already = "Reminders are already on: Fridays at 18:00 (Asia/Singapore)."
+    assert await handle(command(chat_id, "/RESUME")) == Handled((send(chat_id, already),))
+    await sweep(FRIDAY + timedelta(minutes=30))
+    assert telegram.to(chat_id) == []
+    await sweep(FRIDAY + timedelta(days=7))
+    assert telegram.to(chat_id) == [reminder(chat_id)]
+    assert await journaled(chat_id) == 0
+
+
+async def test_resume_says_when_the_owners_reminders_go_out(owner: Owner, chat_id: int) -> None:
+    """The owner's own choices, and the defaults for the rest."""
+    await owner(reminders=ReminderSettings(time=time(7, 30), paused=True))
+    defaults = Schedule(("mon", "thu"), time(18, 0), "Europe/London")
+    handled = await handle(command(chat_id, "/resume"), reminders=defaults)
+    resumed = "Reminders are back on: Mondays and Thursdays at 07:30 (Europe/London)."
+    assert handled == Handled((send(chat_id, resumed),))
+
+
+async def test_help_lists_pause_and_resume(owner: Owner, chat_id: int) -> None:
+    """FR-CAP-7, and Telegram's command menu."""
+    await owner()
+    [call] = (await handle(command(chat_id, "/help"))).calls
+    listed = [line.split(" - ")[0] for line in call.params["text"].splitlines() if line[:1] == "/"]
+    assert listed == ["/done", "/skip", "/refresh", "/pause", "/resume", "/help"]
+    assert "/pause - stop reminders\n/resume - restart reminders" in call.params["text"]
