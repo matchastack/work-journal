@@ -2,6 +2,15 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-16 · T-064 Refreshes of months of facts within the time limit · [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+**Changed:** a refresh writes and checks its bullets 10 at a time instead of one by one, so a refresh of about 100 facts finishes within the 300 s Vercel gives it; `REFRESH_CONCURRENCY` sets how many.
+
+**Verify:**
+- CI is green on the PR
+- `uv run wj propose --db` with many new facts proposes the same kind of changes as before, much faster
+- After `/refresh` with a few dozen new facts, the bot says how many updates are proposed, not that the refresh didn't finish, and the Inbox lists them with their verifier reports
+- If the API answers 429 during a refresh, a lower `REFRESH_CONCURRENCY` in Vercel's environment variables stops it
+
 ## 2026-10-16 · T-022 ATS check · [#50](https://github.com/matchastack/work-journal/pull/50)
 **Changed:** `wj tailor` now reads the PDF's text back the way an applicant tracking system does, and says whether it has every covered term and the section headings in order, or what it lacks (a term split by a hyphen at a line end, a missing heading, ligatures or garbled characters). The result is kept with the application.
 
