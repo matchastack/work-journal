@@ -2,7 +2,7 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-17 · User guide
+## 2026-10-17 · User guide · [#54](https://github.com/matchastack/work-journal/pull/54)
 **Changed:** added `user-guide.md`, which explains how to use the Telegram bot, the web app and the command-line tool, and marks the pages still to come. `CLAUDE.md`, the PR template and `tasks.md` now require a PR that creates or changes a feature to update it.
 
 **Verify:**
