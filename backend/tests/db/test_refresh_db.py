@@ -23,7 +23,13 @@ import app.jobs as job_module
 from app.config import Settings, get_settings
 from app.db.crypto import KeyRing, new_key, use_key_ring
 from app.db.models import FactRow, LlmCallRow, Refresh, TelegramLink, User
-from app.db.profiles import decide_op, list_change_sets, propose_change_set, save_version
+from app.db.profiles import (
+    decide_op,
+    latest_version,
+    list_change_sets,
+    propose_change_set,
+    save_version,
+)
 from app.db.store import (
     get_artifact,
     list_applications,
@@ -56,8 +62,8 @@ from app.refresh import (
     record_proposals,
     start_refresh,
 )
-from app.schema.changes import AddSkill, ChangeSet, ReviewedOp
-from app.schema.fact import Fact
+from app.schema.changes import AddSkill, ChangeSet, EditBullet, ResolveOpenQuestion, ReviewedOp
+from app.schema.fact import Fact, Metric, SingleValue
 from app.schema.jobs import Application, JobPosting
 from app.schema.profile import Profile, Skill
 from app.synthesis import PlannedBullet, Synthesis, SynthesisPlan, synthesize
@@ -305,6 +311,66 @@ async def test_deciding_the_changes_makes_the_outputs_due(
     await apply_change_set(session, user_id, saved.id, now=NOW)
     row = await refresh_row(session, inputs.refresh_id)
     assert (row.outputs, row.output_version) == ("pending", version)
+
+
+ANSWER = Fact(
+    id="e2_1",
+    statement="The order services handle about 40,000 events a day.",
+    metrics=(
+        Metric(
+            subject="order events a day",
+            value=SingleValue(value=40000),
+            unit="events",
+            qualifier="approximately",
+        ),
+    ),
+    date="2026-10",
+    role_id="northwind",
+    question_id="q_nw_volume",
+    entry_id="e2",
+)
+"""A fact from an answer to the fixture profile's open question (FR-EXT-4)."""
+UPGRADED = "Built and maintained Python services that process about 40,000 order events a day."
+
+
+@pytest.mark.parametrize("resolve", ["accepted", "rejected"])
+async def test_an_answers_fact_upgrades_its_bullet_and_answers_the_question_once_accepted(
+    session: AsyncSession, resolve: Any
+) -> None:
+    """FR-EXT-4: the next refresh proposes a new version of the bullet that needs the question,
+    and marks the question answered. The question is answered only when the owner accepts that
+    change; rejected, it stays open, whatever happens to the bullet."""
+    user_id = await new_user(session, ANSWER)
+    inputs = await started(session, user_id)
+    edit = PlannedBullet(
+        under="northwind", edit="nw_orders", fact_ids=(ANSWER.id,), strength="high"
+    )
+    judged = JudgedClaim(claim="40,000 order events", reason="As stated.", verdict="supported")
+    synthesis = synthesized(
+        inputs,
+        reply(SynthesisPlan(bullets=(edit,))),
+        reply(WrittenBullet(text=UPGRADED)),
+        reply(ClaimReply(claims=(judged,))),
+    )
+    await record_proposals(session, inputs, synthesis, now=NOW)
+    [saved] = await list_change_sets(session, user_id)
+    assert [reviewed.op for reviewed in saved.change_set.ops] == [
+        EditBullet(bullet_id="nw_orders", text=UPGRADED, fact_ids=(ANSWER.id,)),
+        ResolveOpenQuestion(question_id="q_nw_volume", fact_ids=(ANSWER.id,)),
+    ]
+
+    await decide_op(session, user_id, saved.id, 0, "accepted")
+    await decide_op(session, user_id, saved.id, 1, resolve)
+    assert await apply_change_set(session, user_id, saved.id, now=NOW) == 2
+    latest = await latest_version(session, user_id)
+    assert latest is not None
+    [bullet] = latest.profile.bullets_blocked_by("q_nw_volume")
+    assert (bullet.id, bullet.text) == ("nw_orders", UPGRADED)
+    [question] = [item for item in latest.profile.open_questions if item.id == "q_nw_volume"]
+    if resolve == "accepted":
+        assert (question.status, question.answer_fact_ids) == ("answered", (ANSWER.id,))
+    else:
+        assert (question.status, question.answer_fact_ids) == ("open", ())
 
 
 async def test_a_change_set_no_refresh_proposed_doesnt_touch_the_outputs(
