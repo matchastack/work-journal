@@ -598,6 +598,43 @@ async def test_only_an_interview_writing_its_question_asks(
 # --- Answers' entries -----------------------------------------------------------------------------
 
 
+async def test_a_follow_up_question_written_as_the_interview_starts_isnt_asked(
+    session: AsyncSession, chat_id: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`/catchup` came in while the model wrote the question, after the first check."""
+    user_id, _ = await asking_interview(session, chat_id)
+    entry = JournalEntry(
+        user_id=user_id,
+        opened_at=SENT - timedelta(minutes=3),
+        last_message_at=SENT - timedelta(minutes=2),
+        closed_at=SENT - timedelta(minutes=1),
+        closed_by="done",
+    )
+    session.add(entry)
+    await session.flush()
+    session.add(
+        JournalMessage(
+            user_id=user_id,
+            chat_id=chat_id,
+            message_id=1,
+            entry_id=entry.id,
+            sender="owner",
+            text="sped up the search page a lot",
+            sent_at=SENT - timedelta(minutes=2),
+        )
+    )
+    await session.flush()
+
+    async def not_busy(*args: object) -> bool:
+        return False
+
+    monkeypatch.setattr("app.telegram.follow_up._busy", not_busy)
+    client, _ = llm(reply(FollowUpReply(missing="metrics", question="How much faster?")))
+    assert await follow_up(session, entry.id, client, now=SENT, timeout=TIMEOUT) is None
+    await session.refresh(entry)
+    assert not entry.awaiting_follow_up
+
+
 async def test_no_follow_up_question_while_the_interview_runs(
     session: AsyncSession, chat_id: int
 ) -> None:

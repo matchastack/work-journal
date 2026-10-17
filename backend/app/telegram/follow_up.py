@@ -97,7 +97,8 @@ async def follow_up(
         reason = type(error).__name__
         logger.info("no follow-up question for journal entry %s: %s", entry_id, reason)
         return None
-    if question is None:
+    if question is None or await _interviewing(session, entry.user_id):
+        # Checked again after the model's answer: `/catchup` may have come in meanwhile.
         return None
     entry.awaiting_follow_up = True
     options = {"reply_markup": SKIP_KEYBOARD, **await reply_to_entry(session, entry_id, chat_id)}
@@ -206,11 +207,16 @@ async def _busy(
             JournalEntry.failed_at.is_(None),
         ),
     )
-    interviewing = exists().where(
-        CatchUp.user_id == entry.user_id, CatchUp.status.in_(("thinking", "asking"))
-    )
-    entries = exists().where(*others, waiting)
-    return bool(await session.scalar(select(or_(entries, interviewing))))
+    if await session.scalar(select(exists().where(*others, waiting))):
+        return True
+    return await _interviewing(session, entry.user_id)
+
+
+async def _interviewing(session: AsyncSession, user_id: uuid.UUID) -> bool:
+    """Whether the user's catch-up interview is under way: writing a question or waiting for an
+    answer (`app/telegram/catch_up.py`)."""
+    running = CatchUp.user_id == user_id, CatchUp.status.in_(("thinking", "asking"))
+    return bool(await session.scalar(select(exists().where(*running))))
 
 
 def _answer(query: CallbackQuery, text: str | None = None) -> BotCall:
