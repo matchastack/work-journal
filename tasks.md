@@ -591,14 +591,16 @@ As the owner, I want a gentle reminder on my schedule, so that journaling become
 **Built (2026-10-16):** a reminder goes out at the first tick at or after its time, once, up to 4 hours late and never after local midnight; otherwise it's skipped. Only the latest one is considered, so a pause or a stopped worker never sends a burst of old reminders. Vercel's daily tick moves to 10:00 UTC, 18:00 in Singapore, so it sends the default reminder; with another reminder time, the owner moves the cron hour too. Each user's days, time and time zone are stored in the `settings` table, with defaults from `REMINDER_DAYS`, `REMINDER_TIME` and `REMINDER_TIME_ZONE`; T-048's page will edit them. "Nothing this week" is logged in the bot's reminder record as the Monday of the reminder's week, even when pressed after the weekend, and skips the rest of that week. The reminder's text is fixed, with no model call.
 
 ### T-036 · Open-question prompts
-**Status:** ☐ · **Size:** S · **Depends on:** T-035, T-027 · **Requirements:** FR-REM-5, FR-EXT-4, FR-PRF-10 · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-035, T-027 · **Requirements:** FR-REM-5, FR-EXT-4, FR-PRF-10 · **PR:** [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
 
 As the owner, I want the bot to ask me the open questions from my master resume, one at a time, so that my weaker bullets get the details they need.
 
-- [ ] A reminder can include one open question, most valuable first. Value is the strength of the bullets the question blocks.
-- [ ] The answer is stored as a fact linked to the question.
-- [ ] The next refresh proposes the upgraded bullet, and the question is marked answered when the owner accepts.
-- [ ] Tests.
+- [x] A reminder can include one open question, most valuable first. Value is the strength of the bullets the question blocks.
+- [x] The answer is stored as a fact linked to the question.
+- [x] The next refresh proposes the upgraded bullet, and the question is marked answered when the owner accepts.
+- [x] Tests.
+
+**Built (2026-10-17):** a question's value adds up the strengths of the bullets that need it (high 3, medium 2, low 1), leaving out benched ones; each reminder asks the most valuable open question not yet asked in this round, and starts a new round once each has been asked, so an unanswered question doesn't come back every week. The journal holds an answer while an answer waits to be processed or once it gave a fact; an answer that gave none lets the question come back. A reminder that asks one has an "Answer the question" button, and the owner's next message within the entry timeout is the answer: an entry of its own, closed at once and linked to the question (migration 0015), with the role of the question's bullets when one role holds them all, or else the usual role question. Triage and extraction read the answer alone, as any note, so the question is never evidence; code links every fact to the question. Synthesis's existing "Answer an open question" change marks it answered when the owner accepts it, beside the new version of the bullet. No prompt or routing changed.
 
 ### T-037 · Catch-up interview
 **Status:** ☐ · **Size:** M · **Depends on:** T-033 · **Requirements:** FR-REM-4 · **PR:** —
