@@ -1,6 +1,7 @@
 """The fake Claude client: scripted replies in order, or replies by request from several threads."""
 
 import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -54,9 +55,22 @@ def test_scripted_replies_answer_in_order() -> None:
     assert len(fake.requests) == 3
 
 
+class PausingList[T](list[T]):
+    """A list that pauses after each append, as a thread may be switched out there."""
+
+    def append(self, item: T) -> None:
+        super().append(item)
+        time.sleep(0.001)
+
+
 def test_requests_from_several_threads_each_get_one_reply() -> None:
     count = 20
-    fake = FakeMessages(*(reply(Triage(work_related=True)) for _ in range(count)))
+    fake = FakeMessages(
+        *(reply(Triage(work_related=True, topics=(f"topic {n}",))) for n in range(count))
+    )
+    # Other requests arrive in the pause, so one that counted the requests without the fake's
+    # lock would take another's ID.
+    fake.requests = PausingList[dict[str, Any]]()
     llm, log = client(fake)
     start = threading.Barrier(count, timeout=5)
     results: list[Triage] = []
@@ -70,7 +84,9 @@ def test_requests_from_several_threads_each_get_one_reply() -> None:
         thread.start()
     for thread in threads:
         thread.join()
-    assert results == [Triage(work_related=True)] * count
+    assert sorted(topic for result in results for topic in result.topics) == sorted(
+        f"topic {n}" for n in range(count)
+    )
     assert (len(fake.requests), fake.replies) == (count, [])
     assert sorted(call.request_id or "" for call in log.calls) == sorted(
         f"req_fake_{number}" for number in range(1, count + 1)
