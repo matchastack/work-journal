@@ -1,9 +1,13 @@
-"""The owner's reminders in Telegram (FR-REM-1, FR-REM-2, FR-REM-3).
+"""The owner's reminders in Telegram (FR-REM-1, FR-REM-2, FR-REM-3, FR-REM-5).
 
 The `send_reminders` job (`app/jobs.py`) runs every minute under `wj worker` and on every tick.
 For each linked owner, `reminder_due` decides with `app/reminders.py` whether their reminder is
 due: it returns the reminder to send, or records a skipped one, and `record_sent` records one
-sent. The reminder's text is fixed, so no model writes it. Its buttons (FR-REM-3):
+sent. The reminder's text is fixed, so no model writes it. It may end with one open question
+from the owner's latest profile version, as the profile words it: the most valuable one the
+journal holds no answer to and this round hasn't asked (`app/open_questions.py`). The journal
+holds an answer while an answer entry waits to be processed, or once one gave a fact. Its
+buttons (FR-REM-3):
 
 - "Nothing this week" is logged in the reminder record, as the Monday of the reminder's week,
   and skips that week's later reminders. A press after the weekend means the week just ended.
@@ -25,17 +29,20 @@ from datetime import datetime
 from datetime import time as clock_time
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import String, cast, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import JournalMessage, TelegramLink
+from app.db.models import FactRow, JournalEntry, JournalMessage, TelegramLink
+from app.db.profiles import latest_version
 from app.db.settings import (
     get_reminder_settings,
     get_reminder_state,
     save_reminder_settings,
     save_reminder_state,
 )
+from app.open_questions import NextQuestion, next_question
 from app.reminders import Schedule, describe, due, effective, recorded, tomorrow, week_of
+from app.schema.settings import ReminderState
 from app.telegram.api import BotCall, send
 from app.telegram.roles import Answer
 from app.telegram.updates import CallbackQuery
@@ -58,11 +65,18 @@ REMINDER = (
     "A gentle nudge: anything from work lately worth keeping? A few lines are enough, with "
     "numbers if you have them."
 )
+QUESTION_INTRO = "And one question from your master resume, if you know the answer:"
+"""What comes before the open question a reminder asks (FR-REM-5)."""
 NOTED = "Noted: nothing this week. I'll check in next week."
 PASSED = "This reminder has passed."
 PAUSED = "Paused your reminders. Send /resume to restart them."
 ALREADY_PAUSED = "Your reminders are already paused. Send /resume to restart them."
 PAUSED_SNOOZE = "Your reminders are paused. Send /resume to restart them."
+
+
+def reminder_text(question: str | None = None) -> str:
+    """The reminder, with the open question it asks, if it asks one (FR-REM-5)."""
+    return REMINDER if question is None else f"{REMINDER}\n\n{QUESTION_INTRO}\n{question}"
 
 
 def snoozed_text(at: clock_time) -> str:
@@ -89,6 +103,10 @@ class Reminder:
     text: str
     options: dict[str, Any]
     """`sendMessage`'s other parameters: the buttons."""
+    question_id: str | None = None
+    """The open question it asks, if it asks one."""
+    asked: tuple[str, ...] = ()
+    """The questions asked in the round once it's sent, this one last."""
 
 
 async def reminder_due(
@@ -114,18 +132,28 @@ async def reminder_due(
             found.outcome,
         )
         return None
-    text = REMINDER  # T-036 adds an open question here (FR-REM-5).
-    return Reminder(chat_id, found.slot, text, {"reply_markup": KEYBOARD})
+    options = {"reply_markup": KEYBOARD}
+    asking = await _next_question(session, owner, state)
+    if asking is None:
+        return Reminder(chat_id, found.slot, reminder_text(), options)
+    question = asking.question
+    text = reminder_text(question.question)
+    return Reminder(chat_id, found.slot, text, options, question.id, asking.asked)
 
 
 async def record_sent(
     session: AsyncSession, owner: uuid.UUID, reminder: Reminder, message_id: int | None
 ) -> None:
     """Record the reminder as sent, as `message_id`, whose buttons now work instead of any older
-    reminder's. None means the bot couldn't send it: it's dealt with all the same."""
+    reminder's, and the question it asks as asked. None means the bot couldn't send it: it's
+    dealt with all the same, but its question wasn't asked."""
     state = await get_reminder_state(session, owner)
     changed = recorded(state, reminder.slot, message_id=message_id, sent=True)
-    await save_reminder_state(session, owner, changed)
+    question_id = None if message_id is None else reminder.question_id
+    changes: dict[str, object] = {"message_question": question_id}
+    if question_id is not None:
+        changes["asked"] = reminder.asked
+    await save_reminder_state(session, owner, changed.model_copy(update=changes))
 
 
 async def press_reminder(
@@ -192,6 +220,35 @@ async def _lock(session: AsyncSession, owner: uuid.UUID) -> int | None:
     return await session.scalar(
         select(TelegramLink.chat_id).where(TelegramLink.user_id == owner).with_for_update()
     )
+
+
+async def _next_question(
+    session: AsyncSession, owner: uuid.UUID, state: ReminderState
+) -> NextQuestion | None:
+    """The open question the owner's next reminder asks, if any (FR-REM-5)."""
+    version = await latest_version(session, owner)
+    if version is None:
+        return None
+    answered = await _answered(session, owner)
+    return next_question(version.profile, answered=answered, asked=state.asked)
+
+
+async def _answered(session: AsyncSession, owner: uuid.UUID) -> set[str]:
+    """The open questions the owner's journal holds an answer to: an answer entry (FR-EXT-4)
+    that hasn't failed, and either waits to be processed or gave a fact. One that gave none, such
+    as "I don't know", leaves its question open to be asked again."""
+    gave_facts = exists().where(
+        FactRow.user_id == owner, FactRow.entry_id == cast(JournalEntry.id, String)
+    )
+    found = await session.scalars(
+        select(JournalEntry.open_question_id).where(
+            JournalEntry.user_id == owner,
+            JournalEntry.open_question_id.is_not(None),
+            JournalEntry.failed_at.is_(None),
+            or_(JournalEntry.processed_at.is_(None), gave_facts),
+        )
+    )
+    return {question_id for question_id in found if question_id is not None}
 
 
 async def _last_journaled(session: AsyncSession, owner: uuid.UUID) -> datetime | None:

@@ -1,7 +1,8 @@
-"""The owner's reminders in Telegram, against the test database (FR-REM-1, FR-REM-2, FR-REM-3):
-the `send_reminders` job, the reminder's buttons, and `/pause` and `/resume`. Every run and press
-is given its time, so the clock is frozen. When reminders are due is tested in
-`test_reminders.py`.
+"""The owner's reminders in Telegram, against the test database (FR-REM-1, FR-REM-2, FR-REM-3,
+FR-REM-5): the `send_reminders` job, the open question a reminder asks, the reminder's buttons,
+and `/pause` and `/resume`. Every run and press is given its time, so the clock is frozen. When
+reminders are due is tested in `test_reminders.py`, and which question is asked in
+`test_open_questions.py`.
 
 The test database is shared by the whole session, and other tests leave linked chats in it, which
 the job sends reminders to as well; each test looks only at its own chat."""
@@ -22,15 +23,19 @@ from sqlalchemy import delete, func, select
 import app.jobs as job_module
 from app.config import Settings, get_settings
 from app.db.crypto import KeyRing, new_key, use_key_ring
-from app.db.models import JournalMessage, TelegramLink, User
+from app.db.models import JournalEntry, JournalMessage, TelegramLink, User
+from app.db.profiles import save_version
 from app.db.settings import (
     get_reminder_settings,
     get_reminder_state,
     save_reminder_settings,
     save_reminder_state,
 )
+from app.db.store import save_facts
 from app.jobs import database, send_reminders
 from app.reminders import DEFAULT_SCHEDULE, Schedule
+from app.schema.fact import Fact
+from app.schema.profile import Profile
 from app.schema.settings import ReminderSettings, ReminderState
 from app.telegram.api import BotCall, send
 from app.telegram.journal import Handled, handle_update
@@ -44,6 +49,7 @@ from app.telegram.reminders import (
     PAUSED_SNOOZE,
     REMIND_TOMORROW,
     REMINDER,
+    reminder_text,
 )
 
 pytestmark = pytest.mark.anyio
@@ -58,6 +64,31 @@ FIRST_ID = 701
 QUERY_ID = "4382bfdwdsb323b2d9"
 NOTE = "Paired with the new hire on the billing service."
 _random = random.SystemRandom()
+
+
+def with_questions(*questions: dict[str, str], needs: dict[str, str]) -> Profile:
+    """The fixture profile with these open questions, in this order, and each bullet in `needs`
+    needing the question it maps to."""
+    fixture = Path(__file__).parents[1] / "fixtures" / "profile.json"
+    data = json.loads(fixture.read_text(encoding="utf-8"))
+    data["openQuestions"] = list(questions)
+    for item in (*data["work"], *data["education"], *data["projects"]):
+        for bullet in item["highlights"]:
+            bullet["needs"] = [needs[bullet["id"]]] if bullet["id"] in needs else []
+    return Profile.model_validate(data)
+
+
+VOLUME = "How many order events a day do the services handle?"
+LOGS = "How many sensor logs did the tool label?"
+NEEDS = {"ct_sensors": "q_ct_logs", "nw_orders": "q_nw_volume"}
+QUESTIONS = with_questions(
+    {"id": "q_ct_logs", "question": LOGS},
+    {"id": "q_nw_volume", "question": VOLUME},
+    {"id": "q_dates", "question": "When was each project built?", "status": "answered"},
+    needs=NEEDS,
+)
+"""Two open questions: q_ct_logs, which a medium bullet needs, and q_nw_volume, which a high one
+under northwind needs, so that it's worth more; and one already answered."""
 
 
 @pytest.fixture(autouse=True)
@@ -125,8 +156,8 @@ Owner = Callable[..., Awaitable[uuid.UUID]]
 @pytest.fixture
 async def owner(job_settings: None, chat_id: int) -> AsyncIterator[Owner]:
     """Make a user linked to `chat_id`, or to `chat`, committed, as jobs see it: with a journal
-    message sent at `journaled`, and a reminder setting and record, if given. The users made are
-    deleted afterwards, with all their rows."""
+    message sent at `journaled`, a reminder setting and record, and a profile, if given. The users
+    made are deleted afterwards, with all their rows."""
     users: list[uuid.UUID] = []
 
     async def make(
@@ -135,12 +166,15 @@ async def owner(job_settings: None, chat_id: int) -> AsyncIterator[Owner]:
         journaled: datetime | None = None,
         reminders: ReminderSettings | None = None,
         state: ReminderState | None = None,
+        profile: Profile | None = None,
     ) -> uuid.UUID:
         async with database() as session:
             user = User()
             session.add(user)
             await session.flush()
             session.add(TelegramLink(user_id=user.id, chat_id=chat))
+            if profile is not None:
+                await save_version(session, user.id, profile, author="owner")
             if journaled is not None:
                 session.add(
                     JournalMessage(
@@ -243,9 +277,9 @@ async def journaled(chat_id: int) -> int:
         return await session.scalar(count) or 0
 
 
-def reminder(chat_id: int) -> dict[str, Any]:
-    """The reminder, as the bot sends it."""
-    return {"chat_id": chat_id, "text": REMINDER, "reply_markup": KEYBOARD}
+def reminder(chat_id: int, question: str | None = None) -> dict[str, Any]:
+    """The reminder, as the bot sends it, asking `question` if given."""
+    return {"chat_id": chat_id, "text": reminder_text(question), "reply_markup": KEYBOARD}
 
 
 def sent(slot: datetime, message_id: int = FIRST_ID) -> ReminderState:
@@ -385,6 +419,137 @@ async def test_a_job_that_waited_less_still_sends_the_reminder_on_time(
     await owner()
     await sweep(FRIDAY - timedelta(minutes=1), runs_at=FRIDAY + timedelta(minutes=3))
     assert telegram.to(chat_id) == [reminder(chat_id)]
+
+
+# --- The open question it asks (FR-REM-5) --------------------------------------------------------
+
+
+def asking(slot: datetime, *asked: str, message_id: int = FIRST_ID) -> ReminderState:
+    """The record once the reminder for `slot` went out as `message_id`, asking the last of the
+    questions `asked` so far in this round."""
+    changes = {"message_question": asked[-1], "asked": asked}
+    return sent(slot, message_id).model_copy(update=changes)
+
+
+async def answer(user_id: uuid.UUID, question_id: str, outcome: str) -> None:
+    """An answer to the question in the owner's journal (FR-EXT-4), from earlier in the week:
+    one that waits to be processed, one that gave a fact or none, or one that failed."""
+    at = FRIDAY - timedelta(days=5)
+    async with database() as session:
+        entry = JournalEntry(
+            user_id=user_id,
+            opened_at=at,
+            last_message_at=at,
+            closed_at=at,
+            closed_by="done",
+            role_id="northwind",
+            open_question_id=question_id,
+        )
+        if outcome in ("a fact", "no fact"):
+            entry.triage, entry.processed_at = "work", at
+        if outcome == "failed":
+            entry.failed_at = at
+        session.add(entry)
+        await session.flush()
+        if outcome == "a fact":
+            fact = Fact(
+                id="fact_volume",
+                statement="The order services handle about 40,000 events a day.",
+                role_id="northwind",
+                question_id=question_id,
+                entry_id=str(entry.id),
+            )
+            await save_facts(session, user_id, [fact])
+
+
+async def test_a_reminder_asks_the_most_valuable_open_question(
+    owner: Owner, chat_id: int, telegram: Telegram
+) -> None:
+    """q_nw_volume, the second in the profile, is worth more. The record keeps it as asked."""
+    user_id = await owner(profile=QUESTIONS)
+    await sweep(FRIDAY)
+    assert telegram.to(chat_id) == [reminder(chat_id, VOLUME)]
+    assert telegram.to(chat_id)[0]["text"] == (
+        f"{REMINDER}\n\nAnd one question from your master resume, if you know the answer:\n{VOLUME}"
+    )
+    assert await state_of(user_id) == asking(FRIDAY, "q_nw_volume")
+
+
+async def test_each_reminder_asks_the_next_question_then_starts_again(
+    owner: Owner, chat_id: int, telegram: Telegram
+) -> None:
+    """An unanswered question doesn't come back every week: once each has been asked, a new
+    round starts with the most valuable."""
+    user_id = await owner(profile=QUESTIONS)
+    for week in range(3):
+        await sweep(FRIDAY + timedelta(days=7 * week))
+    assert telegram.to(chat_id) == [
+        reminder(chat_id, VOLUME),
+        reminder(chat_id, LOGS),
+        reminder(chat_id, VOLUME),
+    ]
+    third = FRIDAY + timedelta(days=14)
+    assert await state_of(user_id) == asking(third, "q_nw_volume", message_id=FIRST_ID + 2)
+
+
+@pytest.mark.parametrize(
+    ("outcome", "asked"),
+    [
+        pytest.param("waiting", LOGS, id="an answer waiting to be processed"),
+        pytest.param("a fact", LOGS, id="an answer that gave a fact"),
+        pytest.param("no fact", VOLUME, id="an answer that gave no fact"),
+        pytest.param("failed", VOLUME, id="an answer that failed"),
+    ],
+)
+async def test_a_question_the_journal_holds_an_answer_to_isnt_asked(
+    owner: Owner, chat_id: int, telegram: Telegram, outcome: str, asked: str
+) -> None:
+    """An answer that gave no fact, such as "I don't know", or that failed, leaves the question
+    to be asked again."""
+    user_id = await owner(profile=QUESTIONS)
+    await answer(user_id, "q_nw_volume", outcome)
+    await sweep(FRIDAY)
+    assert telegram.to(chat_id) == [reminder(chat_id, asked)]
+
+
+async def test_another_owners_answer_doesnt_count(
+    owner: Owner, chat_id: int, telegram: Telegram
+) -> None:
+    other = await owner(chat=chat_id + 1)
+    await answer(other, "q_nw_volume", "a fact")
+    await owner(profile=QUESTIONS)
+    await sweep(FRIDAY)
+    assert telegram.to(chat_id) == [reminder(chat_id, VOLUME)]
+
+
+async def test_without_an_open_question_the_reminder_asks_none(
+    owner: Owner, chat_id: int, telegram: Telegram
+) -> None:
+    """Answered and closed questions aren't asked, nor is one the journal holds an answer to."""
+    done = with_questions(
+        {"id": "q_ct_logs", "question": LOGS, "status": "closed"},
+        {"id": "q_nw_volume", "question": VOLUME},
+        {"id": "q_dates", "question": "When was each project built?", "status": "answered"},
+        needs=NEEDS,
+    )
+    user_id = await owner(profile=done)
+    await answer(user_id, "q_nw_volume", "a fact")
+    await sweep(FRIDAY)
+    assert telegram.to(chat_id) == [reminder(chat_id)]
+    assert await state_of(user_id) == sent(FRIDAY)
+
+
+async def test_a_question_the_bot_couldnt_send_isnt_counted_as_asked(
+    owner: Owner, chat_id: int, telegram: Telegram, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Without TELEGRAM_BOT_TOKEN, the reminder is dealt with, but its question waits for the
+    next one."""
+    monkeypatch.delenv("TELEGRAM_BOT_TOKEN")
+    get_settings.cache_clear()
+    user_id = await owner(profile=QUESTIONS)
+    await sweep(FRIDAY)
+    assert telegram.to(chat_id) == []
+    assert await state_of(user_id) == ReminderState(last_slot=FRIDAY)
 
 
 # --- The reminder's buttons (FR-REM-3) -----------------------------------------------------------
