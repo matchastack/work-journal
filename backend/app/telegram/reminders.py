@@ -7,7 +7,8 @@ sent. The reminder's text is fixed, so no model writes it. Its buttons (FR-REM-3
 
 - "Nothing this week" is logged in the reminder record, as the Monday of the reminder's week,
   and skips that week's later reminders. A press after the weekend means the week just ended.
-- "Remind me tomorrow" brings the reminder back the next day at the schedule's time.
+- "Remind me tomorrow" brings the reminder back the next day at the schedule's time. While
+  reminders are paused, it only says so, since the pause would skip that reminder.
 
 Only the newest reminder's buttons work; a press on an older one changes nothing. `/pause` and
 `/resume` set the pause in the owner's reminder setting (FR-SET-2).
@@ -61,6 +62,7 @@ NOTED = "Noted: nothing this week. I'll check in next week."
 PASSED = "This reminder has passed."
 PAUSED = "Paused your reminders. Send /resume to restart them."
 ALREADY_PAUSED = "Your reminders are already paused. Send /resume to restart them."
+PAUSED_SNOOZE = "Your reminders are paused. Send /resume to restart them."
 
 
 def snoozed_text(at: clock_time) -> str:
@@ -135,13 +137,16 @@ async def press_reminder(
     defaults: Schedule,
 ) -> Answer:
     """Answer a press, at `now`, of one of the newest reminder's buttons, which then go away. A
-    press on an older reminder only gets a notice."""
+    press on an older reminder only gets a notice, and so does "Remind me tomorrow" while
+    reminders are paused."""
     message = query.message
     await _lock(session, owner)
     state = await get_reminder_state(session, owner)
     if message is None or state.message_id is None or message.message_id != state.message_id:
         return Answer((_answer(query, PASSED),))
     schedule = effective(await get_reminder_settings(session, owner), defaults)
+    if query.data == REMIND_TOMORROW and schedule.paused:
+        return Answer((_answer(query, PAUSED_SNOOZE),))
     if query.data == NOTHING_THIS_WEEK:
         week = week_of(state.message_slot or now, schedule.zone)
         weeks = tuple(sorted({*state.nothing_weeks, week}))

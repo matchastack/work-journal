@@ -41,6 +41,7 @@ from app.telegram.reminders import (
     NOTHING_THIS_WEEK,
     PASSED,
     PAUSED,
+    PAUSED_SNOOZE,
     REMIND_TOMORROW,
     REMINDER,
 )
@@ -427,6 +428,25 @@ async def test_remind_me_tomorrow_brings_the_reminder_back_the_next_evening(
     await sweep(SATURDAY)
     assert telegram.to(chat_id) == [reminder(chat_id)] * 2
     assert await state_of(user_id) == sent(SATURDAY, FIRST_ID + 1)
+
+
+async def test_remind_me_tomorrow_while_paused_only_says_so(
+    owner: Owner, chat_id: int, telegram: Telegram
+) -> None:
+    """The pause would skip that reminder, so the press changes nothing, and once reminders are
+    back on, the button works."""
+    user_id = await owner(state=sent(FRIDAY))
+    await handle(command(chat_id, "/pause"))
+    handled = await handle(press(chat_id, REMIND_TOMORROW))
+    assert handled == Handled((answered(PAUSED_SNOOZE),))
+    assert await state_of(user_id) == sent(FRIDAY)
+
+    await handle(command(chat_id, "/resume"))
+    handled = await handle(press(chat_id, REMIND_TOMORROW))
+    snoozed = send(chat_id, "OK, I'll remind you tomorrow at 18:00.")
+    assert handled == Handled((answered(), without_buttons(chat_id), snoozed))
+    await sweep(SATURDAY)
+    assert telegram.to(chat_id) == [reminder(chat_id)]
 
 
 @pytest.mark.parametrize(
