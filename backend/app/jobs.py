@@ -137,14 +137,17 @@ async def close_quiet_entries_task(timestamp: int) -> None:
 @jobs.periodic(cron="* * * * *")
 @jobs.task(name="send_reminders")
 async def send_reminders(timestamp: int) -> None:
-    """Send each linked owner their reminder, when it's due as of `timestamp` (FR-REM-1). Due
-    every minute, so it runs on every tick, and every minute under `wj worker`.
+    """Send each linked owner their reminder, when it's due (FR-REM-1). Due every minute, so it
+    runs on every tick, and every minute under `wj worker`.
+
+    It decides as of when it runs, and never before `timestamp`, the time it was deferred for. A
+    job can wait in the queue, behind slower ones, until a later tick: by then, the reminder it
+    was due to send may be too late, and on Vercel, a day late (C6).
 
     Each owner has a transaction of their own, in which the reminder is sent before it's recorded.
     When Telegram fails, only that owner's record is undone, and the next run tries again while
-    the reminder is still on time. The job is never retried: a retry would keep this run's time,
-    which on Vercel could send a reminder a day late."""
-    now = datetime.fromtimestamp(timestamp, UTC)
+    the reminder is still on time. So the job isn't retried."""
+    now = max(datetime.fromtimestamp(timestamp, UTC), _clock())
     defaults = default_schedule(get_settings())
     async with database() as session:
         owners = list(await session.scalars(select(TelegramLink.user_id)))
@@ -451,6 +454,11 @@ async def _send(chat_id: int, text: str, **options: Any) -> int | None:
 def _llm_client(log: CallLog) -> LLMClient:
     """The Claude client for one job, logging its calls to `log` (tests replace it with a fake)."""
     return LLMClient.from_settings(log=log)
+
+
+def _clock() -> datetime:
+    """The time now, which tests freeze."""
+    return datetime.now(UTC)
 
 
 def _telegram_http() -> httpx2.AsyncClient:

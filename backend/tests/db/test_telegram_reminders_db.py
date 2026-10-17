@@ -13,6 +13,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 import httpx2
 import pytest
@@ -161,9 +162,11 @@ async def owner(job_settings: None, chat_id: int) -> AsyncIterator[Owner]:
         await session.execute(delete(User).where(User.id.in_(users)))
 
 
-async def sweep(at: datetime) -> None:
-    """Run the job as the scheduler does for `at`."""
-    await send_reminders(timestamp=int(at.timestamp()))
+async def sweep(at: datetime, *, runs_at: datetime | None = None) -> None:
+    """Run the job the scheduler defers for `at`, as it starts then, or at `runs_at` once it
+    waited in the queue."""
+    with patch.object(job_module, "_clock", lambda: runs_at or at):
+        await send_reminders(timestamp=int(at.timestamp()))
 
 
 async def state_of(user_id: uuid.UUID) -> ReminderState:
@@ -334,6 +337,32 @@ async def test_a_reminder_too_late_is_skipped(
     await sweep(FRIDAY + timedelta(hours=9))
     assert telegram.to(chat_id) == []
     assert await state_of(user_id) == ReminderState(last_slot=FRIDAY)
+
+
+@pytest.mark.parametrize(
+    "runs_at",
+    [
+        pytest.param(FRIDAY + timedelta(hours=4, minutes=30), id="at 22:30, over 4 hours late"),
+        pytest.param(SATURDAY + timedelta(minutes=5), id="at the next day's tick"),
+    ],
+)
+async def test_a_job_that_waited_in_the_queue_decides_as_of_when_it_runs(
+    owner: Owner, chat_id: int, telegram: Telegram, runs_at: datetime
+) -> None:
+    """A tick runs jobs for a short time only, so the job deferred for 18:05 on Friday can wait
+    behind slower ones, until a later tick (C6). By then the reminder is too late."""
+    user_id = await owner()
+    await sweep(FRIDAY + timedelta(minutes=5), runs_at=runs_at)
+    assert telegram.to(chat_id) == []
+    assert await state_of(user_id) == ReminderState(last_slot=FRIDAY)
+
+
+async def test_a_job_that_waited_less_still_sends_the_reminder_on_time(
+    owner: Owner, chat_id: int, telegram: Telegram
+) -> None:
+    await owner()
+    await sweep(FRIDAY - timedelta(minutes=1), runs_at=FRIDAY + timedelta(minutes=3))
+    assert telegram.to(chat_id) == [reminder(chat_id)]
 
 
 # --- The reminder's buttons (FR-REM-3) -----------------------------------------------------------
