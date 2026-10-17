@@ -47,6 +47,7 @@ from app.schema.changes import (
 from app.schema.common import Model, NonEmptyStr, YearMonth
 from app.schema.fact import Fact
 from app.schema.profile import Bullet, Profile, Project, Role, Skill, Strength
+from app.schema.verification import VerifierReport
 from app.writing import write_bullet
 
 PROMPT_NAME = "profile_synthesis"
@@ -252,6 +253,21 @@ def _bullets(bullets: Sequence[Bullet]) -> list[dict[str, object]]:
     ]
 
 
+@dataclass(frozen=True)
+class _Draft:
+    """A planned bullet that passed the checks, placed and ready to be written."""
+
+    planned: PlannedBullet
+    entry_id: str
+    """The role, education entry or project it goes under."""
+    fact_ids: tuple[str, ...]
+    """The new facts it cites."""
+    written_from: tuple[Fact, ...]
+    """The facts it's written and checked from: a new version's include its bullet's own."""
+    bullet_id: str
+    """The new bullet's ID, or the ID of the bullet it's a new version of."""
+
+
 @dataclass
 class _Builder:
     """Turns a plan into checked operations, keeping notes on what it leaves out."""
@@ -309,7 +325,9 @@ class _Builder:
                 continue
             structure.append(op)
         ops = [ReviewedOp(op=op) for op in structure]
-        ops += [op for bullet in plan.bullets if (op := self._bullet(bullet, interim)) is not None]
+        drafts = [d for bullet in plan.bullets if (d := self._draft(bullet, interim)) is not None]
+        reports = [self._write(draft, interim) for draft in drafts]
+        ops += [self._reviewed(d, report) for d, report in zip(drafts, reports, strict=True)]
         ops += [ReviewedOp(op=op) for op in self._answers()]
         cited = {fact_id for reviewed in ops for fact_id in reviewed.op.fact_ids}
         unused = tuple(fact.id for fact in self.facts if fact.id not in cited)
@@ -477,7 +495,9 @@ class _Builder:
             return None
         return UpdateField(target_id=project.id, field="status", value="active", fact_ids=fact_ids)
 
-    def _bullet(self, planned: PlannedBullet, interim: Profile) -> ReviewedOp | None:
+    def _draft(self, planned: PlannedBullet, interim: Profile) -> _Draft | None:
+        """Check a planned bullet and settle where it goes, its facts and a new bullet's ID, or
+        note why it's left out."""
         what = f'the new version of "{planned.edit}"' if planned.edit else "a new bullet"
         what += f' under "{planned.under}"' if not planned.edit else ""
         fact_ids = self._cited(planned.fact_ids, what)
@@ -521,28 +541,37 @@ class _Builder:
                     self.notes.append(f"Left out {what}: its facts belong to another role")
                     return None
         self.used.update(fact_ids)
-        written_from = [*own, *(self.new[fact_id] for fact_id in fact_ids)]
-        report = write_bullet(
-            written_from,
+        written_from = (*own, *(self.new[fact_id] for fact_id in fact_ids))
+        bullet_id = self._id(entry_id, numbered=True) if planned.edit is None else planned.edit
+        return _Draft(planned, entry_id, fact_ids, written_from, bullet_id)
+
+    def _write(self, draft: _Draft, interim: Profile) -> VerifierReport:
+        """Write a bullet and verify it."""
+        return write_bullet(
+            draft.written_from,
             interim,
             self.client,
-            entry_id=entry_id,
-            edit=planned.edit,
+            entry_id=draft.entry_id,
+            edit=draft.planned.edit,
             avoid=self.avoid,
         )
+
+    def _reviewed(self, draft: _Draft, report: VerifierReport) -> ReviewedOp:
+        """The operation that adds a written bullet, or its new version, with its report."""
+        planned = draft.planned
         op: ChangeOp
         if planned.edit is not None:
-            op = EditBullet(bullet_id=planned.edit, text=report.text, fact_ids=fact_ids)
+            op = EditBullet(bullet_id=draft.bullet_id, text=report.text, fact_ids=draft.fact_ids)
         else:
             role_types = {kind.id for kind in self.profile.role_types}
             bullet = Bullet(
-                id=self._id(entry_id, numbered=True),
+                id=draft.bullet_id,
                 text=report.text,
                 strength=planned.strength,
                 verification="yes" if report.passed else "no",
                 tags=tuple(dict.fromkeys(tag for tag in planned.tags if tag in role_types)),
             )
-            op = AddBullet(parent_id=entry_id, bullet=bullet, fact_ids=fact_ids)
+            op = AddBullet(parent_id=draft.entry_id, bullet=bullet, fact_ids=draft.fact_ids)
         return ReviewedOp(op=op, verifier_report=report.model_dump(mode="json"))
 
     def _answers(self) -> list[ResolveOpenQuestion]:
