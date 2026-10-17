@@ -124,13 +124,14 @@ Owner = Callable[..., Awaitable[uuid.UUID]]
 
 @pytest.fixture
 async def owner(job_settings: None, chat_id: int) -> AsyncIterator[Owner]:
-    """Make a user linked to `chat_id`, committed, as jobs see it: with a journal message sent
-    at `journaled`, and a reminder setting and record, if given. The users made are deleted
-    afterwards, with all their rows."""
+    """Make a user linked to `chat_id`, or to `chat`, committed, as jobs see it: with a journal
+    message sent at `journaled`, and a reminder setting and record, if given. The users made are
+    deleted afterwards, with all their rows."""
     users: list[uuid.UUID] = []
 
     async def make(
         *,
+        chat: int = chat_id,
         journaled: datetime | None = None,
         reminders: ReminderSettings | None = None,
         state: ReminderState | None = None,
@@ -139,7 +140,7 @@ async def owner(job_settings: None, chat_id: int) -> AsyncIterator[Owner]:
             user = User()
             session.add(user)
             await session.flush()
-            session.add(TelegramLink(user_id=user.id, chat_id=chat_id))
+            session.add(TelegramLink(user_id=user.id, chat_id=chat))
             if journaled is not None:
                 session.add(
                     JournalMessage(
@@ -309,8 +310,7 @@ async def test_each_owner_has_their_own_schedule_and_time_zone(
 async def test_a_reminder_telegram_refuses_is_tried_again_while_its_on_time(
     owner: Owner, chat_id: int, telegram: Telegram
 ) -> None:
-    """Only this owner's record is undone, and the job doesn't fail, so other owners still get
-    theirs."""
+    """The job doesn't fail, and the owner's record is undone, so the next run tries again."""
     user_id = await owner()
     telegram.failing.add(chat_id)
     await sweep(FRIDAY)
@@ -320,6 +320,23 @@ async def test_a_reminder_telegram_refuses_is_tried_again_while_its_on_time(
     await sweep(FRIDAY + timedelta(minutes=5))
     assert telegram.to(chat_id) == [reminder(chat_id)]
     assert await state_of(user_id) == sent(FRIDAY)
+
+
+@pytest.mark.parametrize("failing", [0, 1], ids=["the first owner's", "the second owner's"])
+async def test_one_owners_failure_leaves_the_other_owners_reminders_alone(
+    owner: Owner, chat_id: int, telegram: Telegram, failing: int
+) -> None:
+    """Each owner has a transaction of their own, and the job goes on after a failure. Either
+    owner's chat fails, whichever the job comes to first."""
+    chats = [chat_id, chat_id + 1]
+    users = [await owner(chat=chat) for chat in chats]
+    telegram.failing.add(chats[failing])
+    await sweep(FRIDAY)
+    other = 1 - failing
+    assert telegram.to(chats[other]) == [reminder(chats[other])]
+    assert await state_of(users[other]) == sent(FRIDAY)
+    assert telegram.to(chats[failing]) == []
+    assert await state_of(users[failing]) == ReminderState()
 
 
 async def test_a_reminder_the_bot_cant_send_still_counts_as_sent(
