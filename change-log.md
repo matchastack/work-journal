@@ -2,7 +2,7 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-16 · T-035 Reminders · [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+## 2026-10-16 · T-035 Reminders · [#52](https://github.com/matchastack/work-journal/pull/52)
 **Changed:** The bot sends a gentle reminder on your schedule (Fridays at 18:00, Asia/Singapore, by default), skipped if you journaled in the last 3 days, with "Nothing this week" and "Remind me tomorrow" buttons. `/pause` and `/resume` stop and restart it, and Vercel's daily tick now runs at 18:00 Singapore time to send it.
 
 **Verify:**
