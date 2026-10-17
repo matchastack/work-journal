@@ -5,10 +5,23 @@
     client.call("fact_extraction", prompt, Facts, variables={"entry": "..."})
     fake.requests[0]["model"]
 
+Scripted replies answer requests in the order they arrive. Calls made from several threads at
+once, such as a refresh's bullets (`app/synthesis.py`), arrive in no set order, so a test of those
+answers each request by what it asks instead:
+
+    def answer(request):
+        if output_name(request) == "WrittenBullet":
+            return reply(WrittenBullet(text=...))
+        ...
+
+    fake = FakeMessages(answer=answer)
+
 Replies are built as the API sends them and validated by the SDK's own models.
 """
 
 import copy
+import threading
+from collections.abc import Callable
 from types import TracebackType
 from typing import Any, Self
 
@@ -18,21 +31,51 @@ from pydantic import BaseModel
 
 FAKE_MODEL = "fake-model"
 
+type Answer = Callable[[dict[str, Any]], BetaMessage | Exception]
+"""Replies to one request, given its arguments, with a message or an error to raise."""
+
 
 class FakeMessages:
-    """Answers each request with the next scripted reply: a message, or an error to raise."""
+    """Answers each request with the next scripted reply, or with what `answer` replies to it: a
+    message, or an error to raise.
 
-    def __init__(self, *replies: BetaMessage | Exception) -> None:
+    Several threads may call it at once. `answer` runs outside its lock, so it may sleep or wait,
+    as a slow reply would.
+    """
+
+    def __init__(self, *replies: BetaMessage | Exception, answer: Answer | None = None) -> None:
+        if replies and answer is not None:
+            raise ValueError("answer requests with scripted replies or with `answer`, not both")
         self.replies = list(replies)
+        self.answer = answer
         self.requests: list[dict[str, Any]] = []
         """Each request's arguments as the SDK received them, without the omitted ones."""
+        self._lock = threading.Lock()
 
     def stream(self, **request: Any) -> "FakeStream":
         sent = {key: value for key, value in request.items() if not isinstance(value, Omit)}
-        self.requests.append(copy.deepcopy(sent))
-        if not self.replies:
+        sent = copy.deepcopy(sent)
+        scripted: BetaMessage | Exception | None = None
+        with self._lock:
+            self.requests.append(sent)
+            request_id = f"req_fake_{len(self.requests)}"
+            if self.answer is None and self.replies:
+                scripted = self.replies.pop(0)
+        if self.answer is not None:
+            return FakeStream(self.answer(sent), request_id=request_id)
+        if scripted is None:
             raise AssertionError("FakeMessages has no scripted reply left")
-        return FakeStream(self.replies.pop(0), request_id=f"req_fake_{len(self.requests)}")
+        return FakeStream(scripted, request_id=request_id)
+
+
+def output_name(request: dict[str, Any]) -> str:
+    """The name of the output model a request asks for, such as `WrittenBullet`."""
+    return request["output_config"]["format"]["schema"]["title"]
+
+
+def prompt_text(request: dict[str, Any]) -> str:
+    """A request's first user message: the prompt's rendered user template."""
+    return request["messages"][0]["content"]
 
 
 class FakeStream:
