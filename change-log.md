@@ -2,7 +2,7 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-16 · T-064 Refreshes of months of facts within the time limit · [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+## 2026-10-16 · T-064 Refreshes of months of facts within the time limit · [#53](https://github.com/matchastack/work-journal/pull/53)
 **Changed:** a refresh writes and checks its bullets 10 at a time instead of one by one, so a refresh of about 100 facts finishes within the 300 s Vercel gives it; `REFRESH_CONCURRENCY` sets how many.
 
 **Verify:**

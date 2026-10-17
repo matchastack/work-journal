@@ -638,7 +638,7 @@ As the owner, I want a refresh to update my LinkedIn text and portfolio page too
 - [ ] Tests use the fake LLM client.
 
 ### T-064 · Refreshes of months of facts within the time limit
-**Status:** ◐ · **Size:** S · **Depends on:** T-038 · **Requirements:** FR-REV-6, NFR-PERF-1 (and G3) · **PR:** [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+**Status:** ◐ · **Size:** S · **Depends on:** T-038 · **Requirements:** FR-REV-6, NFR-PERF-1 (and G3) · **PR:** [#53](https://github.com/matchastack/work-journal/pull/53)
 
 As the owner, I want a refresh after months away to finish, so that a long gap never stops me getting a current resume.
 
