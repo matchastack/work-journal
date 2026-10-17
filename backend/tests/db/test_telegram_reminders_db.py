@@ -36,17 +36,20 @@ from app.jobs import database, send_reminders
 from app.reminders import DEFAULT_SCHEDULE, Schedule
 from app.schema.fact import Fact
 from app.schema.profile import Profile
-from app.schema.settings import ReminderSettings, ReminderState
+from app.schema.settings import Answering, ReminderSettings, ReminderState
 from app.telegram.api import BotCall, send
 from app.telegram.journal import Handled, handle_update
 from app.telegram.reminders import (
     ALREADY_PAUSED,
+    ANSWER_PROMPT,
+    ANSWER_QUESTION,
     KEYBOARD,
     NOTED,
     NOTHING_THIS_WEEK,
     PASSED,
     PAUSED,
     PAUSED_SNOOZE,
+    QUESTION_KEYBOARD,
     REMIND_TOMORROW,
     REMINDER,
     reminder_text,
@@ -245,7 +248,8 @@ def press(chat_id: int, data: str, *, message_id: int = FIRST_ID) -> str:
     )
 
 
-def command(chat_id: int, text: str) -> str:
+def message(chat_id: int, text: str, *, sent_at: datetime = PRESSED) -> str:
+    """An update for the owner's message, sent at `sent_at`."""
     return json.dumps(
         {
             "update_id": _random.randrange(10**9, 10**12),
@@ -253,11 +257,15 @@ def command(chat_id: int, text: str) -> str:
                 "message_id": _random.randrange(1, 10**6),
                 "from": {"id": chat_id, "is_bot": False, "first_name": "Casey"},
                 "chat": {"id": chat_id, "type": "private"},
-                "date": int(PRESSED.timestamp()),
+                "date": int(sent_at.timestamp()),
                 "text": text,
             },
         }
     )
+
+
+def command(chat_id: int, text: str) -> str:
+    return message(chat_id, text)
 
 
 def answered(notice: str | None = None) -> BotCall:
@@ -278,8 +286,9 @@ async def journaled(chat_id: int) -> int:
 
 
 def reminder(chat_id: int, question: str | None = None) -> dict[str, Any]:
-    """The reminder, as the bot sends it, asking `question` if given."""
-    return {"chat_id": chat_id, "text": reminder_text(question), "reply_markup": KEYBOARD}
+    """The reminder, as the bot sends it, asking `question` if given, with its Answer button."""
+    buttons = KEYBOARD if question is None else QUESTION_KEYBOARD
+    return {"chat_id": chat_id, "text": reminder_text(question), "reply_markup": buttons}
 
 
 def sent(slot: datetime, message_id: int = FIRST_ID) -> ReminderState:
@@ -552,6 +561,162 @@ async def test_a_question_the_bot_couldnt_send_isnt_counted_as_asked(
     assert await state_of(user_id) == ReminderState(last_slot=FRIDAY)
 
 
+# --- Answering the question (FR-EXT-4) -----------------------------------------------------------
+
+ANSWER = "The order services handle about 40,000 events a day, more on sale days."
+
+
+def prompt(chat_id: int) -> BotCall:
+    """The bot's request for the answer, which Telegram shows as a reply to it."""
+    reply = {"force_reply": True, "input_field_placeholder": "Your answer"}
+    return send(chat_id, ANSWER_PROMPT, reply_markup=reply)
+
+
+def waiting(since: datetime = PRESSED) -> ReminderState:
+    """The record once "Answer the question" was pressed at `since` under Friday's reminder."""
+    return ReminderState(
+        last_slot=FRIDAY,
+        asked=("q_nw_volume",),
+        answering=Answering(question_id="q_nw_volume", since=since),
+    )
+
+
+async def entries_of(user_id: uuid.UUID) -> list[tuple[JournalEntry, list[str]]]:
+    """The owner's entries, oldest first, each with its messages' text."""
+    async with database() as session:
+        entries = await session.scalars(
+            select(JournalEntry)
+            .where(JournalEntry.user_id == user_id)
+            .order_by(JournalEntry.opened_at)
+        )
+        found: list[tuple[JournalEntry, list[str]]] = []
+        for entry in entries.all():
+            texts = await session.scalars(
+                select(JournalMessage.text)
+                .where(JournalMessage.entry_id == entry.id)
+                .order_by(JournalMessage.sent_at)
+            )
+            found.append((entry, list(texts)))
+        return found
+
+
+@pytest.mark.parametrize("paused", [False, True], ids=["", "while paused"])
+async def test_answer_the_question_asks_for_the_answer_in_one_message(
+    owner: Owner, chat_id: int, telegram: Telegram, paused: bool
+) -> None:
+    """The reminder's buttons go, and the bot waits for the owner's next message. It works after
+    `/pause` too: the question was asked before."""
+    user_id = await owner(profile=QUESTIONS)
+    await sweep(FRIDAY)
+    assert telegram.to(chat_id) == [reminder(chat_id, VOLUME)]
+    if paused:
+        await handle(command(chat_id, "/pause"))
+    handled = await handle(press(chat_id, ANSWER_QUESTION))
+    assert handled == Handled((answered(), without_buttons(chat_id), prompt(chat_id)))
+    assert await state_of(user_id) == waiting()
+
+
+async def test_the_next_message_is_the_answer_an_entry_of_its_own(
+    owner: Owner, chat_id: int
+) -> None:
+    """Closed at once, linked to the question and to northwind, the role of the bullet that needs
+    it, so the bot needn't ask. Its jobs run at once. The entry the owner had open is left as it
+    is: the answer neither joins nor closes it."""
+    user_id = await owner(profile=QUESTIONS, state=asking(FRIDAY, "q_nw_volume"))
+    await handle(message(chat_id, NOTE, sent_at=PRESSED - timedelta(minutes=5)))
+    await handle(press(chat_id, ANSWER_QUESTION))
+    answered_at = PRESSED + timedelta(minutes=2)
+    handled = await handle(message(chat_id, ANSWER, sent_at=answered_at))
+
+    [(note, note_texts), (answer_entry, answer_texts)] = await entries_of(user_id)
+    assert handled == Handled(ready=answer_entry.id)
+    assert (answer_entry.opened_at, answer_entry.last_message_at) == (answered_at, answered_at)
+    assert (answer_entry.closed_at, answer_entry.closed_by) == (answered_at, "done")
+    assert (answer_entry.open_question_id, answer_entry.role_id) == ("q_nw_volume", "northwind")
+    assert answer_texts == [ANSWER]
+    assert (note.closed_at, note.open_question_id, note_texts) == (None, None, [NOTE])
+    assert await state_of(user_id) == waiting().model_copy(update={"answering": None})
+
+
+async def test_an_answer_whose_bullets_are_under_two_roles_waits_for_its_role(
+    owner: Owner, chat_id: int
+) -> None:
+    """Code can't tell which role it's about, so the bot asks (FR-CAP-11)."""
+    two_roles = with_questions(
+        {"id": "q_nw_volume", "question": VOLUME},
+        needs={"ct_sensors": "q_nw_volume", "nw_orders": "q_nw_volume"},
+    )
+    user_id = await owner(profile=two_roles, state=waiting())
+    await handle(message(chat_id, ANSWER, sent_at=PRESSED + timedelta(minutes=2)))
+    [(entry, _)] = await entries_of(user_id)
+    assert (entry.open_question_id, entry.role_id, entry.closed_by) == ("q_nw_volume", None, "done")
+
+
+async def test_a_message_after_the_entry_timeout_is_an_ordinary_note(
+    owner: Owner, chat_id: int
+) -> None:
+    """The wait has lapsed, and the message ends it."""
+    user_id = await owner(profile=QUESTIONS, state=waiting())
+    handled = await handle(message(chat_id, ANSWER, sent_at=PRESSED + timedelta(minutes=30)))
+    assert handled == Handled()
+    [(entry, texts)] = await entries_of(user_id)
+    assert (entry.closed_at, entry.open_question_id, texts) == (None, None, [ANSWER])
+    assert (await state_of(user_id)).answering is None
+
+
+async def test_commands_dont_answer_the_question(owner: Owner, chat_id: int) -> None:
+    user_id = await owner(profile=QUESTIONS, state=waiting())
+    await handle(command(chat_id, "/help"))
+    assert await entries_of(user_id) == []
+    assert await state_of(user_id) == waiting()
+
+
+@pytest.mark.parametrize("waits_for", ["a new role's name", "a follow-up answer"])
+async def test_the_answer_comes_before_another_wait_for_the_next_message(
+    owner: Owner, chat_id: int, waits_for: str
+) -> None:
+    """ "Answer the question" is what the owner pressed last: a new role's name never lapses, and
+    a follow-up question asked earlier still waits after the answer."""
+    user_id = await owner(profile=QUESTIONS, state=waiting())
+    earlier = PRESSED - timedelta(minutes=10)
+    async with database() as session:
+        other = JournalEntry(
+            user_id=user_id,
+            opened_at=earlier,
+            last_message_at=earlier,
+            closed_at=earlier,
+            closed_by="done",
+        )
+        if waits_for == "a new role's name":
+            other.role_asked_at, other.naming_role = earlier, True
+        else:
+            other.follow_up_at, other.awaiting_follow_up = PRESSED - timedelta(minutes=1), True
+        session.add(other)
+    handled = await handle(message(chat_id, ANSWER, sent_at=PRESSED + timedelta(minutes=1)))
+
+    [(waiting_entry, waiting_texts), (answer_entry, answer_texts)] = await entries_of(user_id)
+    assert handled == Handled(ready=answer_entry.id)
+    assert (answer_entry.open_question_id, answer_texts) == ("q_nw_volume", [ANSWER])
+    assert waiting_texts == []
+    assert (waiting_entry.naming_role, waiting_entry.new_role) == (
+        waits_for == "a new role's name",
+        None,
+    )
+    assert waiting_entry.awaiting_follow_up is (waits_for == "a follow-up answer")
+
+
+async def test_the_other_buttons_leave_the_question_for_a_later_round(
+    owner: Owner, chat_id: int
+) -> None:
+    """The Answer button goes with them, and the question stays asked in this round."""
+    user_id = await owner(profile=QUESTIONS, state=asking(FRIDAY, "q_nw_volume"))
+    handled = await handle(press(chat_id, NOTHING_THIS_WEEK))
+    assert handled == Handled((answered(), without_buttons(chat_id), send(chat_id, NOTED)))
+    state = await state_of(user_id)
+    assert (state.message_id, state.message_question) == (None, None)
+    assert (state.asked, state.answering) == (("q_nw_volume",), None)
+
+
 # --- The reminder's buttons (FR-REM-3) -----------------------------------------------------------
 
 
@@ -638,15 +803,25 @@ async def test_remind_me_tomorrow_while_paused_only_says_so(
         pytest.param(FIRST_ID, None, id="a reminder already answered"),
     ],
 )
-@pytest.mark.parametrize("data", [NOTHING_THIS_WEEK, REMIND_TOMORROW])
+@pytest.mark.parametrize("data", [NOTHING_THIS_WEEK, REMIND_TOMORROW, ANSWER_QUESTION])
 async def test_only_the_newest_reminders_buttons_work(
     owner: Owner, chat_id: int, message_id: int, newest: int | None, data: str
 ) -> None:
-    state = ReminderState(last_slot=FRIDAY, message_id=newest)
-    user_id = await owner(state=state)
+    state = ReminderState(last_slot=FRIDAY, message_id=newest, message_question="q_nw_volume")
+    user_id = await owner(profile=QUESTIONS, state=state)
     handled = await handle(press(chat_id, data, message_id=message_id))
     assert handled == Handled((answered(PASSED),))
     assert await state_of(user_id) == state
+
+
+async def test_answer_the_question_under_a_reminder_that_asks_none_changes_nothing(
+    owner: Owner, chat_id: int
+) -> None:
+    """Such a reminder has no Answer button, so the press can't be the owner's."""
+    user_id = await owner(profile=QUESTIONS, state=sent(FRIDAY))
+    handled = await handle(press(chat_id, ANSWER_QUESTION))
+    assert handled == Handled((answered(PASSED),))
+    assert await state_of(user_id) == sent(FRIDAY)
 
 
 # --- /pause and /resume (FR-REM-3, FR-SET-2) -----------------------------------------------------

@@ -20,6 +20,7 @@ from app.config import Settings, get_settings
 from app.db.crypto import KeyRing, new_key, use_key_ring
 from app.db.models import FactRow, JournalEntry, JournalMessage, LlmCallRow, TelegramLink, User
 from app.db.profiles import save_version
+from app.db.settings import save_reminder_state
 from app.db.store import list_facts
 from app.extraction import ExtractionReply
 from app.follow_up import FollowUpReply
@@ -35,6 +36,7 @@ from app.llm.client import LLMClient
 from app.llm.fake import FakeMessages, refusal, reply
 from app.llm.usage import CallLog, MemoryCallLog
 from app.schema.profile import Profile
+from app.schema.settings import Answering, ReminderState
 from app.telegram.api import TelegramError
 from app.telegram.processing import Processed, failure_text, process_entry
 from app.telegram.roles import NO_ROLES, QUESTION
@@ -782,6 +784,33 @@ async def test_no_question_when_the_owner_may_not_be_there_to_answer(
     assert await follow_up_state(entry_id) == (True, None, False, True)
     if case != "no chat":
         assert telegram.sent == [question(chat_id, *ROLES)]
+
+
+@pytest.mark.parametrize("lapsed", [False, True], ids=["awaited", "lapsed"])
+async def test_no_question_while_an_open_questions_answer_is_awaited(
+    committed: Committed,
+    chat_id: int,
+    claude: Callable[..., FakeMessages],
+    telegram: Telegram,
+    lapsed: bool,
+) -> None:
+    """After "Answer the question" (FR-EXT-4), the owner's next message is the answer, so it
+    can't answer a follow-up question too. A wait that lapsed doesn't stop one."""
+    user_id, entry_id = await committed(NOTE, chat_id=chat_id, profile=PROFILE, **just_closed())
+    pressed = datetime.now(UTC) - timedelta(minutes=30 if lapsed else 1)
+    async with database() as session:
+        answering = Answering(question_id="q_nw_volume", since=pressed)
+        await save_reminder_state(session, user_id, ReminderState(answering=answering))
+    if lapsed:
+        claude(reply(FollowUpReply(missing="metrics", question=ASKED)))
+        await run_extraction(entry_id, last_attempt=never)
+        assert telegram.sent == [follow_up_question(chat_id)]
+        return
+    fake = claude()
+    await run_extraction(entry_id, last_attempt=never)
+    assert fake.requests == []
+    assert telegram.sent == [question(chat_id, *ROLES)]
+    assert await follow_up_state(entry_id) == (True, None, False, True)
 
 
 async def test_another_entrys_lapsed_question_doesnt_stop_a_new_one(

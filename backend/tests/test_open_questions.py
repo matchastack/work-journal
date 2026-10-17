@@ -1,15 +1,24 @@
-"""Which open question a reminder asks (FR-REM-5). The bot's side is tested in
-`db/test_telegram_reminders_db.py`."""
+"""Which open question a reminder asks (FR-REM-5), and how its answer is taken (FR-EXT-4). The
+bot's side is tested in `db/test_telegram_reminders_db.py`."""
 
 import json
 from collections.abc import Iterator, Mapping
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from app.open_questions import NextQuestion, next_question, ranked, value
+from app.open_questions import (
+    NextQuestion,
+    answer_role,
+    awaits_answer,
+    next_question,
+    ranked,
+    value,
+)
 from app.schema.profile import OpenQuestion, Profile
+from app.schema.settings import Answering
 
 FIXTURE: dict[str, Any] = json.loads(
     (Path(__file__).parent / "fixtures" / "profile.json").read_text(encoding="utf-8")
@@ -168,3 +177,40 @@ def test_no_question_without_a_candidate(
 ) -> None:
     without = profile(needs, statuses=statuses)
     assert next_question(without, answered=answered, asked=()) is None
+
+
+# --- The answer (FR-EXT-4) -----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("needed_by", "expected"),
+    [
+        pytest.param(("nw_orders",), "northwind", id="one bullet"),
+        pytest.param(("nw_orders", "nw_tracker"), "northwind", id="bullets under one role"),
+        pytest.param(("nw_orders", "ct_sensors"), None, id="bullets under two roles"),
+        pytest.param(("nw_orders", "rb_app"), None, id="a role's bullet and a project's"),
+        pytest.param(("ss_minor",), None, id="an education entry's bullet"),
+        pytest.param(("rb_app",), None, id="a project's bullet"),
+        pytest.param((), None, id="no bullet"),
+    ],
+)
+def test_an_answer_takes_the_role_that_holds_every_bullet_needing_the_question(
+    needed_by: tuple[str, ...], expected: str | None
+) -> None:
+    """Otherwise the bot asks which role it's about (FR-CAP-11)."""
+    assert answer_role(profile({"q_one": needed_by}), "q_one") == expected
+
+
+def test_a_question_gone_from_the_profile_gives_no_role() -> None:
+    assert answer_role(profile({"q_one": ("nw_orders",)}), "q_gone") is None
+
+
+PRESSED = datetime(2026, 10, 16, 10, 30, tzinfo=UTC)
+
+
+def test_the_answer_is_awaited_for_the_entry_timeout_after_the_press() -> None:
+    answering = Answering(question_id="q_one", since=PRESSED)
+    timeout = timedelta(minutes=30)
+    assert awaits_answer(answering, PRESSED + timedelta(minutes=29, seconds=59), timeout)
+    assert not awaits_answer(answering, PRESSED + timeout, timeout), "lapsed"
+    assert not awaits_answer(None, PRESSED, timeout), "nothing pressed"

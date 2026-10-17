@@ -1,4 +1,4 @@
-"""Which open question a reminder asks (FR-REM-5).
+"""Which open question a reminder asks (FR-REM-5), and how its answer is taken (FR-EXT-4).
 
 Pure functions, without I/O or a clock, like `app/reminders.py`: `app/telegram/reminders.py`
 reads the owner's latest profile version, the journal and the bot's reminder record, and sends
@@ -12,12 +12,18 @@ The *candidates* are the open questions the journal holds no answer to. Each rem
 most valuable candidate not yet asked in the current round, ties in the profile's order; once
 every candidate has been asked, a new round starts. So a question the owner leaves unanswered
 doesn't come back every week, and one added to the profile joins the round at once.
+
+Once the owner presses "Answer the question", their next message within the entry timeout is the
+answer (`awaits_answer`). It's about the role that holds the bullets needing the question, when
+one role holds them all (`answer_role`); code chooses it, never the model.
 """
 
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 
 from app.schema.profile import OpenQuestion, Profile, Strength
+from app.schema.settings import Answering
 
 STRENGTH_VALUES: dict[Strength, int] = {"high": 3, "medium": 2, "low": 1}
 """What a bullet of each strength adds to the value of a question it needs."""
@@ -68,3 +74,26 @@ def next_question(
         round_so_far, waiting = (), candidates
     chosen = waiting[0]
     return NextQuestion(chosen, (*round_so_far, chosen.id))
+
+
+def answer_role(profile: Profile, question_id: str) -> str | None:
+    """The role an answer to the question is about: the one holding every bullet that needs it.
+    None when no bullet needs it, or when they're under more than one item, or under an
+    education entry or a project, so that the bot asks the owner (FR-CAP-11)."""
+    holders = {
+        item.id
+        for item in (*profile.work, *profile.education, *profile.projects)
+        for bullet in item.highlights
+        if question_id in bullet.needs
+    }
+    roles = {role.id for role in profile.work}
+    if len(holders) == 1 and holders <= roles:
+        return next(iter(holders))
+    return None
+
+
+def awaits_answer(answering: Answering | None, at: datetime, timeout: timedelta) -> bool:
+    """Whether a message sent at `at` answers the question the owner chose to answer: they
+    pressed "Answer the question" less than `timeout` before. After that, the wait has lapsed,
+    as a follow-up question does."""
+    return answering is not None and at - answering.since < timeout

@@ -11,8 +11,10 @@ follow-up question, `/refresh` proposes profile changes from the facts since the
 menu does (`COMMANDS`). Button presses, and the message that names a new role, answer which
 role an entry is about (`app/telegram/roles.py`). A message that answers a closed entry's
 follow-up question joins that entry, and its Skip button skips the question
-(`app/telegram/follow_up.py`). A reminder's buttons say there's nothing this week or ask for it
-again tomorrow. Message text is never logged.
+(`app/telegram/follow_up.py`). A reminder's buttons say there's nothing this week, ask for it
+again tomorrow, or answer the open question it asks: the owner's next message is then the
+answer, an entry of its own (`app/telegram/reminders.py`). That comes before a new role's name
+and a follow-up answer, which wait longer. Message text is never logged.
 """
 
 import uuid
@@ -32,7 +34,7 @@ from app.telegram.follow_up import SKIP, answered, awaiting, lapsed, press_skip,
 from app.telegram.linking import link_chat, start_token
 from app.telegram.refresh import refresh
 from app.telegram.reminders import BUTTONS as REMINDER_BUTTONS
-from app.telegram.reminders import pause, press_reminder, resume
+from app.telegram.reminders import pause, press_reminder, resume, take_answer
 from app.telegram.roles import Answer, name_role, naming_entry, press
 from app.telegram.updates import CallbackQuery, Message, Update
 
@@ -71,8 +73,9 @@ class Handled:
     """What came of an update: the Bot API calls that answer it, in order, and the entry whose
     jobs can run right away (FR-CAP-5), if there is one: an entry the update closed, so that the
     bot asks about it, one whose follow-up question it answered or skipped, so that the bot asks
-    which role it's about, or one whose role it chose, so that its facts are extracted. A
-    `/refresh` hands on its refresh instead, whose job can run right away too."""
+    which role it's about, one whose role it chose, so that its facts are extracted, or the
+    answer to an open question, closed at once. A `/refresh` hands on its refresh instead, whose
+    job can run right away too."""
 
     calls: tuple[BotCall, ...] = ()
     ready: uuid.UUID | None = None
@@ -161,14 +164,17 @@ async def _new_message(
         return await _command(
             session, owner, chat_id, body, message.sent_at, entry_timeout, app_url, reminders
         )
-    if (naming := await naming_entry(session, owner)) is not None:
-        return Handled.of(name_role(naming, chat_id, body))
-    asked = await awaiting(session, owner)
-    if asked is not None and not lapsed(asked, message.sent_at, entry_timeout):
-        entry_id, handled = asked.id, Handled.of(answered(asked, chat_id))
+    if (answer := await take_answer(session, owner, message.sent_at, entry_timeout)) is not None:
+        entry_id, handled = answer, Handled(ready=answer)
     else:
-        entry_id, closed = await entry_for(session, owner, message.sent_at, entry_timeout)
-        handled = Handled(ready=closed)
+        if (naming := await naming_entry(session, owner)) is not None:
+            return Handled.of(name_role(naming, chat_id, body))
+        asked = await awaiting(session, owner)
+        if asked is not None and not lapsed(asked, message.sent_at, entry_timeout):
+            entry_id, handled = asked.id, Handled.of(answered(asked, chat_id))
+        else:
+            entry_id, closed = await entry_for(session, owner, message.sent_at, entry_timeout)
+            handled = Handled(ready=closed)
     statement = (
         insert(JournalMessage)
         .values(
