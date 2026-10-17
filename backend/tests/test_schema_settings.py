@@ -38,6 +38,7 @@ def test_a_schedule_is_stored_in_camel_case_with_days_in_week_order() -> None:
         ({"time": "18:00:30"}, "in hours and minutes"),
         ({"timeZone": "Mars/Olympus_Mons"}, "not a time zone"),
         ({"timeZone": ""}, "not a time zone"),
+        ({"timeZone": "Asia"}, "not a time zone"),
         ({"pausd": True}, "Extra inputs"),
     ],
 )

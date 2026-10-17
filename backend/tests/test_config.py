@@ -217,6 +217,7 @@ def test_reminder_days_are_a_list_in_week_order(monkeypatch: pytest.MonkeyPatch)
         ("REMINDER_TIME", "6pm", "time"),
         ("REMINDER_TIME_ZONE", "Singapore/Asia", "not a time zone"),
         ("REMINDER_TIME_ZONE", "../etc/passwd", "not a time zone"),
+        ("REMINDER_TIME_ZONE", "America", "not a time zone"),
     ],
 )
 def test_a_reminder_schedule_that_cant_be_followed_is_rejected(

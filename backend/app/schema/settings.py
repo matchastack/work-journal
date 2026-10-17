@@ -48,7 +48,7 @@ def _local_minute(value: clock_time) -> clock_time:
 def _known_zone(value: str) -> str:
     try:
         ZoneInfo(value)
-    except (ZoneInfoNotFoundError, ValueError):
+    except (ZoneInfoNotFoundError, ValueError, OSError):  # OSError: a folder, such as "Asia"
         message = f"not a time zone: {value!r}; use an IANA name such as Asia/Singapore"
         raise ValueError(message) from None
     return value
