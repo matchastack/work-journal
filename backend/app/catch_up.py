@@ -7,8 +7,10 @@ It ends the interview when there's little left worth asking, and code ends it af
 `MAX_QUESTIONS` questions, skipped ones included.
 
 Code checks each question before the bot asks it, as it does the follow-up question: one short
-sentence that ends with "?", with no digits or number words, so that it can't put a figure in the
-owner's mouth, and one not asked before. A question that fails the check, or a failed call to the
+sentence that ends with "?", and one not asked before. It has no digits, none of the number words
+and quantities the number checker reads (`app/validate/quantities.py`), and none of a few words
+that suggest a figure, such as "half" or "double", so that it can't put a figure in the owner's
+mouth. A question that fails the check, or a failed call to the
 model, gives way to the next fixed question not yet asked.
 
 The question goes to the owner and is kept with the answer's journal entry, but it's never
@@ -16,6 +18,7 @@ evidence: triage and extraction read the owner's answer alone, as they read any 
 the bot wrote can become a fact (FR-EXT-2, R1).
 """
 
+import re
 from collections.abc import Sequence
 from xml.sax.saxutils import escape
 
@@ -44,6 +47,11 @@ FIXED_QUESTIONS: tuple[str, ...] = (
     "Which tools, languages or methods have you started using since then?",
 )
 """The questions asked, in order, when the model's own can't be: one for each topic."""
+FIGURE_WORDS = re.compile(
+    r"\b(?:half|halved|double[ds]?|triple[ds]?|twice|thrice|dozens?|quarter|percent)\b",
+    re.IGNORECASE,
+)
+"""Words that suggest a figure but aren't quantities the number checker reads."""
 
 
 class Turn(Model):
@@ -98,14 +106,15 @@ def fixed_question(turns: Sequence[Turn]) -> str | None:
 
 
 def usable(question: str) -> bool:
-    """Whether the model's question can be asked as it is: one sentence, ending with "?", with
-    no number in digits or words."""
+    """Whether the model's question can be asked as it is: one sentence, ending with "?", that
+    suggests no figure."""
     return (
         0 < len(question) <= QUESTION_LIMIT
         and question.endswith("?")
         and not any(mark in question[:-1] for mark in ".!?")
         and not any(character.isdigit() for character in question)
         and not find_quantities(question)
+        and not FIGURE_WORDS.search(question)
     )
 
 
