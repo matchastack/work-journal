@@ -16,6 +16,10 @@ answers each request by what it asks instead:
 
     fake = FakeMessages(answer=answer)
 
+A refresh's job and `wj propose` write the bullets after the first `REFRESH_CONCURRENCY` at a
+time, so a test of either that plans more than two bullets answers by request, or sets
+`REFRESH_CONCURRENCY=1`.
+
 Replies are built as the API sends them and validated by the SDK's own models.
 """
 

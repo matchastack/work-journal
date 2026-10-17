@@ -655,12 +655,12 @@ WRITE_S = 5
 """Writing one bullet."""
 CHECK_S = 7
 """The claim check of one bullet."""
-CONCURRENCY = 10
 
 
 def test_the_bullets_of_a_hundred_facts_fit_in_the_time_the_plan_leaves() -> None:
-    """A refresh of months of facts finishes in the time a tick gives its job: the planner
-    combines related facts, so 100 facts make about 50 bullets. One by one, they'd take 600 s."""
+    """A refresh of months of facts finishes in the time a tick gives its job, at the default
+    `REFRESH_CONCURRENCY`: the planner combines related facts, so 100 facts make about 50
+    bullets. One by one, they'd take 600 s."""
     facts = alerts(100)
     planned = SynthesisPlan(
         bullets=tuple(
@@ -671,7 +671,7 @@ def test_the_bullets_of_a_hundred_facts_fit_in_the_time_the_plan_leaves() -> Non
     latency = {"WrittenBullet": WRITE_S, "ClaimReply": CHECK_S}
     answer = by_request(planned, lambda output, facts: latency[output] * SECOND)
     started = time.perf_counter()
-    synthesis, fake = answered(answer, facts, concurrency=CONCURRENCY)
+    synthesis, fake = answered(answer, facts, concurrency=Settings().refresh_concurrency)
     elapsed = time.perf_counter() - started
     assert elapsed < (TICK_BUDGET_S + JOB_GRACE_S - PLAN_S) * SECOND
     ops = [reviewed.op for reviewed in proposed(synthesis).ops]

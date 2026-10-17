@@ -34,8 +34,9 @@ TICK_BUDGET_S = 20.0
 """How long a tick starts new jobs."""
 JOB_GRACE_S = 240.0
 """How long a job that started within the budget may still run: long enough for a refresh's
-synthesis. With the budget, this stays under the function's 300 s limit (`backend/vercel.json`),
-the most Vercel's free plan allows."""
+synthesis, even of 100 facts, since its bullets are written several at a time. With the budget,
+this stays under the function's 300 s limit (`backend/vercel.json`), the most Vercel's free plan
+allows."""
 MISSED_SCHEDULE_S = 25 * 3600
 """A scheduled task due within the last 25 hours still runs: the tick comes once a day, at any
 time within its hour, so each daily task runs once a day."""
