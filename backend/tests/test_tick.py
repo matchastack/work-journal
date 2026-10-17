@@ -17,7 +17,15 @@ from pydantic import SecretStr
 from app.config import Settings
 from app.jobs import echo, jobs
 from app.main import create_app
-from app.tick import _running, catch_up_now, extract_now, tick
+from app.tick import (
+    JOB_GRACE_S,
+    TICK_BUDGET_S,
+    WAIT_FOR_TICK_S,
+    _running,
+    catch_up_now,
+    extract_now,
+    tick,
+)
 
 SECRET = "tick-secret"
 
@@ -149,6 +157,35 @@ async def test_a_stalled_job_that_cant_be_retried_doesnt_stop_the_tick(
     monkeypatch.setattr(app.job_manager, "retry_job", clash)
     assert await tick(app) == 1
     assert ran == [8]
+    assert queue.jobs[stuck]["status"] == "failed"
+
+
+@pytest.mark.anyio
+async def test_a_stalled_job_that_cant_be_retried_frees_its_lock_for_its_copy(
+    app: procrastinate.App, queue: InMemoryConnector, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The copy queued while it ran then runs, rather than wait behind it for good."""
+    ran: list[int] = []
+
+    @app.task(name="note")
+    async def note(number: int) -> None:
+        ran.append(number)
+
+    stuck = await note.configure(lock="entry:1").defer_async(number=7)
+    queue.jobs[stuck].update(status="doing", worker_id=999)
+    await note.configure(lock="entry:1").defer_async(number=8)
+
+    async def clash(job: object) -> None:
+        raise RuntimeError("duplicate key value violates unique constraint")
+
+    monkeypatch.setattr(app.job_manager, "retry_job", clash)
+    await tick(app)
+    assert ran == [8]
+
+
+def test_waiting_for_a_tick_and_running_one_fits_in_a_function_call() -> None:
+    """Vercel stops the function after 300 s (`backend/vercel.json`)."""
+    assert WAIT_FOR_TICK_S + TICK_BUDGET_S + JOB_GRACE_S < 300
 
 
 @pytest.mark.anyio

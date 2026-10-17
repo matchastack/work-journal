@@ -26,6 +26,7 @@ import uuid
 from collections.abc import Awaitable, Callable, Generator
 
 import procrastinate
+from procrastinate.jobs import Status
 from procrastinate.periodic import PeriodicDeferrer, PeriodicRegistry
 
 from app.jobs import jobs, queue_catch_up, queue_extraction, queue_refresh, worker_queues
@@ -38,8 +39,11 @@ JOB_GRACE_S = 240.0
 """How long a job that started within the budget may still run: long enough for a refresh's
 synthesis. With the budget, this stays under the function's 300 s limit (`backend/vercel.json`),
 the most Vercel's free plan allows."""
-WAIT_FOR_TICK_S = 60.0
-"""How long `catch_up_now` waits for a tick already running in this process to finish."""
+WAIT_FOR_TICK_S = 30.0
+"""How long `catch_up_now` waits for a tick already running in this process to finish. With the
+tick's budget and grace, this stays under the function's 300 s limit (`backend/vercel.json`)."""
+POLL_S = 0.5
+"""How often a waiting `catch_up_now` looks whether the running tick has finished."""
 MISSED_SCHEDULE_S = 25 * 3600
 """A scheduled task due within the last 25 hours still runs: the tick comes once a day, at any
 time within its hour, so each daily task runs once a day."""
@@ -69,8 +73,10 @@ async def tick(
                 await app.job_manager.retry_job(job)
             except Exception as error:
                 # One job that can't be retried, such as one whose copy is queued already,
-                # mustn't stop every tick. Only the error's type: it can quote the statement.
+                # mustn't stop every tick, nor hold its lock and keep that copy from running: it
+                # fails instead. Only the error's type: it can quote the statement.
                 logger.warning("couldn't retry stalled job %s: %s", job.id, type(error).__name__)
+                await app.job_manager.finish_job(job, status=Status.FAILED, delete_job=False)
         with _without_schedule(app):
             worker = asyncio.create_task(
                 app.run_worker_async(
@@ -119,8 +125,10 @@ async def catch_up_now(catch_up_id: uuid.UUID, entry_id: uuid.UUID | None = None
     closed, if any, such as the answer's, and run a tick, so the question follows the owner's
     answer at once (FR-REM-4). The webhook does this right after answering, and
     `wj telegram poll` too. If a tick is already running in this process, this waits up to
-    `WAIT_FOR_TICK_S` for it to finish. If that's not enough, or the tick fails, the next tick
-    queues them instead (`queue_catch_up_questions`, `close_quiet_entries`), as does `/catchup`."""
+    `WAIT_FOR_TICK_S` for it to finish, looking every `POLL_S`: it never waits on the lock itself,
+    so a tick still never blocks behind another. If that's not enough, or the tick fails, the next
+    tick queues them instead (`queue_catch_up_questions`, `close_quiet_entries`), as does
+    `/catchup`."""
 
     async def queue() -> None:
         await queue_catch_up(catch_up_id)
@@ -138,11 +146,7 @@ async def _run_now(
     try:
         retried = await tick(first=queue)
         while retried is None and loop.time() < deadline:
-            try:
-                async with asyncio.timeout(deadline - loop.time()), _running:
-                    pass
-            except TimeoutError:
-                break
+            await asyncio.sleep(min(POLL_S, max(0.0, deadline - loop.time())))
             retried = await tick(first=queue)
     except Exception as error:
         # Only the error's type: a database error can quote the statement that failed.
