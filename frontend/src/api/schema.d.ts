@@ -364,6 +364,192 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Profile
+         * @description The latest version of the profile, with its resume-rule findings. Everything is null
+         *     before a profile is loaded.
+         */
+        get: operations["profile_api_profile_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/basics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Basics
+         * @description Change the basics. The fields that changed are saved as a change set by you and a new
+         *     version (FR-PRF-11); nothing changed saves nothing. 409 when the profile is no longer at
+         *     `baseVersion`.
+         */
+        put: operations["edit_basics_api_profile_basics_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/work/{role_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Role
+         * @description Change a role, as `PUT /api/profile/basics` does the basics.
+         */
+        put: operations["edit_role_api_profile_work__role_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/education/{education_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Education
+         * @description Change an education entry, as `PUT /api/profile/basics` does the basics.
+         */
+        put: operations["edit_education_api_profile_education__education_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/projects/{project_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Project
+         * @description Change a project, as `PUT /api/profile/basics` does the basics.
+         */
+        put: operations["edit_project_api_profile_projects__project_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/bullets/{bullet_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Bullet
+         * @description Change a bullet: its text, status (benching needs a reason, FR-PRF-4), strength,
+         *     verification and tags, as `PUT /api/profile/basics` does the basics. Your own words aren't
+         *     checked by the verifier, but the resume rules' findings show on the page.
+         */
+        put: operations["edit_bullet_api_profile_bullets__bullet_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Versions
+         * @description Every version, newest first, with what each one's change set did.
+         */
+        get: operations["versions_api_profile_versions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/versions/{number}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Version
+         * @description A version, with what it changed against its parent.
+         */
+        get: operations["version_api_profile_versions__number__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/versions/{number}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Version
+         * @description Save a copy of version `number` as the newest version (FR-PRF-3); the versions in between
+         *     stay. 409 when the profile is no longer at `baseVersion`, or already matches that version.
+         */
+        post: operations["restore_version_api_profile_versions__number__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -372,6 +558,166 @@ export interface components {
         Applied: {
             /** Version */
             version: number | null;
+        };
+        /** Basics */
+        Basics: {
+            /** Name */
+            name: string;
+            /** Label */
+            label?: string | null;
+            /** Email */
+            email?: string | null;
+            /**
+             * Emailvisibility
+             * @default public
+             * @enum {string}
+             */
+            emailVisibility: "public" | "resume_only" | "private";
+            /** Phone */
+            phone?: string | null;
+            /**
+             * Phonevisibility
+             * @default resume_only
+             * @enum {string}
+             */
+            phoneVisibility: "public" | "resume_only" | "private";
+            /** Url */
+            url?: string | null;
+            /** Summary */
+            summary?: string | null;
+            location?: components["schemas"]["Location"] | null;
+            /**
+             * Locationvisibility
+             * @default public
+             * @enum {string}
+             */
+            locationVisibility: "public" | "resume_only" | "private";
+            /**
+             * Profiles
+             * @default []
+             */
+            profiles: components["schemas"]["SocialProfile"][];
+        };
+        /** BasicsEdit */
+        BasicsEdit: {
+            /** Baseversion */
+            baseVersion: number;
+            /** Name */
+            name: string;
+            /** Label */
+            label: string | null;
+            /** Email */
+            email: string | null;
+            /** Phone */
+            phone: string | null;
+            /** Url */
+            url: string | null;
+            /** Summary */
+            summary: string | null;
+            location: components["schemas"]["Location"] | null;
+            /** Profiles */
+            profiles: components["schemas"]["SocialProfile"][];
+        };
+        /**
+         * Bullet
+         * @description One highlight line under a role, education entry or project.
+         */
+        Bullet: {
+            /** Id */
+            id: string;
+            /** Text */
+            text: string;
+            /**
+             * Strength
+             * @default medium
+             * @enum {string}
+             */
+            strength: "high" | "medium" | "low";
+            /**
+             * Strengthoverrides
+             * @default []
+             */
+            strengthOverrides: components["schemas"]["StrengthOverride"][];
+            /**
+             * Verification
+             * @default no
+             * @enum {string}
+             */
+            verification: "yes" | "partial" | "no";
+            /** Verificationnote */
+            verificationNote?: string | null;
+            /**
+             * Swaps
+             * @default []
+             */
+            swaps: components["schemas"]["Swap"][];
+            /**
+             * Needs
+             * @default []
+             */
+            needs: string[];
+            /**
+             * Notes
+             * @default []
+             */
+            notes: components["schemas"]["Note"][];
+            /**
+             * Status
+             * @default active
+             * @enum {string}
+             */
+            status: "active" | "benched" | "planned";
+            /** Statusreason */
+            statusReason?: string | null;
+            /**
+             * Tags
+             * @default []
+             */
+            tags: string[];
+            /**
+             * Priority
+             * @default 2
+             */
+            priority: number;
+            /**
+             * Visibility
+             * @default public
+             * @enum {string}
+             */
+            visibility: "public" | "resume_only" | "private";
+            /**
+             * Sources
+             * @default []
+             */
+            sources: string[];
+        };
+        /** BulletEdit */
+        BulletEdit: {
+            /** Baseversion */
+            baseVersion: number;
+            /** Text */
+            text: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "benched" | "planned";
+            /** Statusreason */
+            statusReason: string | null;
+            /**
+             * Strength
+             * @enum {string}
+             */
+            strength: "high" | "medium" | "low";
+            /**
+             * Verification
+             * @enum {string}
+             */
+            verification: "yes" | "partial" | "no";
+            /** Verificationnote */
+            verificationNote: string | null;
+            /** Tags */
+            tags: string[];
         };
         /** BulletText */
         BulletText: {
@@ -425,6 +771,16 @@ export interface components {
              */
             factIds: string[];
         };
+        /**
+         * CourseworkSubset
+         * @description The courses to list for one role type.
+         */
+        CourseworkSubset: {
+            /** Roletype */
+            roleType: string;
+            /** Courses */
+            courses: string[];
+        };
         /** Decision */
         Decision: {
             /**
@@ -458,6 +814,71 @@ export interface components {
             kind: "same" | "removed" | "added";
             /** Text */
             text: string;
+        };
+        /**
+         * Education
+         * @description A degree or qualification (JSON Resume `education` entry).
+         */
+        Education: {
+            /** Id */
+            id: string;
+            /** Institution */
+            institution: string;
+            /** Studytype */
+            studyType: string;
+            /** Area */
+            area: string;
+            /** Honours */
+            honours?: string | null;
+            /** Location */
+            location?: string | null;
+            /** Url */
+            url?: string | null;
+            /** Startdate */
+            startDate: string;
+            /** Enddate */
+            endDate?: string | null;
+            /**
+             * Courses
+             * @default []
+             */
+            courses: string[];
+            /**
+             * Courseworksubsets
+             * @default []
+             */
+            courseworkSubsets: components["schemas"]["CourseworkSubset"][];
+            /**
+             * Highlights
+             * @default []
+             */
+            highlights: components["schemas"]["Bullet"][];
+            /**
+             * Rules
+             * @default []
+             */
+            rules: string[];
+        };
+        /** EducationEdit */
+        EducationEdit: {
+            /** Baseversion */
+            baseVersion: number;
+            /** Institution */
+            institution: string;
+            /** Studytype */
+            studyType: string;
+            /** Area */
+            area: string;
+            /** Honours */
+            honours: string | null;
+            /** Location */
+            location: string | null;
+            /** Url */
+            url: string | null;
+            /** Startdate */
+            startDate: string;
+            /** Enddate */
+            endDate: string | null;
         };
         /**
          * Fact
@@ -759,6 +1180,41 @@ export interface components {
             /** Edits */
             edits: components["schemas"]["MessageEdit"][];
         };
+        /** LintFinding */
+        LintFinding: {
+            /**
+             * Rule
+             * @enum {string}
+             */
+            rule: "dates" | "spelling" | "duplicates" | "R1" | "R2" | "R3" | "R4" | "R9" | "R10";
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "error" | "warning";
+            /** Location */
+            location: string;
+            /** Message */
+            message: string;
+            /** Where */
+            where: string;
+        };
+        /** LintView */
+        LintView: {
+            /** Findings */
+            findings: components["schemas"]["LintFinding"][];
+            /** Notes */
+            notes: string[];
+        };
+        /** Location */
+        Location: {
+            /** City */
+            city?: string | null;
+            /** Region */
+            region?: string | null;
+            /** Countrycode */
+            countryCode?: string | null;
+        };
         /** Me */
         Me: {
             /**
@@ -802,6 +1258,189 @@ export interface components {
              */
             qualifier: "exact" | "approximately" | "at_least" | "more_than" | "at_most" | "less_than";
         };
+        /**
+         * Note
+         * @description A remark attached to an item, e.g. a warning about what must not be claimed.
+         */
+        Note: {
+            /**
+             * Kind
+             * @default note
+             * @enum {string}
+             */
+            kind: "note" | "warning" | "upgrade";
+            /** Text */
+            text: string;
+        };
+        /**
+         * OpenQuestion
+         * @description A missing detail that blocks a stronger bullet.
+         */
+        OpenQuestion: {
+            /** Id */
+            id: string;
+            /** Question */
+            question: string;
+            /**
+             * Status
+             * @default open
+             * @enum {string}
+             */
+            status: "open" | "answered" | "closed";
+            /**
+             * Answerfactids
+             * @default []
+             */
+            answerFactIds: string[];
+        };
+        /**
+         * Profile
+         * @description The master profile: the superset every resume, page and LinkedIn text is drawn from.
+         */
+        Profile: {
+            basics: components["schemas"]["Basics"];
+            /**
+             * Roletypes
+             * @default []
+             */
+            roleTypes: components["schemas"]["RoleType"][];
+            /**
+             * Work
+             * @default []
+             */
+            work: components["schemas"]["Role"][];
+            /**
+             * Education
+             * @default []
+             */
+            education: components["schemas"]["Education"][];
+            /**
+             * Projects
+             * @default []
+             */
+            projects: components["schemas"]["Project"][];
+            /**
+             * Skills
+             * @default []
+             */
+            skills: components["schemas"]["Skill"][];
+            /**
+             * Skillgaps
+             * @default []
+             */
+            skillGaps: string[];
+            /**
+             * Skillpresets
+             * @default []
+             */
+            skillPresets: components["schemas"]["SkillPreset"][];
+            /**
+             * Summaries
+             * @default []
+             */
+            summaries: components["schemas"]["Summary"][];
+            /**
+             * Openquestions
+             * @default []
+             */
+            openQuestions: components["schemas"]["OpenQuestion"][];
+        };
+        /**
+         * ProfilePage
+         * @description The latest version, or nulls before a profile is loaded.
+         */
+        ProfilePage: {
+            version: components["schemas"]["VersionSummary"] | null;
+            profile: components["schemas"]["Profile"] | null;
+            lint: components["schemas"]["LintView"] | null;
+        };
+        /**
+         * Project
+         * @description A personal or academic project (JSON Resume `projects` entry).
+         */
+        Project: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            /**
+             * Keywords
+             * @default []
+             */
+            keywords: string[];
+            /** Url */
+            url?: string | null;
+            /** Startdate */
+            startDate?: string | null;
+            /** Enddate */
+            endDate?: string | null;
+            /**
+             * Highlights
+             * @default []
+             */
+            highlights: components["schemas"]["Bullet"][];
+            /**
+             * Status
+             * @default active
+             * @enum {string}
+             */
+            status: "active" | "benched" | "planned";
+            /** Statusreason */
+            statusReason?: string | null;
+            /**
+             * Keepfor
+             * @default []
+             */
+            keepFor: string[];
+            /**
+             * Cutfor
+             * @default []
+             */
+            cutFor: string[];
+            /**
+             * Tags
+             * @default []
+             */
+            tags: string[];
+            /**
+             * Priority
+             * @default 2
+             */
+            priority: number;
+            /**
+             * Notes
+             * @default []
+             */
+            notes: components["schemas"]["Note"][];
+        };
+        /** ProjectEdit */
+        ProjectEdit: {
+            /** Baseversion */
+            baseVersion: number;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string | null;
+            /** Keywords */
+            keywords: string[];
+            /** Url */
+            url: string | null;
+            /** Startdate */
+            startDate: string | null;
+            /** Enddate */
+            endDate: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "benched" | "planned";
+            /** Statusreason */
+            statusReason: string | null;
+            /** Tags */
+            tags: string[];
+        };
         /** ProjectOption */
         ProjectOption: {
             /** Id */
@@ -824,12 +1463,119 @@ export interface components {
             /** High */
             high: number;
         };
+        /** Restore */
+        Restore: {
+            /** Baseversion */
+            baseVersion: number;
+        };
+        /**
+         * Role
+         * @description A job (JSON Resume `work` entry).
+         */
+        Role: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Position */
+            position: string;
+            /**
+             * Titlevariants
+             * @default []
+             */
+            titleVariants: string[];
+            /** Location */
+            location?: string | null;
+            /** Url */
+            url?: string | null;
+            /** Startdate */
+            startDate: string;
+            /** Enddate */
+            endDate?: string | null;
+            /** Summary */
+            summary?: string | null;
+            /**
+             * Highlights
+             * @default []
+             */
+            highlights: components["schemas"]["Bullet"][];
+            /**
+             * Loadbearing
+             * @default false
+             */
+            loadBearing: boolean;
+            /**
+             * Duringeducation
+             * @default false
+             */
+            duringEducation: boolean;
+            /**
+             * Keepfor
+             * @default []
+             */
+            keepFor: string[];
+            /**
+             * Cutfor
+             * @default []
+             */
+            cutFor: string[];
+            /**
+             * Sensitivity
+             * @default normal
+             * @enum {string}
+             */
+            sensitivity: "normal" | "sensitive";
+            /**
+             * Honestyboundaries
+             * @default []
+             */
+            honestyBoundaries: string[];
+            /**
+             * Priority
+             * @default 2
+             */
+            priority: number;
+            /**
+             * Notes
+             * @default []
+             */
+            notes: components["schemas"]["Note"][];
+        };
+        /** RoleEdit */
+        RoleEdit: {
+            /** Baseversion */
+            baseVersion: number;
+            /** Name */
+            name: string;
+            /** Position */
+            position: string;
+            /** Location */
+            location: string | null;
+            /** Url */
+            url: string | null;
+            /** Startdate */
+            startDate: string;
+            /** Enddate */
+            endDate: string | null;
+            /** Summary */
+            summary: string | null;
+        };
         /** RoleOption */
         RoleOption: {
             /** Id */
             id: string;
             /** Label */
             label: string;
+        };
+        /**
+         * RoleType
+         * @description A kind of job the owner applies for, e.g. backend or ML.
+         */
+        RoleType: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
         };
         /**
          * SingleValue
@@ -844,6 +1590,62 @@ export interface components {
             /** Value */
             value: number;
         };
+        /** Skill */
+        Skill: {
+            /** Name */
+            name: string;
+            /** Category */
+            category: string;
+            /** Tier */
+            tier?: ("strong" | "working" | "academic") | null;
+            /**
+             * Verifybeforeshipping
+             * @default false
+             */
+            verifyBeforeShipping: boolean;
+            /**
+             * Aliases
+             * @default []
+             */
+            aliases: string[];
+            /**
+             * Notes
+             * @default []
+             */
+            notes: components["schemas"]["Note"][];
+        };
+        /**
+         * SkillLine
+         * @description One line of a skills section, e.g. `Languages: Python, SQL`.
+         */
+        SkillLine: {
+            /** Label */
+            label: string;
+            /** Skills */
+            skills: string[];
+        };
+        /**
+         * SkillPreset
+         * @description The skills section to use for one role type.
+         */
+        SkillPreset: {
+            /** Roletype */
+            roleType: string;
+            /** Lines */
+            lines: components["schemas"]["SkillLine"][];
+        };
+        /**
+         * SocialProfile
+         * @description An online profile, e.g. GitHub or LinkedIn (JSON Resume `basics.profiles`).
+         */
+        SocialProfile: {
+            /** Network */
+            network: string;
+            /** Username */
+            username?: string | null;
+            /** Url */
+            url?: string | null;
+        };
         /**
          * SourceFact
          * @description A fact an operation cites.
@@ -855,6 +1657,50 @@ export interface components {
             statement: string | null;
             /** Entryid */
             entryId: string | null;
+        };
+        /**
+         * StrengthOverride
+         * @description A bullet's strength for one role type, when it differs from the default.
+         */
+        StrengthOverride: {
+            /** Roletype */
+            roleType: string;
+            /**
+             * Strength
+             * @enum {string}
+             */
+            strength: "high" | "medium" | "low";
+        };
+        /**
+         * Summary
+         * @description A summary paragraph for one role type. Off by default.
+         */
+        Summary: {
+            /** Roletype */
+            roleType: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * Swap
+         * @description An approved alternative phrasing: the same fact in another audience's words.
+         */
+        Swap: {
+            /** Text */
+            text: string;
+            /** Replaces */
+            replaces?: string | null;
+            /**
+             * Contexts
+             * @default []
+             */
+            contexts: string[];
+            /**
+             * Origin
+             * @default imported
+             * @enum {string}
+             */
+            origin: "imported" | "approved";
         };
         /** TelegramDeepLink */
         TelegramDeepLink: {
@@ -940,6 +1786,61 @@ export interface components {
             derivations: components["schemas"]["Derivation"][];
             /** Claimprompt */
             claimPrompt?: string | null;
+        };
+        /**
+         * VersionChange
+         * @description One difference between a version and its parent.
+         */
+        VersionChange: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "added" | "removed" | "changed";
+            /** Path */
+            path: string;
+            /** Title */
+            title: string;
+            /** Context */
+            context: string | null;
+            /** Before */
+            before: string | null;
+            /** After */
+            after: string | null;
+            /** Diff */
+            diff: components["schemas"]["DiffPart"][];
+        };
+        /** VersionDetail */
+        VersionDetail: {
+            version: components["schemas"]["VersionSummary"];
+            /** Changes */
+            changes: components["schemas"]["VersionChange"][];
+        };
+        /** VersionList */
+        VersionList: {
+            /** Versions */
+            versions: components["schemas"]["VersionSummary"][];
+        };
+        /** VersionSummary */
+        VersionSummary: {
+            /** Number */
+            number: number;
+            /** Parent */
+            parent: number | null;
+            /**
+             * Author
+             * @enum {string}
+             */
+            author: "owner" | "ai";
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /** Restoredfrom */
+            restoredFrom: number | null;
+            /** Summary */
+            summary: string | null;
         };
     };
     responses: never;
@@ -1472,6 +2373,285 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Applied"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    profile_api_profile_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+        };
+    };
+    edit_basics_api_profile_basics_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BasicsEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_role_api_profile_work__role_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_education_api_profile_education__education_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                education_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EducationEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_project_api_profile_projects__project_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_bullet_api_profile_bullets__bullet_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bullet_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulletEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    versions_api_profile_versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionList"];
+                };
+            };
+        };
+    };
+    version_api_profile_versions__number__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_version_api_profile_versions__number__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Restore"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
                 };
             };
             /** @description Validation Error */
