@@ -5,18 +5,20 @@ about the time since the profile was last updated, one question at a time (`app/
 each with Skip and Stop for now buttons. The `catch_up_question` job (`app/jobs.py`) writes and
 sends each question, so a question's message ID is always kept.
 
-- The owner's next message, unless it's a command, answers the question, if it comes within the
-  entry timeout. It becomes a journal entry of its own, closed at once, with the question, so
-  the entry's jobs ask which role it's about (FR-CAP-11) and save its facts. The next question
-  follows.
+- The owner's next message, unless it's a command, answers the question, if it's sent after the
+  question and within the entry timeout. It becomes a journal entry of its own, closed at once
+  and kept with its question, so the entry's jobs ask which role it's about (FR-CAP-11) and save
+  its facts. The next question follows. A message sent before the question, while the bot was
+  writing it, is an ordinary note.
 - Skip, or `/skip`, moves on to the next question.
 - Stop for now, or `/done`, pauses the interview, and so does a question that lapses: a message
-  after the timeout is a new note. `/catchup` carries on, asking the waiting question again.
+  after the timeout is an ordinary note, and the bot says so. `/catchup` carries on, asking the
+  waiting question again.
 
 After the last question, the bot offers `/refresh` to turn the answers into proposed changes.
-While the interview runs, the bot asks no follow-up questions about other entries
-(`app/telegram/follow_up.py`), so that the owner's next message is never ambiguous. Questions and
-answers are never logged.
+Starting or resuming the interview stops a follow-up question that waits for an answer, and while
+it runs, the bot asks no follow-up questions about other entries (`app/telegram/follow_up.py`),
+so that the owner's next message is never ambiguous. Questions and answers are never logged.
 """
 
 import asyncio
@@ -34,6 +36,7 @@ from app.db.models import CatchUp, JournalEntry
 from app.db.profiles import latest_version
 from app.llm.client import LLMClient
 from app.telegram.api import BotCall, send
+from app.telegram.follow_up import stop_waiting
 from app.telegram.processing import chat_of
 from app.telegram.updates import CallbackQuery
 
@@ -123,19 +126,53 @@ def lapsed(interview: CatchUp, at: datetime, timeout: timedelta) -> bool:
     return interview.asked_at is None or at - interview.asked_at >= timeout
 
 
+def before_question(interview: CatchUp, at: datetime) -> bool:
+    """Whether a message sent at `at` was sent before the question was asked, while the bot was
+    writing it. Telegram gives whole seconds, so the comparison is to the second."""
+    return interview.asked_at is not None and at < interview.asked_at.replace(microsecond=0)
+
+
+def answers(interview: CatchUp, at: datetime, timeout: timedelta) -> bool:
+    """Whether a message sent at `at` answers the interview's question."""
+    return not before_question(interview, at) and not lapsed(interview, at, timeout)
+
+
+def lapse(
+    interview: CatchUp, chat_id: int, at: datetime, timeout: timedelta
+) -> tuple[BotCall, ...]:
+    """Handle a message sent at `at` that doesn't answer the question, and is an ordinary note
+    instead. Unless it was sent before the question, the question has lapsed: the interview
+    pauses, and the bot says so. Returns the calls that tell the owner."""
+    if before_question(interview, at):
+        return ()
+    calls = pause(interview, chat_id)
+    return (send(chat_id, lapsed_text(timeout)), *calls)
+
+
+def lapsed_text(timeout: timedelta) -> str:
+    minutes = round(timeout.total_seconds() / 60)
+    return (
+        f"That catch-up question waited more than {minutes} minutes, so I kept your message as an "
+        "ordinary note and paused the catch-up. Send /catchup to carry on."
+    )
+
+
 async def start(session: AsyncSession, owner: uuid.UUID, chat_id: int) -> CatchUpAnswer:
-    """Answer `/catchup`: start an interview, or carry on with the one under way or paused."""
+    """Answer `/catchup`: start an interview, or carry on with the one under way or paused. A
+    follow-up question that waits for an answer stops, and its entry goes on to its role."""
+    stopped = await stop_waiting(session, owner, chat_id)
     interview = await unfinished(session, owner)
     if interview is None:
         interview = CatchUp(user_id=owner, transcript="[]")
         session.add(interview)
         await session.flush()
-        return CatchUpAnswer((send(chat_id, INTRO),), catch_up=interview.id)
-    if interview.status == "thinking":
-        return CatchUpAnswer((send(chat_id, THINKING),), catch_up=interview.id)
-    calls = (send(chat_id, RESUMED), *_without_buttons(chat_id, interview))
-    interview.status, interview.question_id = "thinking", None
-    return CatchUpAnswer(calls, catch_up=interview.id)
+        calls = (send(chat_id, INTRO), *stopped.calls)
+    elif interview.status == "thinking":
+        calls = (send(chat_id, THINKING), *stopped.calls)
+    else:
+        calls = (send(chat_id, RESUMED), *_without_buttons(chat_id, interview), *stopped.calls)
+        interview.status, interview.question_id = "thinking", None
+    return CatchUpAnswer(calls, ready=stopped.ready, catch_up=interview.id)
 
 
 async def first_run(session: AsyncSession, owner: uuid.UUID, chat_id: int) -> CatchUpAnswer:

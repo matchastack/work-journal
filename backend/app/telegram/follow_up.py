@@ -152,6 +152,18 @@ async def skip(session: AsyncSession, owner: uuid.UUID, chat_id: int) -> Answer:
     return Answer((send(chat_id, SKIPPED), *_without_skip(chat_id, entry)), ready=entry.id)
 
 
+async def stop_waiting(session: AsyncSession, owner: uuid.UUID, chat_id: int) -> Answer:
+    """Stop the question that waits for an answer, lapsed or not, without a word, when the
+    catch-up interview starts (`app/telegram/catch_up.py`), so that the owner's next message
+    answers the interview. The question loses its Skip button, and the entry goes on to its role.
+    """
+    entry = await awaiting(session, owner)
+    if entry is None:
+        return Answer(())
+    entry.awaiting_follow_up = False
+    return Answer(_without_skip(chat_id, entry), ready=entry.id)
+
+
 async def press_skip(session: AsyncSession, owner: uuid.UUID, query: CallbackQuery) -> Answer:
     """Answer a press of the question's Skip button, as `/skip` does."""
     message = query.message

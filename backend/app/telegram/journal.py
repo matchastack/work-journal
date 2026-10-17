@@ -162,11 +162,13 @@ async def _new_message(
     interview = await catch_up.asking(session, owner)
     if asked is not None and not lapsed(asked, message.sent_at, entry_timeout):
         entry_id, handled = asked.id, Handled.of(answered(asked, chat_id))
-    elif interview is not None and not catch_up.lapsed(interview, message.sent_at, entry_timeout):
+    elif interview is not None and catch_up.answers(interview, message.sent_at, entry_timeout):
         entry_id, answer = await catch_up.answer(session, interview, chat_id, body, message.sent_at)
         handled = Handled.of(answer)
     else:
-        lapsing = catch_up.pause(interview, chat_id) if interview is not None else ()
+        lapsing = ()
+        if interview is not None:
+            lapsing = catch_up.lapse(interview, chat_id, message.sent_at, entry_timeout)
         entry_id, closed = await entry_for(session, owner, message.sent_at, entry_timeout)
         handled = Handled(lapsing, ready=closed)
     statement = (
@@ -213,7 +215,9 @@ async def _command(
     """The bot's answer to a command sent at `sent_at`. `/done` closes the open entry as of then
     and pauses the catch-up interview, `/skip` skips the follow-up question that waits for an
     answer, or else the interview's, `/refresh` starts a refresh, and `/catchup` starts the
-    interview or carries on with it, closing the open entry first. `/start` and `/help` get the
+    interview or carries on with it, closing the open entry and stopping a waiting follow-up
+    question first. When both had an entry, the entry closed here runs now, and the other at the
+    next tick, whose sweep queues it. `/start` and `/help` get the
     list of commands, and so does an unknown command, with a note that it wasn't journaled."""
     command = body.split(maxsplit=1)[0].split("@", 1)[0].lower()
     if command == "/done":
@@ -234,7 +238,7 @@ async def _command(
     if command == "/catchup":
         closed = await close_open_entry(session, owner, sent_at)
         started = await catch_up.start(session, owner, chat_id)
-        return Handled(started.calls, closed, catch_up=started.catch_up)
+        return Handled(started.calls, closed or started.ready, catch_up=started.catch_up)
     if command == "/refresh":
         answer = await refresh(session, owner, chat_id, app_url=app_url)
         return Handled(answer.calls, refresh=answer.refresh)
@@ -251,7 +255,8 @@ async def _link(session: AsyncSession, chat_id: int, token: str) -> Handled:
     if owner is None:
         return Handled((send(chat_id, reply),))
     started = await catch_up.first_run(session, owner, chat_id)
-    return Handled((send(chat_id, reply), *started.calls), catch_up=started.catch_up)
+    calls = (send(chat_id, reply), *started.calls)
+    return Handled(calls, started.ready, catch_up=started.catch_up)
 
 
 async def _edit(session: AsyncSession, message: Message) -> None:

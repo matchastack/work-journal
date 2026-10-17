@@ -40,6 +40,7 @@ from app.telegram.catch_up import (
     SKIPPED,
     STOP,
     THINKING,
+    lapsed_text,
     next_message,
     record_question,
     turns_of,
@@ -268,20 +269,48 @@ async def test_an_answer_becomes_an_entry_of_its_own_with_the_question(
 async def test_a_message_after_the_question_lapsed_is_a_note(
     session: AsyncSession, chat_id: int
 ) -> None:
-    """The interview pauses, keeping its question for `/catchup`."""
+    """The interview pauses, keeping its question for `/catchup`, and the bot says so."""
     user_id, interview_id = await asking_interview(session, chat_id, asked=SENT - TIMEOUT)
     handled = await handle(session, message(chat_id, "an ordinary note"))
-    assert handled == Handled((without_buttons(chat_id),))
+    assert handled == Handled((sent(chat_id, lapsed_text(TIMEOUT)), without_buttons(chat_id)))
     [entry] = await session.scalars(select(JournalEntry).where(JournalEntry.user_id == user_id))
     assert (entry.closed_at, entry.question) == (None, None)
     interview = await interview_of(session, interview_id)
     assert (interview.status, interview.question, turns_of(interview)) == ("paused", ASKED, [])
 
 
-async def test_a_follow_up_answer_comes_before_the_interview(
+async def test_a_message_sent_before_the_question_is_a_note(
     session: AsyncSession, chat_id: int
 ) -> None:
-    user_id, interview_id = await asking_interview(session, chat_id)
+    """Such as the second half of the last answer, sent while the bot wrote this question. The
+    question still waits for its answer."""
+    user_id, interview_id = await asking_interview(
+        session, chat_id, asked=SENT + timedelta(seconds=5)
+    )
+    handled = await handle(session, message(chat_id, "and the runbook too"))
+    assert handled == Handled()
+    [entry] = await session.scalars(select(JournalEntry).where(JournalEntry.user_id == user_id))
+    assert (entry.closed_at, entry.question) == (None, None)
+    interview = await interview_of(session, interview_id)
+    assert (interview.status, turns_of(interview)) == ("asking", [])
+
+
+async def test_a_message_in_the_second_the_question_was_sent_answers_it(
+    session: AsyncSession, chat_id: int
+) -> None:
+    """Telegram dates messages in whole seconds."""
+    _, interview_id = await asking_interview(
+        session, chat_id, asked=SENT + timedelta(milliseconds=400)
+    )
+    handled = await handle(session, message(chat_id, ANSWER))
+    assert handled.catch_up == interview_id
+
+
+async def test_catchup_stops_a_follow_up_question_that_waits(
+    session: AsyncSession, chat_id: int
+) -> None:
+    """So that the owner's next message answers the interview. The entry goes on to its role."""
+    user_id = await linked_user(session, chat_id)
     entry = JournalEntry(
         user_id=user_id,
         opened_at=SENT - timedelta(minutes=20),
@@ -289,14 +318,17 @@ async def test_a_follow_up_answer_comes_before_the_interview(
         closed_at=SENT - timedelta(minutes=10),
         closed_by="done",
         follow_up_at=SENT - timedelta(minutes=8),
+        follow_up_question_id=911,
         awaiting_follow_up=True,
     )
     session.add(entry)
     await session.flush()
-    handled = await handle(session, message(chat_id, "about 12 minutes"))
-    assert handled.ready == entry.id
-    assert handled.catch_up is None
-    assert (await interview_of(session, interview_id)).status == "asking"
+    handled = await handle(session, message(chat_id, "/catchup"))
+    [interview] = await session.scalars(select(CatchUp).where(CatchUp.user_id == user_id))
+    without_skip = BotCall("editMessageReplyMarkup", {"chat_id": chat_id, "message_id": 911})
+    assert handled == Handled((sent(chat_id, INTRO), without_skip), entry.id, catch_up=interview.id)
+    await session.refresh(entry)
+    assert not entry.awaiting_follow_up
 
 
 # --- Skip, Stop for now and /done -----------------------------------------------------------------
