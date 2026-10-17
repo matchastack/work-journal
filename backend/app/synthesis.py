@@ -20,12 +20,18 @@ A fact that answers an open question resolves it (FR-EXT-4): code adds that oper
 
 The writer (`app/writing.py`) writes each planned bullet and the verifier checks it, so every
 text operation carries its verifier report (FR-FID-8), and a bullet that fails is proposed
-flagged (FR-FID-7). The notes on what was left out name facts by ID and never quote them.
+flagged (FR-FID-7). The client is synchronous, so bullets are written up to `concurrency` at a
+time in threads, which lets a refresh of months of facts finish within one function call
+(T-064). The first is written alone, so that the profile context its calls cache serves the
+rest. Each bullet's place, facts, ID and notes are settled from the plan before any is written,
+so the change set doesn't depend on which bullet finishes first. The notes on what was left out
+name facts by ID and never quote them.
 """
 
 import json
 import re
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
+from concurrent.futures import FIRST_EXCEPTION, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
 
 from app.llm.client import LLMClient
@@ -149,13 +155,17 @@ def synthesize(
     base_version: int | None = None,
     avoid: Sequence[str] = (),
     prompt: Prompt | None = None,
+    concurrency: int = 1,
 ) -> Synthesis:
     """Propose changes to `profile` from `facts`, the new facts, with the heavy-tier model.
 
     `sources` are other facts, such as those existing bullets were written from: a new version
     of a bullet is checked against its own facts too. `base_version` is the number of the
-    profile's version, and `avoid` the owner's words to avoid.
+    profile's version, and `avoid` the owner's words to avoid. `concurrency` is how many bullets
+    are written and checked at once; 1 writes them one after another.
     """
+    if concurrency < 1:
+        raise ValueError("bullets are written at least one at a time")
     if not facts:
         return Synthesis(change_set=None)
     prompt = prompt or load_prompt(PROMPT_NAME, PROMPT_VERSION)
@@ -166,7 +176,7 @@ def synthesize(
         variables={"facts": planning_facts_json(facts)},
         context=synthesis_context(profile),
     )
-    builder = _Builder(profile, facts, sources, client, avoid)
+    builder = _Builder(profile, facts, sources, client, avoid, concurrency)
     return builder.build(result.output, base_version)
 
 
@@ -277,6 +287,8 @@ class _Builder:
     sources: Sequence[Fact]
     client: LLMClient
     avoid: Sequence[str]
+    concurrency: int = 1
+    """How many bullets are written and checked at once."""
     notes: list[str] = field(default_factory=list[str])
     keys: dict[str, str] = field(default_factory=dict[str, str])
     """The IDs given to the plan's new roles and projects, by their keys."""
@@ -326,7 +338,7 @@ class _Builder:
             structure.append(op)
         ops = [ReviewedOp(op=op) for op in structure]
         drafts = [d for bullet in plan.bullets if (d := self._draft(bullet, interim)) is not None]
-        reports = [self._write(draft, interim) for draft in drafts]
+        reports = _in_order(drafts, lambda draft: self._write(draft, interim), self.concurrency)
         ops += [self._reviewed(d, report) for d, report in zip(drafts, reports, strict=True)]
         ops += [ReviewedOp(op=op) for op in self._answers()]
         cited = {fact_id for reviewed in ops for fact_id in reviewed.op.fact_ids}
@@ -584,6 +596,24 @@ class _Builder:
             if answers:
                 resolved.append(ResolveOpenQuestion(question_id=question.id, fact_ids=answers))
         return resolved
+
+
+def _in_order[T, R](items: Sequence[T], work: Callable[[T], R], concurrency: int) -> list[R]:
+    """`work` done on each item, with the results in the items' order: the first item alone, then
+    the rest up to `concurrency` at a time in threads. Once one fails, no more start; the error of
+    the first that failed, in the items' order, is raised when those already started are done."""
+    if concurrency == 1 or len(items) <= 1:
+        return [work(item) for item in items]
+    results = [work(items[0])]
+    rest = items[1:]
+    pool = ThreadPoolExecutor(max_workers=min(concurrency, len(rest)), thread_name_prefix="bullet")
+    try:
+        futures = [pool.submit(work, item) for item in rest]
+        wait(futures, return_when=FIRST_EXCEPTION)
+    finally:
+        pool.shutdown(cancel_futures=True)
+    # Items start in order, so any that never started come after every one that failed.
+    return results + [future.result() for future in futures]
 
 
 def _position(dates: Sequence[str | None], when: str | None) -> int | None:
