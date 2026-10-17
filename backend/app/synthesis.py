@@ -30,8 +30,8 @@ name facts by ID and never quote them.
 
 import json
 import re
+import threading
 from collections.abc import Callable, Iterable, Sequence
-from concurrent.futures import FIRST_EXCEPTION, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
 
 from app.llm.client import LLMClient
@@ -601,19 +601,49 @@ class _Builder:
 def _in_order[T, R](items: Sequence[T], work: Callable[[T], R], concurrency: int) -> list[R]:
     """`work` done on each item, with the results in the items' order: the first item alone, then
     the rest up to `concurrency` at a time in threads. Once one fails, no more start; the error of
-    the first that failed, in the items' order, is raised when those already started are done."""
+    the first that failed, in the items' order, is raised when those already started are done.
+
+    An interruption, such as Ctrl+C on `wj propose`, is raised at once, and no more start. The
+    threads are daemons, so the command then exits without waiting for the calls in flight, as it
+    did when bullets were written one by one."""
     if concurrency == 1 or len(items) <= 1:
         return [work(item) for item in items]
-    results = [work(items[0])]
-    rest = items[1:]
-    pool = ThreadPoolExecutor(max_workers=min(concurrency, len(rest)), thread_name_prefix="bullet")
+    results = {0: work(items[0])}
+    errors: dict[int, BaseException] = {}
+    waiting = iter(range(1, len(items)))
+    lock = threading.Lock()
+    stop = threading.Event()
+    # The threads count themselves done here instead of being joined: Python 3.12 marks a thread
+    # stopped when a join() of it is interrupted, though it still runs.
+    done = threading.Semaphore(0)
+
+    def run() -> None:
+        try:
+            while not stop.is_set():
+                with lock:
+                    index = next(waiting, None)
+                if index is None:
+                    return
+                try:
+                    results[index] = work(items[index])
+                except BaseException as error:
+                    errors[index] = error
+                    stop.set()
+        finally:
+            done.release()
+
+    count = min(concurrency, len(items) - 1)
     try:
-        futures = [pool.submit(work, item) for item in rest]
-        wait(futures, return_when=FIRST_EXCEPTION)
+        for number in range(count):
+            threading.Thread(target=run, name=f"bullet_{number}", daemon=True).start()
+        for _ in range(count):
+            done.acquire()
     finally:
-        pool.shutdown(cancel_futures=True)
-    # Items start in order, so any that never started come after every one that failed.
-    return results + [future.result() for future in futures]
+        stop.set()
+    if errors:
+        # Items start in order, so any that never started come after every one that failed.
+        raise errors[min(errors)]
+    return [results[index] for index in range(len(items))]
 
 
 def _position(dates: Sequence[str | None], when: str | None) -> int | None:

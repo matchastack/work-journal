@@ -8,6 +8,7 @@ One short entry per pull request, newest first: what changed and what to verify.
 **Verify:**
 - CI is green on the PR
 - `uv run wj propose --db` with many new facts proposes the same kind of changes as before, much faster
+- Ctrl+C during `uv run wj propose --db` stops it at once and marks the refresh failed
 - After `/refresh` with a few dozen new facts, the bot says how many updates are proposed, not that the refresh didn't finish, and the Inbox lists them with their verifier reports
 - If the API answers 429 during a refresh, a lower `REFRESH_CONCURRENCY` in Vercel's environment variables stops it
 

@@ -1,4 +1,5 @@
 import json
+import signal
 import threading
 import time
 from collections.abc import Callable, Sequence
@@ -640,6 +641,42 @@ def test_a_bullet_that_fails_stops_the_rest() -> None:
     assert writes[0] == ["e1_1"]
     assert ["e2_1"] in writes
     assert len(writes) < 9
+
+
+@pytest.mark.skipif(not hasattr(signal, "pthread_kill"), reason="presses Ctrl+C with a signal")
+def test_ctrl_c_stops_at_once_while_bullets_are_written() -> None:
+    """As it did when bullets were written one by one, Ctrl+C stops `wj propose` without waiting
+    for the calls in flight, whose threads don't keep it from exiting, and no more bullets start."""
+    facts = alerts(5)
+    calls = by_request(one_each(facts))
+    main = threading.get_ident()
+    # Presses Ctrl+C once two bullets after the first are being written.
+    writing = threading.Barrier(
+        2, action=lambda: signal.pthread_kill(main, signal.SIGINT), timeout=5
+    )
+    release = threading.Event()
+
+    def answer(request: dict[str, Any]) -> BetaMessage | Exception:
+        if output_name(request) == "WrittenBullet" and facts_in(request) != ["e1_1"]:
+            writing.wait()
+            release.wait(timeout=5)
+        return calls(request)
+
+    fake = FakeMessages(answer=answer)
+    settings = Settings(llm_model_heavy="heavy-model", llm_model_standard="standard-model")
+    client = LLMClient(settings, fake, MemoryCallLog())
+    with pytest.raises(KeyboardInterrupt):
+        synthesize(PROFILE, facts, client, sources=IMPORTED, concurrency=2)
+    threads = [thread for thread in threading.enumerate() if thread.name.startswith("bullet_")]
+    assert [(thread.is_alive(), thread.daemon) for thread in threads] == [(True, True)] * 2
+    release.set()
+    for thread in threads:
+        thread.join(timeout=5)
+    writes = [
+        facts_in(request) for request in fake.requests if output_name(request) == "WrittenBullet"
+    ]
+    assert writes[0] == ["e1_1"]
+    assert sorted(writes[1:]) == [["e2_1"], ["e3_1"]]
 
 
 def test_bullets_are_written_at_least_one_at_a_time() -> None:
