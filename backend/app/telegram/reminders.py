@@ -29,8 +29,8 @@ The owner's `telegram_links` row, locked (`lock_link`), serializes every change 
 record and setting: the job, the buttons, the answer, New role, which ends the wait for one,
 `/pause` and `/resume`. So two runs can't both send one reminder, and a press can't undo what a
 run records. When a journal entry is locked too, as after a lapsed wait for an answer or by New
-role, this lock comes first. Only user IDs, times and outcomes are
-logged: never a question or its ID, which can name an employer.
+role, this lock comes first. Only user IDs, times and outcomes are logged: never a question or
+its ID, which can name an employer.
 """
 
 import logging
