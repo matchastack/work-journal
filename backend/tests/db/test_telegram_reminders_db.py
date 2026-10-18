@@ -18,12 +18,12 @@ from unittest.mock import patch
 
 import httpx2
 import pytest
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 
 import app.jobs as job_module
 from app.config import Settings, get_settings
 from app.db.crypto import KeyRing, new_key, use_key_ring
-from app.db.models import JournalEntry, JournalMessage, TelegramLink, User
+from app.db.models import ChangeSetRow, FactRow, JournalEntry, JournalMessage, TelegramLink, User
 from app.db.profiles import save_version
 from app.db.settings import (
     get_reminder_settings,
@@ -443,7 +443,9 @@ def asking(slot: datetime, *asked: str, message_id: int = FIRST_ID) -> ReminderS
 
 async def answer(user_id: uuid.UUID, question_id: str, outcome: str) -> None:
     """An answer to the question in the owner's journal (FR-EXT-4), from earlier in the week:
-    one that waits to be processed, one that gave a fact or none, or one that failed."""
+    one that waits to be processed, one that gave a fact or none, or one that failed. A fact a
+    refresh used is "in review" while its change set waits for review, and "reviewed" once the
+    owner decided it, leaving the question open."""
     at = FRIDAY - timedelta(days=5)
     async with database() as session:
         entry = JournalEntry(
@@ -455,13 +457,14 @@ async def answer(user_id: uuid.UUID, question_id: str, outcome: str) -> None:
             role_id="northwind",
             open_question_id=question_id,
         )
-        if outcome in ("a fact", "no fact"):
+        gave_fact = outcome in ("a fact", "in review", "reviewed")
+        if gave_fact or outcome == "no fact":
             entry.triage, entry.processed_at = "work", at
         if outcome == "failed":
             entry.failed_at = at
         session.add(entry)
         await session.flush()
-        if outcome == "a fact":
+        if gave_fact:
             fact = Fact(
                 id="fact_volume",
                 statement="The order services handle about 40,000 events a day.",
@@ -470,6 +473,12 @@ async def answer(user_id: uuid.UUID, question_id: str, outcome: str) -> None:
                 entry_id=str(entry.id),
             )
             await save_facts(session, user_id, [fact])
+        if outcome in ("in review", "reviewed"):
+            await session.execute(
+                update(FactRow).where(FactRow.user_id == user_id).values(refreshed_at=at)
+            )
+            status = "proposed" if outcome == "in review" else "applied"
+            session.add(ChangeSetRow(user_id=user_id, author="ai", status=status))
 
 
 async def test_a_reminder_asks_the_most_valuable_open_question(
@@ -507,6 +516,8 @@ async def test_each_reminder_asks_the_next_question_then_starts_again(
     [
         pytest.param("waiting", LOGS, id="an answer waiting to be processed"),
         pytest.param("a fact", LOGS, id="an answer that gave a fact"),
+        pytest.param("in review", LOGS, id="an answer whose fact waits for review"),
+        pytest.param("reviewed", VOLUME, id="an answer the owner rejected in review"),
         pytest.param("no fact", VOLUME, id="an answer that gave no fact"),
         pytest.param("failed", VOLUME, id="an answer that failed"),
     ],
@@ -515,7 +526,8 @@ async def test_a_question_the_journal_holds_an_answer_to_isnt_asked(
     owner: Owner, chat_id: int, telegram: Telegram, outcome: str, asked: str
 ) -> None:
     """An answer that gave no fact, such as "I don't know", or that failed, leaves the question
-    to be asked again."""
+    to be asked again, and so does one whose resolution the owner rejected in review: the
+    question is still open once its refresh's changes are decided."""
     user_id = await owner(profile=QUESTIONS)
     await answer(user_id, "q_nw_volume", outcome)
     await sweep(FRIDAY)

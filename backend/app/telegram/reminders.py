@@ -6,8 +6,8 @@ due: it returns the reminder to send, or records a skipped one, and `record_sent
 sent. The reminder's text is fixed, so no model writes it. It may end with one open question
 from the owner's latest profile version, as the profile words it: the most valuable one the
 journal holds no answer to and this round hasn't asked (`app/open_questions.py`). The journal
-holds an answer while an answer entry waits to be processed, or once one gave a fact. Its
-buttons (FR-REM-3):
+holds an answer while an answer entry waits to be processed, and from when one gave a fact until
+the owner has reviewed the refresh that uses it. Its buttons (FR-REM-3):
 
 - "Answer the question", on a reminder that asks one, asks for the answer in one message. The
   owner's next message, unless it's a command, is the answer if it comes within the entry
@@ -43,7 +43,7 @@ from typing import Any
 from sqlalchemy import String, cast, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import FactRow, JournalEntry, JournalMessage
+from app.db.models import ChangeSetRow, FactRow, JournalEntry, JournalMessage
 from app.db.profiles import latest_version
 from app.db.settings import (
     get_reminder_settings,
@@ -294,17 +294,23 @@ async def _next_question(
 
 async def _answered(session: AsyncSession, owner: uuid.UUID) -> set[str]:
     """The open questions the owner's journal holds an answer to: an answer entry (FR-EXT-4)
-    that hasn't failed, and either waits to be processed or gave a fact. One that gave none, such
-    as "I don't know", leaves its question open to be asked again."""
-    gave_facts = exists().where(
-        FactRow.user_id == owner, FactRow.entry_id == cast(JournalEntry.id, String)
+    that hasn't failed, and either waits to be processed or gave a fact the owner hasn't reviewed
+    yet. A fact is reviewed once a refresh covered it (`facts.refreshed_at`) and no change set
+    waits for review: an accepted answer has answered the question in the profile by then, and
+    one the owner rejected leaves it open to be asked again. So does an answer that gave no
+    fact, such as "I don't know"."""
+    in_review = exists().where(ChangeSetRow.user_id == owner, ChangeSetRow.status == "proposed")
+    unreviewed_facts = exists().where(
+        FactRow.user_id == owner,
+        FactRow.entry_id == cast(JournalEntry.id, String),
+        or_(FactRow.refreshed_at.is_(None), in_review),
     )
     found = await session.scalars(
         select(JournalEntry.open_question_id).where(
             JournalEntry.user_id == owner,
             JournalEntry.open_question_id.is_not(None),
             JournalEntry.failed_at.is_(None),
-            or_(JournalEntry.processed_at.is_(None), gave_facts),
+            or_(JournalEntry.processed_at.is_(None), unreviewed_facts),
         )
     )
     return {question_id for question_id in found if question_id is not None}
