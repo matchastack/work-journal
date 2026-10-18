@@ -2,11 +2,11 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-18 · Tailored resumes' LaTeX source
+## 2026-10-18 · Tailored resumes' LaTeX source · [#56](https://github.com/matchastack/work-journal/pull/56)
 **Changed:** `wj tailor` writes the LaTeX source beside the PDF, as `wj render` does; `--tex-only` or `--pdf-only` writes just one of them.
 
 **Verify:**
-- CI is green on the PR
+- CI is green on #56
 - `uv run wj tailor <posting> --db` says it wrote the PDF and its source, and the `.tex` compiles on its own to the same resume
 - With `--tex-only`, only the `.tex` is written; with `--pdf-only`, only the PDF
 
