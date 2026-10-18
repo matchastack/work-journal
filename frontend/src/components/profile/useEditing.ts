@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * Whether a card's form is open. Once it closes, after a save or a cancel, focus goes back to
- * the card's Edit button, so the keyboard carries on where it was.
+ * Whether a card's form, or a question such as Restore's, is open. Once it closes, after a save
+ * or a cancel, focus goes back to the button that opened it, so the keyboard carries on where it
+ * was.
  */
 export function useEditing() {
   const [editing, setEditing] = useState(false);

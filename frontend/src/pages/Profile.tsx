@@ -7,6 +7,7 @@ import { BasicsCard } from "../components/profile/BasicsCard";
 import { ItemCard } from "../components/profile/ItemCard";
 import { SAVED_BY, type Entry } from "../components/profile/labels";
 import { LintSummary } from "../components/profile/LintSummary";
+import { VersionHistory } from "../components/profile/VersionHistory";
 import { BUTTON, FOCUS } from "../components/ui";
 import { dateAndTime } from "../format";
 
@@ -17,6 +18,7 @@ const SECTIONS = {
   education: { id: "profile-education", title: "Education" },
   projects: { id: "profile-projects", title: "Projects" },
   rules: { id: "profile-rules", title: "Resume rules" },
+  history: { id: "profile-history", title: "History" },
 } as const;
 
 function Section({
@@ -71,7 +73,8 @@ function Items({
  * The master profile's latest version: basics, roles, education, projects and their bullets,
  * each edited in place, with the resume rules' findings. Every save is a change set by you and
  * a new version (FR-PRF-11); the resumes, portfolio page and LinkedIn text catch up at the next
- * refresh (FR-REV-7).
+ * refresh (FR-REV-7). The history lists every version with what it changed, and restores any of
+ * them as a new version (FR-PRF-3).
  */
 export function Profile() {
   const page = useQuery(profileQuery);
@@ -173,6 +176,11 @@ export function Profile() {
               />
             </Section>
             <LintSummary lint={data.lint} titleId={SECTIONS.rules.id} />
+            <VersionHistory
+              current={data.version.number}
+              titleId={SECTIONS.history.id}
+              onRestored={setStatus}
+            />
           </div>
         </div>
       )}

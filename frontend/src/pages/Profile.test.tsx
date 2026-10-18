@@ -10,6 +10,7 @@ import type {
   Profile,
   ProfilePage,
   RoleEdit,
+  VersionChange,
   VersionSummary,
 } from "../api/profile";
 import { createQueryClient } from "../api/queryClient";
@@ -194,11 +195,86 @@ function page(start: Profile = profile()): ProfilePage {
   };
 }
 
+/** A version as the stand-in API keeps it: what the history lists, its profile, and what it
+ * changed against its parent. */
+interface Stored {
+  version: VersionSummary;
+  profile: Profile;
+  changes: VersionChange[];
+}
+
+/** Version 3 of a profile: the profile as first loaded, a refresh's changes, and an edit. */
+function history(): { start: ProfilePage; versions: Stored[] } {
+  const latest = profile();
+  const first = structuredClone(latest);
+  first.projects = first.projects.filter((project) => project.id !== "bird_calls");
+  const exported = first.work[0]?.highlights[0];
+  if (exported !== undefined) {
+    exported.text = "Cut the export job from 50 to 12 minutes overall.";
+    exported.tags = ["backend"];
+  }
+  const second = structuredClone(first);
+  second.projects = latest.projects;
+  const versions: Stored[] = [
+    { version: version(1), profile: first, changes: [] },
+    {
+      version: version(2, { author: "ai", summary: "From the week's journal" }),
+      profile: second,
+      changes: [
+        {
+          kind: "added",
+          path: "projects[bird_calls]",
+          title: "Project added: Bird Call Classifier",
+          context: null,
+          before: null,
+          after: "Bird Call Classifier",
+          diff: [],
+        },
+      ],
+    },
+    {
+      version: version(3, { summary: "Edited a bullet under Engineer, Northwind Traders" }),
+      profile: latest,
+      changes: [
+        {
+          kind: "changed",
+          path: "work[northwind].highlights[nw_export].text",
+          title: "Text of a bullet under Engineer, Northwind Traders",
+          context: null,
+          before: "Cut the export job from 50 to 12 minutes overall.",
+          after: EXPORT,
+          diff: [
+            { kind: "same", text: "Cut the " },
+            { kind: "added", text: "nightly " },
+            { kind: "same", text: "export job from 50 to 12 minutes " },
+            { kind: "removed", text: "overall." },
+            { kind: "added", text: "by batching database writes." },
+          ],
+        },
+        {
+          kind: "changed",
+          path: "work[northwind].highlights[nw_export].tags",
+          title: "Tags of a bullet under Engineer, Northwind Traders",
+          context: EXPORT,
+          before: "backend",
+          after: "backend, data",
+          diff: [],
+        },
+      ],
+    },
+  ];
+  return { start: { ...page(latest), version: versions[2]?.version ?? null }, versions };
+}
+
 interface Sent {
   method: string;
   path: string;
   body: unknown;
   csrf: string | null;
+}
+
+interface Edit {
+  baseVersion: number;
 }
 
 function json(body: unknown, status = 200): Response {
@@ -210,25 +286,46 @@ function json(body: unknown, status = 200): Response {
 
 /**
  * Stands in for the API with a profile that each save changes as a new version, so the page
- * reads it again as changed. `elsewhere` changes it as another tab would, without the page
- * knowing; `refuse` answers one request (`"GET /api/profile"`) with an error.
+ * reads it again as changed, and restores make a copy of an earlier one. `elsewhere` changes it
+ * as another tab would, without the page knowing; `refuse` answers one request
+ * (`"GET /api/profile"`) with an error. `versions` are the versions up to `start`'s.
  */
-function serveProfile(start: ProfilePage = page(), refuse: Record<string, Response> = {}) {
+function serveProfile(
+  start: ProfilePage = page(),
+  refuse: Record<string, Response> = {},
+  versions: Stored[] = start.version && start.profile
+    ? [{ version: start.version, profile: start.profile, changes: [] }]
+    : [],
+) {
   let state = structuredClone(start);
+  const stored = structuredClone(versions);
   const sent: Sent[] = [];
+  const next = (profile: Profile, fields: Partial<VersionSummary>) => {
+    const number = stored.length + 1;
+    const saved = version(number, fields);
+    stored.push({ version: saved, profile, changes: [] });
+    state = { ...state, profile, version: saved };
+  };
   const save = (change: (profile: Profile) => void, summary: string) => {
     const current = state.profile;
-    const latest = state.version;
-    if (current === null || latest === null) {
+    if (current === null) {
       throw new Error("no profile to save");
     }
     const profile = structuredClone(current);
     change(profile);
-    if (JSON.stringify(profile) === JSON.stringify(current)) {
-      return;
+    if (JSON.stringify(profile) !== JSON.stringify(current)) {
+      next(profile, { summary });
     }
-    state = { ...state, profile, version: version(latest.number + 1, { summary }) };
   };
+  const stale = (baseVersion: number) =>
+    baseVersion === state.version?.number
+      ? null
+      : json(
+          {
+            detail: `your profile changed since this page loaded: it's now at version ${String(state.version?.number)}, so check it and try again`,
+          },
+          409,
+        );
   const bulletOf = (profile: Profile, id: string) => {
     const items = [...profile.work, ...profile.education, ...profile.projects];
     const found = items.flatMap((item) => item.highlights).find((each) => each.id === id);
@@ -260,15 +357,25 @@ function serveProfile(start: ProfilePage = page(), refuse: Record<string, Respon
       if (path === "/api/profile") {
         return json(state);
       }
-      const [, , , kind, id = ""] = path.split("/");
-      const edit = body as { baseVersion: number };
-      if (request.method === "PUT" && edit.baseVersion !== state.version?.number) {
-        return json(
-          {
-            detail: `your profile changed since this page loaded: it's now at version ${String(state.version?.number)}, so check it and try again`,
-          },
-          409,
-        );
+      if (path === "/api/profile/versions") {
+        return json({ versions: stored.map((each) => each.version).reverse() });
+      }
+      const [, , , kind, id = "", action] = path.split("/");
+      const number = Number(id);
+      const found = stored.find((each) => each.version.number === number);
+      if (kind === "versions" && found !== undefined && request.method === "GET") {
+        return json({ version: found.version, changes: found.changes });
+      }
+      const refusal = request.method === "GET" ? null : stale((body as Edit).baseVersion);
+      if (refusal !== null) {
+        return refusal;
+      }
+      if (kind === "versions" && found !== undefined && action === "restore") {
+        if (number === state.version?.number) {
+          return json({ detail: `version ${id} is already your current profile` }, 409);
+        }
+        next(structuredClone(found.profile), { restoredFrom: number });
+        return json(state);
       }
       // An edit's fields, which the stand-in API sets as they are.
       const fields = Object.fromEntries(
@@ -318,6 +425,17 @@ async function card(title: string) {
   return within(article);
 }
 
+/** A version in the history, by its number. */
+async function versionRow(number: number) {
+  const name = new RegExp(`^Version ${String(number)}( \\(current\\))?$`);
+  const heading = await screen.findByRole("heading", { level: 3, name });
+  const item = heading.closest("li");
+  if (item === null) {
+    throw new Error(`no version ${String(number)}`);
+  }
+  return within(item);
+}
+
 async function bulletItem(text: string) {
   const item = (await screen.findByText(text)).closest("li");
   if (item === null) {
@@ -338,7 +456,14 @@ describe("the profile page", () => {
     const sections = (await screen.findAllByRole("heading", { level: 2 })).map(
       (heading) => heading.textContent,
     );
-    expect(sections).toEqual(["Basics", "Work", "Education", "Projects", "Resume rules"]);
+    expect(sections).toEqual([
+      "Basics",
+      "Work",
+      "Education",
+      "Projects",
+      "Resume rules",
+      "History",
+    ]);
     const nav = screen.getByRole("navigation", { name: "Sections" });
     expect(within(nav).getByRole("link", { name: "Resume rules" })).toHaveAttribute(
       "href",
@@ -620,6 +745,124 @@ describe("the profile page", () => {
     await userEvent.click(
       (await card("Engineer, Northwind Traders")).getByRole("button", { name: "Edit role" }),
     );
+    const nonAscii = document.documentElement.outerHTML.match(/[^\t\n\r\x20-\x7e]/gu) ?? [];
+    expect(nonAscii).toEqual([]);
+  });
+});
+
+describe("the profile's history", () => {
+  it("lists every version, newest first", async () => {
+    const { start, versions } = history();
+    serveProfile(start, {}, versions);
+    renderAt();
+    const list = within(await screen.findByRole("list", { name: "Versions" }));
+    expect(list.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual([
+      "Version 3 (current)",
+      "Version 2",
+      "Version 1",
+    ]);
+    const current = await versionRow(3);
+    expect(current.getByText("Edited a bullet under Engineer, Northwind Traders")).toBeVisible();
+    expect(current.getByText("By you")).toBeInTheDocument();
+    expect(current.getByText("3 Oct 2026, 10:00")).toBeInTheDocument();
+    expect(current.queryByRole("button", { name: /^Restore/ })).not.toBeInTheDocument();
+    const refresh = await versionRow(2);
+    expect(refresh.getByText("From the week's journal")).toBeInTheDocument();
+    expect(refresh.getByText("From your journal, accepted by you")).toBeInTheDocument();
+    expect(refresh.getByRole("button", { name: "Restore version 2" })).toBeInTheDocument();
+    const first = await versionRow(1);
+    expect(first.getByText("The profile as first loaded")).toBeInTheDocument();
+    expect(first.queryByRole("button", { name: "Show changes" })).not.toBeInTheDocument();
+  });
+
+  it("shows what a version changed against its parent", async () => {
+    const { start, versions } = history();
+    serveProfile(start, {}, versions);
+    renderAt();
+    const row = await versionRow(3);
+    const show = row.getByRole("button", { name: "Show changes" });
+    expect(show).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(show);
+    expect(show).toHaveAttribute("aria-expanded", "true");
+    expect(show).toHaveTextContent("Hide changes");
+    const changes = within(await row.findByRole("list", { name: "Changes in version 3" }));
+    expect(row.getByText("Against version 2:")).toBeInTheDocument();
+    expect(changes.getByText("Text of a bullet under Engineer, Northwind Traders")).toBeVisible();
+    expect(changes.getByText("nightly").tagName).toBe("INS");
+    expect(changes.getByText("overall.").tagName).toBe("DEL");
+    expect(changes.getByText("Tags of a bullet under Engineer, Northwind Traders")).toBeVisible();
+    expect(changes.getByText(`In the bullet: ${EXPORT}`)).toBeInTheDocument();
+    expect(changes.getByText("backend, data")).toBeInTheDocument();
+
+    await userEvent.click(show);
+    expect(show).toHaveAttribute("aria-expanded", "false");
+    expect(row.queryByRole("list", { name: "Changes in version 3" })).not.toBeInTheDocument();
+    await userEvent.click((await versionRow(2)).getByRole("button", { name: "Show changes" }));
+    expect(await screen.findByText("Project added: Bird Call Classifier")).toBeInTheDocument();
+  });
+
+  it("asks before restoring a version, then saves a copy of it as a new one", async () => {
+    const { start, versions } = history();
+    const server = serveProfile(start, {}, versions);
+    renderAt();
+    const row = await versionRow(1);
+    const restore = row.getByRole("button", { name: "Restore version 1" });
+    await userEvent.click(restore);
+    const confirm = row.getByRole("group", { name: /^Restore version 1\?/ });
+    expect(confirm).toHaveTextContent("saved as version 4. The versions in between stay");
+    expect(within(confirm).getByRole("button", { name: "Cancel" })).toHaveFocus();
+    await userEvent.keyboard("{Escape}");
+    expect(row.queryByRole("group")).not.toBeInTheDocument();
+    await vi.waitFor(() => {
+      expect(restore).toHaveFocus();
+    });
+    expect(server.sent).toEqual([]);
+
+    await userEvent.click(restore);
+    await userEvent.click(within(row.getByRole("group")).getByRole("button", { name: "Restore" }));
+    expect(await screen.findByText("Restored version 1 as version 4.")).toBeInTheDocument();
+    expect(server.sent).toEqual([
+      {
+        method: "POST",
+        path: "/api/profile/versions/1/restore",
+        body: { baseVersion: 3 },
+        csrf: "csrf-1",
+      },
+    ]);
+    expect(await screen.findByText(/Showing version 4/)).toBeInTheDocument();
+    expect(
+      await screen.findByText("Cut the export job from 50 to 12 minutes overall."),
+    ).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "Bird Call Classifier" })).not.toBeInTheDocument();
+    expect((await versionRow(4)).getByText("Restored version 1")).toBeInTheDocument();
+    expect((await versionRow(3)).getByRole("button", { name: "Restore version 3" })).toBeVisible();
+  });
+
+  it("refuses a restore when the profile changed since the page loaded", async () => {
+    const { start, versions } = history();
+    const server = serveProfile(start, {}, versions);
+    renderAt();
+    const row = await versionRow(2);
+    await userEvent.click(row.getByRole("button", { name: "Restore version 2" }));
+    server.elsewhere((profile) => {
+      profile.basics.label = "Backend Engineer";
+    });
+    await userEvent.click(within(row.getByRole("group")).getByRole("button", { name: "Restore" }));
+    expect(await row.findByRole("alert")).toHaveTextContent(
+      "Couldn't restore it: your profile changed since this page loaded: it's now at version 4, so check it and try again.",
+    );
+    expect(await screen.findByText(/Showing version 4/)).toBeInTheDocument();
+    expect(row.getByRole("group")).toHaveTextContent("saved as version 5.");
+  });
+
+  it("writes only ASCII characters", async () => {
+    const { start, versions } = history();
+    serveProfile(start, {}, versions);
+    renderAt();
+    const row = await versionRow(3);
+    await userEvent.click(row.getByRole("button", { name: "Show changes" }));
+    await row.findByRole("list", { name: "Changes in version 3" });
+    await userEvent.click((await versionRow(1)).getByRole("button", { name: "Restore version 1" }));
     const nonAscii = document.documentElement.outerHTML.match(/[^\t\n\r\x20-\x7e]/gu) ?? [];
     expect(nonAscii).toEqual([]);
   });
