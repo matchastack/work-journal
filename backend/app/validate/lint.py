@@ -2,9 +2,10 @@
 
 `lint_profile(profile)` checks the master profile, as `wj lint` does. `check_sendable(selection,
 profile, confirmed)` checks what one sendable resume prints, that is, a resume tailored to a posting
-(OQ-6). `require_sendable` raises `NotSendable` when that finds errors: errors block rendering a
-sendable resume, and warnings don't. `check_text(text, profile)` checks one new text before it joins
-the profile, for the verifier (T-015).
+(OQ-6). An error means the resume mustn't be sent as it is, and a warning doesn't; `wj tailor`
+still writes it, so the work isn't lost, and reports the errors (R2). `require_sendable` raises
+`NotSendable` when there are errors, for callers that must stop. `check_text(text, profile)`
+checks one new text before it joins the profile, for the verifier (T-015).
 
 Only what can be printed is checked, so benched, planned and private items are skipped (R8). Each
 finding has a rule ID, a severity and a location: a path like `work[northwind].highlights[nw_x]`,

@@ -2,6 +2,14 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-18 · T-065 Tailored resumes are written even when a rule fails · [#55](https://github.com/matchastack/work-journal/pull/55)
+**Changed:** `wj tailor` no longer stops before the render when the resume breaks a rule, such as a skill marked verify-before-shipping that isn't confirmed. It writes the PDF and logs the application, then prints the rule errors last and exits with status 1: fix them before you send it.
+
+**Verify:**
+- CI is green on the PR
+- `uv run wj tailor <posting.txt> --db` on the posting that stopped before writes the PDF, then ends with "... breaks the resume rules below; fix them before you send it." and the Claude Code error
+- Running it again with `--confirm "Claude Code"` (only if you can defend it) ends without the error
+
 ## 2026-10-17 · User guide · [#54](https://github.com/matchastack/work-journal/pull/54)
 **Changed:** added `user-guide.md`, which explains how to use the Telegram bot, the web app and the command-line tool, and marks the pages still to come. `CLAUDE.md`, the PR template and `tasks.md` now require a PR that creates or changes a feature to update it.
 

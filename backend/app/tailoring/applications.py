@@ -33,7 +33,8 @@ class ResumeChecks(Model):
     texts: tuple[VerifierReport, ...] = ()
     """The verifier's report on each swap and new phrasing the resume shows."""
     rules: LintReport = LintReport()
-    """The resume rules' findings: warnings only, since errors block the render."""
+    """The resume rules' findings. An error doesn't stop the PDF being written; it's kept here,
+    and the resume mustn't be sent until it's fixed (R2)."""
     coverage: CoverageReport = CoverageReport()
     ats: AtsReport | None = None
     """The ATS check of the PDF's text; None in applications logged before it existed."""

@@ -24,7 +24,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 | Milestone | Tasks | Status |
 |---|---|---|
 | M0: Documents | T-000, T-055 and T-056 | ☑ |
-| M1: Engine and command line | T-001 – T-024, T-054 and T-060 (T-007 dropped) | ◐ |
+| M1: Engine and command line | T-001 – T-024, T-054, T-060 and T-065 (T-007 dropped) | ◐ |
 | M2: Journal loop | T-025 – T-053, T-057 – T-059 and T-061 – T-064 | ◐ |
 | M3: Quality and habit | Epics (at the end of this file) | — |
 | M4: Open to others | Epics (at the end of this file) | — |
@@ -363,6 +363,8 @@ As the owner, I want a one-page resume tailored to a posting from my master prof
 
 **Built (2026-10-14):** the plan is checked in code before anything renders: an item or bullet the profile doesn't allow is left out with a note, load-bearing roles and items kept for the role type always appear, and too few courses are topped up from the role type's subset. A bullet's relevance to the posting becomes its priority, so fitting cuts the least relevant first. The posting can be text or `wj posting parse` JSON, and its spellings of skills aren't spelling warnings. You approve each new phrasing (`--yes` for all); approved ones are used and saved as swaps. The coverage report and the application log are T-021.
 
+**Changed by T-065 (2026-10-18):** at the owner's request, a rule error no longer blocks the render; the resume is written and the errors are reported.
+
 ### T-021 · Tailoring: coverage report and application log
 **Status:** ☑ · **Size:** S · **Depends on:** T-020 · **Requirements:** FR-TLR-6, FR-TLR-8, FR-FID-8 · **PR:** [#49](https://github.com/matchastack/work-journal/pull/49)
 
@@ -376,7 +378,7 @@ As the owner, I want to see which of the posting's terms my resume covers, and k
 **Built (2026-10-15):** the report and the log are made from what the PDF shows, after cuts to fit the page. A term counts where the resume shows it as the posting spells it, in whole words. The verifier report kept with an application holds the reports on its swaps and new phrasings, the resume rules' warnings and the coverage report. Without the database, applications are logged in `local/applications/`.
 
 ### T-022 · ATS check
-**Status:** ◐ · **Size:** S · **Depends on:** T-010, T-021 · **Requirements:** FR-TLR-9, FR-RES-4 · **PR:** [#50](https://github.com/matchastack/work-journal/pull/50)
+**Status:** ☑ · **Size:** S · **Depends on:** T-010, T-021 · **Requirements:** FR-TLR-9, FR-RES-4 · **PR:** [#50](https://github.com/matchastack/work-journal/pull/50)
 
 As the owner, I want each PDF checked the way an applicant-tracking system reads it, so that the words I tailored for are actually machine-readable.
 
@@ -386,6 +388,16 @@ As the owner, I want each PDF checked the way an applicant-tracking system reads
 - [x] Tests on fixture PDFs.
 
 **Built (2026-10-16):** the check reads the text the render already extracts with pypdf. A term split by a hyphen at the end of a line is reported, and so are missing or reordered section headings, ligatures and unmapped glyphs; bitmap fonts stay a render warning. A failed check doesn't block the PDF: `wj tailor` lists what's wrong, and the result is kept with the application. The fixture PDF is a real render of the fictional resume.
+
+### T-065 · Tailored resumes are written even when a rule fails
+**Status:** ◐ · **Size:** S · **Depends on:** T-020, T-021 · **Requirements:** R2, R3, FR-TLR-7 · **PR:** [#55](https://github.com/matchastack/work-journal/pull/55)
+
+As the owner, I want `wj tailor` to write the resume even when it breaks a resume rule, so that the tokens spent tailoring it aren't lost and I can fix the problem without paying for them again.
+
+- [x] A rule error no longer stops the render: the PDF is written and the application logged, with the errors kept in its checks.
+- [x] The errors are printed last, saying the resume mustn't be sent until they're fixed, with how to fix a skill marked verify-before-shipping; the command exits with status 1.
+- [x] Requirements R2, R3 and FR-TLR-7 say so.
+- [x] Tests.
 
 ### T-023 · Portfolio template and static build
 **Status:** ☑ · **Size:** M · **Depends on:** T-008 · **Requirements:** FR-PRT-2, FR-PRT-4, FR-PRT-6, FR-PRT-8, NFR-A11Y-1 · **PR:** [#13](https://github.com/matchastack/work-journal/pull/13)
