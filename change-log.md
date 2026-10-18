@@ -2,7 +2,7 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-17 · T-036 Open-question prompts · [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+## 2026-10-18 · T-036 Open-question prompts · [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
 **Changed:** A reminder now asks the most valuable open question from your master resume, one per reminder, with an "Answer the question" button. Your answer becomes an entry of its own whose facts link to the question, so the next `/refresh` proposes the stronger bullet and marks the question answered when you accept it.
 
 **Verify:**
@@ -11,7 +11,7 @@ One short entry per pull request, newest first: what changed and what to verify.
 - The next reminder ends with a question whose bullet is strong in your master resume; "Answer the question" and a one-message answer bring back the facts saved from it, with a line saying your next /refresh can use them
 - `/refresh` then proposes a new version of that bullet and "Answer an open question"; once both are accepted and applied, the next reminder asks a different question
 
-## 2026-10-16 · T-035 Reminders · [#52](https://github.com/matchastack/work-journal/pull/52)
+## 2026-10-18 · T-035 Reminders · [#52](https://github.com/matchastack/work-journal/pull/52)
 **Changed:** The bot sends a gentle reminder on your schedule (Fridays at 18:00, Asia/Singapore, by default), skipped if you journaled in the last 3 days, with "Nothing this week" and "Remind me tomorrow" buttons. `/pause` and `/resume` stop and restart it, and Vercel's daily tick now runs at 18:00 Singapore time to send it.
 
 **Verify:**
@@ -19,6 +19,31 @@ One short entry per pull request, newest first: what changed and what to verify.
 - After the deploy, run `scripts/post-deploy.sh`; typing "/" in the chat lists /pause and /resume, and Vercel shows the tick's cron at 10:00 UTC
 - `/pause` pauses reminders, and `/resume` answers "Reminders are back on: Fridays at 18:00 (Asia/Singapore)."
 - On a Friday after 3 days without journaling, the reminder arrives between 18:00 and 19:00; "Remind me tomorrow" brings it back on Saturday evening, and "Nothing this week" is noted
+
+## 2026-10-18 · Tailored resumes' LaTeX source · [#56](https://github.com/matchastack/work-journal/pull/56)
+**Changed:** `wj tailor` writes the LaTeX source beside the PDF, as `wj render` does; `--tex-only` or `--pdf-only` writes just one of them.
+
+**Verify:**
+- CI is green on #56
+- `uv run wj tailor <posting> --db` says it wrote the PDF and its source, and the `.tex` compiles on its own to the same resume
+- With `--tex-only`, only the `.tex` is written; with `--pdf-only`, only the PDF
+
+## 2026-10-18 · T-065 Tailored resumes are written even when a rule fails · [#55](https://github.com/matchastack/work-journal/pull/55)
+**Changed:** `wj tailor` no longer stops before the render when the resume breaks a rule, such as a skill marked verify-before-shipping that isn't confirmed. It writes the PDF and logs the application, then prints the rule errors last and exits with status 1: fix them before you send it.
+
+**Verify:**
+- CI is green on the PR
+- `uv run wj tailor <posting.txt> --db` on the posting that stopped before writes the PDF, then ends with "... breaks the resume rules below; fix them before you send it." and the Claude Code error
+- Running it again with `--confirm "Claude Code"` (only if you can defend it) ends without the error
+
+## 2026-10-17 · User guide · [#54](https://github.com/matchastack/work-journal/pull/54)
+**Changed:** added `user-guide.md`, which explains how to use the Telegram bot, the web app and the command-line tool, and marks the pages still to come. `CLAUDE.md`, the PR template and `tasks.md` now require a PR that creates or changes a feature to update it.
+
+**Verify:**
+- The guide's commands and options match `uv run wj <command> --help`
+- The Inbox and Journal sections match the running web app
+- The "Keep the user guide current" rule in `CLAUDE.md` reads clearly
+- No personal data in the diff
 
 ## 2026-10-16 · T-022 ATS check · [#50](https://github.com/matchastack/work-journal/pull/50)
 **Changed:** `wj tailor` now reads the PDF's text back the way an applicant tracking system does, and says whether it has every covered term and the section headings in order, or what it lacks (a term split by a hyphen at a line end, a missing heading, ligatures or garbled characters). The result is kept with the application.

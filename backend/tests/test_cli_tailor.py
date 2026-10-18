@@ -72,7 +72,7 @@ def rendered(monkeypatch: pytest.MonkeyPatch) -> list[Selection]:
         printed = selection.model_copy(update={"projects": ()})
         return RenderedResume(
             pdf=b"%PDF-1.5 fake",
-            tex="",
+            tex="% fake source",
             pages=1,
             text=pdf_text(printed),
             cuts=(cut,),
@@ -126,10 +126,12 @@ def test_tailor_writes_the_resume_for_a_parsed_posting(
     result = tailor(own_profile(tmp_path), str(POSTINGS / "backend.json"), "--out", str(out))
     assert result.exit_code == 0, result.output
     assert out.read_bytes() == b"%PDF-1.5 fake"
+    tex = tmp_path / "resume.tex"
+    assert tex.read_text(encoding="utf-8") == "% fake source"
     lines = result.stdout.splitlines()
     assert lines[:-1] == [
         "Tailoring your resume to Senior Backend Engineer, Payments at Fabrikam Logistics.",
-        f"Wrote {out} (1 page).",
+        f"Wrote {out} (1 page) and its source, {tex}.",
         "Cut to fit one page: rb_app.",
         "Covers 1 of the posting's 14 skills and key terms:",
         "   Python (must-have): skills[Languages]",
@@ -169,6 +171,67 @@ def test_the_default_file_is_named_after_the_posting(
     assert result.exit_code == 0, result.output
     out = tmp_path / "local" / "resumes" / "fabrikam-logistics-senior-backend-engineer-payments.pdf"
     assert out.is_file()
+    assert out.with_suffix(".tex").is_file()
+
+
+def test_tex_only_writes_only_the_latex_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, rendered: list[Selection]
+) -> None:
+    use_fake(monkeypatch, reply(PLAN))
+    out = tmp_path / "resume.pdf"
+    tex = tmp_path / "resume.tex"
+    posting = str(POSTINGS / "backend.json")
+    result = tailor(own_profile(tmp_path), posting, "--out", str(out), "--tex-only")
+    assert result.exit_code == 0, result.output
+    assert not out.exists()
+    assert tex.read_text(encoding="utf-8") == "% fake source"
+    assert f"Wrote {tex} (1 page)." in result.stdout.splitlines()
+    [entry] = logged(tmp_path)
+    assert (entry.pdf, entry.tex) == (None, str(tex))
+
+
+def test_tex_only_takes_a_tex_file_to_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, rendered: list[Selection]
+) -> None:
+    use_fake(monkeypatch, reply(PLAN))
+    tex = tmp_path / "resume.tex"
+    result = tailor(
+        own_profile(tmp_path), str(POSTINGS / "backend.json"), "--out", str(tex), "--tex-only"
+    )
+    assert result.exit_code == 0, result.output
+    assert tex.read_text(encoding="utf-8") == "% fake source"
+
+
+def test_pdf_only_writes_only_the_pdf(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, rendered: list[Selection]
+) -> None:
+    use_fake(monkeypatch, reply(PLAN))
+    out = tmp_path / "resume.pdf"
+    posting = str(POSTINGS / "backend.json")
+    result = tailor(own_profile(tmp_path), posting, "--out", str(out), "--pdf-only")
+    assert result.exit_code == 0, result.output
+    assert out.read_bytes() == b"%PDF-1.5 fake"
+    assert not (tmp_path / "resume.tex").exists()
+    assert f"Wrote {out} (1 page)." in result.stdout.splitlines()
+    [entry] = logged(tmp_path)
+    assert (entry.pdf, entry.tex) == (str(out), None)
+
+
+@pytest.mark.parametrize(
+    ("options", "message"),
+    [
+        (["--tex-only", "--pdf-only"], "use at most one of them"),
+        (["--out", "resume.tex"], "the PDF and its .tex source would be the same file"),
+    ],
+)
+def test_conflicting_output_options_are_refused_before_tailoring(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, options: list[str], message: str
+) -> None:
+    fake = use_fake(monkeypatch)
+    result = tailor(own_profile(tmp_path), str(POSTINGS / "backend.json"), *options)
+    assert result.exit_code == 2
+    assert message in " ".join(ANSI_STYLE.sub("", result.stderr).split())
+    assert fake.requests == []
 
 
 def rephrasing(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -229,28 +292,39 @@ def test_yes_uses_every_phrasing_without_asking(
     assert rendered[0].work[0].bullets[0].text == REPHRASED
 
 
-def test_an_unconfirmed_skill_blocks_the_render(
+def test_a_resume_that_breaks_a_rule_is_still_written_and_the_errors_come_last(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, rendered: list[Selection]
 ) -> None:
+    """R2 and R3: the work that went into the resume isn't lost, but the errors are hard to miss
+    and kept with the application."""
     plan = PLAN.model_copy(
         update={"work": (PlannedItem(id="northwind", bullets=(PlannedBullet(id="nw_orders"),)),)}
     )
     use_fake(monkeypatch, reply(plan))
     profile = own_profile(tmp_path, text="Built Kotlin services that process order events.")
-    result = tailor(profile, str(POSTINGS / "backend.json"), "--out", "r.pdf")
+    out = tmp_path / "r.pdf"
+    result = tailor(profile, str(POSTINGS / "backend.json"), "--out", str(out))
     assert result.exit_code == 1
+    assert out.read_bytes() == b"%PDF-1.5 fake"
+    assert len(rendered) == 1
+    assert "Logged it as application" in result.stdout
     error = " ".join(ANSI_STYLE.sub("", result.stderr).split())
+    assert f"{out} breaks the resume rules below; fix them before you send it." in error
     assert "Kotlin is marked verify-before-shipping and isn't confirmed for this resume" in error
-    assert "--confirm <skill>" in error
-    assert "so it wasn't rendered" in error
-    assert rendered == []
+    assert error.endswith(
+        "run again with --confirm <skill> only if you can defend it in an interview; otherwise "
+        "take it out of the bullets that name it."
+    ), "the last thing printed"
+    [entry] = logged(tmp_path)
+    assert [finding.rule for finding in entry.checks.rules.errors] == ["R3"]
 
     use_fake(monkeypatch, reply(plan))
     result = tailor(
-        profile, str(POSTINGS / "backend.json"), "--out", "r.pdf", "--confirm", "Kotlin"
+        profile, str(POSTINGS / "backend.json"), "--out", str(out), "--confirm", "Kotlin"
     )
     assert result.exit_code == 0, result.output
-    assert len(rendered) == 1
+    assert "breaks the resume rules" not in result.stderr
+    assert len(rendered) == 2
 
 
 def test_tailor_takes_either_the_database_or_files(tmp_path: Path) -> None:
@@ -275,7 +349,8 @@ def test_tailor_renders_a_one_page_pdf(tmp_path: Path, monkeypatch: pytest.Monke
     result = tailor(own_profile(tmp_path), str(POSTINGS / "backend.json"), "--out", str(out))
     assert result.exit_code == 0, result.output
     assert out.read_bytes().startswith(b"%PDF")
-    assert f"Wrote {out} (1 page)." in result.stdout
+    assert out.with_suffix(".tex").read_text(encoding="utf-8").count("\\documentclass") == 1
+    assert f"Wrote {out} (1 page) and its source, {out.with_suffix('.tex')}." in result.stdout
     assert "ATS check passed: the PDF's text has its" in result.stdout, "a real render reads back"
 
 
@@ -306,7 +381,7 @@ def test_each_resume_is_logged_as_an_application(
     assert application.title_variant == "Software Engineer"
     assert application.bullet_ids == ("nw_export", "ss_minor"), "not the project cut to fit"
     assert [use.text for use in application.swaps_used] == [REPHRASED]
-    assert entry.pdf == str(out)
+    assert (entry.pdf, entry.tex) == (str(out), str(tmp_path / "resume.tex"))
     assert [report.text for report in entry.checks.texts] == [REPHRASED]
     assert [term.term for term in entry.checks.coverage.covered] == ["Python", "PostgreSQL"]
 

@@ -258,7 +258,7 @@ Priority: **M** = Must (v1) · **S** = Should (v1 if time allows) · **C** = Cou
 | FR-TLR-4 | Each posting gets its own choice of title variant, coursework subset (4–6 courses), skills lines and optional summary. Skills lines use the posting's exact spelling where true, and only skills from the catalogue. | M | |
 | FR-TLR-5 | Skills stay last by default. They move above Work Experience only for postings that are mostly a list of technologies. | S | |
 | FR-TLR-6 | A keyword coverage report lists covered and missing terms. Missing terms are shown as gaps and never added. | M | |
-| FR-TLR-7 | The result fits on one page (FR-RES-7) and passes the resume rules (§8) and the verifier. | M | |
+| FR-TLR-7 | The result fits on one page (FR-RES-7), and every new text in it passes the verifier. It is checked against the resume rules (§8): a broken rule is reported as R2 says, without stopping the PDF. | M | |
 | FR-TLR-8 | Each tailored resume is logged as an application with company, role, date, posting text, the bullet IDs and swaps used, the title variant, the verifier report and the PDF. | M | |
 | FR-TLR-9 | **ATS check.** Text extracted from the PDF contains the covered key terms, with the sections in the expected order. | M | |
 | FR-TLR-10 | Each application's status can be updated: applied, interviewing, offer or rejected. | C | M3 |
@@ -337,8 +337,8 @@ These rules come from the owner's own master-resume practice. Code enforces them
 | ID | Rule | How it's enforced |
 |---|---|---|
 | R1 | Never invent a metric, date, title or technology. | The verifier (§7.6). Titles come only from approved variants, and technologies only from the skills catalogue, never the gaps list. |
-| R2 | Never ship a placeholder. | Rendering is blocked if the output contains TODO or placeholder text. Missing optional fields, such as an undated project, produce a warning. |
-| R3 | Never claim a skill that can't survive a whiteboard question. | A skill flagged *verify-before-shipping* needs explicit confirmation for each resume. Skills on the gaps list are always blocked. |
+| R2 | Never ship a placeholder. | Placeholder text, such as TODO, in a resume is an error. A tailored resume that breaks a rule is still written, so the work that went into it isn't lost, but its errors are printed last and kept with its application, and it mustn't be sent until they're fixed. Missing optional fields, such as an undated project, produce a warning. |
+| R3 | Never claim a skill that can't survive a whiteboard question. | A skill flagged *verify-before-shipping* needs explicit confirmation for each resume; a resume that names it without one is an error, reported as R2 says. Tailoring never lists a skill on the gaps list, and one named in text is an error. |
 | R4 | Never let two bullets share a suspicious number. | A warning when the same metric (value and unit) appears in bullets under different roles. |
 | R5 | For sensitive roles, describe architecture and outcomes only. | Roles marked sensitive get stricter confidentiality checks, and anything that looks like operational detail is flagged. |
 | R6 | Anything sent is one page. | A page-count check. The resume is fitted by cutting, never by going below a 10 pt font or 0.5 in margins. |
