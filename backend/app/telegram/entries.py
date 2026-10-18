@@ -2,9 +2,10 @@
 
 A message joins its user's open entry unless the entry has been quiet for the timeout
 (`ENTRY_TIMEOUT_MINUTES`, 30 by default): then that entry closes, and the message starts a new
-one. A scheduled task closes entries that have gone quiet (`close_quiet_entries` in
-`app/jobs.py`), and `/done` closes the open entry at once. A closed entry never reopens: editing
-one of its messages in Telegram changes the message, not the entry.
+one. An answer to an open question, an entry of its own, closes a quiet entry all the same
+(`close_quiet_entry`). A scheduled task closes entries that have gone quiet
+(`close_quiet_entries` in `app/jobs.py`), and `/done` closes the open entry at once. A closed
+entry never reopens: editing one of its messages in Telegram changes the message, not the entry.
 """
 
 import uuid
@@ -40,6 +41,26 @@ async def entry_for(
     session.add(entry)
     await session.flush()
     return entry.id, closed
+
+
+async def close_quiet_entry(
+    session: AsyncSession, user_id: uuid.UUID, at: datetime, timeout: timedelta
+) -> uuid.UUID | None:
+    """Close the user's open entry if it has been quiet for `timeout` by `at`, as of when it went
+    quiet, as a message sent at `at` does. Returns it, or None when no entry was open or it's
+    still active. For a message that doesn't join the open entry: an answer to an open question
+    (`app/telegram/reminders.py`)."""
+    result = await session.execute(
+        update(JournalEntry)
+        .where(
+            JournalEntry.user_id == user_id,
+            JournalEntry.closed_at.is_(None),
+            JournalEntry.last_message_at <= at - timeout,
+        )
+        .values(closed_at=JournalEntry.last_message_at + timeout, closed_by="quiet")
+        .returning(JournalEntry.id)
+    )
+    return result.scalar_one_or_none()
 
 
 async def close_open_entry(

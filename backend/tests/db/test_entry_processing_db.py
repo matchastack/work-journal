@@ -20,6 +20,7 @@ from app.config import Settings, get_settings
 from app.db.crypto import KeyRing, new_key, use_key_ring
 from app.db.models import FactRow, JournalEntry, JournalMessage, LlmCallRow, TelegramLink, User
 from app.db.profiles import save_version
+from app.db.settings import save_reminder_state
 from app.db.store import list_facts
 from app.extraction import ExtractionReply
 from app.follow_up import FollowUpReply
@@ -35,6 +36,7 @@ from app.llm.client import LLMClient
 from app.llm.fake import FakeMessages, refusal, reply
 from app.llm.usage import CallLog, MemoryCallLog
 from app.schema.profile import Profile
+from app.schema.settings import Answering, ReminderState
 from app.telegram.api import TelegramError
 from app.telegram.processing import Processed, failure_text, process_entry
 from app.telegram.roles import NO_ROLES, QUESTION
@@ -256,6 +258,104 @@ async def test_a_new_roles_name_goes_with_every_fact(session: AsyncSession, chat
         (None, "Data Engineer, Fabrikam"),
         (None, "Data Engineer, Fabrikam"),
     ]
+
+
+ANSWER_NOTE = "The order services handle about 40,000 events a day, more on sale days."
+"""An answer to the fixture profile's open question, `q_nw_volume`."""
+VOLUME = "The order services handle about 40,000 events a day."
+VOLUME_REPLY = ExtractionReply.model_validate(
+    {
+        "facts": [
+            {
+                "statement": VOLUME,
+                "kind": "accomplishment",
+                "metrics": [
+                    {
+                        "subject": "order events a day",
+                        "kind": "single",
+                        "numbers": [40000],
+                        "unit": "events",
+                        "qualifier": "approximately",
+                    }
+                ],
+            }
+        ]
+    }
+)
+
+
+async def test_an_answers_facts_link_to_its_open_question(
+    session: AsyncSession, chat_id: int
+) -> None:
+    """FR-EXT-4: triage and extraction read the answer alone, as any note, and code links its
+    facts to the question. The reply says the next /refresh can use them."""
+    user_id, entry_id = await new_entry(
+        session, ANSWER_NOTE, chat_id=chat_id, profile=PROFILE, open_question_id="q_nw_volume"
+    )
+    fake = FakeMessages(reply(WORK), reply(VOLUME_REPLY))
+    client = LLMClient(llm_settings(), fake, MemoryCallLog())
+    processed = await process_entry(session, entry_id, client, now=NOW, app_url=APP_URL)
+    assert processed == Processed(
+        chat_id,
+        "Saved 1 fact from this entry:\n"
+        f"- {VOLUME}\n"
+        "It answers your open question, so your next /refresh can use it.\n"
+        "\n"
+        "See them in your journal:\n"
+        f"{APP_URL}/journal#{entry_id}",
+    )
+    triage_request, extraction_request = fake.requests
+    assert triage_request["messages"][0]["content"] == f"<note>\n{ANSWER_NOTE}\n</note>"
+    assert extraction_request["messages"][0]["content"] == (
+        f"The note was written on 2026-10-04.\n\n<note>\n{ANSWER_NOTE}\n</note>"
+    )
+    question = PROFILE.open_questions[0].question
+    assert question not in json.dumps(fake.requests), "the question is never evidence"
+    [saved] = await list_facts(session, user_id)
+    assert (saved.statement, saved.role_id, saved.question_id) == (
+        VOLUME,
+        ROLE,
+        "q_nw_volume",
+    )
+
+
+CLOSED = PROFILE.model_copy(
+    update={
+        "open_questions": tuple(
+            question.model_copy(update={"status": "closed"})
+            if question.id == "q_nw_volume"
+            else question
+            for question in PROFILE.open_questions
+        )
+    }
+)
+"""The fixture profile, with `q_nw_volume` closed."""
+
+
+@pytest.mark.parametrize(
+    ("profile", "question_id"),
+    [
+        pytest.param(PROFILE, "q_nw_latency", id="gone from the profile"),
+        pytest.param(PROFILE, "q_project_dates", id="answered meanwhile"),
+        pytest.param(CLOSED, "q_nw_volume", id="closed meanwhile"),
+    ],
+)
+async def test_an_answer_to_a_question_no_longer_open_links_to_none(
+    session: AsyncSession, chat_id: int, profile: Profile, question_id: str
+) -> None:
+    """The owner answered or closed it while the answer waited, or removed it: no refresh can
+    use the answer, so the reply doesn't call it one. Its facts are saved all the same."""
+    user_id, entry_id = await new_entry(
+        session, ANSWER_NOTE, chat_id=chat_id, profile=profile, open_question_id=question_id
+    )
+    client = LLMClient(
+        llm_settings(), FakeMessages(reply(WORK), reply(VOLUME_REPLY)), MemoryCallLog()
+    )
+    processed = await process_entry(session, entry_id, client, now=NOW, app_url=APP_URL)
+    assert processed is not None
+    assert "open question" not in processed.reply
+    [saved] = await list_facts(session, user_id)
+    assert (saved.statement, saved.question_id) == (VOLUME, None)
 
 
 async def test_an_entry_waiting_for_its_role_is_not_processed(session: AsyncSession) -> None:
@@ -708,6 +808,33 @@ async def test_no_question_when_the_owner_may_not_be_there_to_answer(
         assert telegram.sent == [question(chat_id, *ROLES)]
 
 
+@pytest.mark.parametrize("lapsed", [False, True], ids=["awaited", "lapsed"])
+async def test_no_question_while_an_open_questions_answer_is_awaited(
+    committed: Committed,
+    chat_id: int,
+    claude: Callable[..., FakeMessages],
+    telegram: Telegram,
+    lapsed: bool,
+) -> None:
+    """After "Answer the question" (FR-EXT-4), the owner's next message is the answer, so it
+    can't answer a follow-up question too. A wait that lapsed doesn't stop one."""
+    user_id, entry_id = await committed(NOTE, chat_id=chat_id, profile=PROFILE, **just_closed())
+    pressed = datetime.now(UTC) - timedelta(minutes=30 if lapsed else 1)
+    async with database() as session:
+        answering = Answering(question_id="q_nw_volume", since=pressed)
+        await save_reminder_state(session, user_id, ReminderState(answering=answering))
+    if lapsed:
+        claude(reply(FollowUpReply(missing="metrics", question=ASKED)))
+        await run_extraction(entry_id, last_attempt=never)
+        assert telegram.sent == [follow_up_question(chat_id)]
+        return
+    fake = claude()
+    await run_extraction(entry_id, last_attempt=never)
+    assert fake.requests == []
+    assert telegram.sent == [question(chat_id, *ROLES)]
+    assert await follow_up_state(entry_id) == (True, None, False, True)
+
+
 async def test_another_entrys_lapsed_question_doesnt_stop_a_new_one(
     committed: Committed, chat_id: int, claude: Callable[..., FakeMessages], telegram: Telegram
 ) -> None:
@@ -729,6 +856,24 @@ async def test_another_entrys_lapsed_question_doesnt_stop_a_new_one(
     assert telegram.sent == [follow_up_question(chat_id, "Who uses the export now?")]
     assert (await follow_up_state(entry_id))[2] is True
     assert (await follow_up_state(other.id))[2] is False
+
+
+async def test_an_answer_to_an_open_question_gets_no_follow_up_question(
+    committed: Committed, chat_id: int, claude: Callable[..., FakeMessages], telegram: Telegram
+) -> None:
+    """It was written to answer a question already (FR-EXT-4). One whose role code couldn't
+    choose goes on to its role question, without a call to the model."""
+    _, entry_id = await committed(
+        ANSWER_NOTE,
+        chat_id=chat_id,
+        profile=PROFILE,
+        **just_closed(open_question_id="q_nw_volume"),
+    )
+    fake = claude()
+    await run_extraction(entry_id, last_attempt=never)
+    assert fake.requests == []
+    assert telegram.sent == [question(chat_id, *ROLES)]
+    assert await follow_up_state(entry_id) == (False, None, False, True)
 
 
 async def test_an_entry_already_asked_about_its_role_gets_no_question(

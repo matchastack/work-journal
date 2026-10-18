@@ -69,8 +69,8 @@ def extracted(monkeypatch: pytest.MonkeyPatch) -> list[uuid.UUID]:
     themselves are tested in `test_entry_processing_db.py`."""
     entries: list[uuid.UUID] = []
 
-    async def record(entry_id: uuid.UUID) -> None:
-        entries.append(entry_id)
+    async def record(*entry_ids: uuid.UUID) -> None:
+        entries.extend(entry_ids)
 
     monkeypatch.setattr("app.telegram.webhook.extract_now", record)
     return entries
@@ -580,8 +580,8 @@ def test_polling_hands_on_the_entry_an_update_closes(database_url: str, chat_id:
         result = batches.pop(0) if method == "getUpdates" else True
         return httpx2.Response(200, json={"ok": True, "result": result})
 
-    async def run_jobs(entry_id: uuid.UUID) -> None:
-        handed_on.append(entry_id)
+    async def run_jobs(*entry_ids: uuid.UUID) -> None:
+        handed_on.extend(entry_ids)
 
     async def run_refresh(refresh_id: uuid.UUID) -> None:
         refreshed.append(refresh_id)

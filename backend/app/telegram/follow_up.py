@@ -4,8 +4,10 @@ When an entry closes, the `extract_entry` job (`app/jobs.py`) decides once wheth
 question before it asks which role the entry is about (`app/telegram/roles.py`). It asks when the
 light-tier check (`app/follow_up.py`) finds the numbers, impact or the owner's part missing, but
 only while the owner is likely still in the chat: within the entry timeout of the entry closing,
-and with no other entry open or waiting for an answer, so that the answer can't be taken for
-anything else. The question replies to the entry's first message, with a Skip button.
+with no other entry open or waiting for an answer, and no answer to an open question awaited
+(`app/telegram/reminders.py`), so that the answer can't be taken for anything else. The question
+replies to the entry's first message, with a Skip button. An answer to an open question
+(FR-EXT-4) gets none: it's one message, written to answer a question already.
 
 - The owner's next message, unless it's a command, is the answer if it comes within the entry
   timeout of the question. It joins the entry, after its other messages, so extraction reads it.
@@ -27,8 +29,10 @@ from sqlalchemy import and_, exists, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import JournalEntry
+from app.db.settings import get_reminder_state
 from app.follow_up import follow_up_question
 from app.llm.client import LLMClient, LLMInvalidOutput, LLMRefusal
+from app.open_questions import awaits_answer
 from app.telegram.api import BotCall, send
 from app.telegram.processing import chat_of, entry_text, reply_to_entry
 from app.telegram.roles import Answer, has_role
@@ -79,6 +83,8 @@ async def follow_up(
             entry.awaiting_follow_up = False
         return None
     if entry.follow_up_at is not None or entry.role_asked_at is not None or has_role(entry):
+        return None
+    if entry.open_question_id is not None:
         return None
     entry.follow_up_at = now
     if now - entry.closed_at >= timeout or await _busy(session, entry, now, timeout):
@@ -174,7 +180,11 @@ async def _busy(
     session: AsyncSession, entry: JournalEntry, now: datetime, timeout: timedelta
 ) -> bool:
     """Whether the owner has another entry open, or one that waits for their next message: a new
-    role's name or a follow-up answer. Another entry's lapsed question stops waiting here."""
+    role's name or a follow-up answer. Another entry's lapsed question stops waiting here. The
+    answer to an open question, awaited after "Answer the question", keeps the owner busy too."""
+    state = await get_reminder_state(session, entry.user_id)
+    if awaits_answer(state.answering, now, timeout):
+        return True
     others = (JournalEntry.user_id == entry.user_id, JournalEntry.id != entry.id)
     await session.execute(
         update(JournalEntry)

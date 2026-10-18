@@ -149,7 +149,7 @@ async def test_a_roles_button_chooses_it_and_lets_the_jobs_run(
             answered(),
             shown(chat_id, "Role for this entry: Research Intern, Contoso Research (2024-2024)"),
         ),
-        ready=entry_id,
+        ready=(entry_id,),
     )
     assert await state(session, entry_id) == ("contoso", None, False)
 
@@ -178,7 +178,7 @@ async def test_a_new_role_is_named_by_the_next_message(session: AsyncSession, ch
             ),
             shown(chat_id, f"Role for this entry: {NEW_NAME} (new)"),
         ),
-        ready=entry_id,
+        ready=(entry_id,),
     )
     assert await state(session, entry_id) == (None, NEW_NAME, False)
     assert await journaled(session, chat_id) == 0
@@ -218,7 +218,7 @@ async def test_a_role_button_after_new_role_still_chooses_it(
     _, entry_id = await asked_entry(session, chat_id)
     await handle_update(session, press(chat_id, NEW_ROLE))
     handled = await handle_update(session, press(chat_id, "northwind"))
-    assert handled.ready == entry_id
+    assert handled.ready == (entry_id,)
     assert await state(session, entry_id) == ("northwind", None, False)
 
 
@@ -240,7 +240,7 @@ async def test_only_the_latest_new_role_press_waits_for_a_name(
     await handle_update(session, press(chat_id, NEW_ROLE))
     await handle_update(session, press(chat_id, NEW_ROLE, message_id=QUESTION_ID + 1))
     handled = await handle_update(session, message(chat_id, NEW_NAME))
-    assert handled.ready == second.id
+    assert handled.ready == (second.id,)
     assert await state(session, first) == (None, None, False)
     assert await state(session, second.id) == (None, NEW_NAME, False)
 

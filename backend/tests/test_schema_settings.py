@@ -61,6 +61,16 @@ def test_the_reminder_record_round_trips_through_json() -> None:
     )
 
 
+def test_the_record_keeps_the_open_questions_asked_in_camel_case() -> None:
+    """FR-REM-5. A record saved before reminders asked questions still reads, with none asked."""
+    state = ReminderState(message_question="q_nw_volume", asked=("q_ct_rate", "q_nw_volume"))
+    data = state.model_dump(mode="json", by_alias=True)
+    assert (data["messageQuestion"], data["asked"]) == ("q_nw_volume", ["q_ct_rate", "q_nw_volume"])
+    assert ReminderState.model_validate(data) == state
+    old = ReminderState.model_validate({"lastSlot": "2026-10-16T10:00:00Z", "messageId": 42})
+    assert (old.message_question, old.asked) == (None, ())
+
+
 def test_the_record_keeps_times_with_their_time_zone() -> None:
     with pytest.raises(ValidationError, match="timezone"):
         ReminderState.model_validate({"lastSlot": "2026-10-16T18:00:00"})
