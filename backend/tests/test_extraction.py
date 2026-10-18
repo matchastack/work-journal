@@ -238,13 +238,22 @@ def test_every_fact_from_an_answer_links_to_its_open_question() -> None:
     assert checked(*facts).facts[0].question_id is None, "a note that answers nothing"
 
 
-def test_an_open_question_no_longer_in_the_profile_is_removed() -> None:
+@pytest.mark.parametrize(
+    "question_id",
+    [
+        pytest.param("q_nw_latency", id="gone from the profile"),
+        pytest.param("q_project_dates", id="answered"),
+    ],
+)
+def test_a_question_no_longer_open_in_the_profile_is_removed(question_id: str) -> None:
+    """No refresh can use an answer to a question that was answered or closed meanwhile."""
     extraction = check_facts(
-        ExtractionReply(facts=(fact(),)), NOTE, PROFILE, question_id="q_nw_latency"
+        ExtractionReply(facts=(fact(),)), NOTE, PROFILE, question_id=question_id
     )
     assert extraction.facts[0].question_id is None
     assert extraction.notes == (
-        'fact_1: removed the link to "q_nw_latency", which isn\'t an open question in the profile',
+        f'fact_1: removed the link to "{question_id}", which isn\'t an open question in the '
+        "profile",
     )
 
 

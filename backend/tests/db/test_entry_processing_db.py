@@ -319,12 +319,34 @@ async def test_an_answers_facts_link_to_its_open_question(
     )
 
 
-async def test_an_answer_to_a_question_gone_from_the_profile_links_to_none(
-    session: AsyncSession, chat_id: int
+CLOSED = PROFILE.model_copy(
+    update={
+        "open_questions": tuple(
+            question.model_copy(update={"status": "closed"})
+            if question.id == "q_nw_volume"
+            else question
+            for question in PROFILE.open_questions
+        )
+    }
+)
+"""The fixture profile, with `q_nw_volume` closed."""
+
+
+@pytest.mark.parametrize(
+    ("profile", "question_id"),
+    [
+        pytest.param(PROFILE, "q_nw_latency", id="gone from the profile"),
+        pytest.param(PROFILE, "q_project_dates", id="answered meanwhile"),
+        pytest.param(CLOSED, "q_nw_volume", id="closed meanwhile"),
+    ],
+)
+async def test_an_answer_to_a_question_no_longer_open_links_to_none(
+    session: AsyncSession, chat_id: int, profile: Profile, question_id: str
 ) -> None:
-    """Such as one the owner closed while the answer waited. Its facts are saved all the same."""
+    """The owner answered or closed it while the answer waited, or removed it: no refresh can
+    use the answer, so the reply doesn't call it one. Its facts are saved all the same."""
     user_id, entry_id = await new_entry(
-        session, ANSWER_NOTE, chat_id=chat_id, profile=PROFILE, open_question_id="q_nw_latency"
+        session, ANSWER_NOTE, chat_id=chat_id, profile=profile, open_question_id=question_id
     )
     client = LLMClient(
         llm_settings(), FakeMessages(reply(WORK), reply(VOLUME_REPLY)), MemoryCallLog()

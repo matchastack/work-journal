@@ -8,7 +8,7 @@ The `extract_entry` job (`app/jobs.py`) first asks which role the closed entry i
 2. Extraction (`app/extraction.py`) finds the facts in an entry about work. They're checked
    against the entry's text and saved encrypted, with the entry's ID, linked to its role. An
    answer to an open question (FR-EXT-4) is read alone, as any note, and its facts also link to
-   the question, while it's in the profile.
+   the question, while it's still open in the profile.
 3. The reply lists the saved facts, up to three, with a link to the entry in the web app. For an
    answer, it says that the next `/refresh` can use them.
 

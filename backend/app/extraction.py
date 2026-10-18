@@ -14,8 +14,9 @@ context. Code then checks each fact against the note before keeping it:
   aliases in the skills catalogue (R1).
 - Links: a role or project ID that isn't in the profile is removed. When the owner chose the
   entry's role (FR-CAP-11), every fact links to it instead of the role the model picked. When the
-  note answers an open question (FR-EXT-4), every fact links to it while it's in the profile. The
-  model reads only the note, never the question, so the question backs no fact.
+  note answers an open question (FR-EXT-4), every fact links to it while it's still open in the
+  profile: once answered or closed, no refresh can use it. The model reads only the note, never
+  the question, so the question backs no fact.
 
 A note unrelated to work gives no facts (FR-CAP-8).
 """
@@ -141,7 +142,7 @@ def extract_facts(
 ) -> Extraction:
     """Extract the facts in `note`, written on `written`, with the standard-tier model. With the
     owner's `role`, the facts link to it, and when the note answers the open question
-    `question_id`, they link to that too."""
+    `question_id`, they link to that too, while it's open."""
     reply = ask_for_facts(note, profile, client, written=written, prompt=prompt)
     return check_facts(reply, note, profile, entry_id=entry_id, role=role, question_id=question_id)
 
@@ -203,7 +204,7 @@ def check_facts(
     note_quantities = find_quantities(note, skill_names)
     roles = {role.id for role in profile.work}
     projects = {project.id for project in profile.projects}
-    questions = {question.id for question in profile.open_questions}
+    questions = {question.id for question in profile.open_questions if question.status == "open"}
     facts: list[Fact] = []
     dropped: list[DroppedFact] = []
     notes: list[str] = []
