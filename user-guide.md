@@ -57,6 +57,7 @@ Open `http://localhost:8000/healthz` to check it is up, or `http://localhost:800
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` | The bot's token from @BotFather, and a random secret for the webhook |
 | `ANTHROPIC_API_KEY`, `LLM_MODEL_HEAVY`, `LLM_MODEL_STANDARD`, `LLM_MODEL_LIGHT` | Claude. Any command that writes or reads text with the model needs these |
 | `ENTRY_TIMEOUT_MINUTES` | Minutes of quiet that close a journal entry (default 30) |
+| `REFRESH_CONCURRENCY` | How many bullets a refresh writes and checks at once (default 10), so a refresh of months of facts finishes in time. Lower it if the Claude API answers 429 (Too Many Requests) |
 
 ### Local database
 

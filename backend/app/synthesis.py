@@ -20,12 +20,18 @@ A fact that answers an open question resolves it (FR-EXT-4): code adds that oper
 
 The writer (`app/writing.py`) writes each planned bullet and the verifier checks it, so every
 text operation carries its verifier report (FR-FID-8), and a bullet that fails is proposed
-flagged (FR-FID-7). The notes on what was left out name facts by ID and never quote them.
+flagged (FR-FID-7). The client is synchronous, so bullets are written up to `concurrency` at a
+time in threads, which lets a refresh of months of facts finish within one function call
+(T-064). The first is written alone, so that the profile context its calls cache serves the
+rest. Each bullet's place, facts, ID and notes are settled from the plan before any is written,
+so the change set doesn't depend on which bullet finishes first. The notes on what was left out
+name facts by ID and never quote them.
 """
 
 import json
 import re
-from collections.abc import Iterable, Sequence
+import threading
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 
 from app.llm.client import LLMClient
@@ -47,6 +53,7 @@ from app.schema.changes import (
 from app.schema.common import Model, NonEmptyStr, YearMonth
 from app.schema.fact import Fact
 from app.schema.profile import Bullet, Profile, Project, Role, Skill, Strength
+from app.schema.verification import VerifierReport
 from app.writing import write_bullet
 
 PROMPT_NAME = "profile_synthesis"
@@ -148,13 +155,17 @@ def synthesize(
     base_version: int | None = None,
     avoid: Sequence[str] = (),
     prompt: Prompt | None = None,
+    concurrency: int = 1,
 ) -> Synthesis:
     """Propose changes to `profile` from `facts`, the new facts, with the heavy-tier model.
 
     `sources` are other facts, such as those existing bullets were written from: a new version
     of a bullet is checked against its own facts too. `base_version` is the number of the
-    profile's version, and `avoid` the owner's words to avoid.
+    profile's version, and `avoid` the owner's words to avoid. `concurrency` is how many bullets
+    are written and checked at once; 1 writes them one after another.
     """
+    if concurrency < 1:
+        raise ValueError("bullets are written at least one at a time")
     if not facts:
         return Synthesis(change_set=None)
     prompt = prompt or load_prompt(PROMPT_NAME, PROMPT_VERSION)
@@ -165,7 +176,7 @@ def synthesize(
         variables={"facts": planning_facts_json(facts)},
         context=synthesis_context(profile),
     )
-    builder = _Builder(profile, facts, sources, client, avoid)
+    builder = _Builder(profile, facts, sources, client, avoid, concurrency)
     return builder.build(result.output, base_version)
 
 
@@ -252,6 +263,21 @@ def _bullets(bullets: Sequence[Bullet]) -> list[dict[str, object]]:
     ]
 
 
+@dataclass(frozen=True)
+class _Draft:
+    """A planned bullet that passed the checks, placed and ready to be written."""
+
+    planned: PlannedBullet
+    entry_id: str
+    """The role, education entry or project it goes under."""
+    fact_ids: tuple[str, ...]
+    """The new facts it cites."""
+    written_from: tuple[Fact, ...]
+    """The facts it's written and checked from: a new version's include its bullet's own."""
+    bullet_id: str
+    """The new bullet's ID, or the ID of the bullet it's a new version of."""
+
+
 @dataclass
 class _Builder:
     """Turns a plan into checked operations, keeping notes on what it leaves out."""
@@ -261,6 +287,8 @@ class _Builder:
     sources: Sequence[Fact]
     client: LLMClient
     avoid: Sequence[str]
+    concurrency: int = 1
+    """How many bullets are written and checked at once."""
     notes: list[str] = field(default_factory=list[str])
     keys: dict[str, str] = field(default_factory=dict[str, str])
     """The IDs given to the plan's new roles and projects, by their keys."""
@@ -309,7 +337,9 @@ class _Builder:
                 continue
             structure.append(op)
         ops = [ReviewedOp(op=op) for op in structure]
-        ops += [op for bullet in plan.bullets if (op := self._bullet(bullet, interim)) is not None]
+        drafts = [d for bullet in plan.bullets if (d := self._draft(bullet, interim)) is not None]
+        reports = _in_order(drafts, lambda draft: self._write(draft, interim), self.concurrency)
+        ops += [self._reviewed(d, report) for d, report in zip(drafts, reports, strict=True)]
         ops += [ReviewedOp(op=op) for op in self._answers()]
         cited = {fact_id for reviewed in ops for fact_id in reviewed.op.fact_ids}
         unused = tuple(fact.id for fact in self.facts if fact.id not in cited)
@@ -477,7 +507,9 @@ class _Builder:
             return None
         return UpdateField(target_id=project.id, field="status", value="active", fact_ids=fact_ids)
 
-    def _bullet(self, planned: PlannedBullet, interim: Profile) -> ReviewedOp | None:
+    def _draft(self, planned: PlannedBullet, interim: Profile) -> _Draft | None:
+        """Check a planned bullet and settle where it goes, its facts and a new bullet's ID, or
+        note why it's left out."""
         what = f'the new version of "{planned.edit}"' if planned.edit else "a new bullet"
         what += f' under "{planned.under}"' if not planned.edit else ""
         fact_ids = self._cited(planned.fact_ids, what)
@@ -521,28 +553,37 @@ class _Builder:
                     self.notes.append(f"Left out {what}: its facts belong to another role")
                     return None
         self.used.update(fact_ids)
-        written_from = [*own, *(self.new[fact_id] for fact_id in fact_ids)]
-        report = write_bullet(
-            written_from,
+        written_from = (*own, *(self.new[fact_id] for fact_id in fact_ids))
+        bullet_id = self._id(entry_id, numbered=True) if planned.edit is None else planned.edit
+        return _Draft(planned, entry_id, fact_ids, written_from, bullet_id)
+
+    def _write(self, draft: _Draft, interim: Profile) -> VerifierReport:
+        """Write a bullet and verify it."""
+        return write_bullet(
+            draft.written_from,
             interim,
             self.client,
-            entry_id=entry_id,
-            edit=planned.edit,
+            entry_id=draft.entry_id,
+            edit=draft.planned.edit,
             avoid=self.avoid,
         )
+
+    def _reviewed(self, draft: _Draft, report: VerifierReport) -> ReviewedOp:
+        """The operation that adds a written bullet, or its new version, with its report."""
+        planned = draft.planned
         op: ChangeOp
         if planned.edit is not None:
-            op = EditBullet(bullet_id=planned.edit, text=report.text, fact_ids=fact_ids)
+            op = EditBullet(bullet_id=draft.bullet_id, text=report.text, fact_ids=draft.fact_ids)
         else:
             role_types = {kind.id for kind in self.profile.role_types}
             bullet = Bullet(
-                id=self._id(entry_id, numbered=True),
+                id=draft.bullet_id,
                 text=report.text,
                 strength=planned.strength,
                 verification="yes" if report.passed else "no",
                 tags=tuple(dict.fromkeys(tag for tag in planned.tags if tag in role_types)),
             )
-            op = AddBullet(parent_id=entry_id, bullet=bullet, fact_ids=fact_ids)
+            op = AddBullet(parent_id=draft.entry_id, bullet=bullet, fact_ids=draft.fact_ids)
         return ReviewedOp(op=op, verifier_report=report.model_dump(mode="json"))
 
     def _answers(self) -> list[ResolveOpenQuestion]:
@@ -555,6 +596,54 @@ class _Builder:
             if answers:
                 resolved.append(ResolveOpenQuestion(question_id=question.id, fact_ids=answers))
         return resolved
+
+
+def _in_order[T, R](items: Sequence[T], work: Callable[[T], R], concurrency: int) -> list[R]:
+    """`work` done on each item, with the results in the items' order: the first item alone, then
+    the rest up to `concurrency` at a time in threads. Once one fails, no more start; the error of
+    the first that failed, in the items' order, is raised when those already started are done.
+
+    An interruption, such as Ctrl+C on `wj propose`, is raised at once, and no more start. The
+    threads are daemons, so the command then exits without waiting for the calls in flight, as it
+    did when bullets were written one by one."""
+    if concurrency == 1 or len(items) <= 1:
+        return [work(item) for item in items]
+    results = {0: work(items[0])}
+    errors: dict[int, BaseException] = {}
+    waiting = iter(range(1, len(items)))
+    lock = threading.Lock()
+    stop = threading.Event()
+    # The threads count themselves done here instead of being joined: Python 3.12 marks a thread
+    # stopped when a join() of it is interrupted, though it still runs.
+    done = threading.Semaphore(0)
+
+    def run() -> None:
+        try:
+            while not stop.is_set():
+                with lock:
+                    index = next(waiting, None)
+                if index is None:
+                    return
+                try:
+                    results[index] = work(items[index])
+                except BaseException as error:
+                    errors[index] = error
+                    stop.set()
+        finally:
+            done.release()
+
+    count = min(concurrency, len(items) - 1)
+    try:
+        for number in range(count):
+            threading.Thread(target=run, name=f"bullet_{number}", daemon=True).start()
+        for _ in range(count):
+            done.acquire()
+    finally:
+        stop.set()
+    if errors:
+        # Items start in order, so any that never started come after every one that failed.
+        raise errors[min(errors)]
+    return [results[index] for index in range(len(items))]
 
 
 def _position(dates: Sequence[str | None], when: str | None) -> int | None:
