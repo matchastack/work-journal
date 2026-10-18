@@ -101,7 +101,7 @@ from app.telegram.journal import COMMANDS
 from app.telegram.linking import deep_link, new_link_token
 from app.telegram.polling import poll
 from app.tick import TICK_BUDGET_S, extract_now, refresh_now, tick
-from app.validate.lint import NotSendable, format_report, lint_profile, require_sendable
+from app.validate.lint import LintReport, check_sendable, format_report, lint_profile
 from app.writing import Style, apply_swap, locate_bullet, swap_op, write_bullet
 
 LOCAL_DIR = Path(__file__).resolve().parents[2] / "local"
@@ -1041,8 +1041,12 @@ def tailor_resume(
     Calls the light-tier model to parse a posting given as text, the heavy-tier model to choose
     what the resume shows, and the standard-tier model to work in swaps and write new phrasings,
     each checked by the verifier. You approve each new phrasing: approved ones are used and
-    saved as swaps on their bullets. The resume rules must pass before it renders, and it's
-    fitted to one page. Needs TeX Live. With --db, your words to avoid apply.
+    saved as swaps on their bullets. The resume is fitted to one page and checked against the
+    resume rules. Needs TeX Live. With --db, your words to avoid apply.
+
+    A resume that breaks a rule is still written and logged, so the work isn't lost, but the
+    errors are printed last and kept with the application, and the command exits with status 1:
+    fix them before you send it.
     """
     if db and (profile or facts_file):
         raise typer.BadParameter("use either --db or files", param_hint="--profile, --facts-file")
@@ -1086,22 +1090,12 @@ def tailor_resume(
         ]
         _save_swaps(ops, path=profile, db=db, user=user)
     selection = use_phrasings(tailored, accepted)
-    try:
-        report = require_sendable(
-            selection, loaded, confirmed, posting_spellings=posting_spellings(parsed)
-        )
-    except NotSendable as error:
-        typer.echo(format_report(error.report), err=True)
-        if any(finding.rule == "R3" for finding in error.report.errors):
-            typer.echo(
-                "Confirm a skill marked verify-before-shipping with --confirm <skill> only if "
-                "you can defend it in an interview.",
-                err=True,
-            )
-        typer.echo("The resume breaks the rules above, so it wasn't rendered.", err=True)
-        raise typer.Exit(1) from None
-    for finding in report.warnings:
-        typer.echo(f"Warning: {finding.location}: {finding.message}", err=True)
+    report = check_sendable(
+        selection, loaded, confirmed, posting_spellings=posting_spellings(parsed)
+    )
+    if report.ok:
+        for finding in report.warnings:
+            typer.echo(f"Warning: {finding.location}: {finding.message}", err=True)
     out = out or LOCAL_DIR / "resumes" / f"{_slug(parsed)}.pdf"
     out.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -1145,6 +1139,22 @@ def tailor_resume(
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(logged.model_dump_json(indent=2) + "\n", encoding="utf-8")
     typer.echo(f"Logged it as application {application.id}; `wj applications` lists them.")
+    if not report.ok:
+        _echo_rule_errors(report, out)
+        raise typer.Exit(1)
+
+
+def _echo_rule_errors(report: LintReport, out: Path) -> None:
+    """The resume rules the written resume breaks, as the last thing `wj tailor` prints."""
+    typer.echo("", err=True)
+    typer.echo(f"{out} breaks the resume rules below; fix them before you send it.", err=True)
+    typer.echo(format_report(report), err=True)
+    if any(finding.rule == "R3" for finding in report.errors):
+        typer.echo(
+            "For a skill marked verify-before-shipping, run again with --confirm <skill> only if "
+            "you can defend it in an interview; otherwise take it out of the bullets that name it.",
+            err=True,
+        )
 
 
 @cli.command("applications")
