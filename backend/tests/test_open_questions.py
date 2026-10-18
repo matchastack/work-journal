@@ -156,6 +156,20 @@ def test_a_question_added_to_the_profile_joins_the_round() -> None:
     assert chosen == NextQuestion(question(added, "q_new"), ("q_high", "q_new"))
 
 
+def test_a_new_round_doesnt_start_with_the_question_just_asked() -> None:
+    """q_new, the most valuable, joined the round last: the next round starts with q_mid, the
+    most valuable of the others, so that q_new isn't asked in two reminders in a row."""
+    joined = profile({"q_low": ("ct_datasets",), "q_mid": ("ct_sensors",), "q_new": ("nw_orders",)})
+    asked: tuple[str, ...] = ("q_mid", "q_low", "q_new")
+    order: list[str] = []
+    for _ in range(3):
+        chosen = next_question(joined, answered=(), asked=asked)
+        assert chosen is not None
+        order.append(chosen.question.id)
+        asked = chosen.asked
+    assert order == ["q_mid", "q_new", "q_low"]
+
+
 def test_one_question_is_asked_each_time() -> None:
     one = profile({"q_only": ("nw_orders",)})
     assert next_question(one, answered=(), asked=("q_only",)) == NextQuestion(

@@ -10,8 +10,9 @@ that blocks nothing is worth 0, so it comes last.
 
 The *candidates* are the open questions the journal holds no answer to. Each reminder asks the
 most valuable candidate not yet asked in the current round, ties in the profile's order; once
-every candidate has been asked, a new round starts. So a question the owner leaves unanswered
-doesn't come back every week, and one added to the profile joins the round at once.
+every candidate has been asked, a new round starts, never with the question just asked while
+there's another. So a question the owner leaves unanswered doesn't come back in two reminders in
+a row, and one added to the profile joins the round at once.
 
 Once the owner presses "Answer the question", their next message within the entry timeout is the
 answer (`awaits_answer`). It's about the role that holds the bullets needing the question, when
@@ -62,8 +63,9 @@ def next_question(
     profile: Profile, *, answered: Collection[str], asked: Sequence[str]
 ) -> NextQuestion | None:
     """The question for the next reminder: the most valuable candidate not in `asked`, the round
-    so far, or the most valuable of all to start a new round once each has been asked. None
-    when there's no candidate. Questions that stopped being candidates leave the round."""
+    so far, or, once each has been asked, the most valuable of all to start a new round, unless
+    the last reminder asked it and there's another. None when there's no candidate. Questions
+    that stopped being candidates leave the round."""
     candidates = ranked(profile, answered)
     if not candidates:
         return None
@@ -71,7 +73,9 @@ def next_question(
     round_so_far = tuple(question_id for question_id in asked if question_id in ids)
     waiting = [question for question in candidates if question.id not in round_so_far]
     if not waiting:
-        round_so_far, waiting = (), candidates
+        last = asked[-1] if asked else None
+        round_so_far = ()
+        waiting = [question for question in candidates if question.id != last] or candidates
     chosen = waiting[0]
     return NextQuestion(chosen, (*round_so_far, chosen.id))
 
