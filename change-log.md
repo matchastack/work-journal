@@ -2,7 +2,7 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-16 · T-037 Catch-up interview · [#51](https://github.com/matchastack/work-journal/pull/51)
+## 2026-10-18 · T-037 Catch-up interview · [#51](https://github.com/matchastack/work-journal/pull/51)
 **Changed:** the bot runs a catch-up interview of up to 10 questions on your first link and on `/catchup`. Each answer becomes an entry of its own and gets its role and facts like any other, from your words alone. Skip moves on, Stop for now or `/done` pauses, and `/catchup` carries on. At the end the bot offers `/refresh`.
 
 **Verify:**
@@ -11,6 +11,31 @@ One short entry per pull request, newest first: what changed and what to verify.
 - After the deploy, "/" in the chat lists `/catchup`, and `/catchup` asks a first question with Skip and Stop for now
 - An answer gets the role question, then the next question follows; after the last question, `/refresh` proposes changes from your answers
 - The Journal page shows each answer with its question above it
+
+## 2026-10-18 · Tailored resumes' LaTeX source · [#56](https://github.com/matchastack/work-journal/pull/56)
+**Changed:** `wj tailor` writes the LaTeX source beside the PDF, as `wj render` does; `--tex-only` or `--pdf-only` writes just one of them.
+
+**Verify:**
+- CI is green on #56
+- `uv run wj tailor <posting> --db` says it wrote the PDF and its source, and the `.tex` compiles on its own to the same resume
+- With `--tex-only`, only the `.tex` is written; with `--pdf-only`, only the PDF
+
+## 2026-10-18 · T-065 Tailored resumes are written even when a rule fails · [#55](https://github.com/matchastack/work-journal/pull/55)
+**Changed:** `wj tailor` no longer stops before the render when the resume breaks a rule, such as a skill marked verify-before-shipping that isn't confirmed. It writes the PDF and logs the application, then prints the rule errors last and exits with status 1: fix them before you send it.
+
+**Verify:**
+- CI is green on the PR
+- `uv run wj tailor <posting.txt> --db` on the posting that stopped before writes the PDF, then ends with "... breaks the resume rules below; fix them before you send it." and the Claude Code error
+- Running it again with `--confirm "Claude Code"` (only if you can defend it) ends without the error
+
+## 2026-10-17 · User guide · [#54](https://github.com/matchastack/work-journal/pull/54)
+**Changed:** added `user-guide.md`, which explains how to use the Telegram bot, the web app and the command-line tool, and marks the pages still to come. `CLAUDE.md`, the PR template and `tasks.md` now require a PR that creates or changes a feature to update it.
+
+**Verify:**
+- The guide's commands and options match `uv run wj <command> --help`
+- The Inbox and Journal sections match the running web app
+- The "Keep the user guide current" rule in `CLAUDE.md` reads clearly
+- No personal data in the diff
 
 ## 2026-10-16 · T-022 ATS check · [#50](https://github.com/matchastack/work-journal/pull/50)
 **Changed:** `wj tailor` now reads the PDF's text back the way an applicant tracking system does, and says whether it has every covered term and the section headings in order, or what it lacks (a term split by a hyphen at a line end, a missing heading, ligatures or garbled characters). The result is kept with the application.

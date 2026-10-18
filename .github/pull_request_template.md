@@ -19,5 +19,6 @@ Stacked on: <!-- #PR number, or "none" -->
 - [ ] Acceptance criteria in `tasks.md` are met
 - [ ] `tasks.md` status and PR link updated
 - [ ] Short `change-log.md` entry added
+- [ ] `user-guide.md` updated for any change a user can see (or "no user-facing change")
 - [ ] Lint, type-check and tests pass
 - [ ] No personal data or secrets committed

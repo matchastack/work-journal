@@ -33,7 +33,8 @@ class ResumeChecks(Model):
     texts: tuple[VerifierReport, ...] = ()
     """The verifier's report on each swap and new phrasing the resume shows."""
     rules: LintReport = LintReport()
-    """The resume rules' findings: warnings only, since errors block the render."""
+    """The resume rules' findings. An error doesn't stop the PDF being written; it's kept here,
+    and the resume mustn't be sent until it's fixed (R2)."""
     coverage: CoverageReport = CoverageReport()
     ats: AtsReport | None = None
     """The ATS check of the PDF's text; None in applications logged before it existed."""
@@ -45,7 +46,9 @@ class LoggedApplication(Model):
     application: Application
     checks: ResumeChecks
     pdf: str | None = None
-    """Where the PDF was written."""
+    """Where the PDF was written, unless only its LaTeX source was."""
+    tex: str | None = None
+    """Where the LaTeX source was written, unless only the PDF was."""
 
 
 def record(
