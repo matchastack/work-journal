@@ -27,6 +27,7 @@ Every generated sentence is checked against your facts, so wording never changes
 |---|---|
 | Record what you did | The Telegram bot |
 | Fix a note or a saved fact | The web app, Journal page |
+| Fix your profile by hand, or go back to an earlier version | The web app, Profile page |
 | Update your profile from new notes | `/refresh` in Telegram, then the web app's Inbox |
 | Render the master resume, tailor a resume, build the portfolio page, write LinkedIn text | The command-line tool (web pages **Coming**) |
 
@@ -146,7 +147,7 @@ Open `http://localhost:5173` while developing, or your deployed address. Sign in
 |---|---|---|
 | [Inbox](#inbox) | Built | Review the changes proposed from your journal |
 | [Journal](#journal) | Built | Everything you sent the bot, with the facts saved from it |
-| Profile | Coming (T-042, T-043) | Your roles, projects and skills, with every earlier version |
+| [Profile](#profile) | Built (more Coming in T-043) | Your basics, roles, education, projects and bullets, with every earlier version |
 | Resumes | Coming (T-044) | Preview and download resume variants |
 | Tailor | Coming (T-045) | Tailor a resume to a job posting, and see where you applied |
 | Portfolio | Coming (T-046) | Choose what the public page shows, and publish it |
@@ -183,6 +184,30 @@ You can correct anything in place:
 - **Entries:** delete a whole entry, with its messages and facts. If the profile cites any of those facts, the page names the bullets and asks you to confirm first.
 
 **Download Markdown** and **Download JSON** at the top save the whole journal.
+
+### Profile
+
+Your master profile as it is now: the version your resumes, portfolio page and LinkedIn text are made from. The links beside it jump to each section: **Basics**, **Work**, **Education**, **Projects**, **Resume rules** and **History**. If it says "No profile yet", load your master resume first (see [First-time data](#first-time-data)).
+
+Each bullet shows its status, strength, verification and tags. A benched bullet shows why it was benched, and a planned one is marked; neither appears on a resume.
+
+**Edit** on a card opens its form in place; **Save** keeps it, and **Cancel** or Escape closes it:
+
+- **Basics:** your name, label, email, phone, website, location, summary and profiles elsewhere (add or remove rows).
+- **Roles:** title, organisation, location, link, start and end month (leave the end blank while it's your current role) and summary.
+- **Education:** degree, area of study, institution, honours, location, link and dates.
+- **Projects:** name, description, tech stack, link, dates, status (benching needs a reason) and tags.
+- **Bullets:** the text, status (active, benched with a reason, or planned with an optional note), strength, verification and its note, and tags.
+
+Each save makes a new version of your profile, marked as yours; a save that changes nothing makes none. The page says "Saved as version N." Your own words are not checked by the verifier, since nothing generated them. Your resumes, portfolio page and LinkedIn text catch up at your next `/refresh`.
+
+You can't add or remove roles, projects or bullets here. New bullets come from your journal through `/refresh`, so that each one traces back to a fact; to drop a bullet, bench it.
+
+If the profile changed after the page loaded (an Inbox apply in another tab, say), the save is refused and the page shows the newest version; check it and save again. If the card you were editing is the one that changed, cancel and edit it again.
+
+**Resume rules** lists the resume rules' findings, as `wj lint` reports them, and each card shows its own. They don't stop a save, but fix the errors before you send a resume.
+
+**History** lists every version, newest first: when it was saved, whether you saved it or it came from your journal, and what it did. **Show changes** lists what it changed against the version before, with reworded text a word at a time. **Restore version N** asks first, then saves a copy of that version as a new version; the versions in between stay. Restoring can drop bullets, and the outputs change at your next `/refresh`.
 
 ## The command-line tool
 

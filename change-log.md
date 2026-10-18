@@ -2,6 +2,16 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-18 · T-042 Profile page: items, bullets and versions · [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+**Changed:** the web app's Profile page shows your basics, roles, education, projects and bullets, with the resume-rule findings, and lets you edit them in place. Each save is a change set by you and a new version. The history shows what each version changed and restores any of them as a new version.
+
+**Verify:**
+- CI is green on the PR
+- With your profile loaded (`uv run wj db load-profile`), editing a bullet's text, benching it with a reason and changing its tags shows "Saved as version N", and History lists that version as yours with the word diff
+- Saving without changes makes no version; editing in two tabs, the second save says your profile changed and reloads
+- Restore on an older version asks first, then makes a new version that matches it, and the versions in between stay in the history
+- A placeholder such as TODO in a bullet shows under Resume rules and on the bullet, but still saves
+
 ## 2026-10-18 · Tailored resumes' LaTeX source · [#56](https://github.com/matchastack/work-journal/pull/56)
 **Changed:** `wj tailor` writes the LaTeX source beside the PDF, as `wj render` does; `--tex-only` or `--pdf-only` writes just one of them.
 
