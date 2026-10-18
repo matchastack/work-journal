@@ -11,6 +11,7 @@ Work Journal turns informal Telegram journal messages into facts. Only when the 
 | [project-requirements.md](project-requirements.md) | The source of truth. Read the parts relevant to a task before starting it. |
 | [tasks.md](tasks.md) | The backlog. One task = one PR. |
 | [change-log.md](change-log.md) | A short entry per PR: what changed and what the owner must verify |
+| [user-guide.md](user-guide.md) | How to use the Telegram bot, the web app (`frontend/`) and the command-line tool (`backend/`) |
 
 ## Workflow
 
@@ -27,9 +28,27 @@ Work Journal turns informal Telegram journal messages into facts. Only when the 
 4. **Check before pushing.** Lint, type-check and tests must pass (see Commands).
 5. **Update the docs in the same PR.**
    - In `tasks.md`, set the task's status and PR link.
+   - In `user-guide.md`, update the parts the PR affects (see [Keep the user guide current](#keep-the-user-guide-current)).
    - In `change-log.md`, add a **short** entry: one line on what changed, and a few plain bullets on what to verify. **No checkboxes:** verification is ticked only in the PR. Don't copy the PR description; the details live in the PR.
 6. **Open the PR** titled `T-XXX: <task title>`, using the PR template. Never push to `main`, and never merge.
 7. **Change the requirements first.** If scope needs to change, update `project-requirements.md` in the PR and call it out in the PR description.
+
+## Keep the user guide current
+
+[user-guide.md](user-guide.md) tells the owner how to use what exists today. **When a PR creates or changes a feature, it updates the user guide in the same PR.** That covers:
+
+- a Telegram command or bot behaviour (`/done`, `/refresh`, the questions the bot asks)
+- a web app page, or a page's actions (`frontend/src/pages.ts` lists the pages)
+- a `wj` command or option, or a setting in `backend/.env.example`
+- setup, sign-in or maintenance steps
+
+How:
+
+- Edit the chapter the feature belongs to, and change a page or command from **Coming** to built when its task merges. Remove the task's mention once nothing is coming.
+- Write for someone using the product: what to do and what they will see, not how the code works. Keep it ASCII, and use no real personal data in examples.
+- Check each command and option against `uv run wj <command> --help`, and each page against the running app.
+- A change with nothing to tell a user (a refactor, a test, CI) doesn't touch the guide. Say "no user-facing change" in the PR instead.
+- Where the guide and `CLAUDE.md` both list a command, keep both right. `CLAUDE.md` is the developer's list; the guide explains how to use it.
 
 ## Commands
 
@@ -54,7 +73,7 @@ Run these from `backend/` (uv project, Python 3.12):
 | Render the master resume as a PDF, with its LaTeX source beside it as `.tex` (needs TeX Live: `backend/templates/README.md`) | `uv run wj render` |
 | Extract the facts in a journal note (needs the LLM settings) | `uv run wj extract <file>` |
 | Write facts as a resume bullet, LinkedIn text (`--style linkedin`) or a bullet in a posting's words (`--style posting --posting <file>`), checked by the verifier (needs the LLM settings; `--edit <bullet>` writes a new version of one, `--swap <n>` works in one of its swaps, `--save-swap` saves the result as a swap) | `uv run wj write --facts <ids>` (add `--db` for facts in the database) |
-| Tailor a one-page resume to a job posting, as text or `wj posting parse` JSON, print its keyword coverage and the ATS check of its PDF, and log the application (needs the LLM settings and TeX Live; `--confirm <skill>` for a skill marked verify-before-shipping, `--yes` to use every new phrasing that passed) | `uv run wj tailor <posting-file>` (add `--db` for your profile and facts in the database) |
+| Tailor a one-page resume to a job posting, as text or `wj posting parse` JSON, write it as a PDF and its `.tex` source, print its keyword coverage and the ATS check of its PDF, and log the application (needs the LLM settings and TeX Live; `--tex-only` or `--pdf-only` writes just one; `--confirm <skill>` for a skill marked verify-before-shipping, `--yes` to use every new phrasing that passed) | `uv run wj tailor <posting-file>` (add `--db` for your profile and facts in the database) |
 | List the logged applications, newest first | `uv run wj applications` (add `--db` for the database) |
 | Propose profile changes from the journal facts since the last refresh, as `/refresh` does (needs the LLM settings) | `uv run wj propose --db` |
 | Review the proposed changes one by one and save the accepted ones as the next version, then render | `uv run wj apply --db`, then `uv run wj render --db` |
@@ -125,6 +144,7 @@ Add a dependency with `npm install <package>` (or `npm install --save-dev <packa
 - Anything sent is one page. Cut to fit; never shrink below a 10 pt font or 0.5 in margins.
 - Load-bearing roles always appear.
 - Benched and planned items never render.
+- A tailored resume that breaks a rule is still written, but its errors are printed last and kept with its application, and it mustn't be sent until they're fixed.
 
 The full list is in requirements §8.
 

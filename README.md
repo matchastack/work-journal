@@ -39,6 +39,7 @@ The full list of commands is in [CLAUDE.md](CLAUDE.md#commands).
 | [project-requirements.md](project-requirements.md) | What the product must do and why (the source of truth) |
 | [tasks.md](tasks.md) | The backlog: one task = one pull request |
 | [change-log.md](change-log.md) | What changed in each PR, and how to verify it |
+| [user-guide.md](user-guide.md) | How to use the Telegram bot, the web app and the command-line tool |
 | [CLAUDE.md](CLAUDE.md) | Conventions for Claude Code sessions |
 
 ## Planned stack
