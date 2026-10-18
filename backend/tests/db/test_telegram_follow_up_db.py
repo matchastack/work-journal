@@ -208,7 +208,7 @@ async def test_commands_still_work_while_an_answer_is_awaited(
     _, entry_id = await asked_entry(session, chat_id)
     handled = await handle_update(session, message(chat_id, "/help"))
     assert handled == Handled((sent(chat_id, help_text(timedelta(minutes=30))),))
-    assert "/skip - skip the question about the last entry" in help_text(timedelta(minutes=30))
+    assert "/skip - skip the bot's question" in help_text(timedelta(minutes=30))
     assert await awaits(session, entry_id) is True
 
 

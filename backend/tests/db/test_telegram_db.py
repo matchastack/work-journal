@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.config import Settings
 from app.db.crypto import KeyRing, new_key, use_key_ring
 from app.db.models import (
+    CatchUp,
     ChangeSetRow,
     JournalEntry,
     JournalMessage,
@@ -87,6 +88,19 @@ def refreshed(monkeypatch: pytest.MonkeyPatch) -> list[uuid.UUID]:
 
     monkeypatch.setattr("app.telegram.webhook.refresh_now", record)
     return refreshes
+
+
+@pytest.fixture(autouse=True)
+def caught_up(monkeypatch: pytest.MonkeyPatch) -> list[tuple[uuid.UUID, uuid.UUID | None]]:
+    """The catch-up interviews the webhook hands on right after answering, with the entry the
+    update closed (FR-REM-4). The jobs themselves are tested in `test_telegram_catch_up_db.py`."""
+    interviews: list[tuple[uuid.UUID, uuid.UUID | None]] = []
+
+    async def record(catch_up_id: uuid.UUID, entry_id: uuid.UUID | None = None) -> None:
+        interviews.append((catch_up_id, entry_id))
+
+    monkeypatch.setattr("app.telegram.webhook.catch_up_now", record)
+    return interviews
 
 
 @pytest.fixture
@@ -328,6 +342,7 @@ def test_polling_journals_updates_as_the_webhook_does(database_url: str, chat_id
         "done",
         "skip",
         "refresh",
+        "catchup",
         "help",
     ]
     assert calls[3][1] == {"chat_id": stranger, "text": LINK_HINT}
@@ -341,12 +356,18 @@ def start(client: TestClient, chat_id: int, token: str) -> str:
 
 
 def test_a_link_to_the_bot_links_the_chat_once(
-    client: TestClient, database_url: str, chat_id: int
+    client: TestClient,
+    database_url: str,
+    chat_id: int,
+    caught_up: list[tuple[uuid.UUID, uuid.UUID | None]],
 ) -> None:
-    """FR-CAP-3: the token works once, and the `/start` message isn't journaled."""
+    """FR-CAP-3: the token works once, and the `/start` message isn't journaled. The first link
+    starts the catch-up interview (FR-REM-4)."""
     user_id = new_user(database_url)
     token = link_token(database_url, user_id)
     assert start(client, chat_id, token) == LINKED
+    [(_, entry_id)] = caught_up
+    assert entry_id is None
     assert owner_of(database_url, chat_id) == user_id
     assert start(client, chat_id, token) == EXPIRED
     post(client, update("message", chat_id))
@@ -545,16 +566,20 @@ def test_the_timeout_can_be_configured(database_url: str, chat_id: int) -> None:
 
 
 def test_polling_hands_on_the_entry_an_update_closes(database_url: str, chat_id: int) -> None:
-    """As with the webhook, `/done` while polling runs extraction right away (FR-CAP-5), and
-    `/refresh` runs its refresh."""
+    """As with the webhook, `/done` while polling runs extraction right away (FR-CAP-5),
+    `/refresh` runs its refresh, and `/catchup` runs the interview's next question, with the
+    entry it closed."""
     user_id = link(database_url, chat_id)
     load_profile(database_url, user_id)
     note = json.loads(update("message", chat_id, message_id=1, date=NINE))
     done = json.loads(update("message", chat_id, message_id=2, date=NINE + 60, text="/done"))
     refresh = json.loads(update("message", chat_id, message_id=3, date=NINE + 90, text="/refresh"))
-    batches = [[note, done, refresh], []]
+    later = json.loads(update("message", chat_id, message_id=4, date=NINE + 120))
+    catchup = json.loads(update("message", chat_id, message_id=5, date=NINE + 150, text="/catchup"))
+    batches = [[note, done, refresh, later, catchup], []]
     handed_on: list[uuid.UUID] = []
     refreshed: list[uuid.UUID] = []
+    caught_up: list[tuple[uuid.UUID, uuid.UUID | None]] = []
 
     def handle(request: httpx2.Request) -> httpx2.Response:
         method = request.url.path.rsplit("/", 1)[1]
@@ -566,6 +591,9 @@ def test_polling_hands_on_the_entry_an_update_closes(database_url: str, chat_id:
 
     async def run_refresh(refresh_id: uuid.UUID) -> None:
         refreshed.append(refresh_id)
+
+    async def run_catch_up(catch_up_id: uuid.UUID, entry_id: uuid.UUID | None) -> None:
+        caught_up.append((catch_up_id, entry_id))
 
     async def run_poll() -> int:
         engine = create_async_engine(database_url)
@@ -580,13 +608,19 @@ def test_polling_hands_on_the_entry_an_update_closes(database_url: str, chat_id:
                     timeout=0,
                     run_jobs=run_jobs,
                     run_refresh=run_refresh,
+                    run_catch_up=run_catch_up,
                 )
         finally:
             await engine.dispose()
 
-    assert asyncio.run(run_poll()) == 3
-    [(_, entry_id, how)] = entries(database_url, chat_id)
-    assert (handed_on, how) == ([entry_id], "done")
+    assert asyncio.run(run_poll()) == 5
+    [(_, entry_id, how), (_, later_id, later_how)] = entries(database_url, chat_id)
+    assert (handed_on, how, later_how) == ([entry_id], "done", "done")
+    [(catch_up_id, closed_id)] = caught_up
+    assert closed_id == later_id
+    assert run(database_url, select(CatchUp.user_id).where(CatchUp.id == catch_up_id)) == [
+        (user_id,)
+    ]
     [(refresh_id, _)] = refreshes(database_url, user_id)
     assert refreshed == [refresh_id]
 

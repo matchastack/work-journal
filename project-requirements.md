@@ -294,7 +294,7 @@ Priority: **M** = Must (v1) · **S** = Should (v1 if time allows) · **C** = Cou
 | FR-REM-1 | Reminders run on a configurable schedule and time zone. The default is Friday at 18:00, Asia/Singapore. | M | |
 | FR-REM-2 | No reminder is sent if the owner journaled in the last 3 days. | M | |
 | FR-REM-3 | Reminder buttons "Nothing this week" and "Remind me tomorrow". `/pause` stops reminders and `/resume` restarts them. | M | |
-| FR-REM-4 | A first-run catch-up interview covers the time since the profile was last updated. | M | |
+| FR-REM-4 | A first-run catch-up interview covers the time since the profile was last updated. | M | It starts when the owner first links a chat, and again on `/catchup`. It asks up to 10 questions, one at a time, each with Skip and Stop for now. Each answer becomes an entry of its own, closed at once and kept with its question, which gets its role (FR-CAP-11) and its facts like any other. Triage and extraction read the answer alone: the bot's question is never evidence for a fact. Starting the interview stops a waiting follow-up question, and no follow-up questions are asked while it runs. Stop for now, `/done`, or no answer within the entry timeout pauses it (the bot says so), and `/catchup` carries on. At the end, the bot offers `/refresh`. |
 | FR-REM-5 | The bot asks open questions over time: at most one per reminder, most valuable first. | M | |
 | FR-REM-6 | When a refresh's proposals are ready, the bot says so ("N updates proposed → Review") with a link, or says there's nothing new. | M | |
 | FR-REM-7 | A monthly recap, and a brag-doc export for performance reviews. | C | M3 |
@@ -483,6 +483,6 @@ Owner's machine: the `wj` commands, including `wj render --db` (LaTeX)
 | OQ-1 | Is `master-resume.json` (the JSON twin with bullet IDs, open questions and the application log) needed? | T-007 | **Resolved 2026-09-27: no.** The LaTeX master has everything the app needs, and the database replaces the JSON twin. FR-IMP-2 and T-007 are dropped. |
 | OQ-2 | May I commit the template skeleton? That means Jake's Resume preamble and macros (MIT-licensed, credited) plus your one-line subheading macro, with **all personal content removed**. | T-011 | **Resolved 2026-09-27: yes.** |
 | OQ-3 | What should the portfolio handle (`/p/<handle>`) and the app's domain be? | T-046, T-051 | **Partly answered 2026-10-04:** the app runs at Vercel's free `<project>.vercel.app` address until the owner picks a domain. The handle is still open. |
-| OQ-4 | Is the default reminder time right: Friday 18:00, Asia/Singapore? | T-035 | Open |
+| OQ-4 | Is the default reminder time right: Friday 18:00, Asia/Singapore? | T-035 | **Answered 2026-10-16:** yes, Friday 18:00, Asia/Singapore is the default. |
 | OQ-5 | Which application-log fields matter to you, beyond what FR-TLR-8 lists (e.g. contacts, outcome)? | T-021 | Open |
 | OQ-6 | Should the named resume variants be the role types from your master resume (backend/full stack, ML/AI, identity/security, systems)? | T-008 | **Answered on #8:** no. Only the master document is predefined. Every one-page resume is tailored to a posting, from the points that suit it best (T-020). |

@@ -28,9 +28,10 @@ from psycopg_pool import AsyncConnectionPool
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.catch_up import next_question
 from app.config import get_settings
 from app.db.engine import create_engine, session_factory, with_query
-from app.db.models import JournalEntry
+from app.db.models import CatchUp, JournalEntry
 from app.llm.client import LLMClient, LLMConfigError, LLMInvalidOutput, LLMRefusal
 from app.llm.usage import CallLog, DatabaseCallLog
 from app.refresh import (
@@ -48,7 +49,8 @@ from app.render.compile import CompileError
 from app.render.fit import FitError
 from app.render.resume import RenderError
 from app.synthesis import Synthesis, synthesize
-from app.telegram.api import BotApi, TelegramError
+from app.telegram import catch_up
+from app.telegram.api import BotApi, BotCall, TelegramError
 from app.telegram.entries import close_quiet_entries
 from app.telegram.follow_up import follow_up, record_follow_up
 from app.telegram.journal import purge_updates
@@ -237,6 +239,113 @@ async def run_extraction(
 
 
 @jobs.periodic(cron="* * * * *")
+@jobs.task(name="queue_catch_up_questions", retry=RETRY)
+async def queue_catch_up_questions(timestamp: int) -> None:
+    """Queue `catch_up_question` for each catch-up interview that waits for its next question,
+    such as one the bot couldn't ask at once. Due every minute, so it runs on every tick, and
+    every minute under `wj worker`."""
+    async with database() as session:
+        thinking = await session.scalars(select(CatchUp.id).where(CatchUp.status == "thinking"))
+        pending = list(thinking)
+    queued = sum([await queue_catch_up(catch_up_id) for catch_up_id in pending])
+    logger.info("queued %d catch-up questions", queued)
+
+
+@jobs.task(name="catch_up_question", retry=RETRY, pass_context=True)
+async def catch_up_question(context: procrastinate.JobContext, catch_up_id: str) -> None:
+    """Write and send the catch-up interview's next question, or its end (FR-REM-4). The owner
+    is told when it finally fails, and the interview pauses."""
+    job = context.job
+    await run_catch_up(
+        uuid.UUID(catch_up_id),
+        last_attempt=lambda error: RETRY.get_retry_decision(exception=error, job=job) is None,
+    )
+
+
+async def queue_catch_up(catch_up_id: uuid.UUID) -> bool:
+    """Queue `catch_up_question` for one interview, unless it's queued or running already: a
+    second copy queued while one runs would clash with that one's retry. Returns whether it was
+    queued."""
+    lock = f"catch_up:{catch_up_id}"
+    if list(await jobs.job_manager.list_jobs_async(lock=lock, status="doing")):
+        return False
+    job = catch_up_question.configure(lock=lock, queueing_lock=f"catch_up_question:{catch_up_id}")
+    try:
+        await job.defer_async(catch_up_id=str(catch_up_id))
+    except AlreadyEnqueued:
+        return False
+    return True
+
+
+async def run_catch_up(
+    catch_up_id: uuid.UUID, *, last_attempt: Callable[[BaseException], bool]
+) -> None:
+    """Write the interview's next question (`app/telegram/catch_up.py`) with no transaction
+    open, so that the owner's messages don't wait for the model, and keep it. Then send it, and
+    mark it asked. A question kept but not sent, such as when Telegram failed, is sent again on
+    the retry without writing a new one, and so is the interview's last message, after which it
+    finishes. A question that no longer waits once it's sent, such as one the owner paused
+    while it was on its way, loses its buttons. Missing model settings won't change on a retry,
+    so they fail at once; anything else is retried, and fails when `last_attempt` says this was
+    the last try. A failed call to the model gives way to a fixed question (`app/catch_up.py`)."""
+    async with database() as session:
+        user_id = await session.scalar(select(CatchUp.user_id).where(CatchUp.id == catch_up_id))
+    if user_id is None:
+        return
+    log = DatabaseCallLog(user_id)
+    try:
+        async with database() as session:
+            planned = await catch_up.plan(session, catch_up_id)
+        if planned is None:
+            return
+        question = planned.question
+        if question is None:
+            client = _llm_client(log)
+            question = await asyncio.to_thread(
+                next_question, planned.profile, planned.turns, client
+            )
+        async with database() as session:
+            message = await catch_up.store(
+                session, catch_up_id, planned, question, now=datetime.now(UTC)
+            )
+        if message is None:
+            return
+        message_id = await _send(message.chat_id, message.text, **message.options)
+        async with database() as session:
+            if not message.waits:
+                await catch_up.finish(session, catch_up_id, planned, now=datetime.now(UTC))
+                return
+            waits = await catch_up.record_question(
+                session, catch_up_id, message.text, message_id, now=datetime.now(UTC)
+            )
+        if not waits and message_id is not None:
+            await _remove_buttons(message.chat_id, message_id)
+    except LLMConfigError as error:
+        await _catch_up_failed(catch_up_id, error)
+    except Exception as error:
+        if last_attempt(error):
+            await _catch_up_failed(catch_up_id, error)
+        raise
+    finally:
+        async with database() as session:
+            await log.save(session)
+
+
+async def _catch_up_failed(catch_up_id: uuid.UUID, error: BaseException) -> None:
+    """Pause the interview, so it isn't tried again by itself, and tell its owner."""
+    logger.warning("catch-up %s failed: %s", catch_up_id, type(error).__name__)
+    async with database() as session:
+        user_id = await catch_up.fail(session, catch_up_id)
+        chat_id = None if user_id is None else await chat_of(session, user_id)
+    if chat_id is None:
+        return
+    try:
+        await _send(chat_id, catch_up.failure_text(_reason(error)))
+    except TelegramError:
+        logger.warning("couldn't tell the owner that catch-up %s failed", catch_up_id)
+
+
+@jobs.periodic(cron="* * * * *")
 @jobs.task(name="queue_refresh_jobs", retry=RETRY)
 async def queue_refresh_jobs(timestamp: int) -> None:
     """Queue the work refreshes wait for: proposing changes, for each running refresh whose job
@@ -415,6 +524,19 @@ async def _send(chat_id: int, text: str, **options: Any) -> int | None:
         return None
     async with _telegram_http() as http:
         return await BotApi(token, http).send_message(chat_id, text, **options)
+
+
+async def _remove_buttons(chat_id: int, message_id: int) -> None:
+    """Remove the buttons under one of the bot's messages. A failure is only logged."""
+    token = get_settings().telegram_bot_token
+    if token is None:
+        return
+    call = BotCall("editMessageReplyMarkup", {"chat_id": chat_id, "message_id": message_id})
+    async with _telegram_http() as http:
+        try:
+            await BotApi(token, http).make(call)
+        except TelegramError:
+            logger.warning("couldn't remove the buttons under message %s", message_id)
 
 
 def _llm_client(log: CallLog) -> LLMClient:
