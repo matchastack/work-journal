@@ -1,7 +1,8 @@
 """The owner's settings: one JSON value per key and user (`Setting` in `app/db/models.py`).
 
 Besides preferences, two keys keep the LinkedIn pack's state (T-024): the pack last written, and
-the snapshot of the sections last marked done.
+the snapshot of the sections last marked done. `reminders` holds the owner's reminder schedule
+and pause, and `reminder_state` the bot's record of the reminders it sent or skipped (T-035).
 """
 
 import uuid
@@ -16,11 +17,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import Setting
 from app.linkedin import LinkedInDone, LinkedInPack
 from app.schema.common import Model
-from app.schema.settings import StyleNote, StyleNotes
+from app.schema.settings import ReminderSettings, ReminderState, StyleNote, StyleNotes
 
 STYLE_NOTES = "style_notes"
 LINKEDIN_PACK = "linkedin_pack"
 LINKEDIN_DONE = "linkedin_done"
+REMINDERS = "reminders"
+REMINDER_STATE = "reminder_state"
 
 
 async def get_style_notes(session: AsyncSession, user_id: uuid.UUID) -> StyleNotes:
@@ -74,6 +77,33 @@ async def get_linkedin_done(session: AsyncSession, user_id: uuid.UUID) -> Linked
 
 async def save_linkedin_done(session: AsyncSession, user_id: uuid.UUID, done: LinkedInDone) -> None:
     await _save(session, user_id, LINKEDIN_DONE, done)
+
+
+async def get_reminder_settings(session: AsyncSession, user_id: uuid.UUID) -> ReminderSettings:
+    """The user's reminder schedule and pause; until they set any, the app's defaults, unpaused."""
+    value = await _get(session, user_id, REMINDERS)
+    return ReminderSettings() if value is None else ReminderSettings.model_validate(value)
+
+
+async def save_reminder_settings(
+    session: AsyncSession, user_id: uuid.UUID, reminders: ReminderSettings
+) -> None:
+    """Replace the user's reminder setting. Read and change it while holding the lock that
+    `app/telegram/reminders.py` takes, the owner's `telegram_links` row, so that a change can't
+    undo a `/pause` made at the same moment."""
+    await _save(session, user_id, REMINDERS, reminders)
+
+
+async def get_reminder_state(session: AsyncSession, user_id: uuid.UUID) -> ReminderState:
+    """The bot's record of the user's reminders; empty before the first."""
+    value = await _get(session, user_id, REMINDER_STATE)
+    return ReminderState() if value is None else ReminderState.model_validate(value)
+
+
+async def save_reminder_state(
+    session: AsyncSession, user_id: uuid.UUID, state: ReminderState
+) -> None:
+    await _save(session, user_id, REMINDER_STATE, state)
 
 
 async def _get(session: AsyncSession, user_id: uuid.UUID, key: str) -> dict[str, object] | None:

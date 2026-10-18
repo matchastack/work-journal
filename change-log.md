@@ -2,6 +2,15 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-18 · T-035 Reminders · [#52](https://github.com/matchastack/work-journal/pull/52)
+**Changed:** The bot sends a gentle reminder on your schedule (Fridays at 18:00, Asia/Singapore, by default), skipped if you journaled in the last 3 days, with "Nothing this week" and "Remind me tomorrow" buttons. `/pause` and `/resume` stop and restart it, and Vercel's daily tick now runs at 18:00 Singapore time to send it.
+
+**Verify:**
+- CI is green on the PR
+- After the deploy, run `scripts/post-deploy.sh`; typing "/" in the chat lists /pause and /resume, and Vercel shows the tick's cron at 10:00 UTC
+- `/pause` pauses reminders, and `/resume` answers "Reminders are back on: Fridays at 18:00 (Asia/Singapore)."
+- On a Friday after 3 days without journaling, the reminder arrives between 18:00 and 19:00; "Remind me tomorrow" brings it back on Saturday evening, and "Nothing this week" is noted
+
 ## 2026-10-18 · Tailored resumes' LaTeX source · [#56](https://github.com/matchastack/work-journal/pull/56)
 **Changed:** `wj tailor` writes the LaTeX source beside the PDF, as `wj render` does; `--tex-only` or `--pdf-only` writes just one of them.
 

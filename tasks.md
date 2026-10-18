@@ -592,14 +592,16 @@ As the owner, I want at most one short follow-up question when my note is missin
 **Built (2026-10-13):** the bot asks when the entry closes, before the role question, and only within the entry timeout of the close with no other entry open, since without an always-on worker it can't wait for a pause while the entry is open. The model writes the question about the note; code asks a fixed one instead if it has a number or isn't one short question. `/skip` does what the Skip button does, and a question with no answer within the entry timeout lapses.
 
 ### T-035 · Reminders
-**Status:** ☐ · **Size:** M · **Depends on:** T-028, T-031 · **Requirements:** FR-REM-1, FR-REM-2, FR-REM-3, FR-SET-2 · **Needs:** OQ-4 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-028, T-031 · **Requirements:** FR-REM-1, FR-REM-2, FR-REM-3, FR-SET-2 · **Needs:** OQ-4 (answered) · **PR:** [#52](https://github.com/matchastack/work-journal/pull/52)
 
 As the owner, I want a gentle reminder on my schedule, so that journaling becomes a habit.
 
-- [ ] Each user has their own schedule and time zone, with a default from settings.
-- [ ] The reminder is skipped if the owner journaled in the last 3 days.
-- [ ] Buttons: "Nothing this week" (which is logged) and "Remind me tomorrow". `/pause` and `/resume`.
-- [ ] Tests with a frozen clock.
+- [x] Each user has their own schedule and time zone, with a default from settings.
+- [x] The reminder is skipped if the owner journaled in the last 3 days.
+- [x] Buttons: "Nothing this week" (which is logged) and "Remind me tomorrow". `/pause` and `/resume`.
+- [x] Tests with a frozen clock.
+
+**Built (2026-10-16):** a reminder goes out at the first tick at or after its time, once, up to 4 hours late and never after local midnight; otherwise it's skipped. Only the latest one is considered, so a pause or a stopped worker never sends a burst of old reminders. Vercel's daily tick moves to 10:00 UTC, 18:00 in Singapore, so it sends the default reminder; with another reminder time, the owner moves the cron hour too. Each user's days, time and time zone are stored in the `settings` table, with defaults from `REMINDER_DAYS`, `REMINDER_TIME` and `REMINDER_TIME_ZONE`; T-048's page will edit them. "Nothing this week" is logged in the bot's reminder record as the Monday of the reminder's week, even when pressed after the weekend, and skips the rest of that week. The reminder's text is fixed, with no model call.
 
 ### T-036 · Open-question prompts
 **Status:** ☐ · **Size:** S · **Depends on:** T-035, T-027 · **Requirements:** FR-REM-5, FR-EXT-4, FR-PRF-10 · **PR:** —

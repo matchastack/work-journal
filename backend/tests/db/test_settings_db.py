@@ -1,8 +1,8 @@
-"""The owner's settings in the database: style notes (FR-WRT-4, FR-REV-4) and the LinkedIn
-pack's state (FR-LIN-2)."""
+"""The owner's settings in the database: style notes (FR-WRT-4, FR-REV-4), the LinkedIn pack's
+state (FR-LIN-2), and the reminder setting and record (FR-REM-1, FR-SET-2)."""
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, time
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,13 +12,17 @@ from app.db.settings import (
     add_style_notes,
     get_linkedin_done,
     get_linkedin_pack,
+    get_reminder_settings,
+    get_reminder_state,
     get_style_notes,
     save_linkedin_done,
     save_linkedin_pack,
+    save_reminder_settings,
+    save_reminder_state,
     save_style_notes,
 )
 from app.linkedin import DoneSection, LinkedInDone, LinkedInPack, PackSection
-from app.schema.settings import StyleNote, StyleNotes
+from app.schema.settings import ReminderSettings, ReminderState, StyleNote, StyleNotes
 
 pytestmark = pytest.mark.anyio
 
@@ -82,3 +86,29 @@ async def test_the_linkedin_pack_and_its_done_snapshot_are_kept(session: AsyncSe
     await save_linkedin_pack(session, user, pack.model_copy(update={"profile_version": 3}))
     assert await get_linkedin_pack(session, user) == pack.model_copy(update={"profile_version": 3})
     assert await get_linkedin_done(session, user) == done
+
+
+async def test_reminders_follow_the_defaults_until_the_owner_sets_them(
+    session: AsyncSession,
+) -> None:
+    user = await new_user(session)
+    assert await get_reminder_settings(session, user) == ReminderSettings()
+    assert await get_reminder_state(session, user) == ReminderState()
+
+
+async def test_the_reminder_setting_and_record_are_kept(session: AsyncSession) -> None:
+    user = await new_user(session)
+    await save_reminder_settings(session, user, ReminderSettings(paused=True))
+    assert await get_reminder_settings(session, user) == ReminderSettings(paused=True)
+    schedule = ReminderSettings(days=("mon", "thu"), time=time(7, 30), time_zone="Europe/London")
+    await save_reminder_settings(session, user, schedule)
+    assert await get_reminder_settings(session, user) == schedule
+
+    state = ReminderState(
+        last_slot=datetime(2026, 10, 16, 10, 0, tzinfo=UTC),
+        message_id=42,
+        nothing_weeks=(date(2026, 10, 12),),
+    )
+    await save_reminder_state(session, user, state)
+    assert await get_reminder_state(session, user) == state
+    assert await get_reminder_settings(session, user) == schedule, "a key of its own"
