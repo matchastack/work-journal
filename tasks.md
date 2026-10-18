@@ -604,7 +604,7 @@ As the owner, I want a gentle reminder on my schedule, so that journaling become
 **Built (2026-10-16):** a reminder goes out at the first tick at or after its time, once, up to 4 hours late and never after local midnight; otherwise it's skipped. Only the latest one is considered, so a pause or a stopped worker never sends a burst of old reminders. Vercel's daily tick moves to 10:00 UTC, 18:00 in Singapore, so it sends the default reminder; with another reminder time, the owner moves the cron hour too. Each user's days, time and time zone are stored in the `settings` table, with defaults from `REMINDER_DAYS`, `REMINDER_TIME` and `REMINDER_TIME_ZONE`; T-048's page will edit them. "Nothing this week" is logged in the bot's reminder record as the Monday of the reminder's week, even when pressed after the weekend, and skips the rest of that week. The reminder's text is fixed, with no model call.
 
 ### T-036 · Open-question prompts
-**Status:** ◐ · **Size:** S · **Depends on:** T-035, T-027 · **Requirements:** FR-REM-5, FR-EXT-4, FR-PRF-10 · **PR:** [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+**Status:** ◐ · **Size:** S · **Depends on:** T-035, T-027 · **Requirements:** FR-REM-5, FR-EXT-4, FR-PRF-10 · **PR:** [#57](https://github.com/matchastack/work-journal/pull/57)
 
 As the owner, I want the bot to ask me the open questions from my master resume, one at a time, so that my weaker bullets get the details they need.
 

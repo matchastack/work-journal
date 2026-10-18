@@ -2,7 +2,7 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-18 · T-036 Open-question prompts · [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+## 2026-10-18 · T-036 Open-question prompts · [#57](https://github.com/matchastack/work-journal/pull/57)
 **Changed:** A reminder now asks the most valuable open question from your master resume, one per reminder, with an "Answer the question" button. Your answer becomes an entry of its own whose facts link to the question, so the next `/refresh` proposes the stronger bullet and marks the question answered when you accept it.
 
 **Verify:**
