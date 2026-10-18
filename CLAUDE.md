@@ -144,6 +144,7 @@ Add a dependency with `npm install <package>` (or `npm install --save-dev <packa
 - Anything sent is one page. Cut to fit; never shrink below a 10 pt font or 0.5 in margins.
 - Load-bearing roles always appear.
 - Benched and planned items never render.
+- A tailored resume that breaks a rule is still written, but its errors are printed last and kept with its application, and it mustn't be sent until they're fixed.
 
 The full list is in requirements §8.
 
