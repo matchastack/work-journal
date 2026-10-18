@@ -12,10 +12,11 @@ buttons (FR-REM-3):
 - "Answer the question", on a reminder that asks one, asks for the answer in one message. The
   owner's next message, unless it's a command, is the answer if it comes within the entry
   timeout (`take_answer`): an entry of its own, closed at once and linked to the question
-  (FR-EXT-4), which isn't joined to an open entry. Its jobs run at once, and read the answer
-  alone, as any note. Later, the wait has lapsed, and a message is an ordinary note. New role
-  pressed meanwhile ends the wait: the newest prompt wins, so the message names the role
-  (`app/telegram/roles.py`), and the question comes back in a later round.
+  (FR-EXT-4). It doesn't join the open entry, but closes it if it has gone quiet, as any message
+  does (FR-CAP-4). Its jobs run at once, and read the answer alone, as any note. Later, the
+  wait has lapsed, and a message is an ordinary note. New role pressed meanwhile ends the wait:
+  the newest prompt wins, so the message names the role (`app/telegram/roles.py`), and the
+  question comes back in a later round.
 - "Nothing this week" is logged in the reminder record, as the Monday of the reminder's week,
   and skips that week's later reminders. A press after the weekend means the week just ended.
 - "Remind me tomorrow" brings the reminder back the next day at the schedule's time. While

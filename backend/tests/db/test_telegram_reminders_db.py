@@ -621,8 +621,8 @@ async def test_the_next_message_is_the_answer_an_entry_of_its_own(
     owner: Owner, chat_id: int
 ) -> None:
     """Closed at once, linked to the question and to northwind, the role of the bullet that needs
-    it, so the bot needn't ask. Its jobs run at once. The entry the owner had open is left as it
-    is: the answer neither joins nor closes it."""
+    it, so the bot needn't ask. Its jobs run at once. The entry the owner had open, 7 minutes
+    before, is left as it is: the answer neither joins it nor closes it while it's active."""
     user_id = await owner(profile=QUESTIONS, state=asking(FRIDAY, "q_nw_volume"))
     await handle(message(chat_id, NOTE, sent_at=PRESSED - timedelta(minutes=5)))
     await handle(press(chat_id, ANSWER_QUESTION))
@@ -630,13 +630,29 @@ async def test_the_next_message_is_the_answer_an_entry_of_its_own(
     handled = await handle(message(chat_id, ANSWER, sent_at=answered_at))
 
     [(note, note_texts), (answer_entry, answer_texts)] = await entries_of(user_id)
-    assert handled == Handled(ready=answer_entry.id)
+    assert handled == Handled(ready=(answer_entry.id,))
     assert (answer_entry.opened_at, answer_entry.last_message_at) == (answered_at, answered_at)
     assert (answer_entry.closed_at, answer_entry.closed_by) == (answered_at, "done")
     assert (answer_entry.open_question_id, answer_entry.role_id) == ("q_nw_volume", "northwind")
     assert answer_texts == [ANSWER]
     assert (note.closed_at, note.open_question_id, note_texts) == (None, None, [NOTE])
     assert await state_of(user_id) == waiting().model_copy(update={"answering": None})
+
+
+async def test_the_answer_closes_an_open_entry_that_went_quiet(owner: Owner, chat_id: int) -> None:
+    """FR-CAP-4: as any message after the timeout does, as of when it went quiet. Its jobs run
+    at once too, before the answer's."""
+    user_id = await owner(profile=QUESTIONS, state=asking(FRIDAY, "q_nw_volume"))
+    noted_at = PRESSED - timedelta(minutes=45)
+    await handle(message(chat_id, NOTE, sent_at=noted_at))
+    await handle(press(chat_id, ANSWER_QUESTION))
+    handled = await handle(message(chat_id, ANSWER, sent_at=PRESSED + timedelta(minutes=2)))
+
+    [(note, note_texts), (answer_entry, answer_texts)] = await entries_of(user_id)
+    assert handled == Handled(ready=(note.id, answer_entry.id))
+    assert (note.closed_at, note.closed_by) == (noted_at + timedelta(minutes=30), "quiet")
+    assert (note_texts, answer_texts) == ([NOTE], [ANSWER])
+    assert answer_entry.open_question_id == "q_nw_volume"
 
 
 async def test_an_answer_whose_bullets_are_under_two_roles_waits_for_its_role(
@@ -696,7 +712,7 @@ async def test_the_answer_comes_before_another_wait_for_the_next_message(
     handled = await handle(message(chat_id, ANSWER, sent_at=PRESSED + timedelta(minutes=1)))
 
     [(waiting_entry, waiting_texts), (answer_entry, answer_texts)] = await entries_of(user_id)
-    assert handled == Handled(ready=answer_entry.id)
+    assert handled == Handled(ready=(answer_entry.id,))
     assert (answer_entry.open_question_id, answer_texts) == ("q_nw_volume", [ANSWER])
     assert waiting_texts == []
     assert (waiting_entry.naming_role, waiting_entry.new_role) == (

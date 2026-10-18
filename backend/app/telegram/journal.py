@@ -30,7 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import JournalMessage, JournalMessageEdit, TelegramLink, TelegramUpdate
 from app.reminders import DEFAULT_SCHEDULE, Schedule
 from app.telegram.api import BotCall, send
-from app.telegram.entries import DEFAULT_TIMEOUT, close_open_entry, entry_for
+from app.telegram.entries import DEFAULT_TIMEOUT, close_open_entry, close_quiet_entry, entry_for
 from app.telegram.follow_up import SKIP, answered, awaiting, lapsed, press_skip, skip
 from app.telegram.linking import link_chat, start_token
 from app.telegram.refresh import refresh
@@ -71,20 +71,20 @@ def help_text(timeout: timedelta) -> str:
 
 @dataclass(frozen=True)
 class Handled:
-    """What came of an update: the Bot API calls that answer it, in order, and the entry whose
-    jobs can run right away (FR-CAP-5), if there is one: an entry the update closed, so that the
-    bot asks about it, one whose follow-up question it answered or skipped, so that the bot asks
+    """What came of an update: the Bot API calls that answer it, in order, and the entries whose
+    jobs can run right away (FR-CAP-5), oldest first: an entry the update closed, so that the bot
+    asks about it, one whose follow-up question it answered or skipped, so that the bot asks
     which role it's about, one whose role it chose, so that its facts are extracted, or the
-    answer to an open question, closed at once. A `/refresh` hands on its refresh instead, whose
-    job can run right away too."""
+    answer to an open question, closed at once, after any entry it closed. A `/refresh` hands on
+    its refresh instead, whose job can run right away too."""
 
     calls: tuple[BotCall, ...] = ()
-    ready: uuid.UUID | None = None
+    ready: tuple[uuid.UUID, ...] = ()
     refresh: uuid.UUID | None = None
 
     @classmethod
     def of(cls, answer: Answer) -> Self:
-        return cls(answer.calls, answer.ready)
+        return cls(answer.calls, _ids(answer.ready))
 
 
 async def handle_update(
@@ -166,7 +166,8 @@ async def _new_message(
             session, owner, chat_id, body, message.sent_at, entry_timeout, app_url, reminders
         )
     if (answer := await take_answer(session, owner, message.sent_at, entry_timeout)) is not None:
-        entry_id, handled = answer, Handled(ready=answer)
+        closed = await close_quiet_entry(session, owner, message.sent_at, entry_timeout)
+        entry_id, handled = answer, Handled(ready=(*_ids(closed), answer))
     else:
         if (naming := await naming_entry(session, owner)) is not None:
             return Handled.of(name_role(naming, chat_id, body))
@@ -175,7 +176,7 @@ async def _new_message(
             entry_id, handled = asked.id, Handled.of(answered(asked, chat_id))
         else:
             entry_id, closed = await entry_for(session, owner, message.sent_at, entry_timeout)
-            handled = Handled(ready=closed)
+            handled = Handled(ready=_ids(closed))
     statement = (
         insert(JournalMessage)
         .values(
@@ -228,7 +229,7 @@ async def _command(
     command = body.split(maxsplit=1)[0].split("@", 1)[0].lower()
     if command == "/done":
         closed = await close_open_entry(session, owner, sent_at)
-        return Handled((send(chat_id, DONE if closed else NOTHING_OPEN),), closed)
+        return Handled((send(chat_id, DONE if closed else NOTHING_OPEN),), _ids(closed))
     if command == "/skip":
         return Handled.of(await skip(session, owner, chat_id))
     if command == "/refresh":
@@ -241,6 +242,10 @@ async def _command(
     if command in ("/start", "/help"):
         return Handled((send(chat_id, help_text(entry_timeout)),))
     return Handled((send(chat_id, f"{UNKNOWN}\n\n{help_text(entry_timeout)}"),))
+
+
+def _ids(entry_id: uuid.UUID | None) -> tuple[uuid.UUID, ...]:
+    return () if entry_id is None else (entry_id,)
 
 
 async def _edit(session: AsyncSession, message: Message) -> None:
