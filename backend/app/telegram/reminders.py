@@ -13,7 +13,9 @@ buttons (FR-REM-3):
   owner's next message, unless it's a command, is the answer if it comes within the entry
   timeout (`take_answer`): an entry of its own, closed at once and linked to the question
   (FR-EXT-4), which isn't joined to an open entry. Its jobs run at once, and read the answer
-  alone, as any note. Later, the wait has lapsed, and a message is an ordinary note.
+  alone, as any note. Later, the wait has lapsed, and a message is an ordinary note. New role
+  pressed meanwhile ends the wait: the newest prompt wins, so the message names the role
+  (`app/telegram/roles.py`), and the question comes back in a later round.
 - "Nothing this week" is logged in the reminder record, as the Monday of the reminder's week,
   and skips that week's later reminders. A press after the weekend means the week just ended.
 - "Remind me tomorrow" brings the reminder back the next day at the schedule's time. While
@@ -22,10 +24,11 @@ buttons (FR-REM-3):
 Only the newest reminder's buttons work; a press on an older one changes nothing. `/pause` and
 `/resume` set the pause in the owner's reminder setting (FR-SET-2).
 
-The owner's `telegram_links` row, locked, serializes every change to the reminder record and
-setting: the job, the buttons, the answer, `/pause` and `/resume`. So two runs can't both send
-one reminder, and a press can't undo what a run records. When a journal entry is locked too, as
-after a lapsed wait for an answer, this lock comes first. Only user IDs, times and outcomes are
+The owner's `telegram_links` row, locked (`lock_link`), serializes every change to the reminder
+record and setting: the job, the buttons, the answer, New role, which ends the wait for one,
+`/pause` and `/resume`. So two runs can't both send one reminder, and a press can't undo what a
+run records. When a journal entry is locked too, as after a lapsed wait for an answer or by New
+role, this lock comes first. Only user IDs, times and outcomes are
 logged: never a question or its ID, which can name an employer.
 """
 
@@ -39,7 +42,7 @@ from typing import Any
 from sqlalchemy import String, cast, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import FactRow, JournalEntry, JournalMessage, TelegramLink
+from app.db.models import FactRow, JournalEntry, JournalMessage
 from app.db.profiles import latest_version
 from app.db.settings import (
     get_reminder_settings,
@@ -51,6 +54,7 @@ from app.open_questions import NextQuestion, answer_role, awaits_answer, next_qu
 from app.reminders import Schedule, describe, due, effective, recorded, tomorrow, week_of
 from app.schema.settings import Answering, ReminderState
 from app.telegram.api import BotCall, send
+from app.telegram.linking import lock_link
 from app.telegram.roles import Answer
 from app.telegram.updates import CallbackQuery
 
@@ -137,7 +141,7 @@ async def reminder_due(
     """The owner's reminder, if one is to go out at `now`, on their schedule or else `defaults`.
     A reminder skipped at `now` is recorded as dealt with instead. Keep the transaction open
     until the reminder is sent and `record_sent` records it: it holds the owner's lock."""
-    chat_id = await _lock(session, owner)
+    chat_id = await lock_link(session, owner)
     if chat_id is None:
         return None
     schedule = effective(await get_reminder_settings(session, owner), defaults)
@@ -190,7 +194,7 @@ async def press_reminder(
     reminders are paused. "Answer the question" works while they're paused: the owner's next
     message is then the answer."""
     message = query.message
-    await _lock(session, owner)
+    await lock_link(session, owner)
     state = await get_reminder_state(session, owner)
     if message is None or state.message_id is None or message.message_id != state.message_id:
         return Answer((_answer(query, PASSED),))
@@ -228,7 +232,7 @@ async def take_answer(
     answer."""
     if (await get_reminder_state(session, owner)).answering is None:
         return None
-    await _lock(session, owner)
+    await lock_link(session, owner)
     state = await get_reminder_state(session, owner)
     answering = state.answering
     if answering is None:
@@ -254,7 +258,7 @@ async def take_answer(
 
 async def pause(session: AsyncSession, owner: uuid.UUID, chat_id: int) -> Answer:
     """Answer `/pause`: no reminders until `/resume`. The schedule stays as it is."""
-    await _lock(session, owner)
+    await lock_link(session, owner)
     stored = await get_reminder_settings(session, owner)
     if stored.paused:
         return Answer((send(chat_id, ALREADY_PAUSED),))
@@ -267,21 +271,13 @@ async def resume(
 ) -> Answer:
     """Answer `/resume`: reminders go out again from the next one due. One the job skipped while
     they were paused isn't sent late."""
-    await _lock(session, owner)
+    await lock_link(session, owner)
     stored = await get_reminder_settings(session, owner)
     schedule = effective(stored, defaults)
     if not stored.paused:
         return Answer((send(chat_id, already_on_text(schedule)),))
     await save_reminder_settings(session, owner, stored.model_copy(update={"paused": False}))
     return Answer((send(chat_id, resumed_text(schedule)),))
-
-
-async def _lock(session: AsyncSession, owner: uuid.UUID) -> int | None:
-    """Lock the owner's Telegram link until the transaction ends, and return its chat. None when
-    the owner has no linked chat."""
-    return await session.scalar(
-        select(TelegramLink.chat_id).where(TelegramLink.user_id == owner).with_for_update()
-    )
 
 
 async def _next_question(

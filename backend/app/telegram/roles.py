@@ -9,7 +9,8 @@ profile version and a New role button. Nothing is extracted until the owner answ
   buttons.
 - New role asks for the role's title and organisation. The owner's next message, unless it's a
   command, is its name: it's stored encrypted with the entry, and isn't journaled. The question's
-  buttons still work until then.
+  buttons still work until then. It ends a wait for the answer to an open question
+  (`app/telegram/reminders.py`), since the newest prompt is the one the owner answers.
 
 Either answer lets the entry's jobs run at once (`Answer.ready`). A button on a question about an
 entry that already has its role, or that's gone, changes nothing. Role names are never logged.
@@ -26,8 +27,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import JournalEntry
 from app.db.profiles import latest_version
+from app.db.settings import get_reminder_state, save_reminder_state
 from app.schema.profile import Role
 from app.telegram.api import BotCall, send
+from app.telegram.linking import lock_link
 from app.telegram.processing import chat_of, entry_text, reply_to_entry
 from app.telegram.updates import CallbackQuery
 
@@ -125,6 +128,8 @@ def has_role(entry: JournalEntry) -> bool:
 async def press(session: AsyncSession, owner: uuid.UUID, query: CallbackQuery) -> Answer:
     """Answer a press of one of the question's buttons."""
     message = query.message
+    if query.data == NEW_ROLE:
+        await lock_link(session, owner)
     entry = None
     if message is not None:
         entry = await session.scalar(
@@ -149,6 +154,7 @@ async def press(session: AsyncSession, owner: uuid.UUID, query: CallbackQuery) -
             .values(naming_role=False)
         )
         entry.naming_role = True
+        await _end_answer_wait(session, owner)
         prompt = send(
             chat_id,
             NAME_PROMPT,
@@ -189,6 +195,15 @@ def name_role(entry: JournalEntry, chat_id: int, body: str) -> Answer:
     if entry.role_question_id is not None:
         calls.append(_edit(chat_id, entry.role_question_id, chosen_text(f"{name} (new)")))
     return Answer(tuple(calls), ready=entry.id)
+
+
+async def _end_answer_wait(session: AsyncSession, owner: uuid.UUID) -> None:
+    """Stop waiting for the answer to an open question, if "Answer the question" was pressed
+    before: the owner's next message names the new role instead (FR-EXT-4). The caller holds the
+    owner's link lock (`lock_link`), taken before the entry's."""
+    state = await get_reminder_state(session, owner)
+    if state.answering is not None:
+        await save_reminder_state(session, owner, state.model_copy(update={"answering": None}))
 
 
 def _answer(query: CallbackQuery, text: str | None = None) -> BotCall:

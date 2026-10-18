@@ -14,7 +14,8 @@ follow-up question joins that entry, and its Skip button skips the question
 (`app/telegram/follow_up.py`). A reminder's buttons say there's nothing this week, ask for it
 again tomorrow, or answer the open question it asks: the owner's next message is then the
 answer, an entry of its own (`app/telegram/reminders.py`). That comes before a new role's name
-and a follow-up answer, which wait longer. Message text is never logged.
+asked for earlier and a follow-up answer, which wait longer; pressing New role afterwards ends
+the wait for the answer instead. Message text is never logged.
 """
 
 import uuid

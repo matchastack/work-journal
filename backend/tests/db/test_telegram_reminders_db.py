@@ -54,6 +54,7 @@ from app.telegram.reminders import (
     REMINDER,
     reminder_text,
 )
+from app.telegram.roles import GONE, NAME_PROMPT, NEW_ROLE
 
 pytestmark = pytest.mark.anyio
 
@@ -703,6 +704,51 @@ async def test_the_answer_comes_before_another_wait_for_the_next_message(
         None,
     )
     assert waiting_entry.awaiting_follow_up is (waits_for == "a follow-up answer")
+
+
+ROLE_QUESTION = 650
+"""The message that asks which role an earlier entry is about."""
+
+
+async def test_new_role_pressed_after_answer_the_question_names_the_role(
+    owner: Owner, chat_id: int
+) -> None:
+    """The newest prompt is the one the owner answers: their next message is the role's name,
+    not an answer, so the wait for the answer ends. The question comes back in a later round."""
+    user_id = await owner(profile=QUESTIONS, state=waiting())
+    earlier = PRESSED - timedelta(minutes=10)
+    async with database() as session:
+        session.add(
+            JournalEntry(
+                user_id=user_id,
+                opened_at=earlier,
+                last_message_at=earlier,
+                closed_at=earlier,
+                closed_by="done",
+                role_asked_at=earlier,
+                role_question_id=ROLE_QUESTION,
+            )
+        )
+    name = "Data Engineer, Example Co"
+    reply = {"force_reply": True, "input_field_placeholder": "Title, organisation"}
+    pressed = await handle(press(chat_id, NEW_ROLE, message_id=ROLE_QUESTION))
+    assert pressed == Handled((answered(), send(chat_id, NAME_PROMPT, reply_markup=reply)))
+    assert await state_of(user_id) == waiting().model_copy(update={"answering": None})
+    await handle(message(chat_id, name, sent_at=PRESSED + timedelta(minutes=2)))
+
+    [(entry, texts)] = await entries_of(user_id)
+    assert (entry.new_role, entry.naming_role, entry.open_question_id) == (name, False, None)
+    assert texts == [], "a role's name isn't journaled"
+
+
+async def test_a_new_role_press_that_changes_nothing_leaves_the_wait(
+    owner: Owner, chat_id: int
+) -> None:
+    """On a question about an entry that's gone, it only gets a notice."""
+    user_id = await owner(profile=QUESTIONS, state=waiting())
+    handled = await handle(press(chat_id, NEW_ROLE, message_id=ROLE_QUESTION))
+    assert handled == Handled((answered(GONE),))
+    assert await state_of(user_id) == waiting()
 
 
 async def test_the_other_buttons_leave_the_question_for_a_later_round(
