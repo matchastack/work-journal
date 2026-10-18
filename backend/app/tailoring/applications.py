@@ -46,7 +46,9 @@ class LoggedApplication(Model):
     application: Application
     checks: ResumeChecks
     pdf: str | None = None
-    """Where the PDF was written."""
+    """Where the PDF was written, unless only its LaTeX source was."""
+    tex: str | None = None
+    """Where the LaTeX source was written, unless only the PDF was."""
 
 
 def record(

@@ -1013,8 +1013,19 @@ def tailor_resume(
     ],
     out: Annotated[
         Path | None,
-        typer.Option(help="Where to write the PDF. Default: local/resumes/<company>-<title>.pdf."),
+        typer.Option(
+            help="Where to write the PDF; its LaTeX source goes beside it, as .tex. Default: "
+            "local/resumes/<company>-<title>.pdf."
+        ),
     ] = None,
+    tex_only: Annotated[
+        bool,
+        typer.Option("--tex-only", help="Write only the LaTeX source, not the PDF."),
+    ] = False,
+    pdf_only: Annotated[
+        bool,
+        typer.Option("--pdf-only", help="Write only the PDF, not its LaTeX source."),
+    ] = False,
     confirm: Annotated[
         list[str] | None,
         typer.Option(
@@ -1036,13 +1047,15 @@ def tailor_resume(
     db: DbOption = False,
     user: UserOption = None,
 ) -> None:
-    """Tailor a one-page resume to a job posting from your profile, and write it as a PDF.
+    """Tailor a one-page resume to a job posting from your profile, and write it as a PDF and
+    its LaTeX source.
 
     Calls the light-tier model to parse a posting given as text, the heavy-tier model to choose
     what the resume shows, and the standard-tier model to work in swaps and write new phrasings,
     each checked by the verifier. You approve each new phrasing: approved ones are used and
     saved as swaps on their bullets. The resume is fitted to one page and checked against the
-    resume rules. Needs TeX Live. With --db, your words to avoid apply.
+    resume rules. Needs TeX Live, even with --tex-only, since fitting the resume to one page
+    compiles it. With --db, your words to avoid apply.
 
     A resume that breaks a rule is still written and logged, so the work isn't lost, but the
     errors are printed last and kept with the application, and the command exits with status 1:
@@ -1050,6 +1063,13 @@ def tailor_resume(
     """
     if db and (profile or facts_file):
         raise typer.BadParameter("use either --db or files", param_hint="--profile, --facts-file")
+    if tex_only and pdf_only:
+        raise typer.BadParameter("use at most one of them", param_hint="--tex-only, --pdf-only")
+    if out and out.suffix == ".tex" and not tex_only:
+        raise typer.BadParameter(
+            "the PDF and its .tex source would be the same file; name a .pdf, or add --tex-only",
+            param_hint="--out",
+        )
     client = _llm_client()
     parsed, posting_text = _posting_to_tailor(posting, client)
     avoid: Sequence[str] = ()
@@ -1108,8 +1128,16 @@ def tailor_resume(
     except (RenderError, FitError) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(1) from None
-    out.write_bytes(rendered.pdf)
-    typer.echo(f"Wrote {out} (1 page).")
+    pdf = None if tex_only else out
+    tex = None if pdf_only else out.with_suffix(".tex")
+    if pdf:
+        pdf.write_bytes(rendered.pdf)
+    if tex:
+        tex.write_text(rendered.tex, encoding="utf-8")
+    if pdf and tex:
+        typer.echo(f"Wrote {pdf} (1 page) and its source, {tex}.")
+    else:
+        typer.echo(f"Wrote {pdf or tex} (1 page).")
     if rendered.cuts:
         cut = ", ".join(cut.id for cut in rendered.cuts)
         typer.echo(f"Cut to fit one page: {cut}.")
@@ -1134,13 +1162,18 @@ def tailor_resume(
     if db:
         asyncio.run(_log_application(user, application, checks, rendered.pdf))
     else:
-        logged = LoggedApplication(application=application, checks=checks, pdf=str(out))
+        logged = LoggedApplication(
+            application=application,
+            checks=checks,
+            pdf=str(pdf) if pdf else None,
+            tex=str(tex) if tex else None,
+        )
         path = LOCAL_DIR / "applications" / f"{application.id}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(logged.model_dump_json(indent=2) + "\n", encoding="utf-8")
     typer.echo(f"Logged it as application {application.id}; `wj applications` lists them.")
     if not report.ok:
-        _echo_rule_errors(report, out)
+        _echo_rule_errors(report, pdf or out.with_suffix(".tex"))
         raise typer.Exit(1)
 
 

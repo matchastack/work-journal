@@ -217,10 +217,11 @@ Save the posting's text in a file, then:
 uv run wj tailor posting.txt --db
 ```
 
-It picks the most relevant content from your profile, words it in the posting's language where your facts allow, and writes a one-page PDF to `local/resumes/<company>-<title>.pdf`. It also prints the posting's keyword coverage and an ATS check of the PDF (how an applicant-tracking system would read it), and logs the application. It needs the Claude settings and TeX Live.
+It picks the most relevant content from your profile, words it in the posting's language where your facts allow, and writes a one-page PDF to `local/resumes/<company>-<title>.pdf`, with its LaTeX source beside it as `.tex`. It also prints the posting's keyword coverage and an ATS check of the PDF (how an applicant-tracking system would read it), and logs the application. It needs the Claude settings and TeX Live.
 
 - `--confirm <skill>` includes a skill marked verify-before-shipping that you can defend for this resume. Repeat for more.
 - `--yes` uses every new phrasing that passed the checks, and saves it as a swap, without asking.
+- `--tex-only` writes only the `.tex`, and `--pdf-only` only the PDF. `--out <path>` sets where the PDF goes; the `.tex` goes beside it. Even with `--tex-only`, it needs TeX Live, since fitting the resume to one page compiles it.
 - `uv run wj posting parse posting.txt` prints the posting's title, skills and key terms as JSON; `wj tailor` accepts that JSON too.
 - `uv run wj applications` lists the applications logged, newest first.
 
