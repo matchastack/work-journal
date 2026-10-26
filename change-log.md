@@ -2,6 +2,19 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-26 · T-066 GitHub projects: requirements
+**Changed:** the requirements add project facts read from your GitHub repositories (§7.16), counting the work that AI coding agents such as Claude Code did for you, and `tasks.md` plans T-067 to T-072 to build them.
+
+**Verify:**
+- CI is green on this PR
+- §7.16 says what you agreed:
+  - a read-only token in `GITHUB_REPOS_TOKEN`;
+  - personal and open-source repositories, filed under projects;
+  - each `/refresh` reading what's new first;
+  - bullets only through the Inbox
+- FR-GH-4 counts the right work as yours: your own, and what AI coding agents did for you, but not other people's work or automation bots'
+- Priority S suits you, and T-067 to T-072 are split and ordered the way you want
+
 ## 2026-10-18 · Tailored resumes' LaTeX source · [#56](https://github.com/matchastack/work-journal/pull/56)
 **Changed:** `wj tailor` writes the LaTeX source beside the PDF, as `wj render` does; `--tex-only` or `--pdf-only` writes just one of them.
 
