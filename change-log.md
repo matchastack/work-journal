@@ -2,11 +2,11 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-26 · T-066 GitHub projects: requirements
+## 2026-10-26 · T-066 GitHub projects: requirements · [#58](https://github.com/matchastack/work-journal/pull/58)
 **Changed:** the requirements add project facts read from your GitHub repositories (§7.16), counting the work that AI coding agents such as Claude Code did for you, and `tasks.md` plans T-067 to T-072 to build them.
 
 **Verify:**
-- CI is green on this PR
+- CI is green on #58
 - §7.16 says what you agreed:
   - a read-only token in `GITHUB_REPOS_TOKEN`;
   - personal and open-source repositories, filed under projects;

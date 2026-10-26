@@ -70,7 +70,7 @@ As the owner, I want the app hosted for free, so that I can journal every day wi
 - [x] T-051 becomes the Vercel deployment, T-050 (Docker image) is dropped, and T-030, T-032 and T-052 follow the tick.
 
 ### T-066 · GitHub projects: requirements
-**Status:** ◐ · **Size:** S · **Depends on:** T-000 · **Requirements:** FR-GH-1 – FR-GH-10 (defines them) · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-000 · **Requirements:** FR-GH-1 – FR-GH-10 (defines them) · **PR:** [#58](https://github.com/matchastack/work-journal/pull/58)
 
 As the owner, I want my GitHub repositories' history to become facts for my projects, so that my side projects and open-source work reach my resume without journaling about them.
 
