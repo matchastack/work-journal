@@ -62,6 +62,7 @@ from app.evals.run import CaseResult, Evaluation, SuiteResult, run_suite
 from app.extraction import extract_facts
 from app.github.api import GitHubApi, GitHubApiError, check_repository_name
 from app.github.digest import Digest, build_digest, describe_left_out
+from app.github.extraction import RepoTarget, extract_repo_facts
 from app.github.reader import ExpectedOwner, read_history
 from app.importers.master_resume import MasterResumeError, import_master_resume
 from app.jobs import run_worker
@@ -136,6 +137,20 @@ cli.add_typer(linkedin_cli, name="linkedin")
 
 DbOption = Annotated[
     bool, typer.Option("--db", help="Use the database (DATABASE_URL) instead of local files.")
+]
+RepositoryArgument = Annotated[str, typer.Argument(help="The repository, as owner/name.")]
+SinceOption = Annotated[
+    str | None,
+    typer.Option(help="Read from this month on, as YYYY-MM. Default: the whole history."),
+]
+GitHubProfileOption = Annotated[
+    Path | None,
+    typer.Option(
+        "--profile",
+        help="The profile that names your GitHub username, in basics.profiles. "
+        "Default: local/profile.json.",
+        dir_okay=False,
+    ),
 ]
 UserOption = Annotated[
     str | None,
@@ -1773,19 +1788,9 @@ async def _poll(database_url: str) -> int:
 
 @github_cli.command("digest")
 def github_digest(
-    repository: Annotated[str, typer.Argument(help="The repository, as owner/name.")],
-    since: Annotated[
-        str | None,
-        typer.Option(help="Read from this month on, as YYYY-MM. Default: the whole history."),
-    ] = None,
-    profile: Annotated[
-        Path | None,
-        typer.Option(
-            help="The profile that names your GitHub username, in basics.profiles. "
-            "Default: local/profile.json.",
-            dir_okay=False,
-        ),
-    ] = None,
+    repository: RepositoryArgument,
+    since: SinceOption = None,
+    profile: GitHubProfileOption = None,
     db: DbOption = False,
     user: UserOption = None,
 ) -> None:
@@ -1793,14 +1798,83 @@ def github_digest(
 
     It calls no model and stores nothing. GITHUB_REPOS_TOKEN must be your own token.
     """
-    try:
-        name = check_repository_name(repository)
-    except ValueError as error:
-        raise typer.BadParameter(str(error), param_hint="REPOSITORY") from None
+    name = _repository_name(repository)
     start = _month_start(since)
-    owner = _github_owner(profile, db, user)
+    if db and profile is not None:
+        raise typer.BadParameter("use either --profile or --db", param_hint="--profile")
+    # With --db, the user is enough: the digest doesn't need the profile.
+    owner = _github_owner(None if db else _read_profile(profile, False, user), db, user)
     digest = _run_github(_read_digest(name, owner, start))
     _echo_digest(digest)
+
+
+class OwnershipCap(StrEnum):
+    OWNED = "owned"
+    CONTRIBUTED = "contributed"
+    ASSISTED = "assisted"
+
+
+@github_cli.command("extract")
+def github_extract(
+    repository: RepositoryArgument,
+    project: Annotated[
+        str | None, typer.Option(help="The project in your profile the facts belong to, by ID.")
+    ] = None,
+    new_project: Annotated[
+        str | None,
+        typer.Option(help="Or the name of a new project, which a refresh may add to the profile."),
+    ] = None,
+    since: SinceOption = None,
+    ownership: Annotated[
+        OwnershipCap | None,
+        typer.Option(
+            help="The most the facts may claim of your part. Default: owned in your own "
+            "repository, contributed elsewhere."
+        ),
+    ] = None,
+    profile: GitHubProfileOption = None,
+    db: DbOption = False,
+    user: UserOption = None,
+) -> None:
+    """Extract the facts in a repository's history and print them as JSON (FR-GH-6).
+
+    Calls the standard-tier model once for each part of the digest. It stores nothing.
+    """
+    name = _repository_name(repository)
+    start = _month_start(since)
+    owned_profile = _read_profile(profile, db, user)
+    try:
+        target = RepoTarget(project, new_project, None if ownership is None else ownership.value)
+        project_name = target.project_name(owned_profile)
+    except ValueError as error:
+        raise typer.BadParameter(str(error), param_hint="--project") from None
+    for item in owned_profile.projects:
+        if item.id == project and item.status == "benched":
+            typer.echo(f"Note: {project_name} is benched, so its bullets never render.", err=True)
+    owner = _github_owner(owned_profile, db, user)
+    digest = _run_github(_read_digest(name, owner, start))
+    typer.echo(f"Reading {_count(len(digest.windows), 'part')} of {digest.repository}.", err=True)
+    try:
+        extraction = extract_repo_facts(digest, owned_profile, _llm_client(), target=target)
+    except LLMConfigError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from None
+    except LLMCallError as error:
+        typer.echo(f"The history couldn't be read: {error}", err=True)
+        raise typer.Exit(1) from None
+    facts = [fact.model_dump(mode="json", exclude_none=True) for fact in extraction.facts]
+    typer.echo(json.dumps(facts, indent=2, ensure_ascii=False))
+    for dropped in extraction.dropped:
+        typer.echo(f'Left out "{dropped.statement}": {"; ".join(dropped.reasons)}', err=True)
+    for message in extraction.notes:
+        typer.echo(f"Note: {message}", err=True)
+
+
+def _repository_name(repository: str) -> str:
+    try:
+        return check_repository_name(repository)
+    except ValueError as error:
+        raise typer.BadParameter(str(error), param_hint="REPOSITORY") from None
 
 
 def _month_start(month: str | None) -> datetime | None:
@@ -1812,14 +1886,12 @@ def _month_start(month: str | None) -> datetime | None:
         raise typer.BadParameter("must be a month, as YYYY-MM", param_hint="--since") from None
 
 
-def _github_owner(path: Path | None, db: bool, login: str | None) -> ExpectedOwner:
+def _github_owner(profile: Profile | None, db: bool, login: str | None) -> ExpectedOwner:
     """Whose history is read: with --db, the user's GitHub account; otherwise the GitHub
     username in the profile's basics.profiles."""
-    if db:
-        if path is not None:
-            raise typer.BadParameter("use either --profile or --db", param_hint="--profile")
+    if db or profile is None:
         return asyncio.run(_database_owner(login))
-    username = _profile_github_username(_read_profile(path, False, login))
+    username = _profile_github_username(profile)
     if username is None:
         typer.echo(
             "Add your GitHub username to the profile's basics.profiles, so the token can be "
