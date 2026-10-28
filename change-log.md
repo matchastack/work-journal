@@ -2,6 +2,16 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-28 · T-068 Facts from repository activity
+**Changed:** `wj github extract <owner/repo> --project <id>` turns a repository's history into facts that cite their pull requests and commits; their numbers and tools come only from those items, and code sets the project, the date and how much of the work they claim.
+
+**Verify:**
+- CI is green on this PR
+- `uv run wj eval repo` and `uv run pytest -m llm tests/test_github_extraction_live.py` pass with your key
+- `uv run wj github extract <owner/repo> --project <id> --db` prints facts whose `source` links to their pull requests and commits
+- Work Claude Code did for you lists Claude Code among a fact's tools, and nothing claims "led"
+- Work in someone else's repository claims at most "contributed"
+
 ## 2026-10-28 · T-067 Read a repository's history · [#59](https://github.com/matchastack/work-journal/pull/59)
 **Changed:** `wj github digest <owner/repo>` reads a repository's history with a read-only token (`GITHUB_REPOS_TOKEN`), and prints exactly what the model will read: your work and your AI agents' work, cleaned, with what was left out. It calls no model and stores nothing.
 

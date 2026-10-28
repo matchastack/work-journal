@@ -499,27 +499,27 @@ As the owner, I want to see exactly what the app would read from a repository, s
 - **Windows.** At most 30 items and about 12,000 characters each.
 
 ### T-068 · Facts from repository activity
-**Status:** ☐ · **Size:** M · **Depends on:** T-067 · **Requirements:** FR-GH-4, FR-GH-6, FR-EXT-2, R1, NFR-MAINT-2 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-067 · **Requirements:** FR-GH-4, FR-GH-6, FR-EXT-2, R1, NFR-MAINT-2 · **PR:** —
 
 As the owner, I want my repository activity turned into facts that cite the pull requests and commits behind them, so that nothing claims more than my history shows.
 
-- [ ] A new prompt, `repo_extraction/v1`, runs on the standard tier as the `fact_extraction` task.
+- [x] A new prompt, `repo_extraction/v1`, runs on the standard tier as the `fact_extraction` task.
   - Its cached context is the skills and the linked project.
   - Each fact cites item labels.
-- [ ] Code keeps a fact only if it cites items in its window.
-- [ ] Code checks the fact's numbers and tools against the cited items' text alone, reusing the extraction checks.
-- [ ] Code sets three things:
+- [x] Code keeps a fact only if it cites items in its window.
+- [x] Code checks the fact's numbers and tools against the cited items' text alone, reusing the extraction checks.
+- [x] Code sets three things:
   - the ownership cap (FR-GH-6);
   - the date: the latest cited month;
   - the project, from the link.
 
   A GitHub fact has no role.
-- [ ] When a cited item was made with an AI coding agent, the agent joins the fact's tools.
-- [ ] `Fact` gains the `github` origin and a `source`: the repository and the cited items, with links.
+- [x] When a cited item was made with an AI coding agent, the agent joins the fact's tools.
+- [x] `Fact` gains the `github` origin and a `source`: the repository and the cited items, with links.
   - Stored facts still parse.
   - Fact IDs are new for each window.
-- [ ] `wj github extract <owner/repo> (--project <id> | --new-project <name>) [--since YYYY-MM]` prints the facts as JSON, with what was left out and why.
-- [ ] A `repo` evaluation suite of fictional repositories covers:
+- [x] `wj github extract <owner/repo> (--project <id> | --new-project <name>) [--since YYYY-MM]` prints the facts as JSON, with what was left out and why.
+- [x] A `repo` evaluation suite of fictional repositories covers:
   - numbers and noise;
   - co-authors;
   - AI agents and automation bots;
@@ -527,7 +527,14 @@ As the owner, I want my repository activity turned into facts that cite the pull
   - planted instructions.
 
   The PR gives its numbers, and they meet the bar.
-- [ ] Tests use the fake client, plus an opt-in live test.
+- [x] Tests use the fake client, plus an opt-in live test.
+
+**Built (2026-10-28):** the code is in `backend/app/github/extraction.py`.
+- **Checks.** They call extraction's own `check_facts` on a note made of the cited items' text, so `app/extraction.py` is unchanged; #57 changes it.
+- **Ownership.** The model may only give an ownership lower than the cap.
+- **Schema.** `Fact.source` sits in the fact's encrypted JSON, and the web app's API types are regenerated, since journal facts include it.
+- **Benched projects.** `wj github extract` notes a benched project, whose bullets never render.
+- **Evaluation numbers.** They need the owner's key; the PR says how to run them.
 
 ---
 
