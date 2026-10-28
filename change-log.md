@@ -2,11 +2,11 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-28 · T-067 Read a repository's history
+## 2026-10-28 · T-067 Read a repository's history · [#59](https://github.com/matchastack/work-journal/pull/59)
 **Changed:** `wj github digest <owner/repo>` reads a repository's history with a read-only token (`GITHUB_REPOS_TOKEN`), and prints exactly what the model will read: your work and your AI agents' work, cleaned, with what was left out. It calls no model and stores nothing.
 
 **Verify:**
-- CI is green on this PR
+- CI is green on #59
 - `uv run wj github digest <owner/repo> --db`, with a fine-grained token for one of your repositories, lists its pull requests and commits
 - Work Claude Code did for you reads "By Claude Code, for you" or "By you, with Claude Code"
 - Other people's commits and Dependabot's are only counted under "Left out:", never listed

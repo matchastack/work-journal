@@ -458,7 +458,7 @@ As the owner, I want everything the app writes to use ASCII characters, so that 
 - [ ] Tests.
 
 ### T-067 · Read a repository's history
-**Status:** ◐ · **Size:** M · **Depends on:** T-066 · **Requirements:** FR-GH-1, FR-GH-3, FR-GH-4, FR-GH-5, FR-GH-9, NFR-SEC-1 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-066 · **Requirements:** FR-GH-1, FR-GH-3, FR-GH-4, FR-GH-5, FR-GH-9, NFR-SEC-1 · **PR:** [#59](https://github.com/matchastack/work-journal/pull/59)
 
 As the owner, I want to see exactly what the app would read from a repository, so that I can trust it before any model reads it.
 
