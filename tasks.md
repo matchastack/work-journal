@@ -24,7 +24,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 | Milestone | Tasks | Status |
 |---|---|---|
 | M0: Documents | T-000, T-055, T-056 and T-066 | ◐ |
-| M1: Engine and command line | T-001 – T-024, T-054, T-060, T-065, T-067, T-068 and T-073 (T-007 dropped) | ◐ |
+| M1: Engine and command line | T-001 – T-024, T-054, T-060, T-065, T-067, T-068, T-073 and T-074 (T-007 dropped) | ◐ |
 | M2: Journal loop | T-025 – T-053, T-057 – T-059, T-061 – T-064 and T-069 – T-072 | ◐ |
 | M3: Quality and habit | Epics (at the end of this file) | — |
 | M4: Open to others | Epics (at the end of this file) | — |
@@ -544,6 +544,19 @@ From the review of #59:
   - types such as `Result<User>`;
   - `C#10`.
 - [x] A trailer with nothing after its colon never takes the next line with it.
+- [x] A test for each, which fails without the fix.
+
+### T-074 · Read only what can count
+**Status:** ◐ · **Size:** S · **Depends on:** T-073 · **Requirements:** FR-GH-3, FR-GH-4, FR-GH-5, C7 · **PR:** to come
+
+As the owner, I want the reader to read only work that reached the default branch and counts as mine, so that no unshipped or reverted work backs a fact, and a busy repository doesn't run into GitHub's rate limits.
+
+From the review of #59:
+- [x] Only pull requests merged into the default branch are read, as for its commits.
+- [x] A pull request is left out when a `git revert` of its squash commit or merge commit undid it. Reverting one of its commits alone leaves it standing.
+- [x] A repository with no work kept, such as a month with no activity, gives no about item, so the README alone never becomes facts.
+- [x] Another person's or a bot's pull request never has its commits read. The owner's own commits in such a pull request are kept, each on its own.
+- [x] GitHub's secondary rate limit, which may come with no reset time, waits a minute rather than reading as a refused token. An empty repository reads as having no history rather than failing.
 - [x] A test for each, which fails without the fix.
 ---
 

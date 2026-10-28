@@ -265,10 +265,11 @@ uv run wj github digest <owner/repo> --db              # check the token against
 It prints what it read and what it left out, then the digest, in parts, as the model will read it. It calls no model and stores nothing.
 
 - **What it reads.**
-  - In your own repository (not a fork): every merged pull request and every commit on the default branch, plus the description, the languages and the README.
-  - In someone else's repository: only your work there, which means the pull requests you opened or were assigned, and your own commits.
+  - In your own repository (not a fork): every pull request merged into the default branch and every commit on it, plus the description, the languages and the README.
+  - In someone else's repository: only your work there, which means the pull requests you opened or were assigned that were merged into the default branch, and your own commits on it.
+  - A pull request merged into another branch, such as a release branch, isn't read: only what reached the default branch counts.
 - **Whose work counts.** Yours, and what an AI coding agent such as Claude Code or GitHub Copilot's coding agent did for you; its items say, for example, "By Claude Code, for you". Other people's work and automation bots such as Dependabot don't count.
-- **What it leaves out:** merges, reverts and what they revert, commits that are part of a pull request, and empty messages.
+- **What it leaves out:** merges, reverts and what they revert (a pull request too, when its squash or merge commit was reverted), commits that are part of a pull request, and empty messages. Your own commits in another person's pull request are kept, each on its own.
 - **What it removes from the text:** commit hashes, issue numbers, links, emails, @mentions, sign-off lines and checklists. From the README, it also removes code blocks and the roadmap, to-do and acknowledgement sections. Nothing removed can back a number in a fact.
 
 A commit counts as yours only when GitHub links its email to your account (GitHub, Settings, Emails).
@@ -317,5 +318,6 @@ Every sentence written passes the verifier before it is stored or printed.
 | Journal text can't be read after changing keys | `DATA_ENCRYPTION_KEY` must still include the key the text was written with |
 | `wj github digest` says the token belongs to another GitHub account | Use a token of your own account: the one your profile's GitHub username names, or the one you sign in with |
 | `wj github digest` says the repository doesn't exist | Give the token access to that repository, with Contents and Pull requests set to read-only |
+| `wj github digest` says GitHub's rate limit is used up | Wait until the time it gives (a minute when GitHub doesn't say), then run it again |
 
 More hosting problems are in [docs/deploy.md](docs/deploy.md#when-something-goes-wrong).
