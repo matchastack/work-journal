@@ -547,7 +547,7 @@ From the review of #59:
 - [x] A test for each, which fails without the fix.
 
 ### T-074 · Read only what can count
-**Status:** ◐ · **Size:** S · **Depends on:** T-073 · **Requirements:** FR-GH-3, FR-GH-4, FR-GH-5, C7 · **PR:** to come
+**Status:** ◐ · **Size:** S · **Depends on:** T-073 · **Requirements:** FR-GH-3, FR-GH-4, FR-GH-5, C7 · **PR:** [#62](https://github.com/matchastack/work-journal/pull/62)
 
 As the owner, I want the reader to read only work that reached the default branch and counts as mine, so that no unshipped or reverted work backs a fact, and a busy repository doesn't run into GitHub's rate limits.
 

@@ -2,11 +2,11 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-28 · T-074 Read only what can count · to come
+## 2026-10-28 · T-074 Read only what can count · [#62](https://github.com/matchastack/work-journal/pull/62)
 **Changed:** the digest reads only pull requests merged into the default branch, leaves out a pull request reverted from the command line, keeps your own commits in another person's pull request, and handles GitHub's secondary rate limit and empty repositories.
 
 **Verify:**
-- CI is green on the pull request
+- CI is green on #62
 - `uv run wj github digest <owner/repo>` on a repository with a release branch lists no pull request merged into it
 - On a new, empty repository, it reads no history and shows no about item
 
