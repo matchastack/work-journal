@@ -525,8 +525,7 @@ As the owner, I want my repository activity turned into facts that cite the pull
   - AI agents and automation bots;
   - routine work;
   - planted instructions.
-
-  The PR gives its numbers, and they meet the bar.
+- [ ] The PR gives the suite's numbers, and they meet the bar. This waits for the owner's run of `uv run wj eval repo`, which needs their `ANTHROPIC_API_KEY`.
 - [x] Tests use the fake client, plus an opt-in live test.
 
 **Built (2026-10-28):** the code is in `backend/app/github/extraction.py`.
