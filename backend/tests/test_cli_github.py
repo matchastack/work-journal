@@ -2,6 +2,7 @@
 FR-GH-6), with the fake LLM client."""
 
 import json
+import re
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -20,6 +21,8 @@ from app.llm.usage import MemoryCallLog
 
 FIXTURES = Path(__file__).parent / "fixtures"
 PROFILE = FIXTURES / "profile.json"
+ANSI_STYLE = re.compile(r"\x1b\[[0-9;]*m")
+"""In GitHub Actions, Typer colors the options named in usage errors."""
 runner = CliRunner()
 
 
@@ -161,7 +164,7 @@ def test_digest_says_when_the_repository_isnt_there(github: FakeGitHubApi) -> No
 def test_digest_checks_its_arguments(github: FakeGitHubApi, args: list[str], words: str) -> None:
     result = runner.invoke(cli, digest(*args))
     assert result.exit_code == 2
-    assert words in result.output
+    assert words in ANSI_STYLE.sub("", result.output)
     assert github.requests == []
 
 
