@@ -236,29 +236,44 @@ def made_by(made: Authorship) -> str:
 
 _HTML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 _CODE_BLOCK = re.compile(r"^\s*(```|~~~).*?^\s*\1[^\n]*$", re.DOTALL | re.MULTILINE)
+# `[ \t]`, not `\s`, so a trailer or a checklist line never runs on into the next line.
 _TRAILER = re.compile(
-    r"^\s*(?:[a-z]+(?:-[a-z]+)*-by|change-id|[a-z]+-session|cc):\s.*$",
+    r"^[ \t]*(?:[a-z]+(?:-[a-z]+)*-by|change-id|[a-z]+-session|cc):[^\n]*$",
     re.IGNORECASE | re.MULTILINE,
 )
-_CHECKLIST = re.compile(r"^\s*[-*+]\s+\[[ xX]\].*$", re.MULTILINE)
+_CHECKLIST = re.compile(r"^[ \t]*[-*+][ \t]+\[[ xX]\][^\n]*$", re.MULTILINE)
 _IMAGE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
-_HTML_TAG = re.compile(r"</?[A-Za-z][^>]*>")
+_HTML_TAG = re.compile(
+    r"</?(?:a|abbr|b|blockquote|br|center|code|del|details|div|em|h[1-6]|hr|i|img|ins|kbd|li|"
+    r"ol|p|picture|pre|s|source|span|strong|sub|summary|sup|table|tbody|td|th|thead|tr|u|ul|"
+    r"video)\b[^>]*>",
+    re.IGNORECASE,
+)
+"""HTML tags by name, so a type such as `Result<User>` or `Vec<u8>` stays."""
 _LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
 _URL = re.compile(r"\b(?:https?://|www\.)\S+", re.IGNORECASE)
 _EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 _CLOSES = re.compile(
     r"\b(?:fix(?:e[sd])?|close[sd]?|resolve[sd]?)\s+(?:[\w.-]+/[\w.-]+)?#\d+\b\.?", re.IGNORECASE
 )
-_REFERENCE = re.compile(r"(?:[\w.-]+/[\w.-]+)?#\d+\b|\bGH-\d+\b")
-_MENTION = re.compile(r"(?<![\w.@])@[A-Za-z0-9][A-Za-z0-9-]*(?:\[bot\])?")
+_REFERENCE = re.compile(r"(?<![\w#])(?:[\w.-]+/[\w.-]+)?#\d+\b|\bGH-\d+\b")
+"""`#12`, `owner/repo#12` or `GH-12`, but not `C#10`."""
+_MENTION = re.compile(r"(?<![\w.@])@[A-Za-z0-9][A-Za-z0-9-]*(?:\[bot\])?(?![\w-]*/)")
+"""`@sam-example`, but not a scoped package such as `@types/node`."""
 _HASH = re.compile(r"\b(?=[0-9a-f]*\d)(?=[0-9a-f]*[a-f])[0-9a-f]{7,40}\b")
 _EMOJI = re.compile("[\U0001f000-\U0001faff☀-➿️‍]")
 _WORD = re.compile(r"[A-Za-z0-9]+")
 _EMPTY_BRACKETS = re.compile(r"\(\s*\)|\[\s*\]")
-_SPACE_BEFORE_MARK = re.compile(r"[ \t]+([.,;:!?])")
+_SPACE_BEFORE_MARK = re.compile(r"[ \t]+([.,;:!?])(?=\s|$)")
+"""A space left before a mark that ends a word, but not the one before `.NET` or `.env`."""
 _SPACES = re.compile(r"[ \t]{2,}")
 _BLANK_LINES = re.compile(r"\n{3,}")
 _HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
+_SETEXT_UNDERLINE = re.compile(r"^[ \t]*(=+|-+)[ \t]*$")
+_NOT_A_PARAGRAPH = re.compile(r"^[ \t]*(?:$|[#>|*+-]|\d+[.)])")
+"""A line a setext underline can't make a heading of: blank, a heading, a quote, a table row,
+or a list item."""
+_LEADING_NON_LETTERS = re.compile(r"^[^A-Za-z]+")
 _DROPPED_SECTION = re.compile(
     r"^(?:road\s*map|to-?dos?|planned|plans|future\b.*|next steps|wish\s*list|"
     r"acknowledge?ments?|credits|thanks|contributors|contributing|sponsors?|licen[cs]e|"
@@ -280,6 +295,8 @@ def clean(text: str, *, max_chars: int, leftovers: bool = True) -> str:
     for line in text.split("\n"):
         if any(agent.footer is not None and agent.footer.search(line) for agent in AGENTS):
             continue
+        # An emoji leaves nothing behind, so its removal doesn't make a line a leftover.
+        line = _EMOJI.sub("", line)
         scrubbed = _scrubbed(line)
         if leftovers and scrubbed != line and len(_WORD.findall(scrubbed)) < LEFTOVER_WORDS:
             continue
@@ -298,7 +315,7 @@ def _scrubbed(line: str) -> str:
     line = _IMAGE.sub("", line)
     line = _HTML_TAG.sub("", line)
     line = _LINK.sub(r"\1", line)
-    for pattern in (_URL, _EMAIL, _CLOSES, _REFERENCE, _MENTION, _HASH, _EMOJI):
+    for pattern in (_URL, _EMAIL, _CLOSES, _REFERENCE, _MENTION, _HASH):
         line = pattern.sub("", line)
     return line
 
@@ -308,16 +325,32 @@ def clean_readme(text: str) -> str:
     with nothing under them, then cleaned."""
     kept: list[str] = []
     dropping: int | None = None
-    for line in _CODE_BLOCK.sub("", text).split("\n"):
+    for line in _atx_headings(_CODE_BLOCK.sub("", text).split("\n")):
         if heading := _HEADING.match(line):
             level = len(heading[1])
             if dropping is not None and level <= dropping:
                 dropping = None
-            if dropping is None and _DROPPED_SECTION.match(heading[2]):
+            # The title may start with an emoji or a number, as in "## 1. Roadmap".
+            title = _LEADING_NON_LETTERS.sub("", heading[2])
+            if dropping is None and _DROPPED_SECTION.match(title):
                 dropping = level
         if dropping is None:
             kept.append(line)
     return clean("\n".join(_without_empty_sections(kept)), max_chars=README_CHARS)
+
+
+def _atx_headings(lines: Sequence[str]) -> list[str]:
+    """The lines with each setext heading (a title underlined with `===` or `---`) written as
+    `#` or `##`, so that sections are found however their headings are written."""
+    written: list[str] = []
+    for line in lines:
+        underline = _SETEXT_UNDERLINE.match(line)
+        if underline and written and not _NOT_A_PARAGRAPH.match(written[-1]):
+            marks = "#" if underline[1].startswith("=") else "##"
+            written[-1] = f"{marks} {written[-1].strip()}"
+            continue
+        written.append(line)
+    return written
 
 
 def _without_empty_sections(lines: Sequence[str]) -> list[str]:

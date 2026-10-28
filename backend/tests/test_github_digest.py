@@ -195,6 +195,24 @@ def test_numbers_the_items_give_stay(recipe_box: Digest) -> None:
         ("Steps\n- [x] Tests pass\n- [ ] Docs", "Steps"),
         ("Cut 50\u201360 ms \u2014 nice", "Cut 50-60 ms - nice"),
         ("#12: fix the parser\n.gitignore the build", "fix the parser\n.gitignore the build"),
+        (
+            "Ported the service to .NET 8 and moved secrets to .env",
+            "Ported the service to .NET 8 and moved secrets to .env",
+        ),
+        ("Body\n- \U0001f41b Fix crash\n\u2728 Faster builds", "Body\n- Fix crash\nFaster builds"),
+        (
+            "Migrate to @tanstack/react-query and @types/node",
+            "Migrate to @tanstack/react-query and @types/node",
+        ),
+        (
+            "Return Result<User> and Vec<u8> from the <b>parser</b>",
+            "Return Result<User> and Vec<u8> from the parser",
+        ),
+        ("Use C#10 records and F# types (#12)", "Use C#10 records and F# types"),
+        (
+            "Body\nSigned-off-by:\nAdded caching layer for search results",
+            "Body\n\nAdded caching layer for search results",
+        ),
     ],
 )
 def test_clean(text: str, cleaned: str) -> None:
@@ -209,6 +227,20 @@ def test_leftover_lines_go_from_text_but_not_from_titles() -> None:
 
 def test_long_text_is_cut_at_a_word() -> None:
     assert clean("one two three four five", max_chars=14) == "one two..."
+
+
+@pytest.mark.parametrize(
+    "heading",
+    ["## \U0001f5fa\ufe0f Roadmap", "## 1. Planned features", "Roadmap\n-------", "## To-do list"],
+)
+def test_readme_sections_are_found_however_their_heading_is_written(heading: str) -> None:
+    readme = f"# Tool\n\nIntro.\n\n{heading}\n\n- Reach 500 users\n\n## Usage\n\nRun it.\n"
+    assert clean_readme(readme) == "# Tool\n\nIntro.\n\n## Usage\n\nRun it."
+
+
+def test_setext_headings_count_as_headings_but_rules_dont() -> None:
+    readme = "Tool\n====\n\nIntro.\n\n---\n\nMore.\n\nCredits\n-------\n\nSam made the icons.\n"
+    assert clean_readme(readme) == "# Tool\n\nIntro.\n\n---\n\nMore."
 
 
 def test_readme_sections_are_dropped_with_their_subsections() -> None:
