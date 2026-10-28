@@ -2,11 +2,11 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-28 · T-068 Facts from repository activity
+## 2026-10-28 · T-068 Facts from repository activity · [#60](https://github.com/matchastack/work-journal/pull/60)
 **Changed:** `wj github extract <owner/repo> --project <id>` turns a repository's history into facts that cite their pull requests and commits; their numbers and tools come only from those items, and code sets the project, the date and how much of the work they claim.
 
 **Verify:**
-- CI is green on this PR
+- CI is green on #60
 - `uv run wj eval repo` and `uv run pytest -m llm tests/test_github_extraction_live.py` pass with your key
 - `uv run wj github extract <owner/repo> --project <id> --db` prints facts whose `source` links to their pull requests and commits
 - Work Claude Code did for you lists Claude Code among a fact's tools, and nothing claims "led"

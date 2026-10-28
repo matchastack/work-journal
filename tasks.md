@@ -499,7 +499,7 @@ As the owner, I want to see exactly what the app would read from a repository, s
 - **Windows.** At most 30 items and about 12,000 characters each.
 
 ### T-068 · Facts from repository activity
-**Status:** ◐ · **Size:** M · **Depends on:** T-067 · **Requirements:** FR-GH-4, FR-GH-6, FR-EXT-2, R1, NFR-MAINT-2 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-067 · **Requirements:** FR-GH-4, FR-GH-6, FR-EXT-2, R1, NFR-MAINT-2 · **PR:** [#60](https://github.com/matchastack/work-journal/pull/60)
 
 As the owner, I want my repository activity turned into facts that cite the pull requests and commits behind them, so that nothing claims more than my history shows.
 
