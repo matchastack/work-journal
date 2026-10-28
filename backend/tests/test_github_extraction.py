@@ -144,6 +144,17 @@ def test_the_date_is_the_latest_cited_month(recipe_box: Digest) -> None:
     assert [item.ref for item in made.source.items if item.kind == "pull"] == ["3"]
 
 
+def test_the_about_item_dates_no_fact(recipe_box: Digest) -> None:
+    about = next(item for item in recipe_box.items if item.label == "about")
+    assert f"{about.at:%Y-%m}" == "2023-09", "the about item is dated by the latest push"
+    statement = "Started Recipe Box, which saves recipes and plans the week's meals."
+    (started,) = checked(recipe_box, fact(["about", "c1"], statement)).facts
+    assert started.date == "2023-06", "the month of c1, the only work it cites"
+    statement = "Built Recipe Box, which saves recipes and plans the week's meals."
+    (built,) = checked(recipe_box, fact(["about"], statement, kind="project")).facts
+    assert built.date is None, "what the project is now has no month"
+
+
 def test_a_new_project_is_named_by_the_owner(recipe_box: Digest) -> None:
     target = RepoTarget(new_project="Meal Planner")
     (made,) = checked(recipe_box, fact(["pr2"]), target=target).facts

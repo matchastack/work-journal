@@ -11,7 +11,8 @@ project only. Each fact the model returns cites the items it rests on, and code 
   tool they don't name is removed;
 - sets what the model never chooses:
   - the project, from the owner's choice;
-  - the date, the month of the latest cited item;
+  - the date, the month of the latest cited pull request or commit. The about item describes the
+    project as it is now, so it dates no fact, and a fact that cites it alone has no date;
   - the ownership cap. That's owned in a repository the owner's account owns that isn't a fork,
     and contributed elsewhere, or when another person co-authored a cited item. It's never led.
     The owner may set the cap when linking, and the model may only lower it.
@@ -238,7 +239,7 @@ def _github_fact(
     for agent in dict.fromkeys(item.agent for item in cited if item.agent is not None):
         if agent.casefold() not in {tool.casefold() for tool in tools}:
             tools.append(agent)
-    latest = max(item.at for item in cited)
+    work = [item.at for item in cited if item.kind != "about"]
     source = RepoSource(
         repository=digest.repository,
         url=digest.url,
@@ -253,7 +254,7 @@ def _github_fact(
         ownership=cap if replied.ownership is None else _lower(cap, replied.ownership),
         tools=tuple(tools),
         outcome=checked.outcome,
-        date=f"{latest:%Y-%m}",
+        date=f"{max(work):%Y-%m}" if work else None,
         project_id=target.project_id,
         proposed_item=target.new_project,
         origin="github",
