@@ -280,11 +280,11 @@ uv run wj github extract <owner/repo> --project recipe_box         # a project i
 uv run wj github extract <owner/repo> --new-project "Recipe Box"   # a new project
 ```
 
-It prints the facts as JSON, then lists on the error stream what it left out and why. It calls the standard-tier model once for each part of the digest, and stores nothing. It takes `--since`, `--profile` and `--db`, as `wj github digest` does. Each fact:
+It prints the facts as JSON, then lists on the error stream what it left out and why. It calls the standard-tier model once for each part of the digest, and stores nothing. If the model declines a part, or can't answer it in the right shape, that part is skipped: the facts from the other parts are still printed, the skipped part is named at the end, and the command exits with status 1. It takes `--since`, `--profile` and `--db`, as `wj github digest` does. Each fact:
 
 - cites the pull requests and commits it rests on, with their links (`source`);
 - has only the numbers and tools its cited items give: a fact with a number they don't give is left out, and a tool they don't name is removed;
-- belongs to the project you named, never to a role, and is dated by the latest item it cites;
+- belongs to the project you named, never to a role, and is dated by the latest pull request or commit it cites (a fact that cites only the repository's description and README has no date);
 - claims at most "owned" in your own repository, and "contributed" elsewhere or when another person co-authored the work. It's never "led". `--ownership` changes that cap;
 - lists the AI coding agent among its tools when one made or helped with the work.
 

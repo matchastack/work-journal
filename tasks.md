@@ -24,7 +24,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 | Milestone | Tasks | Status |
 |---|---|---|
 | M0: Documents | T-000, T-055, T-056 and T-066 | ◐ |
-| M1: Engine and command line | T-001 – T-024, T-054, T-060, T-065, T-067 and T-068 (T-007 dropped) | ◐ |
+| M1: Engine and command line | T-001 – T-024, T-054, T-060, T-065, T-067, T-068 and T-075 (T-007 dropped) | ◐ |
 | M2: Journal loop | T-025 – T-053, T-057 – T-059, T-061 – T-064 and T-069 – T-072 | ◐ |
 | M3: Quality and habit | Epics (at the end of this file) | — |
 | M4: Open to others | Epics (at the end of this file) | — |
@@ -534,6 +534,17 @@ As the owner, I want my repository activity turned into facts that cite the pull
 - **Schema.** `Fact.source` sits in the fact's encrypted JSON, and the web app's API types are regenerated, since journal facts include it.
 - **Benched projects.** `wj github extract` notes a benched project, whose bullets never render.
 - **Evaluation numbers.** They need the owner's key; the PR says how to run them.
+
+### T-075 · Repository facts: dates and parts that fail
+**Status:** ◐ · **Size:** S · **Depends on:** T-068 · **Requirements:** FR-GH-6, FR-GH-7 · **PR:** to come
+
+As the owner, I want each GitHub fact dated by the work it cites, and one part the model can't read not to lose the others, so that a long history is worth reading and its facts land in the right month.
+
+From the review of #60:
+- [x] The about item never dates a fact: it carries the latest push, not the work. A fact is dated by the pull requests and commits it cites, and one that cites only the about item has no date.
+- [x] A part the model declines, or can't answer in the right shape, is recorded and skipped, and the other parts' facts are kept. An outage still stops the read, as the next part would fail too.
+- [x] `wj github extract` names a skipped part and exits with status 1.
+- [x] A test for each, which fails without the fix.
 
 ---
 

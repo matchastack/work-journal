@@ -2,6 +2,14 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-28 · T-075 Repository facts: dates and parts that fail · to come
+**Changed:** a GitHub fact is dated by the pull requests and commits it cites, never by the repository's latest push, and `wj github extract` skips a part the model declines rather than losing every part's facts.
+
+**Verify:**
+- CI is green on the pull request
+- A fact that cites an old pull request and the README is dated by the pull request's month
+- A declined part is named at the end, and the other parts' facts are printed
+
 ## 2026-10-28 · T-068 Facts from repository activity · [#60](https://github.com/matchastack/work-journal/pull/60)
 **Changed:** `wj github extract <owner/repo> --project <id>` turns a repository's history into facts that cite their pull requests and commits; their numbers and tools come only from those items, and code sets the project, the date and how much of the work they claim.
 
