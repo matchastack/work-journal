@@ -24,7 +24,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 | Milestone | Tasks | Status |
 |---|---|---|
 | M0: Documents | T-000, T-055, T-056 and T-066 | ◐ |
-| M1: Engine and command line | T-001 – T-024, T-054, T-060, T-065, T-067 and T-068 (T-007 dropped) | ◐ |
+| M1: Engine and command line | T-001 – T-024, T-054, T-060, T-065, T-067, T-068 and T-073 (T-007 dropped) | ◐ |
 | M2: Journal loop | T-025 – T-053, T-057 – T-059, T-061 – T-064 and T-069 – T-072 | ◐ |
 | M3: Quality and habit | Epics (at the end of this file) | — |
 | M4: Open to others | Epics (at the end of this file) | — |
@@ -529,6 +529,22 @@ As the owner, I want my repository activity turned into facts that cite the pull
   The PR gives its numbers, and they meet the bar.
 - [ ] Tests use the fake client, plus an opt-in live test.
 
+
+### T-073 · Digest cleaning keeps what it should
+**Status:** ◐ · **Size:** S · **Depends on:** T-067 · **Requirements:** FR-GH-5, R1 · **PR:** —
+
+As the owner, I want the digest's cleaning to remove only what it should, so that a roadmap never backs a fact and the tools I name aren't lost.
+
+From the review of #59:
+- [x] A README section such as a roadmap is dropped however its heading is written: after an emoji or a number ("## 1. Roadmap"), or underlined (a setext heading).
+- [x] A line that only loses an emoji is kept, so gitmoji messages keep their text.
+- [x] Names stay whole:
+  - `.NET` and `.env`;
+  - scoped packages such as `@types/node`;
+  - types such as `Result<User>`;
+  - `C#10`.
+- [x] A trailer with nothing after its colon never takes the next line with it.
+- [x] A test for each, which fails without the fix.
 ---
 
 ## M2: Journal loop

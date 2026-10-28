@@ -2,6 +2,14 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-28 · T-073 Digest cleaning keeps what it should
+**Changed:** the digest drops a README's roadmap however its heading is written, and keeps `.NET`, scoped packages, types such as `Result<User>`, `C#10` and lines with an emoji.
+
+**Verify:**
+- CI is green on this PR
+- `uv run wj github digest <owner/repo>` on a repository whose README has its roadmap under an emoji or numbered heading shows no roadmap
+- A commit that names `.NET` or `@types/node` shows it unchanged
+
 ## 2026-10-28 · T-067 Read a repository's history · [#59](https://github.com/matchastack/work-journal/pull/59)
 **Changed:** `wj github digest <owner/repo>` reads a repository's history with a read-only token (`GITHUB_REPOS_TOKEN`), and prints exactly what the model will read: your work and your AI agents' work, cleaned, with what was left out. It calls no model and stores nothing.
 
