@@ -536,7 +536,7 @@ As the owner, I want my repository activity turned into facts that cite the pull
 - **Evaluation numbers.** They need the owner's key; the PR says how to run them.
 
 ### T-075 · Repository facts: dates and parts that fail
-**Status:** ◐ · **Size:** S · **Depends on:** T-068 · **Requirements:** FR-GH-6, FR-GH-7 · **PR:** to come
+**Status:** ◐ · **Size:** S · **Depends on:** T-068 · **Requirements:** FR-GH-6, FR-GH-7 · **PR:** [#63](https://github.com/matchastack/work-journal/pull/63)
 
 As the owner, I want each GitHub fact dated by the work it cites, and one part the model can't read not to lose the others, so that a long history is worth reading and its facts land in the right month.
 
