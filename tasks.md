@@ -458,37 +458,45 @@ As the owner, I want everything the app writes to use ASCII characters, so that 
 - [ ] Tests.
 
 ### T-067 · Read a repository's history
-**Status:** ☐ · **Size:** M · **Depends on:** T-066 · **Requirements:** FR-GH-1, FR-GH-3, FR-GH-4, FR-GH-5, FR-GH-9, NFR-SEC-1 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-066 · **Requirements:** FR-GH-1, FR-GH-3, FR-GH-4, FR-GH-5, FR-GH-9, NFR-SEC-1 · **PR:** —
 
 As the owner, I want to see exactly what the app would read from a repository, so that I can trust it before any model reads it.
 
-- [ ] `GITHUB_REPOS_TOKEN` is a secret setting. `.env.example` lists it with the token's permissions: Metadata, Contents and Pull requests, all read-only.
+- [x] `GITHUB_REPOS_TOKEN` is a secret setting. `.env.example` lists it with the token's permissions: Metadata, Contents and Pull requests, all read-only.
   - A token that isn't fine-grained is refused before anything is read.
   - So is a token whose account isn't the owner's.
-- [ ] A thin client reads:
+- [x] A thin client reads:
   - the account;
   - the repository, with its languages and README;
   - merged pull requests, with their commits;
   - default-branch commits since a given time.
-- [ ] The client follows pagination. It raises clear errors for a refused token, a missing repository and rate limits (with the reset time).
-- [ ] No token, repository name, path or text reaches a log or an error. A log filter redacts GitHub API paths.
-- [ ] The digest sorts each item by who made it:
+- [x] The client follows pagination. It raises clear errors for a refused token, a missing repository and rate limits (with the reset time).
+- [x] No token, repository name, path or text reaches a log or an error. A log filter redacts GitHub API paths.
+- [x] The digest sorts each item by who made it:
   - the owner;
   - an AI coding agent working for the owner (to start with, Claude Code and GitHub Copilot's coding agent, from a list in code);
   - another person;
   - an automation bot.
 
   Only the first two are kept (FR-GH-4).
-- [ ] It leaves out what FR-GH-5 lists, and cleans the text as FR-GH-5 says.
-- [ ] It writes who made each item, in words, and marks items another person co-authored.
-- [ ] The description, the languages (names only) and the cleaned README are added only for a repository the owner's account owns that isn't a fork. No line, commit or star counts are added.
-- [ ] Items are split into labelled windows of at most about 30 items.
-- [ ] `wj github digest <owner/repo> [--since YYYY-MM]` prints the windows. It calls no model and stores nothing.
-- [ ] Tests use hand-written payloads for fictional repositories behind `httpx2.MockTransport`:
+- [x] It leaves out what FR-GH-5 lists, and cleans the text as FR-GH-5 says.
+- [x] It writes who made each item, in words, and marks items another person co-authored.
+- [x] The description, the languages (names only) and the cleaned README are added only for a repository the owner's account owns that isn't a fork. No line, commit or star counts are added.
+- [x] Items are split into labelled windows of at most about 30 items.
+- [x] `wj github digest <owner/repo> [--since YYYY-MM]` prints the windows. It calls no model and stores nothing.
+- [x] Tests use hand-written payloads for fictional repositories behind `httpx2.MockTransport`:
   - one with the owner's own commits and pull requests;
   - one whose commits are all by Claude Code, under pull requests the owner opened;
   - a Dependabot pull request;
   - another person's commit.
+
+**Built (2026-10-28):** the code is in `backend/app/github/`.
+- **Owner check.** The token's account must match the profile's GitHub username (`basics.profiles`) in file mode, and the user's GitHub account number with `--db`.
+- **What's read.** Merged pull requests come from GitHub's issue search, which returns at most 1,000; the digest says when there were more. A rename is followed to the repository's current name.
+- **Duplicates.** A commit counts as part of a pull request when it's one of the pull request's commits, a copy a rebase merge made (same title and time), or the squash commit ending in its number.
+- **Pull request items.** Each lists the titles of its commits that the owner or an agent made.
+- **Cleaning.** A cleaned line of fewer than three words, left around something removed, such as "Notes:" before an address, is dropped too. Titles keep theirs.
+- **Windows.** At most 30 items and about 12,000 characters each.
 
 ### T-068 · Facts from repository activity
 **Status:** ☐ · **Size:** M · **Depends on:** T-067 · **Requirements:** FR-GH-4, FR-GH-6, FR-EXT-2, R1, NFR-MAINT-2 · **PR:** —
