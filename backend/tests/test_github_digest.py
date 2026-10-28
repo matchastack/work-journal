@@ -386,6 +386,20 @@ def test_reverting_one_commit_of_a_pull_request_leaves_the_rest_standing() -> No
     assert [item.title for item in digest.items] == ["Tags"]
 
 
+def test_the_owners_commit_in_another_persons_pull_request_is_kept() -> None:
+    mine = commit("aa1", "Fix the date parser", day=3)
+    digest = build_digest(
+        history(
+            [PullHistory(pull(5, "Add calendar export", user=SAM), (mine,))],
+            [as_merge(commit("bb2", "Merge pull request #5 from sam-example/export")), mine],
+        )
+    )
+    assert [(item.title, item.made_by) for item in digest.items] == [
+        ("Fix the date parser", "By you")
+    ]
+    assert digest.left_out == {"merge": 1, "person": 1}
+
+
 def test_a_private_repository_says_so() -> None:
     digest = build_digest(history([], [commit("dd4", "Start")]))
     assert digest.private

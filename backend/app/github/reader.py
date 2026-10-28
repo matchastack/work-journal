@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from app.github.api import Account, Commit, GitHubApi, GitHubTokenError, Pull, Repository
-from app.github.authors import Owner, owns
+from app.github.authors import Owner, owns, pull_maker
 
 PULL_READS_AT_ONCE = 4
 """How many pull requests' commits are read at the same time."""
@@ -109,6 +109,10 @@ async def read_history(
     limit = asyncio.Semaphore(PULL_READS_AT_ONCE)
 
     async def with_commits(pull: Pull) -> PullHistory:
+        # Another person's or a bot's pull request never counts, whoever made its commits, so
+        # its commits aren't read: it saves a request for each of them.
+        if pull_maker(pull, Owner(viewer.id, viewer.login)) not in ("owner", "agent"):
+            return PullHistory(pull, ())
         async with limit:
             return PullHistory(pull, tuple(await api.pull_commits(name, pull.number)))
 

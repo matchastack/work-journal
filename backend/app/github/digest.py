@@ -150,9 +150,6 @@ def build_digest(
     owned = history.owned
     left_out: Counter[LeftOut] = Counter()
     numbers = {read.pull.number for read in history.pulls}
-    in_pulls = {commit.sha for read in history.pulls for commit in read.commits}
-    # A rebase merge puts new copies of the commits on the branch: the same title and time.
-    copies = {_copy_key(commit) for read in history.pulls for commit in read.commits}
     reverted_commits = {sha for commit in history.commits for sha in _reverted_commits(commit)}
     reverted_pulls = {n for read in history.pulls for n in _reverted_pulls(read.pull)}
     reverted_pulls |= _reverted_by_commit(history, reverted_commits)
@@ -169,6 +166,11 @@ def build_digest(
                 pulls.append((read, made))
             else:
                 left_out["bot" if made.maker == "bot" else "person"] += 1
+    # Only the pull requests kept cover their commits, so the owner's own commits in another
+    # person's pull request are items of their own, as they are in someone else's repository.
+    in_pulls = {commit.sha for read, _ in pulls for commit in read.commits}
+    # A rebase merge puts new copies of the commits on the branch: the same title and time.
+    copies = {_copy_key(commit) for read, _ in pulls for commit in read.commits}
 
     commits: list[tuple[Commit, Authorship]] = []
     for commit in history.commits:
