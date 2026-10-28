@@ -264,6 +264,6 @@ def test_extract_needs_one_project(
     fake = model(monkeypatch)
     result = runner.invoke(cli, extract("casey-example/recipe-box", *args))
     assert result.exit_code == 2
-    assert words in result.output
+    assert words in ANSI_STYLE.sub("", result.output)
     assert github.requests == []
     assert fake.requests == []
