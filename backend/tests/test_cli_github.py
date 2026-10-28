@@ -16,7 +16,7 @@ from app.config import Settings, get_settings
 from app.github.extraction import RepoExtractionReply
 from app.github.fake import TOKEN, FakeGitHubApi
 from app.llm.client import LLMClient
-from app.llm.fake import FakeMessages, reply
+from app.llm.fake import FakeMessages, refusal, reply
 from app.llm.usage import MemoryCallLog
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -214,6 +214,23 @@ def test_extract_prints_the_facts_from_github(
     ]
     assert "Reading 1 part of casey-example/recipe-box." in result.stderr
     assert 'Left out "Cut page loads to 300 ms.": the items it cites don\'t give' in result.stderr
+
+
+def test_extract_names_a_part_the_model_declined(
+    github: FakeGitHubApi, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake = FakeMessages(refusal("cyber"))
+    settings = Settings(llm_model_standard="standard-model")
+    monkeypatch.setattr(
+        cli_module, "_llm_client", lambda: LLMClient(settings, fake, MemoryCallLog())
+    )
+    result = runner.invoke(cli, extract("casey-example/recipe-box", "--project", "recipe_box"))
+    assert result.exit_code == 1
+    assert json.loads(result.stdout) == []
+    assert (
+        "Part 1 of 1 couldn't be read, so its facts are missing: Claude declined the request "
+        "(cyber)" in result.stderr
+    )
 
 
 def test_extract_files_facts_under_a_new_project_with_a_cap(

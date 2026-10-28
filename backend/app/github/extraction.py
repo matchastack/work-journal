@@ -19,6 +19,9 @@ project only. Each fact the model returns cites the items it rests on, and code 
   - the source: the repository and the cited items, with their links;
 - adds the AI coding agent that made or helped make a cited item to the tools (FR-GH-4).
 
+A part the model declines or can't answer in the right shape is recorded and skipped, so the
+other parts' facts are kept (FR-GH-7). An outage stops the read, as the next part would fail too.
+
 IDs are new for each part read (`gh_<part>_<n>`), so reading again never overwrites a fact the
 owner has edited.
 """
@@ -31,7 +34,7 @@ from typing import Literal
 
 from app.extraction import ExtractedFact, ExtractedMetric, ExtractionReply, check_facts
 from app.github.digest import Digest, Item
-from app.llm.client import LLMClient
+from app.llm.client import LLMClient, LLMInvalidOutput, LLMRefusal
 from app.llm.prompts import Prompt, load_prompt
 from app.schema.common import Model, NonEmptyStr
 from app.schema.fact import Fact, Ownership, RepoItem, RepoSource
@@ -91,16 +94,29 @@ class DroppedRepoFact:
 
 
 @dataclass(frozen=True)
+class FailedPart:
+    index: int
+    """The part of the digest, from 0."""
+    reason: str
+    """Why the model gave no facts for it. It never holds the history's text."""
+
+
+@dataclass(frozen=True)
 class RepoExtraction:
     facts: tuple[Fact, ...] = ()
     dropped: tuple[DroppedRepoFact, ...] = ()
     """Facts left out: they cite nothing, an unknown item, or a number their items don't give."""
     notes: tuple[str, ...] = ()
     """Tools removed from the facts that were kept."""
+    failed: tuple[FailedPart, ...] = ()
+    """Parts the model declined or couldn't answer, so their facts are missing."""
 
     def __add__(self, other: "RepoExtraction") -> "RepoExtraction":
         return RepoExtraction(
-            self.facts + other.facts, self.dropped + other.dropped, self.notes + other.notes
+            self.facts + other.facts,
+            self.dropped + other.dropped,
+            self.notes + other.notes,
+            self.failed + other.failed,
         )
 
 
@@ -113,11 +129,16 @@ def extract_repo_facts(
     prompt: Prompt | None = None,
 ) -> RepoExtraction:
     """The facts in every part of the digest, read one part at a time by the standard-tier
-    model, then checked."""
+    model, then checked. A part the model declines or can't answer is recorded in `failed`;
+    any other `LLMCallError`, such as an outage, stops the read."""
     target.project_name(profile)
     extraction = RepoExtraction()
     for index in range(len(digest.windows)):
-        reply = ask_for_repo_facts(digest, index, profile, client, target=target, prompt=prompt)
+        try:
+            reply = ask_for_repo_facts(digest, index, profile, client, target=target, prompt=prompt)
+        except (LLMRefusal, LLMInvalidOutput) as error:
+            extraction += RepoExtraction(failed=(FailedPart(index, str(error)),))
+            continue
         part = uuid.uuid4().hex
         extraction += check_repo_facts(reply, digest, index, profile, target=target, part=part)
     return extraction

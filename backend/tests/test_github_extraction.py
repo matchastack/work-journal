@@ -7,13 +7,15 @@ from typing import Any
 
 import httpx2
 import pytest
-from anthropic import transform_schema
+from anthropic import APIConnectionError, transform_schema
+from anthropic.types.beta import BetaMessage
 from pydantic import SecretStr, ValidationError
 
 from app.config import Settings
 from app.github.api import GitHubApi
 from app.github.digest import Digest, build_digest
 from app.github.extraction import (
+    FailedPart,
     RepoExtraction,
     RepoExtractionReply,
     RepoFactReply,
@@ -25,8 +27,8 @@ from app.github.extraction import (
 )
 from app.github.fake import TOKEN, FakeGitHubApi
 from app.github.reader import ExpectedOwner, read_history
-from app.llm.client import LLMClient
-from app.llm.fake import FakeMessages, reply
+from app.llm.client import LLMClient, LLMUnavailable
+from app.llm.fake import FakeMessages, refusal, reply
 from app.llm.usage import MemoryCallLog
 from app.schema.fact import SingleValue
 from app.schema.profile import Profile
@@ -64,8 +66,15 @@ def recipe_box() -> Digest:
     return digest("casey-example/recipe-box")
 
 
-def client(*replies: RepoExtractionReply) -> tuple[LLMClient, FakeMessages]:
-    fake = FakeMessages(*(reply(answer) for answer in replies))
+def client(
+    *replies: RepoExtractionReply | BetaMessage | Exception,
+) -> tuple[LLMClient, FakeMessages]:
+    fake = FakeMessages(
+        *(
+            reply(answer) if isinstance(answer, RepoExtractionReply) else answer
+            for answer in replies
+        )
+    )
     settings = Settings(llm_model_standard="standard-model")
     return LLMClient(settings, fake, MemoryCallLog()), fake
 
@@ -290,6 +299,36 @@ def test_every_part_is_read_once_with_new_ids() -> None:
     assert second.id.endswith("_1")
     assert first.id != second.id
     assert all(made.id.startswith("gh_") and len(made.id) <= 64 for made in extraction.facts)
+
+
+@pytest.mark.parametrize(
+    ("answers", "reason"),
+    [
+        ([refusal("cyber")], "Claude declined the request (cyber)"),
+        ([reply("not facts"), reply("not facts")], "failed validation twice"),
+    ],
+)
+def test_a_part_the_model_cant_read_is_recorded_and_skipped(
+    answers: list[BetaMessage], reason: str
+) -> None:
+    split = digest("casey-example/recipe-box", window_items=3)
+    llm, fake = client(*answers, RepoExtractionReply(facts=(fact(["pr2"]),)))
+    extraction = extract_repo_facts(split, PROFILE, llm, target=RECIPE_BOX)
+    assert len(fake.requests) == len(answers) + 1
+    assert [made.statement for made in extraction.facts] == [SHOPPING]
+    (failed,) = extraction.failed
+    assert failed.index == 0
+    assert reason in failed.reason
+    assert failed == FailedPart(0, failed.reason)
+
+
+def test_an_outage_stops_the_read() -> None:
+    split = digest("casey-example/recipe-box", window_items=3)
+    outage = APIConnectionError(request=httpx2.Request("POST", "https://api.anthropic.com"))
+    llm, fake = client(outage, RepoExtractionReply(facts=(fact(["pr2"]),)))
+    with pytest.raises(LLMUnavailable):
+        extract_repo_facts(split, PROFILE, llm, target=RECIPE_BOX)
+    assert len(fake.requests) == 1, "the next part would fail too"
 
 
 def test_a_part_with_only_routine_work_gives_no_facts(recipe_box: Digest) -> None:

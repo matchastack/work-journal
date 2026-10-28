@@ -1839,7 +1839,8 @@ def github_extract(
 ) -> None:
     """Extract the facts in a repository's history and print them as JSON (FR-GH-6).
 
-    Calls the standard-tier model once for each part of the digest. It stores nothing.
+    Calls the standard-tier model once for each part of the digest. It stores nothing. A part
+    the model declines is skipped, named at the end, and makes the exit status 1.
     """
     name = _repository_name(repository)
     start = _month_start(since)
@@ -1869,6 +1870,11 @@ def github_extract(
         typer.echo(f'Left out "{dropped.statement}": {"; ".join(dropped.reasons)}', err=True)
     for message in extraction.notes:
         typer.echo(f"Note: {message}", err=True)
+    for failed in extraction.failed:
+        part = f"Part {failed.index + 1} of {len(digest.windows)}"
+        typer.echo(f"{part} couldn't be read, so its facts are missing: {failed.reason}", err=True)
+    if extraction.failed:
+        raise typer.Exit(1)
 
 
 def _repository_name(repository: str) -> str:
