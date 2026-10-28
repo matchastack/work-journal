@@ -844,6 +844,7 @@ class SuiteName(StrEnum):
     EXTRACTION = "extraction"
     WRITING = "writing"
     ADVERSARIAL = "adversarial"
+    REPO = "repo"
     ALL = "all"
 
 
@@ -853,7 +854,7 @@ def evaluate(
         SuiteName,
         typer.Argument(
             help="extraction (notes to facts), writing (facts to bullets), adversarial (text "
-            "the verifier must judge right) or all."
+            "the verifier must judge right), repo (repository history to facts) or all."
         ),
     ],
     private: Annotated[
