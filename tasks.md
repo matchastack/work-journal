@@ -531,7 +531,7 @@ As the owner, I want my repository activity turned into facts that cite the pull
 
 
 ### T-073 · Digest cleaning keeps what it should
-**Status:** ◐ · **Size:** S · **Depends on:** T-067 · **Requirements:** FR-GH-5, R1 · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-067 · **Requirements:** FR-GH-5, R1 · **PR:** [#61](https://github.com/matchastack/work-journal/pull/61)
 
 As the owner, I want the digest's cleaning to remove only what it should, so that a roadmap never backs a fact and the tools I name aren't lost.
 
