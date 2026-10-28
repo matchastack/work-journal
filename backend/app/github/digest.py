@@ -153,8 +153,9 @@ def build_digest(
     in_pulls = {commit.sha for read in history.pulls for commit in read.commits}
     # A rebase merge puts new copies of the commits on the branch: the same title and time.
     copies = {_copy_key(commit) for read in history.pulls for commit in read.commits}
-    reverted_pulls = {n for read in history.pulls for n in _reverted_pulls(read.pull)}
     reverted_commits = {sha for commit in history.commits for sha in _reverted_commits(commit)}
+    reverted_pulls = {n for read in history.pulls for n in _reverted_pulls(read.pull)}
+    reverted_pulls |= _reverted_by_commit(history, reverted_commits)
 
     pulls: list[tuple[PullHistory, Authorship]] = []
     for read in history.pulls:
@@ -281,6 +282,7 @@ _DROPPED_SECTION = re.compile(
     re.IGNORECASE,
 )
 _SQUASHED = re.compile(r"\(#(\d+)\)\s*$")
+_MERGED = re.compile(r"^Merge pull request #(\d+)\b")
 _REVERTS_COMMIT = re.compile(r"this reverts commit ([0-9a-f]{7,40})", re.IGNORECASE)
 _REVERTS_PULL = re.compile(r"\breverts (?:[\w.-]+/[\w.-]+)?#(\d+)", re.IGNORECASE)
 
@@ -513,6 +515,19 @@ def _reverted_pulls(pull: Pull) -> list[int]:
     if not _is_revert(pull.title):
         return []
     return [int(number) for number in _REVERTS_PULL.findall(pull.body or "")]
+
+
+def _reverted_by_commit(history: History, reverted: set[str]) -> set[int]:
+    """The pull requests a `git revert` of their squash commit or merge commit undid. Reverting
+    one of a pull request's commits alone leaves the rest of its work standing."""
+    numbers: set[int] = set()
+    for commit in history.commits:
+        if not any(commit.sha.startswith(sha) for sha in reverted):
+            continue
+        title = commit.message.split("\n", 1)[0]
+        if match := _SQUASHED.search(title) or _MERGED.match(title):
+            numbers.add(int(match[1]))
+    return numbers
 
 
 def _reverted_commits(commit: Commit) -> list[str]:

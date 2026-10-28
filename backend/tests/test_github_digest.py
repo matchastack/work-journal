@@ -293,6 +293,10 @@ def commit(label: str, message: str, author: dict[str, Any] = CASEY, day: int = 
     )
 
 
+def as_merge(commit: Commit) -> Commit:
+    return commit.model_copy(update={"parents": commit.parents * 2})
+
+
 def pull(number: int, title: str, body: str = "", user: dict[str, Any] = CASEY) -> Pull:
     return Pull.model_validate(
         {
@@ -343,6 +347,43 @@ def test_a_rebase_merges_copies_are_part_of_their_pull_request() -> None:
     )
     assert [item.title for item in digest.items] == ["Fix typo", "Tags"]
     assert digest.left_out == {"covered": 1}
+
+
+def test_a_pull_request_reverted_from_the_command_line_is_left_out() -> None:
+    squash = commit("aa1", "Add search (#1)", day=3)
+    merge = as_merge(commit("bb2", "Merge pull request #2 from casey-example/tags", day=4))
+    digest = build_digest(
+        history(
+            [
+                PullHistory(pull(1, "Add search"), ()),
+                PullHistory(pull(2, "Add tags"), ()),
+                PullHistory(pull(3, "Add sharing"), ()),
+            ],
+            [
+                commit("cc3", f'Revert "Add search (#1)"\n\nThis reverts commit {squash.sha}.'),
+                commit(
+                    "dd4",
+                    'Revert "Merge pull request #2 from casey-example/tags"\n\n'
+                    f"This reverts commit {merge.sha}, reversing\nchanges made to {'e' * 40}.",
+                ),
+                merge,
+                squash,
+            ],
+        )
+    )
+    assert [item.title for item in digest.items] == ["Add sharing"]
+    assert digest.left_out == {"merge": 1, "covered": 1, "revert": 2, "reverted": 2}
+
+
+def test_reverting_one_commit_of_a_pull_request_leaves_the_rest_standing() -> None:
+    part = commit("aa1", "Add tags", day=3)
+    digest = build_digest(
+        history(
+            [PullHistory(pull(4, "Tags"), (part, commit("bb2", "Show tags", day=3)))],
+            [commit("cc3", f'Revert "Add tags"\n\nThis reverts commit {part.sha}.'), part],
+        )
+    )
+    assert [item.title for item in digest.items] == ["Tags"]
 
 
 def test_a_private_repository_says_so() -> None:
