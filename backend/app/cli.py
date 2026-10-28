@@ -27,7 +27,7 @@ from app.db.crypto import (
     rotate_keys,
 )
 from app.db.engine import create_engine, session_factory
-from app.db.models import Base
+from app.db.models import Base, User
 from app.db.profiles import (
     SavedChangeSet,
     Version,
@@ -60,6 +60,9 @@ from app.evals.dataset import FICTIONAL_DIR, SUITES, Dataset, DatasetError, load
 from app.evals.report import evaluation_report
 from app.evals.run import CaseResult, Evaluation, SuiteResult, run_suite
 from app.extraction import extract_facts
+from app.github.api import GitHubApi, GitHubApiError, check_repository_name
+from app.github.digest import Digest, build_digest, describe_left_out
+from app.github.reader import ExpectedOwner, read_history
 from app.importers.master_resume import MasterResumeError, import_master_resume
 from app.jobs import run_worker
 from app.linkedin import LinkedInDone, LinkedInPack, PackSection, mark_done, write_pack
@@ -117,6 +120,9 @@ portfolio_cli = typer.Typer(help="The portfolio page.", no_args_is_help=True)
 import_cli = typer.Typer(help="Import existing resume data.", no_args_is_help=True)
 db_cli = typer.Typer(help="Your data in the database (DATABASE_URL).", no_args_is_help=True)
 telegram_cli = typer.Typer(help="The Telegram bot (TELEGRAM_BOT_TOKEN).", no_args_is_help=True)
+github_cli = typer.Typer(
+    help="Your GitHub repositories, for project facts (GITHUB_REPOS_TOKEN).", no_args_is_help=True
+)
 linkedin_cli = typer.Typer()
 cli.add_typer(schema_cli, name="schema")
 cli.add_typer(posting_cli, name="posting")
@@ -125,6 +131,7 @@ cli.add_typer(keys_cli, name="keys")
 cli.add_typer(import_cli, name="import")
 cli.add_typer(db_cli, name="db")
 cli.add_typer(telegram_cli, name="telegram")
+cli.add_typer(github_cli, name="github")
 cli.add_typer(linkedin_cli, name="linkedin")
 
 DbOption = Annotated[
@@ -156,6 +163,11 @@ def _eval_client(log: CallLog) -> LLMClient:
 
 def _telegram_http() -> httpx2.AsyncClient:
     """The HTTP client for Telegram's Bot API (tests replace it with a stand-in for Telegram)."""
+    return httpx2.AsyncClient()
+
+
+def _github_http() -> httpx2.AsyncClient:
+    """The HTTP client for GitHub's REST API (tests replace it with a stand-in for GitHub)."""
     return httpx2.AsyncClient()
 
 
@@ -1757,6 +1769,113 @@ async def _poll(database_url: str) -> int:
             )
     finally:
         await engine.dispose()
+
+
+@github_cli.command("digest")
+def github_digest(
+    repository: Annotated[str, typer.Argument(help="The repository, as owner/name.")],
+    since: Annotated[
+        str | None,
+        typer.Option(help="Read from this month on, as YYYY-MM. Default: the whole history."),
+    ] = None,
+    profile: Annotated[
+        Path | None,
+        typer.Option(
+            help="The profile that names your GitHub username, in basics.profiles. "
+            "Default: local/profile.json.",
+            dir_okay=False,
+        ),
+    ] = None,
+    db: DbOption = False,
+    user: UserOption = None,
+) -> None:
+    """Print exactly what the model would read from a repository's history (FR-GH-3).
+
+    It calls no model and stores nothing. GITHUB_REPOS_TOKEN must be your own token.
+    """
+    try:
+        name = check_repository_name(repository)
+    except ValueError as error:
+        raise typer.BadParameter(str(error), param_hint="REPOSITORY") from None
+    start = _month_start(since)
+    owner = _github_owner(profile, db, user)
+    digest = _run_github(_read_digest(name, owner, start))
+    _echo_digest(digest)
+
+
+def _month_start(month: str | None) -> datetime | None:
+    if month is None:
+        return None
+    try:
+        return datetime.strptime(month, "%Y-%m").replace(tzinfo=UTC)
+    except ValueError:
+        raise typer.BadParameter("must be a month, as YYYY-MM", param_hint="--since") from None
+
+
+def _github_owner(path: Path | None, db: bool, login: str | None) -> ExpectedOwner:
+    """Whose history is read: with --db, the user's GitHub account; otherwise the GitHub
+    username in the profile's basics.profiles."""
+    if db:
+        if path is not None:
+            raise typer.BadParameter("use either --profile or --db", param_hint="--profile")
+        return asyncio.run(_database_owner(login))
+    username = _profile_github_username(_read_profile(path, False, login))
+    if username is None:
+        typer.echo(
+            "Add your GitHub username to the profile's basics.profiles, so the token can be "
+            "checked as yours, or use --db.",
+            err=True,
+        )
+        raise typer.Exit(1)
+    return ExpectedOwner(login=username)
+
+
+def _profile_github_username(profile: Profile) -> str | None:
+    for social in profile.basics.profiles:
+        if social.network.casefold() != "github":
+            continue
+        if social.username:
+            return social.username
+        if social.url and (match := re.search(r"github\.com/([A-Za-z0-9-]+)/?$", social.url)):
+            return match[1]
+    return None
+
+
+async def _database_owner(login: str | None) -> ExpectedOwner:
+    async with _database() as session:
+        account = await session.get(User, await _user(session, login))
+    assert account is not None, "_user returns a user that exists"
+    return ExpectedOwner(github_id=account.github_id, login=account.github_login)
+
+
+async def _read_digest(name: str, owner: ExpectedOwner, since: datetime | None) -> Digest:
+    async with _github_http() as http:
+        api = GitHubApi.from_settings(get_settings(), http)
+        return build_digest(await read_history(api, name, owner=owner, since=since))
+
+
+def _run_github[T](work: Coroutine[Any, Any, T]) -> T:
+    try:
+        return asyncio.run(work)
+    except GitHubApiError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from None
+
+
+def _echo_digest(digest: Digest) -> None:
+    whose = "your repository" if digest.owned else "someone else's repository"
+    typer.echo(f"{digest.repository}: {whose}, {'private' if digest.private else 'public'}.")
+    read = f"Read {_count(digest.pulls_read, 'merged pull request')} and "
+    read += f"{_count(digest.commits_read, 'commit')}"
+    kept = _count(len(digest.items), "item")
+    typer.echo(f"{read}, and kept {kept} in {_count(len(digest.windows), 'part')}.")
+    if left_out := describe_left_out(digest.left_out):
+        typer.echo(f"Left out: {left_out}.")
+    if digest.more_pulls:
+        typer.echo("GitHub's search gave only the first 1,000 merged pull requests.")
+    for index in range(len(digest.windows)):
+        typer.echo("")
+        typer.echo(digest.render_window(index))
 
 
 def _read_profile(path: Path | None, db: bool, user: str | None) -> Profile:
