@@ -3,6 +3,8 @@
 import asyncio
 import json
 import re
+from dataclasses import replace
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -398,6 +400,22 @@ def test_the_owners_commit_in_another_persons_pull_request_is_kept() -> None:
         ("Fix the date parser", "By you")
     ]
     assert digest.left_out == {"merge": 1, "person": 1}
+
+
+def test_an_owned_repository_with_no_work_kept_has_no_about_item() -> None:
+    bot = {"id": 49699333, "login": "dependabot[bot]", "type": "Bot"}
+    quiet = history([], [commit("aa1", "Bump vite", author=bot)])
+    pushed = datetime(2026, 2, 1, tzinfo=UTC)
+    quiet = replace(
+        quiet,
+        repository=quiet.repository.model_copy(update={"pushed_at": pushed}),
+        readme="# Recipe Box\n\nSave recipes.",
+        with_about=True,
+    )
+    digest = build_digest(quiet)
+    assert digest.items == ()
+    assert digest.windows == ()
+    assert digest.left_out == {"bot": 1}
 
 
 def test_a_private_repository_says_so() -> None:

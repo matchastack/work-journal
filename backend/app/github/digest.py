@@ -430,7 +430,10 @@ def _commit_item(commit: Commit, made: Authorship) -> Item:
 
 
 def _about_item(history: History, items: Sequence[Item]) -> Item | None:
-    """What the project is, from an owned repository; None for one with no history at all."""
+    """What the project is, from an owned repository. None when no work is kept, such as for a
+    month with no activity: the README alone describes no work."""
+    if not items:
+        return None
     parts: list[str] = []
     if history.repository.description:
         parts.append(clean(history.repository.description, max_chars=DESCRIPTION_CHARS))
@@ -438,15 +441,12 @@ def _about_item(history: History, items: Sequence[Item]) -> Item | None:
         parts.append(f"Languages: {', '.join(history.languages)}.")
     if history.readme:
         parts.append(f"README:\n{clean_readme(history.readme)}")
-    when = history.repository.pushed_at or max((item.at for item in items), default=None)
-    if when is None:
-        return None
     return Item(
         label="about",
         kind="about",
         ref="",
         url=history.repository.html_url,
-        at=when,
+        at=history.repository.pushed_at or max(item.at for item in items),
         title="About the repository.",
         body="\n\n".join(part for part in parts if part),
         made_by="",
