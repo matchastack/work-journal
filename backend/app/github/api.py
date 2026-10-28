@@ -26,6 +26,8 @@ TIMEOUT_S = 10.0
 PER_PAGE = 100
 SEARCH_LIMIT = 1000
 """GitHub's search returns at most this many results for one query (C7)."""
+SECONDARY_WAIT_S = 60
+"""How long to wait after a rate limit GitHub gives no end for, as its documentation asks."""
 FINE_GRAINED_PREFIX = "github_pat_"
 """How a fine-grained personal access token starts. A classic token (`ghp_`) can't be limited to
 chosen repositories or to reading, so it's refused."""
@@ -47,6 +49,10 @@ class GitHubTokenError(GitHubApiError):
 
 class GitHubNotFound(GitHubApiError):
     """The repository doesn't exist, or the token can't read it."""
+
+
+class GitHubRepositoryEmpty(GitHubApiError):
+    """The repository has no commits yet, so it has no history to list."""
 
 
 class GitHubRateLimited(GitHubApiError):
@@ -239,7 +245,10 @@ class GitHubApi:
         if author is not None:
             params["author"] = author
         path = f"/repos/{check_repository_name(full_name)}/commits"
-        items = await self._pages(path, params, what="commits")
+        try:
+            items = await self._pages(path, params, what="commits")
+        except GitHubRepositoryEmpty:
+            return []
         return [_parse(Commit, item, "commits") for item in items]
 
     async def pull_commits(self, full_name: str, number: int) -> list[Commit]:
@@ -332,6 +341,9 @@ def _error(response: httpx2.Response, what: str) -> GitHubApiError:
         if (wait := headers.get("retry-after", "")).isdigit():
             # A secondary rate limit, for too many requests at once.
             return GitHubRateLimited(datetime.now(UTC) + timedelta(seconds=int(wait)))
+        if status == 429 or "rate limit" in _message(response):
+            # GitHub asks for a wait of at least a minute when it doesn't say how long.
+            return GitHubRateLimited(datetime.now(UTC) + timedelta(seconds=SECONDARY_WAIT_S))
     if status == 401:
         return GitHubTokenError("GitHub refused the token: it may have expired or been revoked")
     if status == 403:
@@ -342,7 +354,21 @@ def _error(response: httpx2.Response, what: str) -> GitHubApiError:
         return GitHubNotFound(
             f"GitHub found no {what}: the repository doesn't exist, or the token can't read it"
         )
+    if status == 409 and "empty" in _message(response):
+        return GitHubRepositoryEmpty(f"GitHub has no {what}: the repository is empty")
     return GitHubApiError(f"GitHub's {what} request failed with status {status}")
+
+
+class _Refusal(BaseModel):
+    message: str = ""
+
+
+def _message(response: httpx2.Response) -> str:
+    """The error message GitHub sent, in lower case, or "" for a reply that has none."""
+    try:
+        return _Refusal.model_validate_json(response.content).message.lower()
+    except ValidationError:
+        return ""
 
 
 def _decoded(response: httpx2.Response, what: str) -> object:

@@ -24,7 +24,8 @@ class FakeGitHubApi:
 
     `add` serves a repository: a mapping with its `repository`, `languages`, `readme`, its
     default branch's `commits` (newest first) and its merged `pulls`, each with its `commits`
-    and, when it was merged into another branch than the default one, that `base`.
+    and, when it was merged into another branch than the default one, that `base`. A repository
+    with no commits is empty, and GitHub refuses to list the commits of an empty repository.
     """
 
     def __init__(self, viewer: Mapping[str, Any]) -> None:
@@ -83,6 +84,8 @@ class FakeGitHubApi:
                 return httpx2.Response(200, json={"content": "base64 here"})
             return httpx2.Response(200, text=readme)
         if rest == "/commits":
+            if not repository.get("commits"):
+                return httpx2.Response(409, json={"message": "Git Repository is empty."})
             return self._page(request, self._commits(request, repository))
         if match := _PULL_COMMITS.match(rest):
             for pull in repository.get("pulls", []):

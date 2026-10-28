@@ -114,6 +114,16 @@ async def test_only_pull_requests_into_the_default_branch_are_read(
 
 
 @pytest.mark.anyio
+async def test_an_empty_repository_has_no_history(github: FakeGitHubApi, api: GitHubApi) -> None:
+    recipe_box = json.loads((FIXTURES / "recipe-box.json").read_text(encoding="utf-8"))
+    empty = {"repository": recipe_box["repository"] | {"full_name": "casey-example/new-idea"}}
+    github.add(empty | {"commits": [], "pulls": [], "readme": "# New idea\n\nNothing yet."})
+    history = await read_history(api, "casey-example/new-idea", owner=CASEY)
+    assert (history.pulls, history.commits) == ((), ())
+    assert history.readme is not None
+
+
+@pytest.mark.anyio
 async def test_the_owner_is_known_by_their_commits_emails(api: GitHubApi) -> None:
     history = await read_history(api, "casey-example/recipe-box", owner=CASEY)
     assert history.owner.is_email("casey@example.com")

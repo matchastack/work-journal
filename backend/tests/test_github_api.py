@@ -3,7 +3,7 @@
 import json
 import logging
 from collections.abc import AsyncIterator, Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx2
@@ -16,6 +16,7 @@ from app.github.api import (
     GitHubApiError,
     GitHubNotFound,
     GitHubRateLimited,
+    GitHubRepositoryEmpty,
     GitHubTokenError,
     check_repository_name,
     check_token,
@@ -243,6 +244,37 @@ async def test_refusals_raise_clear_errors(
     assert "recipe-box" not in message
     assert TOKEN not in message
     assert raised.value.__cause__ is None, "a chained error would quote the address"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("status", "message"),
+    [
+        (403, "You have exceeded a secondary rate limit. Please wait a few minutes."),
+        (429, "Too many requests"),
+        (429, None),
+    ],
+)
+async def test_a_rate_limit_with_no_end_waits_a_minute(status: int, message: str | None) -> None:
+    body = None if message is None else {"message": message}
+    api = answering(lambda request: httpx2.Response(status, json=body))
+    with pytest.raises(GitHubRateLimited, match="rate limit is used up") as raised:
+        await api.commits(RECIPE_BOX, branch="main")
+    assert raised.value.reset_at is not None
+    wait = raised.value.reset_at - datetime.now(UTC)
+    assert timedelta(seconds=50) < wait <= timedelta(seconds=60)
+
+
+@pytest.mark.anyio
+async def test_an_empty_repository_has_no_commits() -> None:
+    empty = {"message": "Git Repository is empty."}
+    api = answering(lambda request: httpx2.Response(409, json=empty))
+    assert await api.commits(RECIPE_BOX, branch="main") == []
+    with pytest.raises(GitHubRepositoryEmpty, match="the repository is empty"):
+        await api.pull_commits(RECIPE_BOX, 1)
+    conflict = answering(lambda request: httpx2.Response(409, json={"message": "Conflict"}))
+    with pytest.raises(GitHubApiError, match="failed with status 409"):
+        await conflict.commits(RECIPE_BOX, branch="main")
 
 
 @pytest.mark.anyio
