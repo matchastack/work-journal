@@ -252,14 +252,17 @@ class GitHubApi:
         self,
         full_name: str,
         *,
+        base: str | None = None,
         since: datetime | None = None,
         author: str | None = None,
         assignee: str | None = None,
     ) -> tuple[list[Pull], bool]:
-        """The merged pull requests, merged on or after `since`'s day, and only `author`'s or
-        those assigned to `assignee` when given. Also whether there were more than the search
-        returns (`SEARCH_LIMIT`)."""
+        """The merged pull requests, merged into `base` (any branch when None) on or after
+        `since`'s day, and only `author`'s or those assigned to `assignee` when given. Also
+        whether there were more than the search returns (`SEARCH_LIMIT`)."""
         terms = [f"repo:{check_repository_name(full_name)}", "is:pr", "is:merged"]
+        if base is not None:
+            terms.append(f"base:{base}")
         if since is not None:
             terms.append(f"merged:>={since.astimezone(UTC):%Y-%m-%d}")
         if author is not None:

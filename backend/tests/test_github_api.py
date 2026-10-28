@@ -176,6 +176,18 @@ async def test_merged_pulls_are_searched(api: GitHubApi, github: FakeGitHubApi) 
 
 
 @pytest.mark.anyio
+async def test_merged_pulls_into_a_branch(api: GitHubApi, github: FakeGitHubApi) -> None:
+    recipe_box = json.loads((FIXTURES / "recipe-box.json").read_text(encoding="utf-8"))
+    recipe_box["pulls"][1]["base"] = "release"
+    github.add(recipe_box)
+    pulls, _ = await api.merged_pulls(RECIPE_BOX, base="main")
+    assert [pull.number for pull in pulls] == [3, 5, 6]
+    assert github.requests[-1].url.params["q"].split()[3] == "base:main"
+    everywhere, _ = await api.merged_pulls(RECIPE_BOX)
+    assert [pull.number for pull in everywhere] == [3, 4, 5, 6]
+
+
+@pytest.mark.anyio
 async def test_merged_pulls_follow_every_page(api: GitHubApi, github: FakeGitHubApi) -> None:
     github.page_size = 2
     pulls, _ = await api.merged_pulls(RECIPE_BOX)

@@ -23,7 +23,8 @@ class FakeGitHubApi:
     """GitHub's side of the calls `GitHubApi` makes, for one account (`viewer`).
 
     `add` serves a repository: a mapping with its `repository`, `languages`, `readme`, its
-    default branch's `commits` (newest first) and its merged `pulls`, each with its `commits`.
+    default branch's `commits` (newest first) and its merged `pulls`, each with its `commits`
+    and, when it was merged into another branch than the default one, that `base`.
     """
 
     def __init__(self, viewer: Mapping[str, Any]) -> None:
@@ -108,14 +109,16 @@ class FakeGitHubApi:
 
     def _search(self, request: httpx2.Request) -> httpx2.Response:
         terms = request.url.params.get("q", "").split()
-        found: list[Mapping[str, Any]] = []
+        found: list[tuple[Mapping[str, Any], str]] = []
         for term in terms:
             if term.startswith("repo:"):
                 repository = self._repositories.get(term.removeprefix("repo:").lower())
-                found = [] if repository is None else [p["pull"] for p in repository["pulls"]]
+                if repository is not None:
+                    default = repository["repository"]["default_branch"]
+                    found = [(p["pull"], p.get("base", default)) for p in repository["pulls"]]
         for term in terms:
-            found = [pull for pull in found if _matches(pull, term)]
-        return self._page(request, found, search=True)
+            found = [(pull, base) for pull, base in found if _matches(pull, base, term)]
+        return self._page(request, [pull for pull, _ in found], search=True)
 
     def _page(
         self, request: httpx2.Request, items: Sequence[Mapping[str, Any]], *, search: bool = False
@@ -134,12 +137,14 @@ class FakeGitHubApi:
         return httpx2.Response(200, json=body, headers=headers)
 
 
-def _matches(pull: Mapping[str, Any], term: str) -> bool:
+def _matches(pull: Mapping[str, Any], base: str, term: str) -> bool:
     key, _, value = term.partition(":")
     merged_at = pull["pull_request"].get("merged_at")
     match key:
         case "is" if value == "merged":
             return merged_at is not None
+        case "base":
+            return base == value
         case "merged":
             day = value.removeprefix(">=")
             return merged_at is not None and merged_at[:10] >= day
