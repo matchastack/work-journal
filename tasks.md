@@ -23,9 +23,9 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 
 | Milestone | Tasks | Status |
 |---|---|---|
-| M0: Documents | T-000, T-055 and T-056 | ☑ |
-| M1: Engine and command line | T-001 – T-024, T-054, T-060 and T-065 (T-007 dropped) | ◐ |
-| M2: Journal loop | T-025 – T-053, T-057 – T-059 and T-061 – T-064 | ◐ |
+| M0: Documents | T-000, T-055, T-056 and T-066 | ◐ |
+| M1: Engine and command line | T-001 – T-024, T-054, T-060, T-065, T-067 and T-068 (T-007 dropped) | ◐ |
+| M2: Journal loop | T-025 – T-053, T-057 – T-059, T-061 – T-064 and T-069 – T-072 | ◐ |
 | M3: Quality and habit | Epics (at the end of this file) | — |
 | M4: Open to others | Epics (at the end of this file) | — |
 
@@ -68,6 +68,25 @@ As the owner, I want the app hosted for free, so that I can journal every day wi
 - [x] The requirements host the app on Vercel's free plan and Postgres on Neon's free plan. Vercel's cron calls a protected tick once a day to run scheduled tasks and queued jobs, in place of an always-on worker; requests that queue jobs run them right after answering.
 - [x] Resumes render on the owner's machine until rendering moves to a host that can run LaTeX.
 - [x] T-051 becomes the Vercel deployment, T-050 (Docker image) is dropped, and T-030, T-032 and T-052 follow the tick.
+
+### T-066 · GitHub projects: requirements
+**Status:** ◐ · **Size:** S · **Depends on:** T-000 · **Requirements:** FR-GH-1 – FR-GH-10 (defines them) · **PR:** [#58](https://github.com/matchastack/work-journal/pull/58)
+
+As the owner, I want my GitHub repositories' history to become facts for my projects, so that my side projects and open-source work reach my resume without journaling about them.
+
+- [x] `project-requirements.md` §7.16 defines FR-GH-1 – FR-GH-10:
+  - the read-only token;
+  - linking a repository to one project;
+  - what's read, and whose work counts, including the work AI coding agents did for the owner;
+  - what's left out and cleaned;
+  - facts that cite their pull requests and commits;
+  - each item read once;
+  - reading at the start of each refresh;
+  - privacy;
+  - where GitHub facts show.
+- [x] §3, §5, §6 (J7), NFR-PRIV-2, §10, §11 (C7), §12 and §13 follow.
+- [x] This file adds T-067 – T-072, each with its requirements and dependencies.
+- [x] No personal data is committed.
 
 ---
 
@@ -437,6 +456,70 @@ As the owner, I want everything the app writes to use ASCII characters, so that 
 - [ ] The import's profile, facts and report are pure ASCII.
 - [ ] Rendered output follows the same rule: resume and portfolio date ranges, page titles and separators (in the PRs that add them).
 - [ ] Tests.
+
+### T-067 · Read a repository's history
+**Status:** ☐ · **Size:** M · **Depends on:** T-066 · **Requirements:** FR-GH-1, FR-GH-3, FR-GH-4, FR-GH-5, FR-GH-9, NFR-SEC-1 · **PR:** —
+
+As the owner, I want to see exactly what the app would read from a repository, so that I can trust it before any model reads it.
+
+- [ ] `GITHUB_REPOS_TOKEN` is a secret setting. `.env.example` lists it with the token's permissions: Metadata, Contents and Pull requests, all read-only.
+  - A token that isn't fine-grained is refused before anything is read.
+  - So is a token whose account isn't the owner's.
+- [ ] A thin client reads:
+  - the account;
+  - the repository, with its languages and README;
+  - merged pull requests, with their commits;
+  - default-branch commits since a given time.
+- [ ] The client follows pagination. It raises clear errors for a refused token, a missing repository and rate limits (with the reset time).
+- [ ] No token, repository name, path or text reaches a log or an error. A log filter redacts GitHub API paths.
+- [ ] The digest sorts each item by who made it:
+  - the owner;
+  - an AI coding agent working for the owner (to start with, Claude Code and GitHub Copilot's coding agent, from a list in code);
+  - another person;
+  - an automation bot.
+
+  Only the first two are kept (FR-GH-4).
+- [ ] It leaves out what FR-GH-5 lists, and cleans the text as FR-GH-5 says.
+- [ ] It writes who made each item, in words, and marks items another person co-authored.
+- [ ] The description, the languages (names only) and the cleaned README are added only for a repository the owner's account owns that isn't a fork. No line, commit or star counts are added.
+- [ ] Items are split into labelled windows of at most about 30 items.
+- [ ] `wj github digest <owner/repo> [--since YYYY-MM]` prints the windows. It calls no model and stores nothing.
+- [ ] Tests use hand-written payloads for fictional repositories behind `httpx2.MockTransport`:
+  - one with the owner's own commits and pull requests;
+  - one whose commits are all by Claude Code, under pull requests the owner opened;
+  - a Dependabot pull request;
+  - another person's commit.
+
+### T-068 · Facts from repository activity
+**Status:** ☐ · **Size:** M · **Depends on:** T-067 · **Requirements:** FR-GH-4, FR-GH-6, FR-EXT-2, R1, NFR-MAINT-2 · **PR:** —
+
+As the owner, I want my repository activity turned into facts that cite the pull requests and commits behind them, so that nothing claims more than my history shows.
+
+- [ ] A new prompt, `repo_extraction/v1`, runs on the standard tier as the `fact_extraction` task.
+  - Its cached context is the skills and the linked project.
+  - Each fact cites item labels.
+- [ ] Code keeps a fact only if it cites items in its window.
+- [ ] Code checks the fact's numbers and tools against the cited items' text alone, reusing the extraction checks.
+- [ ] Code sets three things:
+  - the ownership cap (FR-GH-6);
+  - the date: the latest cited month;
+  - the project, from the link.
+
+  A GitHub fact has no role.
+- [ ] When a cited item was made with an AI coding agent, the agent joins the fact's tools.
+- [ ] `Fact` gains the `github` origin and a `source`: the repository and the cited items, with links.
+  - Stored facts still parse.
+  - Fact IDs are new for each window.
+- [ ] `wj github extract <owner/repo> (--project <id> | --new-project <name>) [--since YYYY-MM]` prints the facts as JSON, with what was left out and why.
+- [ ] A `repo` evaluation suite of fictional repositories covers:
+  - numbers and noise;
+  - co-authors;
+  - AI agents and automation bots;
+  - routine work;
+  - planted instructions.
+
+  The PR gives its numbers, and they meet the bar.
+- [ ] Tests use the fake client, plus an opt-in live test.
 
 ---
 
@@ -827,6 +910,75 @@ As the owner, I want the main journeys tested end to end, so that releases don't
   - checking the page and the PDFs
   - tailoring a real posting
 - [ ] The Playwright test runs in CI.
+
+### T-069 · Link repositories and import their history
+**Status:** ☐ · **Size:** L · **Depends on:** T-068 · **Requirements:** FR-GH-2, FR-GH-3, FR-GH-7, FR-GH-9, FR-GH-10, FR-JRN-7 · **PR:** —
+
+As the owner, I want to link each repository to a project once, import its history and read what's new later, so that my side projects reach my resume without journaling.
+
+- [ ] A migration:
+  - adds `repo_links`, with the repository's name and a new project's name encrypted;
+  - adds `repo_items`, the keys of the items read, with no text;
+  - allows the `github` origin on facts.
+
+  Its downgrade deletes GitHub facts first.
+- [ ] `wj github link <owner/repo> (--project <id> | --new-project <name>) [--since YYYY-MM] [--ownership <cap>] [--yes]`:
+  - checks the token and the project;
+  - says how many pull requests and commits it found, and how many model calls they take;
+  - asks to go on;
+  - saves each window's facts as it goes.
+
+  For a project already in the profile, `--since` defaults to the month the profile was loaded. A benched project gets a warning.
+- [ ] `wj github sync` reads what's new in every linked repository.
+- [ ] `wj github list` shows the linked repositories.
+- [ ] `wj github unlink` stops reading one and keeps its facts.
+- [ ] Each item is read once, even when two reads run at once, and each read looks back 14 days.
+- [ ] A window the model can't read is recorded and skipped. An outage stops that repository until the next read.
+- [ ] The Markdown and JSON exports include GitHub facts, by repository.
+- [ ] Database tests, including two reads racing, and a second read that makes no model call.
+
+### T-070 · Refreshes propose from GitHub facts
+**Status:** ☐ · **Size:** M · **Depends on:** T-069, T-064 · **Requirements:** FR-GH-2, FR-GH-4, FR-GH-10, FR-REV-1, FR-REV-6 · **PR:** —
+
+As the owner, I want my GitHub facts proposed as project bullets at the next refresh, with their sources, so that I review them like any other change.
+
+- [ ] A refresh covers GitHub facts as it covers journal facts, and so does `wj propose` in file mode.
+- [ ] Synthesis puts a GitHub fact only under its project, or under the new project it names. Anything else is left out, with a note.
+- [ ] A project made from a public repository's facts gets the repository's address as its URL. A private repository's address never reaches the profile.
+- [ ] A new skill named only by agent-made facts carries a note in the Inbox, saying to accept it only if you can defend it (R3). The agent itself is exempt.
+- [ ] The Inbox shows each GitHub source fact with its repository and links, and so does `wj apply --db`. The API types are regenerated.
+- [ ] Tests use the fake client.
+
+### T-071 · `/refresh` reads linked repositories first
+**Status:** ☐ · **Size:** M · **Depends on:** T-070 · **Requirements:** FR-GH-8, FR-REM-6, NFR-PERF-1 · **PR:** —
+
+As the owner, I want `/refresh` to read my linked repositories first, so that one command brings my projects up to date.
+
+- [ ] The refresh job reads what's new before it proposes.
+  - It reads at most `GITHUB_REFRESH_WINDOWS` windows, all at once.
+  - 0 turns the read off.
+- [ ] `wj propose --db` reads everything before it starts the refresh.
+- [ ] A GitHub or model error never fails the refresh, and windows already saved stay saved.
+- [ ] A refresh stopped while reading says it didn't finish.
+- [ ] The bot's message adds three things, with no repository text:
+  - what was read;
+  - what's left for the next refresh or `wj github sync`;
+  - what failed.
+- [ ] A repository that another read is working on is skipped.
+- [ ] Database tests use the fake GitHub and the fake LLM client.
+
+### T-072 · GitHub facts on the Journal page
+**Status:** ☐ · **Size:** M · **Depends on:** T-069 · **Requirements:** FR-GH-10, FR-JRN-5, FR-JRN-6, FR-EXT-3 · **PR:** —
+
+As the owner, I want to read, correct and delete the facts from my repositories, so that my record stays accurate.
+
+- [ ] A "From GitHub" section after the journal lists each linked repository and its facts by month, with links to their pull requests and commits.
+- [ ] GitHub facts can be edited and deleted like other facts.
+  - The page warns when the profile cites a fact.
+  - GitHub facts link to projects only.
+- [ ] The download buttons work with no journal entries.
+- [ ] The page works with the keyboard.
+- [ ] Tests for the API and components.
 
 ---
 

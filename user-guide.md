@@ -29,6 +29,7 @@ Every generated sentence is checked against your facts, so wording never changes
 | Fix a note or a saved fact | The web app, Journal page |
 | Update your profile from new notes | `/refresh` in Telegram, then the web app's Inbox |
 | Render the master resume, tailor a resume, build the portfolio page, write LinkedIn text | The command-line tool (web pages **Coming**) |
+| Turn a GitHub repository's history into facts for a project | **Coming** (T-067 to T-072) |
 
 ## Set up on your computer
 
