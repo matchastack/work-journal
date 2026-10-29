@@ -2,6 +2,35 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-28 · T-075 Repository facts: dates and parts that fail · [#63](https://github.com/matchastack/work-journal/pull/63)
+**Changed:** a GitHub fact is dated by the pull requests and commits it cites, never by the repository's latest push, and `wj github extract` skips a part the model declines rather than losing every part's facts.
+
+**Verify:**
+- CI is green on #63
+- A fact that cites an old pull request and the README is dated by the pull request's month
+- A declined part is named at the end, and the other parts' facts are printed
+
+## 2026-10-28 · T-068 Facts from repository activity · [#60](https://github.com/matchastack/work-journal/pull/60)
+**Changed:** `wj github extract <owner/repo> --project <id>` turns a repository's history into facts that cite their pull requests and commits; their numbers and tools come only from those items, and code sets the project, the date and how much of the work they claim.
+
+**Verify:**
+- CI is green on #60
+- `uv run wj eval repo` and `uv run pytest -m llm tests/test_github_extraction_live.py` pass with your key
+- `uv run wj github extract <owner/repo> --project <id> --db` prints facts whose `source` links to their pull requests and commits
+- Work Claude Code did for you lists Claude Code among a fact's tools, and nothing claims "led"
+- Work in someone else's repository claims at most "contributed"
+
+## 2026-10-28 · T-067 Read a repository's history · [#59](https://github.com/matchastack/work-journal/pull/59)
+**Changed:** `wj github digest <owner/repo>` reads a repository's history with a read-only token (`GITHUB_REPOS_TOKEN`), and prints exactly what the model will read: your work and your AI agents' work, cleaned, with what was left out. It calls no model and stores nothing.
+
+**Verify:**
+- CI is green on #59
+- `uv run wj github digest <owner/repo> --db`, with a fine-grained token for one of your repositories, lists its pull requests and commits
+- Work Claude Code did for you reads "By Claude Code, for you" or "By you, with Claude Code"
+- Other people's commits and Dependabot's are only counted under "Left out:", never listed
+- The digest shows no commit hashes, issue numbers, links or emails, and no README roadmap
+- A classic token (`ghp_...`) is refused
+
 ## 2026-10-26 · T-066 GitHub projects: requirements · [#58](https://github.com/matchastack/work-journal/pull/58)
 **Changed:** the requirements add project facts read from your GitHub repositories (§7.16), counting the work that AI coding agents such as Claude Code did for you, and `tasks.md` plans T-067 to T-072 to build them.
 

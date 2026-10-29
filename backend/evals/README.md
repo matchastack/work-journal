@@ -21,6 +21,7 @@ least 90% of facts recovered**, with every case run. Each call is also logged to
 | `extraction` | journal notes and the facts each one gives | the fact-extraction prompt, then the code checks on each fact |
 | `writing` | facts and what a bullet written from them must and mustn't say | the resume writer, with the verifier and its one rewrite |
 | `adversarial` | known-bad text the verifier must catch, and faithful text it must pass | the verifier |
+| `repo` | items of a repository's history and the facts they give | the repository-extraction prompt, then the code checks on each fact |
 
 Notes and facts that try to trick a step, such as instructions inside a note, are cases in that
 step's suite, with `never` patterns.
@@ -36,6 +37,11 @@ step's suite, with `never` patterns.
   the verifier still finds in the final bullet, and each `never` match. Adversarial: other
   known-bad text the verifier doesn't catch.
 - **Fact recall.** The expected facts that a fact the checks kept matches, one to one.
+- **Repository history** (`repo`) counts the same way, against the items each fact cites rather
+  than a note: a number they don't give is altered. A fact is inflated when it cites nothing or an
+  item it wasn't given, names a tool its items don't name, claims more ownership than expected,
+  or matches a `never` pattern. It recovers an expected fact only if it cites one of that fact's
+  `items`.
 - **Cost.** The estimated cost of the run's calls, at the `LLM_PRICE_*` tier prices.
 
 The report holds case IDs, counts, pattern numbers and the verifier's codes. It never quotes a
@@ -115,6 +121,37 @@ check's (`inflated_ownership`, `added_tool`, `added_team_size`, `added_outcome`,
 `honesty_boundary`, `skill_gap`, `posting_term`, `unsupported_claim`, `contradicted_claim`), the
 number check's (`unsupported_number`, `unit_changed`, `qualifier_stronger`), the style check's,
 and the resume rules' (such as `R3` for a skill on the gaps list).
+
+### `repo.toml`
+
+```toml
+profile = "../tests/fixtures/profile.json"
+
+[[cases]]
+id = "a benchmark in a pull request"
+project = "recipe_box"                # the project the facts belong to, or new_project = "Name"
+repository = "casey-example/example"  # optional
+owned = true                          # optional: false for someone else's repository
+never = ['\bled\b']                   # optional: no fact may match these
+
+[[cases.items]]                       # what the digest shows, one table per item (at most 30)
+label = "pr1"                         # about, pr1, pr2... or c1, c2...
+kind = "pull"                         # pull, commit or about
+month = "2023-06"
+title = "Cache parsed recipes"
+body = "Cached results cut page loads from 1200 ms to 300 ms."
+maker = "owner"                       # optional: or agent, with agent = "Claude Code"
+coauthored = false                    # optional: another person had a part in it
+
+[[cases.expected]]                    # one table per fact the items give; none for routine work
+terms = ["cach"]                      #   every part is optional: patterns, metric numbers,
+numbers = [1200, 300]                 #   the items it must cite at least one of, and the most
+items = ["pr1"]                       #   ownership the items give
+ownership = "owned"
+```
+
+The items are cleaned as the digest cleans them before the model reads them, so a case can check
+that a reference such as `#142` never backs a number.
 
 ## Your own cases
 
