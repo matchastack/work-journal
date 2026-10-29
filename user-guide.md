@@ -29,7 +29,7 @@ Every generated sentence is checked against your facts, so wording never changes
 | Fix a note or a saved fact | The web app, Journal page |
 | Update your profile from new notes | `/refresh` in Telegram, then the web app's Inbox |
 | Render the master resume, tailor a resume, build the portfolio page, write LinkedIn text | The command-line tool (web pages **Coming**) |
-| See what a GitHub repository's history would give one of your projects | `wj github digest` (turning it into facts is **Coming**: T-068 to T-072) |
+| See what a GitHub repository's history would give one of your projects, and the facts in it | `wj github digest`, then `wj github extract` (saving the facts for `/refresh` is **Coming**: T-069 to T-072) |
 
 ## Set up on your computer
 
@@ -247,7 +247,7 @@ Paste the text into LinkedIn yourself; Work Journal never posts there.
 
 ### Projects from GitHub
 
-Work Journal can read a GitHub repository's history to find facts for one of your projects, so you don't have to journal about side projects. For now, `wj github digest` shows exactly what it would read. Turning that into facts and bullets is **Coming** (T-068 to T-072).
+Work Journal can read a GitHub repository's history to find facts for one of your projects, so you don't have to journal about side projects. For now, `wj github digest` shows exactly what it would read, and `wj github extract` prints the facts the model finds in it. Saving those facts, so that `/refresh` turns them into bullets, is **Coming** (T-069 to T-072).
 
 **Make a token.** On GitHub, open Settings, Developer settings, Personal access tokens, Fine-grained tokens, and generate a new token:
 
@@ -272,6 +272,21 @@ It prints what it read and what it left out, then the digest, in parts, as the m
 - **What it removes from the text:** commit hashes, issue numbers, links, emails, @mentions, sign-off lines and checklists. From the README, it also removes code blocks and the roadmap, to-do and acknowledgement sections. Nothing removed can back a number in a fact.
 
 A commit counts as yours only when GitHub links its email to your account (GitHub, Settings, Emails).
+
+**The facts in it.** Name the project the facts belong to, from your profile or a new one:
+
+```sh
+uv run wj github extract <owner/repo> --project recipe_box         # a project in your profile, by ID
+uv run wj github extract <owner/repo> --new-project "Recipe Box"   # a new project
+```
+
+It prints the facts as JSON, then lists on the error stream what it left out and why. It calls the standard-tier model once for each part of the digest, and stores nothing. If the model declines a part, or can't answer it in the right shape, that part is skipped: the facts from the other parts are still printed, the skipped part is named at the end, and the command exits with status 1. It takes `--since`, `--profile` and `--db`, as `wj github digest` does. Each fact:
+
+- cites the pull requests and commits it rests on, with their links (`source`);
+- has only the numbers and tools its cited items give: a fact with a number they don't give is left out, and a tool they don't name is removed;
+- belongs to the project you named, never to a role, and is dated by the latest pull request or commit it cites (a fact that cites only the repository's description and README has no date);
+- claims at most "owned" in your own repository, and "contributed" elsewhere or when another person co-authored the work. It's never "led". `--ownership` changes that cap;
+- lists the AI coding agent among its tools when one made or helped with the work.
 
 ### Work on single notes and bullets
 
