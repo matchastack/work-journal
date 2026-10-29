@@ -1,10 +1,11 @@
 """Reading a repository's history from GitHub (FR-GH-3): the I/O that `digest` needs.
 
-Before anything else, the token's account must be the owner's (FR-GH-1). In a repository the
-owner's account owns that isn't a fork, every merged pull request and every default-branch
-commit is read, since an agent's commits aren't authored by the owner's account (FR-GH-4); its
-description, languages and README too. Elsewhere, only what may be the owner's work: the pull
-requests they opened or were assigned, and their own commits.
+Before anything else, the token's account must be the owner's (FR-GH-1). Only what reached the
+default branch is read. In a repository the owner's account owns that isn't a fork, that's
+every pull request merged into it and every commit on it, since an agent's commits aren't
+authored by the owner's account (FR-GH-4); its description, languages and README too.
+Elsewhere, only what may be the owner's work: the pull requests they opened or were assigned,
+and their own commits.
 """
 
 import asyncio
@@ -12,7 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from app.github.api import Account, Commit, GitHubApi, GitHubTokenError, Pull, Repository
-from app.github.authors import Owner, owns
+from app.github.authors import Owner, owns, pull_maker
 
 PULL_READS_AT_ONCE = 4
 """How many pull requests' commits are read at the same time."""
@@ -90,21 +91,28 @@ async def read_history(
     # GitHub answers with the name as it is now, after a rename.
     name = repository.full_name
     owned = owns(Owner(viewer.id, viewer.login), repository)
+    # Only what reached the default branch, as for its commits: a pull request merged into a
+    # feature or release branch may never ship.
+    branch = repository.default_branch
     if owned:
-        pulls, more = await api.merged_pulls(name, since=since)
-        commits = await api.commits(name, branch=repository.default_branch, since=since)
+        pulls, more = await api.merged_pulls(name, base=branch, since=since)
+        commits = await api.commits(name, branch=branch, since=since)
     else:
-        pulls, more = await api.merged_pulls(name, since=since, author=viewer.login)
-        assigned, more_assigned = await api.merged_pulls(name, since=since, assignee=viewer.login)
+        pulls, more = await api.merged_pulls(name, base=branch, since=since, author=viewer.login)
+        assigned, more_assigned = await api.merged_pulls(
+            name, base=branch, since=since, assignee=viewer.login
+        )
         numbers = {pull.number for pull in pulls}
         pulls += [pull for pull in assigned if pull.number not in numbers]
         more = more or more_assigned
-        commits = await api.commits(
-            name, branch=repository.default_branch, since=since, author=viewer.login
-        )
+        commits = await api.commits(name, branch=branch, since=since, author=viewer.login)
     limit = asyncio.Semaphore(PULL_READS_AT_ONCE)
 
     async def with_commits(pull: Pull) -> PullHistory:
+        # Another person's or a bot's pull request never counts, whoever made its commits, so
+        # its commits aren't read: it saves a request for each of them.
+        if pull_maker(pull, Owner(viewer.id, viewer.login)) not in ("owner", "agent"):
+            return PullHistory(pull, ())
         async with limit:
             return PullHistory(pull, tuple(await api.pull_commits(name, pull.number)))
 

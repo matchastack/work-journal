@@ -2,6 +2,22 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-28 · T-074 Read only what can count · [#62](https://github.com/matchastack/work-journal/pull/62)
+**Changed:** the digest reads only pull requests merged into the default branch, leaves out a pull request reverted from the command line, keeps your own commits in another person's pull request, and handles GitHub's secondary rate limit and empty repositories.
+
+**Verify:**
+- CI is green on #62
+- `uv run wj github digest <owner/repo>` on a repository with a release branch lists no pull request merged into it
+- On a new, empty repository, it reads no history and shows no about item
+
+## 2026-10-28 · T-073 Digest cleaning keeps what it should · [#61](https://github.com/matchastack/work-journal/pull/61)
+**Changed:** the digest drops a README's roadmap however its heading is written, and keeps `.NET`, scoped packages, types such as `Result<User>`, `C#10` and lines with an emoji.
+
+**Verify:**
+- CI is green on #61
+- `uv run wj github digest <owner/repo>` on a repository whose README has its roadmap under an emoji or numbered heading shows no roadmap
+- A commit that names `.NET` or `@types/node` shows it unchanged
+
 ## 2026-10-28 · T-075 Repository facts: dates and parts that fail · [#63](https://github.com/matchastack/work-journal/pull/63)
 **Changed:** a GitHub fact is dated by the pull requests and commits it cites, never by the repository's latest push, and `wj github extract` skips a part the model declines rather than losing every part's facts.
 

@@ -150,11 +150,9 @@ def build_digest(
     owned = history.owned
     left_out: Counter[LeftOut] = Counter()
     numbers = {read.pull.number for read in history.pulls}
-    in_pulls = {commit.sha for read in history.pulls for commit in read.commits}
-    # A rebase merge puts new copies of the commits on the branch: the same title and time.
-    copies = {_copy_key(commit) for read in history.pulls for commit in read.commits}
-    reverted_pulls = {n for read in history.pulls for n in _reverted_pulls(read.pull)}
     reverted_commits = {sha for commit in history.commits for sha in _reverted_commits(commit)}
+    reverted_pulls = {n for read in history.pulls for n in _reverted_pulls(read.pull)}
+    reverted_pulls |= _reverted_by_commit(history, reverted_commits)
 
     pulls: list[tuple[PullHistory, Authorship]] = []
     for read in history.pulls:
@@ -168,6 +166,11 @@ def build_digest(
                 pulls.append((read, made))
             else:
                 left_out["bot" if made.maker == "bot" else "person"] += 1
+    # Only the pull requests kept cover their commits, so the owner's own commits in another
+    # person's pull request are items of their own, as they are in someone else's repository.
+    in_pulls = {commit.sha for read, _ in pulls for commit in read.commits}
+    # A rebase merge puts new copies of the commits on the branch: the same title and time.
+    copies = {_copy_key(commit) for read, _ in pulls for commit in read.commits}
 
     commits: list[tuple[Commit, Authorship]] = []
     for commit in history.commits:
@@ -236,29 +239,44 @@ def made_by(made: Authorship) -> str:
 
 _HTML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 _CODE_BLOCK = re.compile(r"^\s*(```|~~~).*?^\s*\1[^\n]*$", re.DOTALL | re.MULTILINE)
+# `[ \t]`, not `\s`, so a trailer or a checklist line never runs on into the next line.
 _TRAILER = re.compile(
-    r"^\s*(?:[a-z]+(?:-[a-z]+)*-by|change-id|[a-z]+-session|cc):\s.*$",
+    r"^[ \t]*(?:[a-z]+(?:-[a-z]+)*-by|change-id|[a-z]+-session|cc):[^\n]*$",
     re.IGNORECASE | re.MULTILINE,
 )
-_CHECKLIST = re.compile(r"^\s*[-*+]\s+\[[ xX]\].*$", re.MULTILINE)
+_CHECKLIST = re.compile(r"^[ \t]*[-*+][ \t]+\[[ xX]\][^\n]*$", re.MULTILINE)
 _IMAGE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
-_HTML_TAG = re.compile(r"</?[A-Za-z][^>]*>")
+_HTML_TAG = re.compile(
+    r"</?(?:a|abbr|b|blockquote|br|center|code|del|details|div|em|h[1-6]|hr|i|img|ins|kbd|li|"
+    r"ol|p|picture|pre|s|source|span|strong|sub|summary|sup|table|tbody|td|th|thead|tr|u|ul|"
+    r"video)\b[^>]*>",
+    re.IGNORECASE,
+)
+"""HTML tags by name, so a type such as `Result<User>` or `Vec<u8>` stays."""
 _LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
 _URL = re.compile(r"\b(?:https?://|www\.)\S+", re.IGNORECASE)
 _EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 _CLOSES = re.compile(
     r"\b(?:fix(?:e[sd])?|close[sd]?|resolve[sd]?)\s+(?:[\w.-]+/[\w.-]+)?#\d+\b\.?", re.IGNORECASE
 )
-_REFERENCE = re.compile(r"(?:[\w.-]+/[\w.-]+)?#\d+\b|\bGH-\d+\b")
-_MENTION = re.compile(r"(?<![\w.@])@[A-Za-z0-9][A-Za-z0-9-]*(?:\[bot\])?")
+_REFERENCE = re.compile(r"(?<![\w#])(?:[\w.-]+/[\w.-]+)?#\d+\b|\bGH-\d+\b")
+"""`#12`, `owner/repo#12` or `GH-12`, but not `C#10`."""
+_MENTION = re.compile(r"(?<![\w.@])@[A-Za-z0-9][A-Za-z0-9-]*(?:\[bot\])?(?![\w-]*/)")
+"""`@sam-example`, but not a scoped package such as `@types/node`."""
 _HASH = re.compile(r"\b(?=[0-9a-f]*\d)(?=[0-9a-f]*[a-f])[0-9a-f]{7,40}\b")
 _EMOJI = re.compile("[\U0001f000-\U0001faff☀-➿️‍]")
 _WORD = re.compile(r"[A-Za-z0-9]+")
 _EMPTY_BRACKETS = re.compile(r"\(\s*\)|\[\s*\]")
-_SPACE_BEFORE_MARK = re.compile(r"[ \t]+([.,;:!?])")
+_SPACE_BEFORE_MARK = re.compile(r"[ \t]+([.,;:!?])(?=\s|$)")
+"""A space left before a mark that ends a word, but not the one before `.NET` or `.env`."""
 _SPACES = re.compile(r"[ \t]{2,}")
 _BLANK_LINES = re.compile(r"\n{3,}")
 _HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
+_SETEXT_UNDERLINE = re.compile(r"^[ \t]*(=+|-+)[ \t]*$")
+_NOT_A_PARAGRAPH = re.compile(r"^[ \t]*(?:$|[#>|*+-]|\d+[.)])")
+"""A line a setext underline can't make a heading of: blank, a heading, a quote, a table row,
+or a list item."""
+_LEADING_NON_LETTERS = re.compile(r"^[^A-Za-z]+")
 _DROPPED_SECTION = re.compile(
     r"^(?:road\s*map|to-?dos?|planned|plans|future\b.*|next steps|wish\s*list|"
     r"acknowledge?ments?|credits|thanks|contributors|contributing|sponsors?|licen[cs]e|"
@@ -266,6 +284,7 @@ _DROPPED_SECTION = re.compile(
     re.IGNORECASE,
 )
 _SQUASHED = re.compile(r"\(#(\d+)\)\s*$")
+_MERGED = re.compile(r"^Merge pull request #(\d+)\b")
 _REVERTS_COMMIT = re.compile(r"this reverts commit ([0-9a-f]{7,40})", re.IGNORECASE)
 _REVERTS_PULL = re.compile(r"\breverts (?:[\w.-]+/[\w.-]+)?#(\d+)", re.IGNORECASE)
 
@@ -280,6 +299,8 @@ def clean(text: str, *, max_chars: int, leftovers: bool = True) -> str:
     for line in text.split("\n"):
         if any(agent.footer is not None and agent.footer.search(line) for agent in AGENTS):
             continue
+        # An emoji leaves nothing behind, so its removal doesn't make a line a leftover.
+        line = _EMOJI.sub("", line)
         scrubbed = _scrubbed(line)
         if leftovers and scrubbed != line and len(_WORD.findall(scrubbed)) < LEFTOVER_WORDS:
             continue
@@ -298,7 +319,7 @@ def _scrubbed(line: str) -> str:
     line = _IMAGE.sub("", line)
     line = _HTML_TAG.sub("", line)
     line = _LINK.sub(r"\1", line)
-    for pattern in (_URL, _EMAIL, _CLOSES, _REFERENCE, _MENTION, _HASH, _EMOJI):
+    for pattern in (_URL, _EMAIL, _CLOSES, _REFERENCE, _MENTION, _HASH):
         line = pattern.sub("", line)
     return line
 
@@ -308,16 +329,32 @@ def clean_readme(text: str) -> str:
     with nothing under them, then cleaned."""
     kept: list[str] = []
     dropping: int | None = None
-    for line in _CODE_BLOCK.sub("", text).split("\n"):
+    for line in _atx_headings(_CODE_BLOCK.sub("", text).split("\n")):
         if heading := _HEADING.match(line):
             level = len(heading[1])
             if dropping is not None and level <= dropping:
                 dropping = None
-            if dropping is None and _DROPPED_SECTION.match(heading[2]):
+            # The title may start with an emoji or a number, as in "## 1. Roadmap".
+            title = _LEADING_NON_LETTERS.sub("", heading[2])
+            if dropping is None and _DROPPED_SECTION.match(title):
                 dropping = level
         if dropping is None:
             kept.append(line)
     return clean("\n".join(_without_empty_sections(kept)), max_chars=README_CHARS)
+
+
+def _atx_headings(lines: Sequence[str]) -> list[str]:
+    """The lines with each setext heading (a title underlined with `===` or `---`) written as
+    `#` or `##`, so that sections are found however their headings are written."""
+    written: list[str] = []
+    for line in lines:
+        underline = _SETEXT_UNDERLINE.match(line)
+        if underline and written and not _NOT_A_PARAGRAPH.match(written[-1]):
+            marks = "#" if underline[1].startswith("=") else "##"
+            written[-1] = f"{marks} {written[-1].strip()}"
+            continue
+        written.append(line)
+    return written
 
 
 def _without_empty_sections(lines: Sequence[str]) -> list[str]:
@@ -393,7 +430,10 @@ def _commit_item(commit: Commit, made: Authorship) -> Item:
 
 
 def _about_item(history: History, items: Sequence[Item]) -> Item | None:
-    """What the project is, from an owned repository; None for one with no history at all."""
+    """What the project is, from an owned repository. None when no work is kept, such as for a
+    month with no activity: the README alone describes no work."""
+    if not items:
+        return None
     parts: list[str] = []
     if history.repository.description:
         parts.append(clean(history.repository.description, max_chars=DESCRIPTION_CHARS))
@@ -401,15 +441,12 @@ def _about_item(history: History, items: Sequence[Item]) -> Item | None:
         parts.append(f"Languages: {', '.join(history.languages)}.")
     if history.readme:
         parts.append(f"README:\n{clean_readme(history.readme)}")
-    when = history.repository.pushed_at or max((item.at for item in items), default=None)
-    if when is None:
-        return None
     return Item(
         label="about",
         kind="about",
         ref="",
         url=history.repository.html_url,
-        at=when,
+        at=history.repository.pushed_at or max(item.at for item in items),
         title="About the repository.",
         body="\n\n".join(part for part in parts if part),
         made_by="",
@@ -480,6 +517,19 @@ def _reverted_pulls(pull: Pull) -> list[int]:
     if not _is_revert(pull.title):
         return []
     return [int(number) for number in _REVERTS_PULL.findall(pull.body or "")]
+
+
+def _reverted_by_commit(history: History, reverted: set[str]) -> set[int]:
+    """The pull requests a `git revert` of their squash commit or merge commit undid. Reverting
+    one of a pull request's commits alone leaves the rest of its work standing."""
+    numbers: set[int] = set()
+    for commit in history.commits:
+        if not any(commit.sha.startswith(sha) for sha in reverted):
+            continue
+        title = commit.message.split("\n", 1)[0]
+        if match := _SQUASHED.search(title) or _MERGED.match(title):
+            numbers.add(int(match[1]))
+    return numbers
 
 
 def _reverted_commits(commit: Commit) -> list[str]:

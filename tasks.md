@@ -24,7 +24,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 | Milestone | Tasks | Status |
 |---|---|---|
 | M0: Documents | T-000, T-055, T-056 and T-066 | ◐ |
-| M1: Engine and command line | T-001 – T-024, T-054, T-060, T-065, T-067, T-068 and T-075 (T-007 dropped) | ◐ |
+| M1: Engine and command line | T-001 – T-024, T-054, T-060, T-065, T-067, T-068, T-073, T-074 and T-075 (T-007 dropped) | ◐ |
 | M2: Journal loop | T-025 – T-053, T-057 – T-059, T-061 – T-064 and T-069 – T-072 | ◐ |
 | M3: Quality and habit | Epics (at the end of this file) | — |
 | M4: Open to others | Epics (at the end of this file) | — |
@@ -534,6 +534,35 @@ As the owner, I want my repository activity turned into facts that cite the pull
 - **Schema.** `Fact.source` sits in the fact's encrypted JSON, and the web app's API types are regenerated, since journal facts include it.
 - **Benched projects.** `wj github extract` notes a benched project, whose bullets never render.
 - **Evaluation numbers.** They need the owner's key; the PR says how to run them.
+
+### T-073 · Digest cleaning keeps what it should
+**Status:** ◐ · **Size:** S · **Depends on:** T-067 · **Requirements:** FR-GH-5, R1 · **PR:** [#61](https://github.com/matchastack/work-journal/pull/61)
+
+As the owner, I want the digest's cleaning to remove only what it should, so that a roadmap never backs a fact and the tools I name aren't lost.
+
+From the review of #59:
+- [x] A README section such as a roadmap is dropped however its heading is written: after an emoji or a number ("## 1. Roadmap"), or underlined (a setext heading).
+- [x] A line that only loses an emoji is kept, so gitmoji messages keep their text.
+- [x] Names stay whole:
+  - `.NET` and `.env`;
+  - scoped packages such as `@types/node`;
+  - types such as `Result<User>`;
+  - `C#10`.
+- [x] A trailer with nothing after its colon never takes the next line with it.
+- [x] A test for each, which fails without the fix.
+
+### T-074 · Read only what can count
+**Status:** ◐ · **Size:** S · **Depends on:** T-073 · **Requirements:** FR-GH-3, FR-GH-4, FR-GH-5, C7 · **PR:** [#62](https://github.com/matchastack/work-journal/pull/62)
+
+As the owner, I want the reader to read only work that reached the default branch and counts as mine, so that no unshipped or reverted work backs a fact, and a busy repository doesn't run into GitHub's rate limits.
+
+From the review of #59:
+- [x] Only pull requests merged into the default branch are read, as for its commits.
+- [x] A pull request is left out when a `git revert` of its squash commit or merge commit undid it. Reverting one of its commits alone leaves it standing.
+- [x] A repository with no work kept, such as a month with no activity, gives no about item, so the README alone never becomes facts.
+- [x] Another person's or a bot's pull request never has its commits read. The owner's own commits in such a pull request are kept, each on its own.
+- [x] GitHub's secondary rate limit, which may come with no reset time, waits a minute rather than reading as a refused token. An empty repository reads as having no history rather than failing.
+- [x] A test for each, which fails without the fix.
 
 ### T-075 · Repository facts: dates and parts that fail
 **Status:** ◐ · **Size:** S · **Depends on:** T-068 · **Requirements:** FR-GH-6, FR-GH-7 · **PR:** [#63](https://github.com/matchastack/work-journal/pull/63)

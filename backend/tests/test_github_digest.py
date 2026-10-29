@@ -3,6 +3,8 @@
 import asyncio
 import json
 import re
+from dataclasses import replace
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -195,6 +197,24 @@ def test_numbers_the_items_give_stay(recipe_box: Digest) -> None:
         ("Steps\n- [x] Tests pass\n- [ ] Docs", "Steps"),
         ("Cut 50\u201360 ms \u2014 nice", "Cut 50-60 ms - nice"),
         ("#12: fix the parser\n.gitignore the build", "fix the parser\n.gitignore the build"),
+        (
+            "Ported the service to .NET 8 and moved secrets to .env",
+            "Ported the service to .NET 8 and moved secrets to .env",
+        ),
+        ("Body\n- \U0001f41b Fix crash\n\u2728 Faster builds", "Body\n- Fix crash\nFaster builds"),
+        (
+            "Migrate to @tanstack/react-query and @types/node",
+            "Migrate to @tanstack/react-query and @types/node",
+        ),
+        (
+            "Return Result<User> and Vec<u8> from the <b>parser</b>",
+            "Return Result<User> and Vec<u8> from the parser",
+        ),
+        ("Use C#10 records and F# types (#12)", "Use C#10 records and F# types"),
+        (
+            "Body\nSigned-off-by:\nAdded caching layer for search results",
+            "Body\n\nAdded caching layer for search results",
+        ),
     ],
 )
 def test_clean(text: str, cleaned: str) -> None:
@@ -209,6 +229,20 @@ def test_leftover_lines_go_from_text_but_not_from_titles() -> None:
 
 def test_long_text_is_cut_at_a_word() -> None:
     assert clean("one two three four five", max_chars=14) == "one two..."
+
+
+@pytest.mark.parametrize(
+    "heading",
+    ["## \U0001f5fa\ufe0f Roadmap", "## 1. Planned features", "Roadmap\n-------", "## To-do list"],
+)
+def test_readme_sections_are_found_however_their_heading_is_written(heading: str) -> None:
+    readme = f"# Tool\n\nIntro.\n\n{heading}\n\n- Reach 500 users\n\n## Usage\n\nRun it.\n"
+    assert clean_readme(readme) == "# Tool\n\nIntro.\n\n## Usage\n\nRun it."
+
+
+def test_setext_headings_count_as_headings_but_rules_dont() -> None:
+    readme = "Tool\n====\n\nIntro.\n\n---\n\nMore.\n\nCredits\n-------\n\nSam made the icons.\n"
+    assert clean_readme(readme) == "# Tool\n\nIntro.\n\n---\n\nMore."
 
 
 def test_readme_sections_are_dropped_with_their_subsections() -> None:
@@ -261,6 +295,10 @@ def commit(label: str, message: str, author: dict[str, Any] = CASEY, day: int = 
     )
 
 
+def as_merge(commit: Commit) -> Commit:
+    return commit.model_copy(update={"parents": commit.parents * 2})
+
+
 def pull(number: int, title: str, body: str = "", user: dict[str, Any] = CASEY) -> Pull:
     return Pull.model_validate(
         {
@@ -311,6 +349,73 @@ def test_a_rebase_merges_copies_are_part_of_their_pull_request() -> None:
     )
     assert [item.title for item in digest.items] == ["Fix typo", "Tags"]
     assert digest.left_out == {"covered": 1}
+
+
+def test_a_pull_request_reverted_from_the_command_line_is_left_out() -> None:
+    squash = commit("aa1", "Add search (#1)", day=3)
+    merge = as_merge(commit("bb2", "Merge pull request #2 from casey-example/tags", day=4))
+    digest = build_digest(
+        history(
+            [
+                PullHistory(pull(1, "Add search"), ()),
+                PullHistory(pull(2, "Add tags"), ()),
+                PullHistory(pull(3, "Add sharing"), ()),
+            ],
+            [
+                commit("cc3", f'Revert "Add search (#1)"\n\nThis reverts commit {squash.sha}.'),
+                commit(
+                    "dd4",
+                    'Revert "Merge pull request #2 from casey-example/tags"\n\n'
+                    f"This reverts commit {merge.sha}, reversing\nchanges made to {'e' * 40}.",
+                ),
+                merge,
+                squash,
+            ],
+        )
+    )
+    assert [item.title for item in digest.items] == ["Add sharing"]
+    assert digest.left_out == {"merge": 1, "covered": 1, "revert": 2, "reverted": 2}
+
+
+def test_reverting_one_commit_of_a_pull_request_leaves_the_rest_standing() -> None:
+    part = commit("aa1", "Add tags", day=3)
+    digest = build_digest(
+        history(
+            [PullHistory(pull(4, "Tags"), (part, commit("bb2", "Show tags", day=3)))],
+            [commit("cc3", f'Revert "Add tags"\n\nThis reverts commit {part.sha}.'), part],
+        )
+    )
+    assert [item.title for item in digest.items] == ["Tags"]
+
+
+def test_the_owners_commit_in_another_persons_pull_request_is_kept() -> None:
+    mine = commit("aa1", "Fix the date parser", day=3)
+    digest = build_digest(
+        history(
+            [PullHistory(pull(5, "Add calendar export", user=SAM), (mine,))],
+            [as_merge(commit("bb2", "Merge pull request #5 from sam-example/export")), mine],
+        )
+    )
+    assert [(item.title, item.made_by) for item in digest.items] == [
+        ("Fix the date parser", "By you")
+    ]
+    assert digest.left_out == {"merge": 1, "person": 1}
+
+
+def test_an_owned_repository_with_no_work_kept_has_no_about_item() -> None:
+    bot = {"id": 49699333, "login": "dependabot[bot]", "type": "Bot"}
+    quiet = history([], [commit("aa1", "Bump vite", author=bot)])
+    pushed = datetime(2026, 2, 1, tzinfo=UTC)
+    quiet = replace(
+        quiet,
+        repository=quiet.repository.model_copy(update={"pushed_at": pushed}),
+        readme="# Recipe Box\n\nSave recipes.",
+        with_about=True,
+    )
+    digest = build_digest(quiet)
+    assert digest.items == ()
+    assert digest.windows == ()
+    assert digest.left_out == {"bot": 1}
 
 
 def test_a_private_repository_says_so() -> None:

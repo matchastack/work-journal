@@ -82,7 +82,9 @@ def test_digest_reads_from_a_month(github: FakeGitHubApi) -> None:
     result = runner.invoke(cli, digest("casey-example/recipe-box", "--since", "2023-08"))
     assert result.exit_code == 0, result.output
     queries = [r.url.params["q"] for r in github.requests if r.url.path == "/search/issues"]
-    assert queries == ["repo:casey-example/recipe-box is:pr is:merged merged:>=2023-08-01"]
+    assert queries == [
+        "repo:casey-example/recipe-box is:pr is:merged base:main merged:>=2023-08-01"
+    ]
     assert "Read 3 merged pull requests" in result.stdout
 
 

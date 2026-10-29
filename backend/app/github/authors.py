@@ -151,20 +151,21 @@ def commit_authorship(commit: Commit, owner: Owner) -> Authorship:
     return Authorship(maker, helper, coauthored, names_owner)
 
 
+def pull_maker(pull: Pull, owner: Owner) -> Maker:
+    """Who opened a pull request. Only one the owner or an agent opened can count as theirs."""
+    if agent_for(pull.user.login) is not None:
+        return "agent"
+    if owner.is_account(pull.user):
+        return "owner"
+    return "bot" if is_bot(pull.user) else "person"
+
+
 def pull_authorship(pull: Pull, commits: Sequence[Commit], owner: Owner) -> Authorship:
     """Whose work a pull request is, from who opened it and who made its commits. Another
     person's commit in it makes it co-authored; an agent's commit, or the agent's footer in its
     description, names the agent that helped."""
+    maker = pull_maker(pull, owner)
     agent = agent_for(pull.user.login)
-    maker: Maker
-    if agent is not None:
-        maker = "agent"
-    elif owner.is_account(pull.user):
-        maker = "owner"
-    elif is_bot(pull.user):
-        maker = "bot"
-    else:
-        maker = "person"
     helper = None if agent is None else agent.name
     if helper is None:
         helper = next(
