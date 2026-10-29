@@ -63,10 +63,31 @@ FactKind = Literal[
 ]
 
 Ownership = Literal["led", "owned", "contributed", "assisted"]
+RepoItemKind = Literal["about", "pull", "commit"]
+
+
+class RepoItem(Model):
+    """A pull request, a commit or a repository's description that a GitHub fact rests on."""
+
+    kind: RepoItemKind
+    ref: str = ""
+    """The pull request's number or the commit's hash; empty for the repository's description."""
+    url: NonEmptyStr
+
+
+class RepoSource(Model):
+    """Where a fact from GitHub comes from (FR-GH-6): its repository and the items it cites."""
+
+    repository: NonEmptyStr
+    """The repository, as `owner/name`."""
+    url: NonEmptyStr
+    private: bool
+    items: Annotated[tuple[RepoItem, ...], Field(min_length=1)]
 
 
 class Fact(Model):
-    """Something that happened, extracted from a journal entry or an imported bullet."""
+    """Something that happened, extracted from a journal entry, an imported bullet or a
+    repository's history."""
 
     id: Id
     statement: NonEmptyStr
@@ -89,6 +110,16 @@ class Fact(Model):
     question_id: Id | None = None
     """The open question this fact answers, if any."""
     confidentiality_flags: tuple[str, ...] = ()
-    origin: Literal["journal", "import"] = "journal"
+    origin: Literal["journal", "import", "github"] = "journal"
     entry_id: str | None = None
-    """The journal entry this fact came from. None for imported facts."""
+    """The journal entry this fact came from. None for imported facts and facts from GitHub."""
+    source: RepoSource | None = None
+    """For a fact from GitHub, the repository and the pull requests and commits it cites."""
+
+    @model_validator(mode="after")
+    def github_facts_have_a_source(self) -> Self:
+        if (self.origin == "github") != (self.source is not None):
+            raise ValueError("a fact from GitHub has a source, and no other fact does")
+        if self.origin == "github" and (self.entry_id or self.role_id or self.proposed_role):
+            raise ValueError("a fact from GitHub belongs to a project, never to an entry or a role")
+        return self

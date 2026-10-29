@@ -14,11 +14,13 @@ from app.evals.dataset import (
     Dataset,
     ExpectedFact,
     ExtractionCase,
+    RepoCase,
     Suite,
     WritingCase,
 )
 from app.evals.run import CaseResult, Evaluation, SuiteResult, cost_usd, run_suite
 from app.extraction import ExtractedFact, ExtractedMetric, ExtractionReply
+from app.github.extraction import RepoExtractionReply, RepoFactReply
 from app.llm.client import LLMClient, LLMConfigError
 from app.llm.fake import FakeMessages, reply
 from app.llm.usage import CallRecord, MemoryCallLog
@@ -367,3 +369,99 @@ def test_the_cost_is_unknown_when_a_tier_has_no_price() -> None:
     assert cost_usd([priced, priced]) == pytest.approx(0.0012)
     assert cost_usd([priced, priced.model_copy(update={"cost_usd": None})]) is None
     assert cost_usd([]) == 0
+
+
+# --- repository history ---
+
+CACHE_ITEM = {
+    "label": "pr1",
+    "kind": "pull",
+    "month": "2023-06",
+    "title": "Cache parsed recipes",
+    "body": "Cached results cut page loads from 1.2 s to 300 ms.",
+}
+CACHE = "Cut page loads from 1.2 s to 300 ms by caching parsed recipes."
+
+
+def repo_case(**fields: object) -> RepoCase:
+    values: dict[str, object] = {
+        "id": "cache",
+        "project": "recipe_box",
+        "items": [
+            CACHE_ITEM,
+            {"label": "c1", "kind": "commit", "month": "2023-07", "title": "Fix a typo"},
+        ],
+        "expected": [{"terms": ["cach"], "numbers": [1.2, 300], "items": ["pr1"]}],
+    }
+    return RepoCase.model_validate(values | fields)
+
+
+def repo_fact(**fields: object) -> RepoFactReply:
+    values: dict[str, object] = {"items": ["pr1"], "statement": CACHE, "kind": "accomplishment"}
+    return RepoFactReply.model_validate(values | fields)
+
+
+def read_repo(case: RepoCase, *facts: RepoFactReply) -> CaseResult:
+    return run("repo", case, replies=[reply(RepoExtractionReply(facts=facts))]).cases[0]
+
+
+def test_a_faithful_repo_fact_passes() -> None:
+    before = {"subject": "page load before", "kind": "single", "numbers": [1.2], "unit": "s"}
+    after = {"subject": "page load after", "kind": "single", "numbers": [300], "unit": "ms"}
+    result = read_repo(repo_case(), repo_fact(metrics=[before, after]))
+    assert result.passed, result.notes
+    assert (result.expected_facts, result.recovered_facts) == (1, 1)
+
+
+def test_a_number_the_cited_items_dont_give_is_altered() -> None:
+    result = read_repo(repo_case(), repo_fact(statement="Cut page loads by 75% with a cache."))
+    assert not result.passed
+    assert result.altered_numbers == 1
+    assert "1 number the cited items don't give" in result.notes
+
+
+def test_citing_an_item_it_wasnt_given_is_inflated() -> None:
+    result = read_repo(repo_case(), repo_fact(items=["pr9"]))
+    assert result.inflated_claims == 1
+    assert "a fact claims more than its items: cites an item it wasn't given" in result.notes
+    assert "missed expected fact 1" in result.notes
+
+
+def test_a_tool_or_a_never_pattern_is_inflated() -> None:
+    result = read_repo(repo_case(never=[r"\bled\b"]), repo_fact(tools=["Redis"]))
+    assert result.inflated_claims == 1
+    assert "a fact claims more than its items: a tool its items don't name" in result.notes
+    led = read_repo(repo_case(never=[r"\bled\b"]), repo_fact(statement="Led the caching work."))
+    assert "a fact claims more than its items: never pattern 1" in led.notes
+
+
+def test_ownership_above_the_expected_is_inflated() -> None:
+    item = CACHE_ITEM | {"coauthored": True}
+    expected = [{"terms": ["cach"], "items": ["pr1"], "ownership": "assisted"}]
+    result = read_repo(repo_case(items=[item], expected=expected), repo_fact())
+    assert result.inflated_claims == 1
+    assert any("ownership above assisted" in note for note in result.notes)
+
+
+def test_a_fact_must_cite_an_expected_item_to_recover_it() -> None:
+    expected = [{"terms": ["cach"], "items": ["c1"]}]
+    result = read_repo(repo_case(expected=expected), repo_fact())
+    assert result.recovered_facts == 0
+    assert "missed expected fact 1" in result.notes
+
+
+def test_a_fact_from_routine_work_is_spurious() -> None:
+    result = read_repo(repo_case(expected=[]), repo_fact(items=["c1"], statement="Fixed a typo."))
+    assert not result.passed
+    assert "1 fact where none were expected" in result.notes
+
+
+def test_repo_items_are_cleaned_before_the_model_reads_them() -> None:
+    item = CACHE_ITEM | {"body": "Fixes #12. Cached results cut page loads from 1.2 s to 300 ms."}
+    settings = Settings(llm_model_standard="standard-model")
+    fake = FakeMessages(reply(RepoExtractionReply(facts=())))
+    dataset = Dataset("repo", Path("repo.toml"), PROFILE, FACTS, (repo_case(items=[item]),))
+    run_suite(dataset, LLMClient(settings, fake, MemoryCallLog()), MemoryCallLog())
+    message = str(fake.requests[0]["messages"])
+    assert "#12" not in message
+    assert "[pr1] Pull request, merged in June 2023." in message

@@ -24,7 +24,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 | Milestone | Tasks | Status |
 |---|---|---|
 | M0: Documents | T-000, T-055, T-056 and T-066 | ◐ |
-| M1: Engine and command line | T-001 – T-024, T-054, T-060, T-065, T-067, T-068, T-073 and T-074 (T-007 dropped) | ◐ |
+| M1: Engine and command line | T-001 – T-024, T-054, T-060, T-065, T-067, T-068, T-073, T-074 and T-075 (T-007 dropped) | ◐ |
 | M2: Journal loop | T-025 – T-053, T-057 – T-059, T-061 – T-064 and T-069 – T-072 | ◐ |
 | M3: Quality and habit | Epics (at the end of this file) | — |
 | M4: Open to others | Epics (at the end of this file) | — |
@@ -499,36 +499,41 @@ As the owner, I want to see exactly what the app would read from a repository, s
 - **Windows.** At most 30 items and about 12,000 characters each.
 
 ### T-068 · Facts from repository activity
-**Status:** ☐ · **Size:** M · **Depends on:** T-067 · **Requirements:** FR-GH-4, FR-GH-6, FR-EXT-2, R1, NFR-MAINT-2 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-067 · **Requirements:** FR-GH-4, FR-GH-6, FR-EXT-2, R1, NFR-MAINT-2 · **PR:** [#60](https://github.com/matchastack/work-journal/pull/60)
 
 As the owner, I want my repository activity turned into facts that cite the pull requests and commits behind them, so that nothing claims more than my history shows.
 
-- [ ] A new prompt, `repo_extraction/v1`, runs on the standard tier as the `fact_extraction` task.
+- [x] A new prompt, `repo_extraction/v1`, runs on the standard tier as the `fact_extraction` task.
   - Its cached context is the skills and the linked project.
   - Each fact cites item labels.
-- [ ] Code keeps a fact only if it cites items in its window.
-- [ ] Code checks the fact's numbers and tools against the cited items' text alone, reusing the extraction checks.
-- [ ] Code sets three things:
+- [x] Code keeps a fact only if it cites items in its window.
+- [x] Code checks the fact's numbers and tools against the cited items' text alone, reusing the extraction checks.
+- [x] Code sets three things:
   - the ownership cap (FR-GH-6);
   - the date: the latest cited month;
   - the project, from the link.
 
   A GitHub fact has no role.
-- [ ] When a cited item was made with an AI coding agent, the agent joins the fact's tools.
-- [ ] `Fact` gains the `github` origin and a `source`: the repository and the cited items, with links.
+- [x] When a cited item was made with an AI coding agent, the agent joins the fact's tools.
+- [x] `Fact` gains the `github` origin and a `source`: the repository and the cited items, with links.
   - Stored facts still parse.
   - Fact IDs are new for each window.
-- [ ] `wj github extract <owner/repo> (--project <id> | --new-project <name>) [--since YYYY-MM]` prints the facts as JSON, with what was left out and why.
-- [ ] A `repo` evaluation suite of fictional repositories covers:
+- [x] `wj github extract <owner/repo> (--project <id> | --new-project <name>) [--since YYYY-MM]` prints the facts as JSON, with what was left out and why.
+- [x] A `repo` evaluation suite of fictional repositories covers:
   - numbers and noise;
   - co-authors;
   - AI agents and automation bots;
   - routine work;
   - planted instructions.
+- [ ] The PR gives the suite's numbers, and they meet the bar. This waits for the owner's run of `uv run wj eval repo`, which needs their `ANTHROPIC_API_KEY`.
+- [x] Tests use the fake client, plus an opt-in live test.
 
-  The PR gives its numbers, and they meet the bar.
-- [ ] Tests use the fake client, plus an opt-in live test.
-
+**Built (2026-10-28):** the code is in `backend/app/github/extraction.py`.
+- **Checks.** They call extraction's own `check_facts` on a note made of the cited items' text, so `app/extraction.py` is unchanged; #57 changes it.
+- **Ownership.** The model may only give an ownership lower than the cap.
+- **Schema.** `Fact.source` sits in the fact's encrypted JSON, and the web app's API types are regenerated, since journal facts include it.
+- **Benched projects.** `wj github extract` notes a benched project, whose bullets never render.
+- **Evaluation numbers.** They need the owner's key; the PR says how to run them.
 
 ### T-073 · Digest cleaning keeps what it should
 **Status:** ◐ · **Size:** S · **Depends on:** T-067 · **Requirements:** FR-GH-5, R1 · **PR:** [#61](https://github.com/matchastack/work-journal/pull/61)
@@ -558,6 +563,18 @@ From the review of #59:
 - [x] Another person's or a bot's pull request never has its commits read. The owner's own commits in such a pull request are kept, each on its own.
 - [x] GitHub's secondary rate limit, which may come with no reset time, waits a minute rather than reading as a refused token. An empty repository reads as having no history rather than failing.
 - [x] A test for each, which fails without the fix.
+
+### T-075 · Repository facts: dates and parts that fail
+**Status:** ◐ · **Size:** S · **Depends on:** T-068 · **Requirements:** FR-GH-6, FR-GH-7 · **PR:** [#63](https://github.com/matchastack/work-journal/pull/63)
+
+As the owner, I want each GitHub fact dated by the work it cites, and one part the model can't read not to lose the others, so that a long history is worth reading and its facts land in the right month.
+
+From the review of #60:
+- [x] The about item never dates a fact: it carries the latest push, not the work. A fact is dated by the pull requests and commits it cites, and one that cites only the about item has no date.
+- [x] A part the model declines, or can't answer in the right shape, is recorded and skipped, and the other parts' facts are kept. An outage still stops the read, as the next part would fail too.
+- [x] `wj github extract` names a skipped part and exits with status 1.
+- [x] A test for each, which fails without the fix.
+
 ---
 
 ## M2: Journal loop

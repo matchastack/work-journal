@@ -1,4 +1,5 @@
-"""`wj github digest`, against a stand-in for GitHub (FR-GH-1, FR-GH-3)."""
+"""`wj github digest` and `wj github extract`, against a stand-in for GitHub (FR-GH-1, FR-GH-3,
+FR-GH-6), with the fake LLM client."""
 
 import json
 import re
@@ -12,7 +13,11 @@ from typer.testing import CliRunner
 from app import cli as cli_module
 from app.cli import cli
 from app.config import Settings, get_settings
+from app.github.extraction import RepoExtractionReply
 from app.github.fake import TOKEN, FakeGitHubApi
+from app.llm.client import LLMClient
+from app.llm.fake import FakeMessages, refusal, reply
+from app.llm.usage import MemoryCallLog
 
 FIXTURES = Path(__file__).parent / "fixtures"
 PROFILE = FIXTURES / "profile.json"
@@ -163,3 +168,121 @@ def test_digest_checks_its_arguments(github: FakeGitHubApi, args: list[str], wor
     assert result.exit_code == 2
     assert words in ANSI_STYLE.sub("", result.output)
     assert github.requests == []
+
+
+# --- wj github extract ---
+
+SHOPPING = "Added a weekly shopping list that groups ingredients by aisle."
+
+
+def model(monkeypatch: pytest.MonkeyPatch, *replies: RepoExtractionReply) -> FakeMessages:
+    fake = FakeMessages(*(reply(answer) for answer in replies))
+    settings = Settings(llm_model_standard="standard-model")
+    monkeypatch.setattr(
+        cli_module, "_llm_client", lambda: LLMClient(settings, fake, MemoryCallLog())
+    )
+    return fake
+
+
+def found(*facts: dict[str, object]) -> RepoExtractionReply:
+    return RepoExtractionReply.model_validate({"facts": list(facts)})
+
+
+def extract(*args: str) -> list[str]:
+    return ["github", "extract", *args, "--profile", str(PROFILE)]
+
+
+def test_extract_prints_the_facts_from_github(
+    github: FakeGitHubApi, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake = model(
+        monkeypatch,
+        found(
+            {"items": ["pr2"], "statement": SHOPPING, "kind": "accomplishment"},
+            {"items": ["pr1"], "statement": "Cut page loads to 300 ms.", "kind": "accomplishment"},
+        ),
+    )
+    result = runner.invoke(cli, extract("casey-example/recipe-box", "--project", "recipe_box"))
+    assert result.exit_code == 0, result.output
+    assert len(fake.requests) == 1
+    (fact,) = json.loads(result.stdout)
+    assert fact["origin"] == "github"
+    assert fact["projectId"] == "recipe_box"
+    assert fact["ownership"] == "owned"
+    assert fact["tools"] == ["Claude Code"]
+    assert fact["date"] == "2023-08"
+    assert fact["source"]["items"] == [
+        {"kind": "pull", "ref": "4", "url": "https://github.com/casey-example/recipe-box/pull/4"}
+    ]
+    assert "Reading 1 part of casey-example/recipe-box." in result.stderr
+    assert 'Left out "Cut page loads to 300 ms.": the items it cites don\'t give' in result.stderr
+
+
+def test_extract_names_a_part_the_model_declined(
+    github: FakeGitHubApi, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake = FakeMessages(refusal("cyber"))
+    settings = Settings(llm_model_standard="standard-model")
+    monkeypatch.setattr(
+        cli_module, "_llm_client", lambda: LLMClient(settings, fake, MemoryCallLog())
+    )
+    result = runner.invoke(cli, extract("casey-example/recipe-box", "--project", "recipe_box"))
+    assert result.exit_code == 1
+    assert json.loads(result.stdout) == []
+    assert (
+        "Part 1 of 1 couldn't be read, so its facts are missing: Claude declined the request "
+        "(cyber)" in result.stderr
+    )
+
+
+def test_extract_files_facts_under_a_new_project_with_a_cap(
+    github: FakeGitHubApi, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    model(
+        monkeypatch,
+        found(
+            {"items": ["c1"], "statement": "Fixed the README example.", "kind": "accomplishment"}
+        ),
+    )
+    args = ["tinyparse-org/tinyparse", "--new-project", "tinyparse", "--ownership", "assisted"]
+    result = runner.invoke(cli, extract(*args))
+    assert result.exit_code == 0, result.output
+    (fact,) = json.loads(result.stdout)
+    assert (fact["proposedItem"], fact["ownership"]) == ("tinyparse", "assisted")
+    assert "projectId" not in fact
+
+
+def test_extract_warns_about_a_benched_project(
+    github: FakeGitHubApi, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    profile = json.loads(PROFILE.read_text(encoding="utf-8"))
+    recipe = next(item for item in profile["projects"] if item["id"] == "recipe_box")
+    recipe.update(status="benched", statusReason="Old.")
+    benched = tmp_path / "benched.json"
+    benched.write_text(json.dumps(profile), encoding="utf-8")
+    model(monkeypatch, found())
+    args = ["github", "extract", "casey-example/recipe-box", "--project", "recipe_box"]
+    result = runner.invoke(cli, [*args, "--profile", str(benched)])
+    assert result.exit_code == 0, result.output
+    assert "Recipe Box is benched, so its bullets never render." in result.stderr
+    assert json.loads(result.stdout) == []
+
+
+@pytest.mark.parametrize(
+    ("args", "words"),
+    [
+        ([], "name either a project"),
+        (["--project", "recipe_box", "--new-project", "Box"], "either a project"),
+        (["--project", "nope"], "no project 'nope'"),
+        (["--project", "recipe_box", "--ownership", "led"], "Invalid value"),
+    ],
+)
+def test_extract_needs_one_project(
+    github: FakeGitHubApi, monkeypatch: pytest.MonkeyPatch, args: list[str], words: str
+) -> None:
+    fake = model(monkeypatch)
+    result = runner.invoke(cli, extract("casey-example/recipe-box", *args))
+    assert result.exit_code == 2
+    assert words in ANSI_STYLE.sub("", result.output)
+    assert github.requests == []
+    assert fake.requests == []
