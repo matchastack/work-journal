@@ -3,6 +3,8 @@
 Besides preferences, two keys keep the LinkedIn pack's state (T-024): the pack last written, and
 the snapshot of the sections last marked done. `reminders` holds the owner's reminder schedule
 and pause, and `reminder_state` the bot's record of the reminders it sent or skipped (T-035).
+`portfolio` and `confidential_terms` are kept for the portfolio page (T-046) and the
+confidentiality checks (T-049). The Settings page (`app/settings/`) edits the preferences.
 """
 
 import uuid
@@ -17,13 +19,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import Setting
 from app.linkedin import LinkedInDone, LinkedInPack
 from app.schema.common import Model
-from app.schema.settings import ReminderSettings, ReminderState, StyleNote, StyleNotes
+from app.schema.settings import (
+    ConfidentialTerms,
+    PortfolioSettings,
+    ReminderSettings,
+    ReminderState,
+    StyleNote,
+    StyleNotes,
+)
 
 STYLE_NOTES = "style_notes"
 LINKEDIN_PACK = "linkedin_pack"
 LINKEDIN_DONE = "linkedin_done"
 REMINDERS = "reminders"
 REMINDER_STATE = "reminder_state"
+PORTFOLIO = "portfolio"
+CONFIDENTIAL_TERMS = "confidential_terms"
+HANDLE_LOCK = 0x776A68616E646C65
+"""The advisory lock taken while a portfolio handle is checked and saved: "wjhandle" in ASCII."""
 
 
 async def get_style_notes(session: AsyncSession, user_id: uuid.UUID) -> StyleNotes:
@@ -104,6 +117,48 @@ async def save_reminder_state(
     session: AsyncSession, user_id: uuid.UUID, state: ReminderState
 ) -> None:
     await _save(session, user_id, REMINDER_STATE, state)
+
+
+async def get_portfolio_settings(session: AsyncSession, user_id: uuid.UUID) -> PortfolioSettings:
+    """The user's portfolio settings; until they set any, the defaults, without a handle."""
+    value = await _get(session, user_id, PORTFOLIO)
+    return PortfolioSettings() if value is None else PortfolioSettings.model_validate(value)
+
+
+async def save_portfolio_settings(
+    session: AsyncSession, user_id: uuid.UUID, portfolio: PortfolioSettings
+) -> None:
+    """Replace the user's portfolio settings. Check `handle_taken` first, in the same
+    transaction: no two users may have the same handle."""
+    await _save(session, user_id, PORTFOLIO, portfolio)
+
+
+async def handle_taken(session: AsyncSession, user_id: uuid.UUID, handle: str) -> bool:
+    """Whether another user's portfolio page has the handle `handle`. It takes a lock that's
+    held until the transaction ends, so that two users can't both take one handle."""
+    await session.execute(select(func.pg_advisory_xact_lock(HANDLE_LOCK)))
+    owner = await session.scalar(
+        select(Setting.user_id)
+        .where(
+            Setting.key == PORTFOLIO,
+            Setting.value["handle"].astext == handle,
+            Setting.user_id != user_id,
+        )
+        .limit(1)
+    )
+    return owner is not None
+
+
+async def get_confidential_terms(session: AsyncSession, user_id: uuid.UUID) -> ConfidentialTerms:
+    """The user's confidential terms; none until they add some."""
+    value = await _get(session, user_id, CONFIDENTIAL_TERMS)
+    return ConfidentialTerms() if value is None else ConfidentialTerms.model_validate(value)
+
+
+async def save_confidential_terms(
+    session: AsyncSession, user_id: uuid.UUID, terms: ConfidentialTerms
+) -> None:
+    await _save(session, user_id, CONFIDENTIAL_TERMS, terms)
 
 
 async def _get(session: AsyncSession, user_id: uuid.UUID, key: str) -> dict[str, object] | None:
