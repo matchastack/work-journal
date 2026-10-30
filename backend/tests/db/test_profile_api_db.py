@@ -1,4 +1,4 @@
-"""`/api/profile` for the signed-in owner, against the test database (T-042)."""
+"""`/api/profile` for the signed-in owner, against the test database (T-042, T-043)."""
 
 import asyncio
 import random
@@ -504,3 +504,169 @@ def test_each_owner_sees_and_edits_only_their_own_profile(database_url: str, own
     latest = other.latest()
     assert (latest.number, latest.profile.basics.name) == (2, "Robin Lee")
     assert latest.profile.work[0].highlights[1].text == EXPORT
+
+
+# --- Tailoring metadata (T-043) -----------------------------------------------------------------
+
+
+def rules(**changes: Any) -> dict[str, Any]:
+    """Northwind's tailoring rules as their form sends them, with `changes`."""
+    return {
+        "baseVersion": 1,
+        "titleVariants": ["Software Engineer", "Backend Engineer"],
+        "loadBearing": True,
+        "duringEducation": False,
+        "keepFor": ["backend", "data"],
+        "cutFor": [],
+        "sensitivity": "sensitive",
+        "honestyBoundaries": ["Did not own the deployment pipeline."],
+        **changes,
+    }
+
+
+def skills_body(**changes: Any) -> dict[str, Any]:
+    skills = [
+        skill.model_dump(mode="json", exclude={"notes"}) | {"previousName": skill.name}
+        for skill in PROFILE.skills
+    ]
+    return {"baseVersion": 1, "skills": skills, "skillGaps": list(PROFILE.skill_gaps), **changes}
+
+
+def test_metadata_edits_need_a_signed_in_owner_and_the_csrf_header(
+    owner: Owner, client: TestClient
+) -> None:
+    assert client.put("/api/profile/work/northwind/rules", json=rules()).status_code == 403
+    assert client.put("/api/profile/skills", json=skills_body()).status_code == 403
+    client.cookies.clear()
+    assert put(client, owner, "work/northwind/rules", rules()).status_code == 401
+    created = client.post("/api/profile/open-questions", json={}, headers=owner.csrf)
+    assert created.status_code == 401
+
+
+def test_a_roles_rules_save_as_a_version_by_the_owner(owner: Owner, client: TestClient) -> None:
+    """FR-PRF-5, FR-PRF-11."""
+    response = put(
+        client, owner, "work/northwind/rules", rules(titleVariants=["Platform Engineer"])
+    )
+    assert response.status_code == 200
+    page = response.json()
+    assert page["version"]["number"] == 2
+    assert page["version"]["summary"] == f"Edited the tailoring rules of the role {NORTHWIND}"
+    assert page["profile"]["work"][0]["titleVariants"] == ["Platform Engineer"]
+    latest = owner.latest()
+    assert latest.change_set_id is not None
+    saved = owner.change_set(latest.change_set_id)
+    assert (saved.change_set.author, saved.change_set.status) == ("owner", "applied")
+    unchanged = put(
+        client,
+        owner,
+        "work/northwind/rules",
+        rules(baseVersion=2, titleVariants=["Platform Engineer"]),
+    )
+    assert unchanged.json()["version"]["number"] == 2
+
+
+def test_a_metadata_edit_that_doesnt_fit_says_why(owner: Owner, client: TestClient) -> None:
+    unknown = put(client, owner, "work/northwind/rules", rules(keepFor=["mobile"]))
+    assert (unknown.status_code, unknown.json()["detail"]) == (
+        422,
+        "mobile isn't one of your role types: add it under Role types first",
+    )
+    both = put(client, owner, "work/northwind/rules", rules(cutFor=["backend"]))
+    assert both.status_code == 422
+    in_use = put(
+        client,
+        owner,
+        "role-types",
+        {"baseVersion": 1, "roleTypes": [{"id": "backend", "name": "Backend"}]},
+    )
+    assert in_use.status_code == 422
+    assert in_use.json()["detail"].startswith("the role type data is still used by")
+    assert put(client, owner, "work/contoso-gone/rules", rules()).status_code == 404
+    assert owner.latest().number == 1
+
+
+def test_skills_gaps_presets_and_summaries_change_the_profile(
+    owner: Owner, client: TestClient
+) -> None:
+    """FR-PRF-6, FR-PRF-8, FR-PRF-9."""
+    gaps = put(client, owner, "skills", skills_body(skillGaps=["Rust", "Swift", "Haskell"]))
+    assert gaps.json()["profile"]["skillGaps"] == ["Rust", "Swift", "Haskell"]
+    assert gaps.json()["version"]["summary"] == "Edited your skills"
+    claimed = put(client, owner, "skills", skills_body(baseVersion=2, skillGaps=["Python"]))
+    assert claimed.status_code == 422
+    preset = {"roleType": "data", "lines": [{"label": "Languages", "skills": ["Python", "SQL"]}]}
+    presets = put(client, owner, "skill-presets", {"baseVersion": 2, "skillPresets": [preset]})
+    assert presets.json()["profile"]["skillPresets"] == [preset]
+    summary = {"roleType": "backend", "text": "Backend engineer building Python services."}
+    summaries = put(client, owner, "summaries", {"baseVersion": 3, "summaries": [summary]})
+    assert summaries.json()["profile"]["summaries"] == [summary]
+    assert summaries.json()["version"]["number"] == 4
+
+
+def test_swaps_and_coursework_change_their_bullet_and_entry(
+    owner: Owner, client: TestClient
+) -> None:
+    """FR-WRT-5, FR-PRF-7."""
+    swap = {
+        "text": "high-volume order services",
+        "replaces": None,
+        "contexts": [],
+        "origin": "approved",
+    }
+    swaps = put(client, owner, "bullets/nw_orders/swaps", {"baseVersion": 1, "swaps": [swap]})
+    assert swaps.status_code == 200
+    assert swaps.json()["profile"]["work"][0]["highlights"][0]["swaps"] == [swap]
+    coursework = {
+        "baseVersion": 2,
+        "courses": ["Algorithms", "Databases"],
+        "courseworkSubsets": [{"roleType": "data", "courses": ["Databases"]}],
+        "rules": ["Never print the GPA."],
+    }
+    saved = put(client, owner, "education/springfield_state/coursework", coursework)
+    assert saved.status_code == 200
+    education = saved.json()["profile"]["education"][0]
+    assert (education["courses"], education["rules"]) == (
+        ["Algorithms", "Databases"],
+        ["Never print the GPA."],
+    )
+    wrong = coursework | {
+        "baseVersion": 3,
+        "courseworkSubsets": [{"roleType": "data", "courses": ["Compilers"]}],
+    }
+    assert put(client, owner, "education/springfield_state/coursework", wrong).status_code == 422
+
+
+def test_open_questions_are_created_answered_and_closed(owner: Owner, client: TestClient) -> None:
+    """FR-PRF-10."""
+    question = {
+        "baseVersion": 1,
+        "question": "How long did the export take before?",
+        "status": "open",
+        "bulletIds": ["nw_export"],
+    }
+    created = client.post("/api/profile/open-questions", json=question, headers=owner.csrf)
+    assert created.status_code == 200
+    page = created.json()
+    assert page["profile"]["openQuestions"][-1] == {
+        "id": "q_1",
+        "question": "How long did the export take before?",
+        "status": "open",
+        "answerFactIds": [],
+    }
+    assert page["profile"]["work"][0]["highlights"][1]["needs"] == ["q_1"]
+    answered = put(
+        client, owner, "open-questions/q_1", question | {"baseVersion": 2, "status": "answered"}
+    )
+    assert answered.json()["version"]["summary"] == "Answered an open question"
+    closed = put(
+        client,
+        owner,
+        "open-questions/q_1",
+        question | {"baseVersion": 3, "status": "closed", "bulletIds": []},
+    )
+    page = closed.json()
+    assert page["profile"]["openQuestions"][-1]["status"] == "closed"
+    assert page["profile"]["work"][0]["highlights"][1]["needs"] == []
+    missing = put(client, owner, "open-questions/q_gone", question | {"baseVersion": 4})
+    assert missing.status_code == 404
