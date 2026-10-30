@@ -4,6 +4,7 @@ import asyncio
 import random
 import uuid
 from collections.abc import Awaitable, Callable, Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -22,9 +23,14 @@ from app.db.profiles import (
     get_change_set,
     latest_version,
     list_change_sets,
+    lock_latest,
+    propose_change_set,
+    save_owner_changes,
     save_version,
 )
+from app.inbox.review import apply_change_set
 from app.main import create_app
+from app.schema.changes import ChangeSet, ReviewedOp, UpdateField
 from app.schema.profile import Profile
 
 BROWSER = "https://testserver"
@@ -34,6 +40,10 @@ EXPORT = "Cut the nightly export job from 50 to 12 minutes by batching database 
 REWORDED = "Cut the nightly export from 50 to 12 minutes by batching database writes."
 NORTHWIND = "Engineer, Northwind Traders"
 _random = random.SystemRandom()
+
+
+def _now() -> datetime:
+    return datetime.now(UTC)
 
 
 def seed[T](database_url: str, build: Callable[[AsyncSession], Awaitable[T]]) -> T:
@@ -280,6 +290,43 @@ def test_a_save_from_an_old_page_is_refused(owner: Owner, client: TestClient) ->
     )
     assert owner.latest().number == 2
     assert len(owner.change_sets()) == 1
+
+
+def test_an_inbox_apply_waits_for_an_owner_edit_and_keeps_it(owner: Owner) -> None:
+    """An apply that read the profile before the owner's edit was saved would undo it."""
+    label = UpdateField(target_id="basics", field="label", value="Data Engineer")
+
+    async def propose(session: AsyncSession) -> uuid.UUID:
+        change_set = ChangeSet(
+            author="ai", ops=(ReviewedOp(op=label, status="accepted"),), base_version=1
+        )
+        return await propose_change_set(session, owner.id, change_set)
+
+    change_set_id = seed(owner.database_url, propose)
+
+    async def race() -> int | None:
+        engine = create_async_engine(owner.database_url)
+        sessions = async_sessionmaker(engine, expire_on_commit=False)
+
+        async def apply() -> int | None:
+            async with sessions() as session, session.begin():
+                return await apply_change_set(session, owner.id, change_set_id, now=_now())
+
+        try:
+            async with sessions() as editing, editing.begin():
+                base = await lock_latest(editing, owner.id, expected=1)
+                renamed = UpdateField(target_id="basics", field="name", value="Casey Q. Morgan")
+                await save_owner_changes(editing, owner.id, base, [renamed], summary="Renamed")
+                applying = asyncio.create_task(apply())
+                await asyncio.sleep(0.5)
+                assert not applying.done()
+            return await applying
+        finally:
+            await engine.dispose()
+
+    assert asyncio.run(race()) == 3
+    basics = owner.latest().profile.basics
+    assert (basics.name, basics.label) == ("Casey Q. Morgan", "Data Engineer")
 
 
 def test_an_edit_must_find_its_target_and_follow_the_rules(

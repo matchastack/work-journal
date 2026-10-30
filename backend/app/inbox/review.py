@@ -44,6 +44,7 @@ from app.db.profiles import (
     get_change_set,
     latest_version,
     list_change_sets,
+    lock_profile,
     save_version,
 )
 from app.db.settings import add_style_notes, get_style_notes
@@ -262,7 +263,7 @@ async def apply_change_set(
     accepted = [reviewed.op for reviewed in ops if reviewed.status == "accepted"]
     number = None
     if accepted:
-        latest = await latest_version(session, user_id)
+        latest = await lock_profile(session, user_id)
         if latest is None:
             raise ReviewError("there's no profile to apply the changes to; load it first")
         try:

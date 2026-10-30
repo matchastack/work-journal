@@ -158,15 +158,22 @@ async def list_versions(session: AsyncSession, user_id: uuid.UUID) -> list[Versi
     ]
 
 
+async def lock_profile(session: AsyncSession, user_id: uuid.UUID) -> Version | None:
+    """The user's newest version, locked against other saves until the transaction ends, or None
+    before a profile is loaded. A change built on it reads it this way, so a version saved
+    meanwhile, such as the owner's edit, is waited for rather than undone."""
+    await session.execute(select(User.id).where(User.id == user_id).with_for_update())
+    return await latest_version(session, user_id)
+
+
 async def lock_latest(session: AsyncSession, user_id: uuid.UUID, *, expected: int) -> Version:
-    """The user's newest version, which must be `expected`. It's locked against other saves until
-    the transaction ends, so two changes can't both be made from it.
+    """The user's newest version, which must be `expected`, locked as `lock_profile` locks it, so
+    two changes can't both be made from it.
 
     Raises `VersionError` when there's no profile yet, and `StaleVersion` when the newest version
     isn't `expected`.
     """
-    await session.execute(select(User.id).where(User.id == user_id).with_for_update())
-    latest = await latest_version(session, user_id)
+    latest = await lock_profile(session, user_id)
     if latest is None:
         raise VersionError("there's no profile yet")
     if latest.number != expected:
