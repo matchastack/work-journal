@@ -161,6 +161,15 @@ def test_update_field_on_the_profile_takes_only_its_lists(profile: Profile, fiel
         apply(profile, [UpdateField(target_id="profile", field=field, value=[])])
 
 
+def test_an_item_whose_id_is_profile_can_still_be_changed(profile: Profile) -> None:
+    named = profile.projects[0].model_copy(update={"id": "profile", "name": "Profile"})
+    with_item = profile.model_copy(update={"projects": (named, *profile.projects[1:])})
+    op = UpdateField(target_id="profile", field="description", value="A profile page builder.")
+    assert apply(with_item, [op]).projects[0].description == "A profile page builder."
+    gaps = UpdateField(target_id="profile", field="skillGaps", value=["Haskell"])
+    assert apply(with_item, [gaps]).skill_gaps == ("Haskell",)
+
+
 def test_a_profile_list_must_keep_the_profile_valid(profile: Profile) -> None:
     summaries: JsonValue = [{"roleType": "mobile", "text": "Ships apps."}]
     with pytest.raises(ProfileOpError, match="undefined role types"):
