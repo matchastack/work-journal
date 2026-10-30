@@ -4,6 +4,7 @@ import { useSaveBasics, type Basics } from "../../api/profile";
 import { LABEL, TEXT_BUTTON } from "../ui";
 import { basicsDraft, basicsEditOf, LIMITS, type LinkDraft } from "./drafts";
 import { EditForm, TextArea, TextField } from "./fields";
+import { useRowFocus } from "./useRowFocus";
 import { useEditForm } from "./useEditForm";
 
 /**
@@ -23,6 +24,7 @@ export function BasicsForm({
 }) {
   const save = useSaveBasics();
   const nextKey = useRef(basics.profiles.length);
+  const { rowRef, addButton, added, removed } = useRowFocus();
   const { draft, problem, stale, change, submit } = useEditForm({
     current: basicsDraft(basics),
     editOf: basicsEditOf,
@@ -140,7 +142,11 @@ export function BasicsForm({
         {draft.profiles.map((link, index) => {
           const name = `Profile ${String(index + 1)}`;
           return (
-            <fieldset key={link.key} className="rounded border border-stone-200 bg-white p-2">
+            <fieldset
+              key={link.key}
+              ref={rowRef(link.key)}
+              className="rounded border border-stone-200 bg-white p-2"
+            >
               <legend className="px-1 text-xs text-stone-600">{name}</legend>
               <div className="grid gap-2 sm:grid-cols-3">
                 <TextField
@@ -174,6 +180,10 @@ export function BasicsForm({
               <button
                 type="button"
                 onClick={() => {
+                  removed(
+                    draft.profiles.map((other) => other.key),
+                    link.key,
+                  );
                   change({ profiles: draft.profiles.filter((other) => other.key !== link.key) });
                 }}
                 className={`mt-2 ${TEXT_BUTTON}`}
@@ -185,9 +195,11 @@ export function BasicsForm({
         })}
         {draft.profiles.length < LIMITS.profiles && (
           <button
+            ref={addButton}
             type="button"
             onClick={() => {
               const key = nextKey.current++;
+              added(key);
               change({
                 profiles: [...draft.profiles, { key, network: "", username: "", url: "" }],
               });
