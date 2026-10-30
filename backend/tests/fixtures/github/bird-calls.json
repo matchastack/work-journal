@@ -1,0 +1,476 @@
+{
+  "repository": {
+    "id": 700002,
+    "full_name": "casey-example/bird-calls",
+    "html_url": "https://github.com/casey-example/bird-calls",
+    "private": true,
+    "fork": false,
+    "owner": {
+      "login": "casey-example",
+      "id": 4242,
+      "type": "User"
+    },
+    "description": "Tell birds apart by their calls.",
+    "default_branch": "main",
+    "pushed_at": "2024-04-20T10:00:00Z"
+  },
+  "languages": {
+    "Python": 81234,
+    "Jupyter Notebook": 20410
+  },
+  "readme": null,
+  "commits": [
+    {
+      "sha": "7aba4c4f1b6ef84f7ce4604d302e2be4f9319a75",
+      "html_url": "https://github.com/casey-example/bird-calls/commit/7aba4c4f1b6ef84f7ce4604d302e2be4f9319a75",
+      "commit": {
+        "message": "Merge pull request #3 from casey-example/copilot/type-hints",
+        "author": {
+          "name": "Casey Morgan",
+          "email": "casey@example.com",
+          "date": "2024-04-20T10:00:00Z"
+        },
+        "committer": {
+          "name": "GitHub",
+          "email": "noreply@github.com",
+          "date": "2024-04-20T10:00:00Z"
+        }
+      },
+      "author": {
+        "login": "casey-example",
+        "id": 4242,
+        "type": "User"
+      },
+      "committer": null,
+      "parents": [
+        {
+          "sha": "0cdbe8b1d0533f2e69328dc2faf3f9db3ec50cc2"
+        },
+        {
+          "sha": "2177d7463bc02a4c1e89667130c987605d7622d9"
+        }
+      ]
+    },
+    {
+      "sha": "ce69788123458f5158009788286a6eec4c29fe8c",
+      "html_url": "https://github.com/casey-example/bird-calls/commit/ce69788123458f5158009788286a6eec4c29fe8c",
+      "commit": {
+        "message": "Add type hints to the data loader\n\nCo-authored-by: casey-example <4242+casey-example@users.noreply.github.com>",
+        "author": {
+          "name": "Copilot",
+          "email": "198982749+Copilot@users.noreply.github.com",
+          "date": "2024-04-19T09:00:00Z"
+        },
+        "committer": {
+          "name": "Copilot",
+          "email": "198982749+Copilot@users.noreply.github.com",
+          "date": "2024-04-19T09:00:00Z"
+        }
+      },
+      "author": {
+        "login": "copilot-swe-agent[bot]",
+        "id": 198982749,
+        "type": "Bot"
+      },
+      "committer": {
+        "login": "copilot-swe-agent[bot]",
+        "id": 198982749,
+        "type": "Bot"
+      },
+      "parents": [
+        {
+          "sha": "3517453a5be9a6d510e5e36fb2d50b1a48e903f9"
+        }
+      ]
+    },
+    {
+      "sha": "c88ba098fc01c0226e31d5bca508780829ab392c",
+      "html_url": "https://github.com/casey-example/bird-calls/commit/c88ba098fc01c0226e31d5bca508780829ab392c",
+      "commit": {
+        "message": "Add a README with setup steps",
+        "author": {
+          "name": "Claude",
+          "email": "noreply@anthropic.com",
+          "date": "2024-04-05T14:00:00Z"
+        },
+        "committer": {
+          "name": "Claude",
+          "email": "noreply@anthropic.com",
+          "date": "2024-04-05T14:00:00Z"
+        }
+      },
+      "author": {
+        "login": "claude",
+        "id": 81847,
+        "type": "User"
+      },
+      "committer": {
+        "login": "claude",
+        "id": 81847,
+        "type": "User"
+      },
+      "parents": [
+        {
+          "sha": "92055cd3ace3494df9b16c84d90454a5cab97346"
+        }
+      ]
+    },
+    {
+      "sha": "e29fe9a87dae523b3005db4ba6cd73d7bf6af7fd",
+      "html_url": "https://github.com/casey-example/bird-calls/commit/e29fe9a87dae523b3005db4ba6cd73d7bf6af7fd",
+      "commit": {
+        "message": "Merge pull request #2 from casey-example/serve",
+        "author": {
+          "name": "Casey Morgan",
+          "email": "casey@example.com",
+          "date": "2024-04-02T09:00:00Z"
+        },
+        "committer": {
+          "name": "GitHub",
+          "email": "noreply@github.com",
+          "date": "2024-04-02T09:00:00Z"
+        }
+      },
+      "author": {
+        "login": "casey-example",
+        "id": 4242,
+        "type": "User"
+      },
+      "committer": null,
+      "parents": [
+        {
+          "sha": "4126443141b5f56e0e3dc9a3c6f060f10dda80f7"
+        },
+        {
+          "sha": "fc69bdad610dfce113d03b9ba13bc39f7f2e9994"
+        }
+      ]
+    },
+    {
+      "sha": "42a8a014f7d5d590042120db3f79fef52c55813e",
+      "html_url": "https://github.com/casey-example/bird-calls/commit/42a8a014f7d5d590042120db3f79fef52c55813e",
+      "commit": {
+        "message": "Serve predictions from a FastAPI endpoint\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Example",
+        "author": {
+          "name": "Claude",
+          "email": "noreply@anthropic.com",
+          "date": "2024-04-01T15:00:00Z"
+        },
+        "committer": {
+          "name": "Claude",
+          "email": "noreply@anthropic.com",
+          "date": "2024-04-01T15:00:00Z"
+        }
+      },
+      "author": {
+        "login": "claude",
+        "id": 81847,
+        "type": "User"
+      },
+      "committer": {
+        "login": "claude",
+        "id": 81847,
+        "type": "User"
+      },
+      "parents": [
+        {
+          "sha": "14a41c494d36f8a6311d384d73094cad6fe4af2a"
+        }
+      ]
+    },
+    {
+      "sha": "47c2df3d19b772eb33e50dcba29265876a33e1ee",
+      "html_url": "https://github.com/casey-example/bird-calls/commit/47c2df3d19b772eb33e50dcba29265876a33e1ee",
+      "commit": {
+        "message": "Merge pull request #1 from casey-example/classify",
+        "author": {
+          "name": "Casey Morgan",
+          "email": "casey@example.com",
+          "date": "2024-03-10T09:00:00Z"
+        },
+        "committer": {
+          "name": "GitHub",
+          "email": "noreply@github.com",
+          "date": "2024-03-10T09:00:00Z"
+        }
+      },
+      "author": {
+        "login": "casey-example",
+        "id": 4242,
+        "type": "User"
+      },
+      "committer": null,
+      "parents": [
+        {
+          "sha": "3de19839b0daa00691fa963ef411f10a22ff239a"
+        },
+        {
+          "sha": "e2a8f98bb5b189abaad0c2cf1ab16346717e5205"
+        }
+      ]
+    },
+    {
+      "sha": "c583c0cf57f6aeeab3c569f21f50c752103804d8",
+      "html_url": "https://github.com/casey-example/bird-calls/commit/c583c0cf57f6aeeab3c569f21f50c752103804d8",
+      "commit": {
+        "message": "Train the classifier with PyTorch",
+        "author": {
+          "name": "Claude",
+          "email": "noreply@anthropic.com",
+          "date": "2024-03-09T11:00:00Z"
+        },
+        "committer": {
+          "name": "Claude",
+          "email": "noreply@anthropic.com",
+          "date": "2024-03-09T11:00:00Z"
+        }
+      },
+      "author": {
+        "login": "claude",
+        "id": 81847,
+        "type": "User"
+      },
+      "committer": {
+        "login": "claude",
+        "id": 81847,
+        "type": "User"
+      },
+      "parents": [
+        {
+          "sha": "989b886c8539b90cfbdfb3c967d518dc465d447e"
+        }
+      ]
+    },
+    {
+      "sha": "2afb880cdbe6c3feb99e949af08c2c6f33c7b74a",
+      "html_url": "https://github.com/casey-example/bird-calls/commit/2afb880cdbe6c3feb99e949af08c2c6f33c7b74a",
+      "commit": {
+        "message": "Load recordings and make spectrograms",
+        "author": {
+          "name": "Claude",
+          "email": "noreply@anthropic.com",
+          "date": "2024-03-08T11:00:00Z"
+        },
+        "committer": {
+          "name": "Claude",
+          "email": "noreply@anthropic.com",
+          "date": "2024-03-08T11:00:00Z"
+        }
+      },
+      "author": {
+        "login": "claude",
+        "id": 81847,
+        "type": "User"
+      },
+      "committer": {
+        "login": "claude",
+        "id": 81847,
+        "type": "User"
+      },
+      "parents": [
+        {
+          "sha": "8d6189237cfa1e942639dd19a20a8f0967034146"
+        }
+      ]
+    }
+  ],
+  "pulls": [
+    {
+      "pull": {
+        "number": 1,
+        "title": "Classify bird calls from short recordings",
+        "body": "Trains a small CNN on spectrograms of three-second clips. It reaches 91% accuracy on a held-out set of 12 species.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)",
+        "html_url": "https://github.com/casey-example/bird-calls/pull/1",
+        "state": "closed",
+        "user": {
+          "login": "casey-example",
+          "id": 4242,
+          "type": "User"
+        },
+        "assignees": [],
+        "pull_request": {
+          "merged_at": "2024-03-10T09:00:00Z",
+          "html_url": "https://github.com/casey-example/bird-calls/pull/1"
+        }
+      },
+      "commits": [
+        {
+          "sha": "2afb880cdbe6c3feb99e949af08c2c6f33c7b74a",
+          "html_url": "https://github.com/casey-example/bird-calls/commit/2afb880cdbe6c3feb99e949af08c2c6f33c7b74a",
+          "commit": {
+            "message": "Load recordings and make spectrograms",
+            "author": {
+              "name": "Claude",
+              "email": "noreply@anthropic.com",
+              "date": "2024-03-08T11:00:00Z"
+            },
+            "committer": {
+              "name": "Claude",
+              "email": "noreply@anthropic.com",
+              "date": "2024-03-08T11:00:00Z"
+            }
+          },
+          "author": {
+            "login": "claude",
+            "id": 81847,
+            "type": "User"
+          },
+          "committer": {
+            "login": "claude",
+            "id": 81847,
+            "type": "User"
+          },
+          "parents": [
+            {
+              "sha": "8d6189237cfa1e942639dd19a20a8f0967034146"
+            }
+          ]
+        },
+        {
+          "sha": "c583c0cf57f6aeeab3c569f21f50c752103804d8",
+          "html_url": "https://github.com/casey-example/bird-calls/commit/c583c0cf57f6aeeab3c569f21f50c752103804d8",
+          "commit": {
+            "message": "Train the classifier with PyTorch",
+            "author": {
+              "name": "Claude",
+              "email": "noreply@anthropic.com",
+              "date": "2024-03-09T11:00:00Z"
+            },
+            "committer": {
+              "name": "Claude",
+              "email": "noreply@anthropic.com",
+              "date": "2024-03-09T11:00:00Z"
+            }
+          },
+          "author": {
+            "login": "claude",
+            "id": 81847,
+            "type": "User"
+          },
+          "committer": {
+            "login": "claude",
+            "id": 81847,
+            "type": "User"
+          },
+          "parents": [
+            {
+              "sha": "989b886c8539b90cfbdfb3c967d518dc465d447e"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pull": {
+        "number": 2,
+        "title": "Serve predictions from a FastAPI endpoint",
+        "body": "POST a recording and get the likeliest species back.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)",
+        "html_url": "https://github.com/casey-example/bird-calls/pull/2",
+        "state": "closed",
+        "user": {
+          "login": "casey-example",
+          "id": 4242,
+          "type": "User"
+        },
+        "assignees": [],
+        "pull_request": {
+          "merged_at": "2024-04-02T09:00:00Z",
+          "html_url": "https://github.com/casey-example/bird-calls/pull/2"
+        }
+      },
+      "commits": [
+        {
+          "sha": "42a8a014f7d5d590042120db3f79fef52c55813e",
+          "html_url": "https://github.com/casey-example/bird-calls/commit/42a8a014f7d5d590042120db3f79fef52c55813e",
+          "commit": {
+            "message": "Serve predictions from a FastAPI endpoint\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Example",
+            "author": {
+              "name": "Claude",
+              "email": "noreply@anthropic.com",
+              "date": "2024-04-01T15:00:00Z"
+            },
+            "committer": {
+              "name": "Claude",
+              "email": "noreply@anthropic.com",
+              "date": "2024-04-01T15:00:00Z"
+            }
+          },
+          "author": {
+            "login": "claude",
+            "id": 81847,
+            "type": "User"
+          },
+          "committer": {
+            "login": "claude",
+            "id": 81847,
+            "type": "User"
+          },
+          "parents": [
+            {
+              "sha": "14a41c494d36f8a6311d384d73094cad6fe4af2a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pull": {
+        "number": 3,
+        "title": "Add type hints to the data loader",
+        "body": "Adds type hints, so pyright passes in strict mode.",
+        "html_url": "https://github.com/casey-example/bird-calls/pull/3",
+        "state": "closed",
+        "user": {
+          "login": "Copilot",
+          "id": 198982749,
+          "type": "Bot"
+        },
+        "assignees": [
+          {
+            "login": "casey-example",
+            "id": 4242,
+            "type": "User"
+          }
+        ],
+        "pull_request": {
+          "merged_at": "2024-04-20T10:00:00Z",
+          "html_url": "https://github.com/casey-example/bird-calls/pull/3"
+        }
+      },
+      "commits": [
+        {
+          "sha": "ce69788123458f5158009788286a6eec4c29fe8c",
+          "html_url": "https://github.com/casey-example/bird-calls/commit/ce69788123458f5158009788286a6eec4c29fe8c",
+          "commit": {
+            "message": "Add type hints to the data loader\n\nCo-authored-by: casey-example <4242+casey-example@users.noreply.github.com>",
+            "author": {
+              "name": "Copilot",
+              "email": "198982749+Copilot@users.noreply.github.com",
+              "date": "2024-04-19T09:00:00Z"
+            },
+            "committer": {
+              "name": "Copilot",
+              "email": "198982749+Copilot@users.noreply.github.com",
+              "date": "2024-04-19T09:00:00Z"
+            }
+          },
+          "author": {
+            "login": "copilot-swe-agent[bot]",
+            "id": 198982749,
+            "type": "Bot"
+          },
+          "committer": {
+            "login": "copilot-swe-agent[bot]",
+            "id": 198982749,
+            "type": "Bot"
+          },
+          "parents": [
+            {
+              "sha": "3517453a5be9a6d510e5e36fb2d50b1a48e903f9"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     github_client_secret: SecretStr | None = None
     allowed_github_logins: Annotated[frozenset[str], NoDecode] = frozenset()
     """GitHub usernames that may sign in, in lowercase. Empty means nobody can."""
+    github_repos_token: SecretStr | None = None
+    """A fine-grained personal access token (`github_pat_...`) that reads the history of the
+    repositories the owner chose, for project facts (requirements §7.16). It isn't
+    `GITHUB_TOKEN`, which other tools set and would silently replace it."""
     anthropic_api_key: SecretStr | None = None
     """The Claude API key. Without it, the Anthropic SDK looks for its other credentials."""
     llm_model_heavy: str | None = None

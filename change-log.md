@@ -2,7 +2,7 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-18 · T-036 Open-question prompts · [#57](https://github.com/matchastack/work-journal/pull/57)
+## 2026-10-30 · T-036 Open-question prompts · [#57](https://github.com/matchastack/work-journal/pull/57)
 **Changed:** A reminder now asks the most valuable open question from your master resume, one per reminder, with an "Answer the question" button. Your answer becomes an entry of its own whose facts link to the question, so the next `/refresh` proposes the stronger bullet and marks the question answered when you accept it.
 
 **Verify:**
@@ -11,7 +11,7 @@ One short entry per pull request, newest first: what changed and what to verify.
 - The next reminder ends with a question whose bullet is strong in your master resume; "Answer the question" and a one-message answer bring back the facts saved from it, with a line saying your next /refresh can use them
 - `/refresh` then proposes a new version of that bullet and "Answer an open question"; once both are accepted and applied, the next reminder asks a different question
 
-## 2026-10-18 · T-035 Reminders · [#52](https://github.com/matchastack/work-journal/pull/52)
+## 2026-10-30 · T-035 Reminders · [#52](https://github.com/matchastack/work-journal/pull/52)
 **Changed:** The bot sends a gentle reminder on your schedule (Fridays at 18:00, Asia/Singapore, by default), skipped if you journaled in the last 3 days, with "Nothing this week" and "Remind me tomorrow" buttons. `/pause` and `/resume` stop and restart it, and Vercel's daily tick now runs at 18:00 Singapore time to send it.
 
 **Verify:**
@@ -19,6 +19,64 @@ One short entry per pull request, newest first: what changed and what to verify.
 - After the deploy, run `scripts/post-deploy.sh`; typing "/" in the chat lists /pause and /resume, and Vercel shows the tick's cron at 10:00 UTC
 - `/pause` pauses reminders, and `/resume` answers "Reminders are back on: Fridays at 18:00 (Asia/Singapore)."
 - On a Friday after 3 days without journaling, the reminder arrives between 18:00 and 19:00; "Remind me tomorrow" brings it back on Saturday evening, and "Nothing this week" is noted
+
+## 2026-10-28 · T-074 Read only what can count · [#62](https://github.com/matchastack/work-journal/pull/62)
+**Changed:** the digest reads only pull requests merged into the default branch, leaves out a pull request reverted from the command line, keeps your own commits in another person's pull request, and handles GitHub's secondary rate limit and empty repositories.
+
+**Verify:**
+- CI is green on #62
+- `uv run wj github digest <owner/repo>` on a repository with a release branch lists no pull request merged into it
+- On a new, empty repository, it reads no history and shows no about item
+
+## 2026-10-28 · T-073 Digest cleaning keeps what it should · [#61](https://github.com/matchastack/work-journal/pull/61)
+**Changed:** the digest drops a README's roadmap however its heading is written, and keeps `.NET`, scoped packages, types such as `Result<User>`, `C#10` and lines with an emoji.
+
+**Verify:**
+- CI is green on #61
+- `uv run wj github digest <owner/repo>` on a repository whose README has its roadmap under an emoji or numbered heading shows no roadmap
+- A commit that names `.NET` or `@types/node` shows it unchanged
+
+## 2026-10-28 · T-075 Repository facts: dates and parts that fail · [#63](https://github.com/matchastack/work-journal/pull/63)
+**Changed:** a GitHub fact is dated by the pull requests and commits it cites, never by the repository's latest push, and `wj github extract` skips a part the model declines rather than losing every part's facts.
+
+**Verify:**
+- CI is green on #63
+- A fact that cites an old pull request and the README is dated by the pull request's month
+- A declined part is named at the end, and the other parts' facts are printed
+
+## 2026-10-28 · T-068 Facts from repository activity · [#60](https://github.com/matchastack/work-journal/pull/60)
+**Changed:** `wj github extract <owner/repo> --project <id>` turns a repository's history into facts that cite their pull requests and commits; their numbers and tools come only from those items, and code sets the project, the date and how much of the work they claim.
+
+**Verify:**
+- CI is green on #60
+- `uv run wj eval repo` and `uv run pytest -m llm tests/test_github_extraction_live.py` pass with your key
+- `uv run wj github extract <owner/repo> --project <id> --db` prints facts whose `source` links to their pull requests and commits
+- Work Claude Code did for you lists Claude Code among a fact's tools, and nothing claims "led"
+- Work in someone else's repository claims at most "contributed"
+
+## 2026-10-28 · T-067 Read a repository's history · [#59](https://github.com/matchastack/work-journal/pull/59)
+**Changed:** `wj github digest <owner/repo>` reads a repository's history with a read-only token (`GITHUB_REPOS_TOKEN`), and prints exactly what the model will read: your work and your AI agents' work, cleaned, with what was left out. It calls no model and stores nothing.
+
+**Verify:**
+- CI is green on #59
+- `uv run wj github digest <owner/repo> --db`, with a fine-grained token for one of your repositories, lists its pull requests and commits
+- Work Claude Code did for you reads "By Claude Code, for you" or "By you, with Claude Code"
+- Other people's commits and Dependabot's are only counted under "Left out:", never listed
+- The digest shows no commit hashes, issue numbers, links or emails, and no README roadmap
+- A classic token (`ghp_...`) is refused
+
+## 2026-10-26 · T-066 GitHub projects: requirements · [#58](https://github.com/matchastack/work-journal/pull/58)
+**Changed:** the requirements add project facts read from your GitHub repositories (§7.16), counting the work that AI coding agents such as Claude Code did for you, and `tasks.md` plans T-067 to T-072 to build them.
+
+**Verify:**
+- CI is green on #58
+- §7.16 says what you agreed:
+  - a read-only token in `GITHUB_REPOS_TOKEN`;
+  - personal and open-source repositories, filed under projects;
+  - each `/refresh` reading what's new first;
+  - bullets only through the Inbox
+- FR-GH-4 counts the right work as yours: your own, and what AI coding agents did for you, but not other people's work or automation bots'
+- Priority S suits you, and T-067 to T-072 are split and ordered the way you want
 
 ## 2026-10-18 · Tailored resumes' LaTeX source · [#56](https://github.com/matchastack/work-journal/pull/56)
 **Changed:** `wj tailor` writes the LaTeX source beside the PDF, as `wj render` does; `--tex-only` or `--pdf-only` writes just one of them.
