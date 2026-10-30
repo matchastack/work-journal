@@ -15,6 +15,7 @@ from app.linkedin import (
     WrittenSection,
     mark_done,
     plan_sections,
+    since_done,
     write_pack,
 )
 from app.llm.client import LLMClient
@@ -283,6 +284,34 @@ def test_sections_the_profile_no_longer_has_are_listed_as_removed() -> None:
     done = done.model_copy(update={"sections": (*done.sections, gone)})
     pack, _ = write(done=done)
     assert pack.removed == (label,)
+
+
+def test_a_pack_marked_done_since_it_was_written_lists_only_its_flagged_sections() -> None:
+    """The LinkedIn page shows the pack last written against the newest snapshot (FR-LIN-2)."""
+    kafka = "I build Python services with Kafka."
+    replies = [*passing("headline", "about")]
+    replies += [written(kafka), reply(ADDED_KAFKA), written(kafka), reply(ADDED_KAFKA)]
+    replies += passing("position:contoso")
+    pack, _ = write(*replies)
+    assert since_done(pack, None) == pack
+    done, _ = mark_done(pack, None, now=NOW)
+    after = since_done(pack, done)
+    assert [section.key for section in after.changed] == ["position:northwind"]
+    assert after.removed == ()
+    assert [section.text for section in after.sections] == [s.text for s in pack.sections]
+
+
+def test_a_pack_against_a_newer_snapshot_lists_what_differs_and_what_it_no_longer_has() -> None:
+    pack, _ = write(*passing(*KEYS))
+    label = "Position: Tutor at A School"
+    gone = DoneSection(key="position:old", label=label, text="Tutored.", source="old")
+    about = DoneSection(key="about", label="About", text="Earlier About.", source="old")
+    done = done_from(pack)
+    sections = tuple(about if section.key == "about" else section for section in done.sections)
+    after = since_done(pack, done.model_copy(update={"sections": (*sections, gone)}))
+    assert [section.key for section in after.changed] == ["about"]
+    assert after.removed == (label,)
+    assert after.profile_version == pack.profile_version
 
 
 def application(title: str) -> Application:
