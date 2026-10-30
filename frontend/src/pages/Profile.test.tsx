@@ -7,6 +7,11 @@ import type {
   BasicsEdit,
   Bullet,
   BulletEdit,
+  CourseworkEdit,
+  OpenQuestionEdit,
+  RoleRulesEdit,
+  SkillsEdit,
+  SwapsEdit,
   Profile,
   ProfilePage,
   RoleEdit,
@@ -399,6 +404,50 @@ function serveProfile(
         }, "Edited a role");
         return json(state);
       }
+      if (request.method === "PUT" && kind === "education" && action === "coursework") {
+        save((profile) => {
+          Object.assign(profile.education.find((entry) => entry.id === id) ?? {}, fields);
+        }, "Edited the coursework");
+        return json(state);
+      }
+      const lists: Record<string, string> = {
+        "role-types": "Edited your role types",
+        skills: "Edited your skills",
+        "skill-presets": "Edited your skills presets",
+        summaries: "Edited your summaries",
+      };
+      if (request.method === "PUT" && kind !== undefined && kind in lists) {
+        save((profile) => {
+          Object.assign(profile, fields);
+          // A skill keeps the fields a profile has, without the name it had before.
+          profile.skills = profile.skills.map((skill) => ({
+            name: skill.name,
+            category: skill.category,
+            tier: skill.tier ?? null,
+            verifyBeforeShipping: skill.verifyBeforeShipping,
+            aliases: skill.aliases,
+            notes: [],
+          }));
+        }, lists[kind] ?? "");
+        return json(state);
+      }
+      if (kind === "open-questions") {
+        const edit = body as OpenQuestionEdit;
+        save((profile) => {
+          const questionId = request.method === "POST" ? "q_1" : id;
+          const others = profile.openQuestions.filter((question) => question.id !== questionId);
+          profile.openQuestions = [
+            ...others,
+            { id: questionId, question: edit.question, status: edit.status, answerFactIds: [] },
+          ];
+          const items = [...profile.work, ...profile.education, ...profile.projects];
+          for (const each of items.flatMap((item) => item.highlights)) {
+            const needs = each.needs.filter((need) => need !== questionId);
+            each.needs = edit.bulletIds.includes(each.id) ? [...needs, questionId] : needs;
+          }
+        }, "Edited an open question");
+        return json(state);
+      }
       return json({ detail: "Not Found" }, 404);
     }),
   );
@@ -436,6 +485,16 @@ async function versionRow(number: number) {
   return within(item);
 }
 
+/** A part of the profile with its own Edit, such as Skills and gaps, by its heading. */
+async function block(title: string, level: 3 | 4 = 3) {
+  const heading = await screen.findByRole("heading", { level, name: title });
+  const section = heading.closest("section");
+  if (section === null) {
+    throw new Error(`no part titled ${title}`);
+  }
+  return within(section);
+}
+
 async function bulletItem(text: string) {
   const item = (await screen.findByText(text)).closest("li");
   if (item === null) {
@@ -461,6 +520,11 @@ describe("the profile page", () => {
       "Work",
       "Education",
       "Projects",
+      "Role types",
+      "Skills",
+      "Skills presets",
+      "Summaries",
+      "Open questions",
       "Resume rules",
       "History",
     ]);
@@ -865,5 +929,291 @@ describe("the profile's history", () => {
     await userEvent.click((await versionRow(1)).getByRole("button", { name: "Restore version 1" }));
     const nonAscii = document.documentElement.outerHTML.match(/[^\t\n\r\x20-\x7e]/gu) ?? [];
     expect(nonAscii).toEqual([]);
+  });
+});
+
+describe("the profile's tailoring metadata", () => {
+  it("edits a role's tailoring rules as a new version", async () => {
+    const server = serveProfile();
+    renderAt();
+    const rules = await block("Tailoring rules", 4);
+    expect(rules.getByText("Always shown")).toBeInTheDocument();
+    await userEvent.click(rules.getByRole("button", { name: "Edit tailoring rules" }));
+    const form = within(rules.getByRole("form", { name: "Edit the tailoring rules" }));
+    await userEvent.type(
+      form.getByRole("textbox", { name: "Approved title variants" }),
+      "Software Engineer{Enter}Backend Engineer",
+    );
+    await userEvent.click(form.getByRole("checkbox", { name: /Load-bearing/ }));
+    await userEvent.type(form.getByRole("textbox", { name: "Keep for" }), "backend, data");
+    await userEvent.type(form.getByRole("textbox", { name: "Cut for" }), "data");
+    await userEvent.click(form.getByRole("button", { name: "Save" }));
+    expect(await form.findByRole("alert")).toHaveTextContent(
+      "The role type data can't be both kept and cut.",
+    );
+    await userEvent.clear(form.getByRole("textbox", { name: "Cut for" }));
+    await userEvent.selectOptions(
+      form.getByRole("combobox", { name: "Sensitivity" }),
+      "Sensitive: architecture and outcomes only",
+    );
+    await userEvent.type(
+      form.getByRole("textbox", { name: "Honesty boundaries" }),
+      "Did not own the deployment pipeline.",
+    );
+    await userEvent.click(form.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Saved as version 2.")).toBeInTheDocument();
+    const edit: RoleRulesEdit = {
+      baseVersion: 1,
+      titleVariants: ["Software Engineer", "Backend Engineer"],
+      loadBearing: false,
+      duringEducation: false,
+      keepFor: ["backend", "data"],
+      cutFor: [],
+      sensitivity: "sensitive",
+      honestyBoundaries: ["Did not own the deployment pipeline."],
+    };
+    expect(server.sent).toEqual([
+      { method: "PUT", path: "/api/profile/work/northwind/rules", body: edit, csrf: "csrf-1" },
+    ]);
+    const saved = await block("Tailoring rules", 4);
+    expect(saved.getByText("Software Engineer, Backend Engineer")).toBeInTheDocument();
+    expect(saved.getByText("Did not own the deployment pipeline.")).toBeInTheDocument();
+    expect(saved.queryByText("Always shown")).not.toBeInTheDocument();
+  });
+
+  it("adds a swap to a bullet", async () => {
+    const server = serveProfile();
+    renderAt();
+    const exported = await bulletItem(EXPORT);
+    await userEvent.click(exported.getByRole("button", { name: "Edit swaps" }));
+    const form = within(screen.getByRole("form", { name: "Edit the swaps" }));
+    expect(form.getByText("No swaps yet.")).toBeInTheDocument();
+    await userEvent.click(form.getByRole("button", { name: "Add a swap" }));
+    await userEvent.type(form.getByRole("textbox", { name: "Phrasing" }), "Shortened the export");
+    await userEvent.type(
+      form.getByRole("textbox", { name: "Replaces (optional)" }),
+      "Cut the nightly export job",
+    );
+    await userEvent.type(form.getByRole("textbox", { name: "Fits (optional)" }), "data");
+    await userEvent.click(form.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Saved as version 2.")).toBeInTheDocument();
+    const edit: SwapsEdit = {
+      baseVersion: 1,
+      swaps: [
+        {
+          text: "Shortened the export",
+          replaces: "Cut the nightly export job",
+          contexts: ["data"],
+          origin: "approved",
+        },
+      ],
+    };
+    expect(server.sent).toEqual([
+      { method: "PUT", path: "/api/profile/bullets/nw_export/swaps", body: edit, csrf: "csrf-1" },
+    ]);
+    const saved = within(await screen.findByRole("list", { name: "Swaps" }));
+    expect(saved.getByText("Shortened the export")).toBeInTheDocument();
+  });
+
+  it("chooses an education entry's courses for a role type", async () => {
+    const server = serveProfile();
+    renderAt();
+    const coursework = await block("Coursework and rules", 4);
+    await userEvent.click(coursework.getByRole("button", { name: "Edit coursework and rules" }));
+    const form = within(coursework.getByRole("form", { name: "Edit the coursework and rules" }));
+    await userEvent.type(
+      form.getByRole("textbox", { name: "Coursework" }),
+      "Algorithms{Enter}Databases{Enter}Statistics",
+    );
+    await userEvent.click(form.getByRole("button", { name: "Add a role type's coursework" }));
+    await userEvent.selectOptions(
+      form.getByRole("combobox", { name: "Role type" }),
+      "Data engineering (data)",
+    );
+    await userEvent.click(form.getByRole("checkbox", { name: "Statistics" }));
+    await userEvent.click(form.getByRole("checkbox", { name: "Databases" }));
+    await userEvent.type(form.getByRole("textbox", { name: "Rules" }), "Never print the GPA.");
+    await userEvent.click(form.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Saved as version 2.")).toBeInTheDocument();
+    const edit: CourseworkEdit = {
+      baseVersion: 1,
+      courses: ["Algorithms", "Databases", "Statistics"],
+      courseworkSubsets: [{ roleType: "data", courses: ["Databases", "Statistics"] }],
+      rules: ["Never print the GPA."],
+    };
+    expect(server.sent).toEqual([
+      {
+        method: "PUT",
+        path: "/api/profile/education/springfield_state/coursework",
+        body: edit,
+        csrf: "csrf-1",
+      },
+    ]);
+    const saved = await block("Coursework and rules", 4);
+    expect(saved.getByText("Databases, Statistics")).toBeInTheDocument();
+  });
+
+  it("edits skills and gaps, refusing a gap that's also a skill", async () => {
+    const server = serveProfile();
+    renderAt();
+    const skills = await block("Skills and gaps");
+    expect(skills.getByText("No skills yet.")).toBeInTheDocument();
+    await userEvent.click(skills.getByRole("button", { name: "Edit skills and gaps" }));
+    const form = within(skills.getByRole("form", { name: "Edit your skills" }));
+    await userEvent.click(form.getByRole("button", { name: "Add a skill" }));
+    await userEvent.type(form.getByRole("textbox", { name: "Name" }), "Node.js");
+    await userEvent.type(form.getByRole("textbox", { name: "Category" }), "Backend");
+    await userEvent.selectOptions(form.getByRole("combobox", { name: "Tier" }), "Working");
+    await userEvent.type(form.getByRole("textbox", { name: "Other spellings (optional)" }), "NodeJS");
+    await userEvent.click(form.getByRole("checkbox", { name: /Verify before shipping/ }));
+    await userEvent.type(form.getByRole("textbox", { name: "Gaps" }), "node.js");
+    await userEvent.click(form.getByRole("button", { name: "Save" }));
+    expect(await form.findByRole("alert")).toHaveTextContent(
+      "node.js can't be both a skill and a gap.",
+    );
+    const gaps = form.getByRole("textbox", { name: "Gaps" });
+    await userEvent.clear(gaps);
+    await userEvent.type(gaps, "Rust");
+    await userEvent.click(form.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Saved as version 2.")).toBeInTheDocument();
+    const edit: SkillsEdit = {
+      baseVersion: 1,
+      skills: [
+        {
+          name: "Node.js",
+          previousName: null,
+          category: "Backend",
+          tier: "working",
+          verifyBeforeShipping: true,
+          aliases: ["NodeJS"],
+        },
+      ],
+      skillGaps: ["Rust"],
+    };
+    expect(server.sent).toEqual([
+      { method: "PUT", path: "/api/profile/skills", body: edit, csrf: "csrf-1" },
+    ]);
+    const saved = await block("Skills and gaps");
+    expect(saved.getByText("Node.js")).toBeInTheDocument();
+    expect(saved.getByText("Backend - Working - verify before shipping - also NodeJS")).toBeInTheDocument();
+    expect(saved.getByText("Rust")).toBeInTheDocument();
+  });
+
+  it("adds a role type, then a summary and a skills preset for it", async () => {
+    const server = serveProfile();
+    renderAt();
+    const types = await block("Role types");
+    await userEvent.click(types.getByRole("button", { name: "Edit role types" }));
+    let form = within(types.getByRole("form", { name: "Edit your role types" }));
+    expect(form.queryAllByRole("textbox", { name: "ID" })).toHaveLength(0);
+    await userEvent.click(form.getByRole("button", { name: "Add a role type" }));
+    await userEvent.type(form.getByRole("textbox", { name: "ID" }), "ml");
+    await userEvent.type(form.getAllByRole("textbox", { name: "Name" })[2] ?? document.body, "Machine learning");
+    await userEvent.click(form.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Saved as version 2.")).toBeInTheDocument();
+
+    const summaries = await block("Summaries");
+    await userEvent.click(summaries.getByRole("button", { name: "Edit summaries" }));
+    form = within(summaries.getByRole("form", { name: "Edit your summaries" }));
+    await userEvent.click(form.getByRole("button", { name: "Add a summary" }));
+    await userEvent.selectOptions(
+      form.getByRole("combobox", { name: "Role type" }),
+      "Machine learning (ml)",
+    );
+    await userEvent.type(form.getByRole("textbox", { name: "Text" }), "Trains small models.");
+    await userEvent.click(form.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Saved as version 3.")).toBeInTheDocument();
+
+    const presets = await block("Skills presets");
+    await userEvent.click(presets.getByRole("button", { name: "Edit skills presets" }));
+    form = within(presets.getByRole("form", { name: "Edit your skills presets" }));
+    await userEvent.click(form.getByRole("button", { name: "Add a preset" }));
+    await userEvent.selectOptions(
+      form.getByRole("combobox", { name: "Role type" }),
+      "Machine learning (ml)",
+    );
+    await userEvent.type(form.getByRole("textbox", { name: "Lines" }), "Python, PyTorch");
+    await userEvent.click(form.getByRole("button", { name: "Save" }));
+    expect(await form.findByRole("alert")).toHaveTextContent("needs a label and skills");
+    const lines = form.getByRole("textbox", { name: "Lines" });
+    await userEvent.clear(lines);
+    await userEvent.type(lines, "Machine learning: Python, PyTorch");
+    await userEvent.click(form.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Saved as version 4.")).toBeInTheDocument();
+
+    expect(server.sent.map((each) => [each.path, each.body])).toEqual([
+      [
+        "/api/profile/role-types",
+        {
+          baseVersion: 1,
+          roleTypes: [
+            { id: "backend", name: "Backend / full stack" },
+            { id: "data", name: "Data engineering" },
+            { id: "ml", name: "Machine learning" },
+          ],
+        },
+      ],
+      [
+        "/api/profile/summaries",
+        { baseVersion: 2, summaries: [{ roleType: "ml", text: "Trains small models." }] },
+      ],
+      [
+        "/api/profile/skill-presets",
+        {
+          baseVersion: 3,
+          skillPresets: [
+            { roleType: "ml", lines: [{ label: "Machine learning", skills: ["Python", "PyTorch"] }] },
+          ],
+        },
+      ],
+    ]);
+    expect((await block("Summaries")).getByText("Trains small models.")).toBeInTheDocument();
+    expect((await block("Skills presets")).getByText("Python, PyTorch")).toBeInTheDocument();
+  });
+
+  it("adds an open question that blocks a bullet, then answers it", async () => {
+    const server = serveProfile();
+    renderAt();
+    expect(await screen.findByText("No open questions yet.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Add an open question" }));
+    const form = within(screen.getByRole("form", { name: "Add an open question" }));
+    await userEvent.type(
+      form.getByRole("textbox", { name: "Question" }),
+      "How long did the export take before?",
+    );
+    await userEvent.click(form.getByRole("checkbox", { name: EXPORT }));
+    await userEvent.click(form.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Saved as version 2.")).toBeInTheDocument();
+    const list = within(await screen.findByRole("list", { name: "Open questions" }));
+    expect(list.getByText("How long did the export take before?")).toBeInTheDocument();
+    expect(within(list.getByRole("list", { name: "Bullets it blocks" })).getByText(EXPORT)).toBeInTheDocument();
+
+    await userEvent.click(list.getByRole("button", { name: "Edit question" }));
+    const edit = within(screen.getByRole("form", { name: "Edit the open question" }));
+    expect(edit.getByRole("checkbox", { name: EXPORT })).toBeChecked();
+    await userEvent.selectOptions(edit.getByRole("combobox", { name: "Status" }), "Answered");
+    await userEvent.click(edit.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Saved as version 3.")).toBeInTheDocument();
+
+    const added: OpenQuestionEdit = {
+      baseVersion: 1,
+      question: "How long did the export take before?",
+      status: "open",
+      bulletIds: ["nw_export"],
+    };
+    expect(server.sent).toEqual([
+      { method: "POST", path: "/api/profile/open-questions", body: added, csrf: "csrf-1" },
+      {
+        method: "PUT",
+        path: "/api/profile/open-questions/q_1",
+        body: { ...added, baseVersion: 2, status: "answered" },
+        csrf: "csrf-1",
+      },
+    ]);
+    expect(await screen.findByText("Answered")).toBeInTheDocument();
   });
 });

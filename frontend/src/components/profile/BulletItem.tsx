@@ -4,6 +4,7 @@ import type { Bullet, LintFinding, RoleType } from "../../api/profile";
 import { TEXT_BUTTON } from "../ui";
 import { BulletForm } from "./BulletForm";
 import { Findings } from "./Findings";
+import { SwapList, SwapsForm } from "./ItemMetadata";
 import { STRENGTH_LABELS, VERIFICATION_LABELS } from "./labels";
 import { useEditing } from "./useEditing";
 
@@ -20,9 +21,9 @@ function statusBadge(bullet: Bullet): string | null {
 }
 
 /**
- * A bullet with its status, strength, verification and tags, and the resume-rule findings about
- * it. Benched and planned bullets never show on a resume (FR-PRF-4), so they're muted. It's
- * edited in place.
+ * A bullet with its status, strength, verification, tags and swaps, and the resume-rule findings
+ * about it. Benched and planned bullets never show on a resume (FR-PRF-4), so they're muted. It's
+ * edited in place, and its swaps have an Edit of their own (FR-WRT-5).
  */
 export function BulletItem({
   bullet,
@@ -40,7 +41,25 @@ export function BulletItem({
   onSaved: (message: string) => void;
 }) {
   const { editing, button, open, close } = useEditing();
+  const {
+    editing: editingSwaps,
+    button: swapsButton,
+    open: openSwaps,
+    close: closeSwaps,
+  } = useEditing();
   const textId = useId();
+  if (editingSwaps) {
+    return (
+      <li className="rounded border border-stone-200 bg-stone-50 p-3">
+        <SwapsForm
+          bullet={bullet}
+          baseVersion={baseVersion}
+          onSaved={onSaved}
+          onDone={closeSwaps}
+        />
+      </li>
+    );
+  }
   if (editing) {
     return (
       <li className="rounded border border-stone-200 bg-stone-50 p-3">
@@ -75,17 +94,29 @@ export function BulletItem({
           </li>
         )}
       </ul>
+      <SwapList swaps={bullet.swaps} />
       <Findings findings={findings} path={path} />
-      <button
-        ref={button}
-        type="button"
-        aria-label="Edit bullet"
-        aria-describedby={textId}
-        onClick={open}
-        className={`mt-2 ${TEXT_BUTTON}`}
-      >
-        Edit
-      </button>
+      <div className="mt-2 flex gap-3">
+        <button
+          ref={button}
+          type="button"
+          aria-label="Edit bullet"
+          aria-describedby={textId}
+          onClick={open}
+          className={TEXT_BUTTON}
+        >
+          Edit
+        </button>
+        <button
+          ref={swapsButton}
+          type="button"
+          aria-describedby={textId}
+          onClick={openSwaps}
+          className={TEXT_BUTTON}
+        >
+          Edit swaps
+        </button>
+      </div>
     </li>
   );
 }
