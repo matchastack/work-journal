@@ -2,6 +2,15 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-30 · T-047 LinkedIn page · [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+**Changed:** the web app's LinkedIn page lists the sections of your LinkedIn pack that changed since you last marked it done, each with a Copy button and its length against LinkedIn's limit, and Mark done saves the snapshot. The pack comes from `wj linkedin --db` until the refresh writes it (T-061).
+
+**Verify:**
+- CI is green on #PRNUM
+- After `uv run wj linkedin --db`, the LinkedIn page lists the same changed sections, and Copy puts a section's text on the clipboard
+- Mark done stays off until every section that passed is ticked; after it, the page lists only flagged sections, and with none flagged, `uv run wj linkedin --db` says nothing changed
+- With the page open, running `wj linkedin --db` after a profile change and then pressing Mark done says the pack was written again, and marks nothing
+
 ## 2026-10-28 · T-074 Read only what can count · [#62](https://github.com/matchastack/work-journal/pull/62)
 **Changed:** the digest reads only pull requests merged into the default branch, leaves out a pull request reverted from the command line, keeps your own commits in another person's pull request, and handles GitHub's secondary rate limit and empty repositories.
 

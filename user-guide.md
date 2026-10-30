@@ -29,6 +29,7 @@ Every generated sentence is checked against your facts, so wording never changes
 | Fix a note or a saved fact | The web app, Journal page |
 | Update your profile from new notes | `/refresh` in Telegram, then the web app's Inbox |
 | Render the master resume, tailor a resume, build the portfolio page, write LinkedIn text | The command-line tool (web pages **Coming**) |
+| Paste the LinkedIn text that changed into LinkedIn | The web app, LinkedIn page (after `wj linkedin --db`) |
 | See what a GitHub repository's history would give one of your projects, and the facts in it | `wj github digest`, then `wj github extract` (saving the facts for `/refresh` is **Coming**: T-069 to T-072) |
 
 ## Set up on your computer
@@ -152,7 +153,7 @@ Open `http://localhost:5173` while developing, or your deployed address. Sign in
 | Resumes | Coming (T-044) | Preview and download resume variants |
 | Tailor | Coming (T-045) | Tailor a resume to a job posting, and see where you applied |
 | Portfolio | Coming (T-046) | Choose what the public page shows, and publish it |
-| LinkedIn | Coming (T-047) | Copy the updated sections into LinkedIn |
+| [LinkedIn](#linkedin) | Built | Copy the updated sections into LinkedIn |
 | Settings | Coming (T-048) | Telegram, reminders and style notes |
 
 A page that is not built yet says which task will add it. Until then, use the command-line equivalents in the next chapter.
@@ -185,6 +186,24 @@ You can correct anything in place:
 - **Entries:** delete a whole entry, with its messages and facts. If the profile cites any of those facts, the page names the bullets and asks you to confirm first.
 
 **Download Markdown** and **Download JSON** at the top save the whole journal.
+
+### LinkedIn
+
+A checklist of the LinkedIn text to paste: the sections of your LinkedIn pack (the headline, About and a description for each position) that changed since you last marked the pack done. The first time, every section is listed. Work Journal never posts to LinkedIn; you paste the text yourself.
+
+The page shows the pack last written. For now, write it with `uv run wj linkedin --db` (see [LinkedIn text](#linkedin-text)); writing it on each refresh is **Coming** (T-061). If your profile has a newer version than the pack, the page says so.
+
+For each section you see:
+
+- its text, and its length against LinkedIn's limit, such as `52 of 220 characters` (220 for the headline, 2,600 for About, 2,000 for a position);
+- the verifier's result. A section the verifier flagged says why: paste it only if you are sure it is true. It isn't marked done with the others, so it is written again next time;
+- notes to check, such as a position title that differs from the one on your latest application;
+- **Copy**, which puts the text on your clipboard and shows "Copied". If the browser refuses, select the text and copy it yourself;
+- **Pasted into LinkedIn**, to tick once it is on LinkedIn.
+
+Under **Take off LinkedIn**, the page lists sections you marked done before that your public profile no longer has, such as a role you made private. Tick each once you have removed it.
+
+**Mark done** turns on once every section that passed, and every section to take off, is ticked. It saves what your LinkedIn profile now says, so from then on the page lists only what changes after it. If the pack was written again since you opened the page, nothing is marked: check the new sections and tick them again.
 
 ## The command-line tool
 
@@ -243,7 +262,7 @@ uv run wj linkedin --db --all    # every section, even unchanged ones
 uv run wj linkedin done --db     # mark the pack done, once you have pasted it into LinkedIn
 ```
 
-Paste the text into LinkedIn yourself; Work Journal never posts there.
+Paste the text into LinkedIn yourself; Work Journal never posts there. The web app's [LinkedIn](#linkedin) page shows the same sections, with a Copy button for each, and marks the pack done too.
 
 ### Projects from GitHub
 
