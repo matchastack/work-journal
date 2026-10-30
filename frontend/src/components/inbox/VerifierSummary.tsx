@@ -17,9 +17,15 @@ function plural(count: number, one: string): string {
   return `${String(count)} ${one}${count === 1 ? "" : "s"}`;
 }
 
-/** What the verifier found in a change's text (FR-FID-8): passed or flagged, with each finding
- * and, on request, its verdict on each claim. */
-export function VerifierSummary({ report }: { report: VerifierReport }) {
+/** What the verifier found in a text (FR-FID-8): passed or flagged, with each finding
+ * and, on request, its verdict on each claim. `advice` says what to do with flagged text. */
+export function VerifierSummary({
+  report,
+  advice = "Accept it only if you're sure it's true.",
+}: {
+  report: VerifierReport;
+  advice?: string;
+}) {
   const warnings = report.findings.filter((finding) => finding.severity === "warning").length;
   return (
     <div className="mt-3 text-sm">
@@ -28,9 +34,7 @@ export function VerifierSummary({ report }: { report: VerifierReport }) {
           Verifier: passed{warnings > 0 ? ` with ${plural(warnings, "warning")}` : ""}
         </p>
       ) : (
-        <p className="font-medium text-red-800">
-          Verifier: flagged. Accept it only if you're sure it's true.
-        </p>
+        <p className="font-medium text-red-800">{`Verifier: flagged. ${advice}`}</p>
       )}
       {report.findings.length > 0 && (
         <ul className="mt-1 space-y-0.5 text-stone-700">

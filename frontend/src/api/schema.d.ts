@@ -364,6 +364,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/linkedin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Linkedin Page
+         * @description The LinkedIn pack's sections that changed since it was last marked done (FR-LIN-2), each
+         *     with its length and LinkedIn's limit (FR-LIN-3).
+         */
+        get: operations["linkedin_page_api_linkedin_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/linkedin/done": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark Pack Done
+         * @description Mark the pack done once its sections are pasted into LinkedIn: they're stored as the
+         *     snapshot that later packs are compared with (FR-LIN-3). A flagged section is left out, so
+         *     it's written again. 409 when there's no pack, or it isn't the one with `digest`.
+         */
+        post: operations["mark_pack_done_api_linkedin_done_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -761,6 +804,65 @@ export interface components {
             text: string;
             /** Edits */
             edits: components["schemas"]["MessageEdit"][];
+        };
+        /** LinkedInPage */
+        LinkedInPage: {
+            pack: components["schemas"]["LinkedInPagePack"] | null;
+            /** Profileversion */
+            profileVersion: number | null;
+            /** Markedat */
+            markedAt: string | null;
+        };
+        /** LinkedInPagePack */
+        LinkedInPagePack: {
+            /** Digest */
+            digest: string;
+            /** Profileversion */
+            profileVersion: number | null;
+            /** Sections */
+            sections: components["schemas"]["LinkedInPageSection"][];
+            /** Unchanged */
+            unchanged: number;
+            /** Removed */
+            removed: string[];
+        };
+        /**
+         * LinkedInPageSection
+         * @description A section to paste into LinkedIn.
+         */
+        LinkedInPageSection: {
+            /** Key */
+            key: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "headline" | "about" | "position";
+            /** Label */
+            label: string;
+            /** Text */
+            text: string;
+            /** Length */
+            length: number;
+            /** Limit */
+            limit: number;
+            /** Flagged */
+            flagged: boolean;
+            report: components["schemas"]["VerifierReport"] | null;
+            /** Notes */
+            notes: string[];
+        };
+        /** MarkDone */
+        MarkDone: {
+            /** Digest */
+            digest: string;
+        };
+        /** Marked */
+        Marked: {
+            /** Marked */
+            marked: number;
+            /** Flagged */
+            flagged: string[];
         };
         /** Me */
         Me: {
@@ -1507,6 +1609,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Applied"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    linkedin_page_api_linkedin_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkedInPage"];
+                };
+            };
+        };
+    };
+    mark_pack_done_api_linkedin_done_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarkDone"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Marked"];
                 };
             };
             /** @description Validation Error */

@@ -18,6 +18,7 @@ from app.deps import LLMFactory
 from app.inbox.routes import router as inbox_router
 from app.internal import router as internal_router
 from app.journal.routes import router as journal_router
+from app.linkedin_routes import router as linkedin_router
 from app.llm.client import LLMClient
 from app.llm.usage import CallLog
 from app.telegram.routes import router as telegram_api_router
@@ -81,6 +82,7 @@ def create_app(
     api.include_router(telegram_api_router)
     api.include_router(journal_router)
     api.include_router(inbox_router)
+    api.include_router(linkedin_router)
     api.include_router(internal_router)
     add_web_app(api, settings.web_dist_dir)
     return api

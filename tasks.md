@@ -884,13 +884,18 @@ As the owner, I want my portfolio page served by the app and updated when I refr
 - [ ] The page is cached. Tests: only the published version is shown, and hidden fields are absent.
 
 ### T-047 · LinkedIn page
-**Status:** ☐ · **Size:** S · **Depends on:** T-024, T-039 · **Requirements:** FR-LIN-2, FR-LIN-3 · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-024, T-039 · **Requirements:** FR-LIN-2, FR-LIN-3 · **PR:** [#68](https://github.com/matchastack/work-journal/pull/68)
 
 As the owner, I want a checklist of LinkedIn sections to paste, so that LinkedIn stays in step with my resume.
 
-- [ ] Shows the pack from the latest refresh, only the changed sections, each with a copy button and a character counter.
-- [ ] "Mark done" stores a snapshot.
-- [ ] Tests.
+- [x] Shows the pack from the latest refresh, only the changed sections, each with a copy button and a character counter.
+- [x] "Mark done" stores a snapshot.
+- [x] Tests.
+
+**Built (2026-10-30):**
+- The page shows the pack last written and never writes one, so it calls no model. Until the refresh writes the pack (T-061), `wj linkedin --db` does.
+- Sections are compared with the newest snapshot, so a pack marked done from the command line drops off the page too.
+- Mark done turns on once each section that passed, and each section to take off LinkedIn, is ticked. It names the pack the page showed, and a pack written since isn't marked.
 
 ### T-048 · Settings page
 **Status:** ☐ · **Size:** M · **Depends on:** T-031, T-035, T-039 · **Requirements:** FR-SET-1, FR-SET-2, FR-SET-3, FR-SET-4, FR-SET-5, FR-SET-6, NFR-PRIV-3 · **PR:** —
