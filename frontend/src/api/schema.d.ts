@@ -489,6 +489,190 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/profile/work/{role_id}/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Role Rules
+         * @description Change a role's tailoring rules (FR-PRF-5): its approved title variants, whether it's
+         *     load-bearing or held during education, the role types it's kept or cut for, its
+         *     sensitivity and its honesty boundaries.
+         */
+        put: operations["edit_role_rules_api_profile_work__role_id__rules_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/education/{education_id}/coursework": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Coursework
+         * @description Change an education entry's full coursework list, its coursework for each role type and
+         *     its rules (FR-PRF-7).
+         */
+        put: operations["edit_coursework_api_profile_education__education_id__coursework_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/bullets/{bullet_id}/swaps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Swaps
+         * @description Change a bullet's swaps, the approved phrasings tailored resumes can use (FR-WRT-5).
+         */
+        put: operations["edit_swaps_api_profile_bullets__bullet_id__swaps_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/role-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Role Types
+         * @description Change the role types. One still in use can't be removed.
+         */
+        put: operations["edit_role_types_api_profile_role_types_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Skills
+         * @description Change the skills and the gaps list (FR-PRF-6).
+         */
+        put: operations["edit_skills_api_profile_skills_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/skill-presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Skill Presets
+         * @description Change the skills presets, one per role type (FR-PRF-9).
+         */
+        put: operations["edit_skill_presets_api_profile_skill_presets_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/summaries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Summaries
+         * @description Change the summary variants, one per role type (FR-PRF-8).
+         */
+        put: operations["edit_summaries_api_profile_summaries_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/open-questions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Open Question
+         * @description Add an open question, blocking the bullets it names (FR-PRF-10).
+         */
+        post: operations["add_open_question_api_profile_open_questions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/open-questions/{question_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Open Question
+         * @description Change an open question: its wording, its status (open, answered or closed) and the
+         *     bullets it blocks.
+         */
+        put: operations["edit_open_question_api_profile_open_questions__question_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/profile/versions": {
         parameters: {
             query?: never;
@@ -772,10 +956,31 @@ export interface components {
             factIds: string[];
         };
         /**
+         * CourseworkEdit
+         * @description An education entry's coursework and rules (FR-PRF-7).
+         */
+        CourseworkEdit: {
+            /** Baseversion */
+            baseVersion: number;
+            /** Courses */
+            courses: string[];
+            /** Courseworksubsets */
+            courseworkSubsets: components["schemas"]["CourseworkSubsetEdit"][];
+            /** Rules */
+            rules: string[];
+        };
+        /**
          * CourseworkSubset
          * @description The courses to list for one role type.
          */
         CourseworkSubset: {
+            /** Roletype */
+            roleType: string;
+            /** Courses */
+            courses: string[];
+        };
+        /** CourseworkSubsetEdit */
+        CourseworkSubsetEdit: {
             /** Roletype */
             roleType: string;
             /** Courses */
@@ -1297,6 +1502,23 @@ export interface components {
             answerFactIds: string[];
         };
         /**
+         * OpenQuestionEdit
+         * @description An open question: what it asks, its status, and the bullets it blocks (FR-PRF-10).
+         */
+        OpenQuestionEdit: {
+            /** Baseversion */
+            baseVersion: number;
+            /** Question */
+            question: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "answered" | "closed";
+            /** Bulletids */
+            bulletIds: string[];
+        };
+        /**
          * Profile
          * @description The master profile: the superset every resume, page and LinkedIn text is drawn from.
          */
@@ -1603,6 +1825,31 @@ export interface components {
             label: string;
         };
         /**
+         * RoleRulesEdit
+         * @description A role's tailoring rules (FR-PRF-5).
+         */
+        RoleRulesEdit: {
+            /** Baseversion */
+            baseVersion: number;
+            /** Titlevariants */
+            titleVariants: string[];
+            /** Loadbearing */
+            loadBearing: boolean;
+            /** Duringeducation */
+            duringEducation: boolean;
+            /** Keepfor */
+            keepFor: string[];
+            /** Cutfor */
+            cutFor: string[];
+            /**
+             * Sensitivity
+             * @enum {string}
+             */
+            sensitivity: "normal" | "sensitive";
+            /** Honestyboundaries */
+            honestyBoundaries: string[];
+        };
+        /**
          * RoleType
          * @description A kind of job the owner applies for, e.g. backend or ML.
          */
@@ -1611,6 +1858,23 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+        };
+        /** RoleTypeEdit */
+        RoleTypeEdit: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * RoleTypesEdit
+         * @description The kinds of job you apply for, which presets, summaries and rules are kept by.
+         */
+        RoleTypesEdit: {
+            /** Baseversion */
+            baseVersion: number;
+            /** Roletypes */
+            roleTypes: components["schemas"]["RoleTypeEdit"][];
         };
         /**
          * SingleValue
@@ -1649,11 +1913,33 @@ export interface components {
              */
             notes: components["schemas"]["Note"][];
         };
+        /** SkillEdit */
+        SkillEdit: {
+            /** Name */
+            name: string;
+            /** Previousname */
+            previousName: string | null;
+            /** Category */
+            category: string;
+            /** Tier */
+            tier: ("strong" | "working" | "academic") | null;
+            /** Verifybeforeshipping */
+            verifyBeforeShipping: boolean;
+            /** Aliases */
+            aliases: string[];
+        };
         /**
          * SkillLine
          * @description One line of a skills section, e.g. `Languages: Python, SQL`.
          */
         SkillLine: {
+            /** Label */
+            label: string;
+            /** Skills */
+            skills: string[];
+        };
+        /** SkillLineEdit */
+        SkillLineEdit: {
             /** Label */
             label: string;
             /** Skills */
@@ -1668,6 +1954,35 @@ export interface components {
             roleType: string;
             /** Lines */
             lines: components["schemas"]["SkillLine"][];
+        };
+        /** SkillPresetEdit */
+        SkillPresetEdit: {
+            /** Roletype */
+            roleType: string;
+            /** Lines */
+            lines: components["schemas"]["SkillLineEdit"][];
+        };
+        /**
+         * SkillPresetsEdit
+         * @description The skills section for each role type (FR-PRF-9).
+         */
+        SkillPresetsEdit: {
+            /** Baseversion */
+            baseVersion: number;
+            /** Skillpresets */
+            skillPresets: components["schemas"]["SkillPresetEdit"][];
+        };
+        /**
+         * SkillsEdit
+         * @description Your skills and the gaps list (FR-PRF-6).
+         */
+        SkillsEdit: {
+            /** Baseversion */
+            baseVersion: number;
+            /** Skills */
+            skills: components["schemas"]["SkillEdit"][];
+            /** Skillgaps */
+            skillGaps: string[];
         };
         /**
          * SocialProfile
@@ -1707,10 +2022,27 @@ export interface components {
             strength: "high" | "medium" | "low";
         };
         /**
+         * SummariesEdit
+         * @description A summary paragraph for each role type (FR-PRF-8), used only when a resume asks for one.
+         */
+        SummariesEdit: {
+            /** Baseversion */
+            baseVersion: number;
+            /** Summaries */
+            summaries: components["schemas"]["SummaryEdit"][];
+        };
+        /**
          * Summary
          * @description A summary paragraph for one role type. Off by default.
          */
         Summary: {
+            /** Roletype */
+            roleType: string;
+            /** Text */
+            text: string;
+        };
+        /** SummaryEdit */
+        SummaryEdit: {
             /** Roletype */
             roleType: string;
             /** Text */
@@ -1736,6 +2068,30 @@ export interface components {
              * @enum {string}
              */
             origin: "imported" | "approved";
+        };
+        /** SwapEdit */
+        SwapEdit: {
+            /** Text */
+            text: string;
+            /** Replaces */
+            replaces: string | null;
+            /** Contexts */
+            contexts: string[];
+            /**
+             * Origin
+             * @enum {string}
+             */
+            origin: "imported" | "approved";
+        };
+        /**
+         * SwapsEdit
+         * @description A bullet's swaps, the approved alternative phrasings (FR-WRT-5).
+         */
+        SwapsEdit: {
+            /** Baseversion */
+            baseVersion: number;
+            /** Swaps */
+            swaps: components["schemas"]["SwapEdit"][];
         };
         /** TelegramDeepLink */
         TelegramDeepLink: {
@@ -2591,6 +2947,311 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["BulletEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_role_rules_api_profile_work__role_id__rules_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleRulesEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_coursework_api_profile_education__education_id__coursework_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                education_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseworkEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_swaps_api_profile_bullets__bullet_id__swaps_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bullet_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SwapsEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_role_types_api_profile_role_types_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleTypesEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_skills_api_profile_skills_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillsEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_skill_presets_api_profile_skill_presets_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillPresetsEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_summaries_api_profile_summaries_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SummariesEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_open_question_api_profile_open_questions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenQuestionEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_open_question_api_profile_open_questions__question_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenQuestionEdit"];
             };
         };
         responses: {

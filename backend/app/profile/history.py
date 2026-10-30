@@ -7,7 +7,8 @@ bullet it's in, and the value before and after, a word at a time for text of mor
 
 `describe_path` reads a profile path such as `work[northwind].highlights[nw_export].text`, as
 diffs and resume-rule findings write them, in the same terms. It knows basics, roles, education
-entries, projects and their bullets; any other path is shown as it is.
+entries, projects and their bullets, and the profile's own lists: role types, skills and gaps,
+skills presets, summaries and open questions. Any other path is shown as it is.
 """
 
 import json
@@ -38,11 +39,28 @@ FIELD_LABELS = {
     "sources": "facts",
     "highlights": "bullets",
     "countryCode": "country code",
+    "needs": "open questions",
 }
 """Labels for the fields whose JSON name, split into words, doesn't say what they hold."""
 
-KEYED_LABELS = {"profiles": "{key} profile", "courseworkSubsets": "{key} coursework"}
+KEYED_LABELS = {
+    "profiles": "{key} profile",
+    "courseworkSubsets": "{key} coursework",
+    "lines": "{key} line",
+}
 """How to name one entry of a list field, by its key."""
+
+ENTRY_KINDS = {
+    "roleTypes": "role type",
+    "skills": "skill",
+    "skillPresets": "skills preset",
+    "summaries": "summary",
+    "openQuestions": "open question",
+}
+"""The profile's own lists whose entries are named by a key, and what each entry is."""
+
+BY_ROLE_TYPE = frozenset({"skillPresets", "summaries"})
+"""Lists with an entry for each role type, keyed by it."""
 
 FACT_LISTS = frozenset({"sources", "answerFactIds"})
 """Lists of fact IDs, which mean nothing to the owner, so they're counted instead."""
@@ -96,7 +114,9 @@ def describe_path(path: str, *profiles: Profile) -> str:
 
 def _change(change: profile_ops.Change, before: Profile, after: Profile) -> VersionChange:
     place = _parse(change.path)
-    old, new = _display(change.before, change.path), _display(change.after, change.path)
+    questions = {q.id: q.question for p in (before, after) for q in p.open_questions}
+    old = _display(change.before, change.path, questions)
+    new = _display(change.after, change.path, questions)
     words = isinstance(change.before, str) and isinstance(change.after, str)
     reworded = words and any(" " in str(text) for text in (change.before, change.after))
     return VersionChange(
@@ -113,6 +133,9 @@ def _change(change: profile_ops.Change, before: Profile, after: Profile) -> Vers
 def _title(change: profile_ops.Change, place: _Place | None, profiles: tuple[Profile, ...]) -> str:
     whole = place is not None and not place.fields and change.kind != "changed"
     if whole and place is not None and place.item_id is not None:
+        if place.section in ENTRY_KINDS:
+            name = _entry_name(place.section, place.item_id, profiles)
+            return f"{_capitalised(ENTRY_KINDS[place.section])} {change.kind}: {name}"
         label = _item_label(place.section, place.item_id, profiles)
         if place.bullet_id is not None:
             where = "under" if change.kind == "added" else "from"
@@ -145,6 +168,10 @@ def _parse(path: str) -> _Place | None:
     (section, key), rest = segments[0], segments[1:]
     if section == "basics" and key is None:
         return _Place(section, None, None, tuple(rest))
+    if section == "skillGaps" and key is None and not rest:
+        return _Place(section, None, None, ())
+    if section in ENTRY_KINDS and key is not None:
+        return _Place(section, key, None, tuple(rest))
     if section not in ITEM_SECTIONS or key is None:
         return None
     bullet = None
@@ -155,8 +182,14 @@ def _parse(path: str) -> _Place | None:
 
 def _target(place: _Place, profiles: tuple[Profile, ...]) -> tuple[str, str]:
     """What a place is in, and the word that joins a field to it."""
+    if place.section == "skillGaps":
+        return "your skill gaps", "in"
     if place.item_id is None:
         return "your basics", "in"
+    if place.section in ENTRY_KINDS:
+        name = _entry_name(place.section, place.item_id, profiles)
+        joiner = "for" if place.section in BY_ROLE_TYPE else ""
+        return " ".join(filter(None, ("the", ENTRY_KINDS[place.section], joiner, name))), "of"
     label = _item_label(place.section, place.item_id, profiles)
     return (label if place.bullet_id is None else f"a bullet under {label}"), "of"
 
@@ -185,14 +218,32 @@ def _item_label(section: str, item_id: str, profiles: tuple[Profile, ...]) -> st
     return item_id
 
 
+def _entry_name(section: str, key: str, profiles: tuple[Profile, ...]) -> str:
+    """What names an entry of one of the profile's lists: an open question's wording, a role
+    type's name, or the key."""
+    for profile in profiles:
+        if section == "openQuestions":
+            names = {question.id: question.question for question in profile.open_questions}
+        elif section in BY_ROLE_TYPE or section == "roleTypes":
+            names = {role_type.id: role_type.name for role_type in profile.role_types}
+        else:
+            break
+        if key in names:
+            return names[key]
+    return key
+
+
 def _capitalised(text: str) -> str:
     return text[:1].upper() + text[1:]
 
 
-def _display(value: Any, path: str) -> str | None:
-    """A value as the owner reads it."""
+def _display(value: Any, path: str, questions: dict[str, str]) -> str | None:
+    """A value as the owner reads it. The open questions a bullet waits on are their wording."""
     if value is None:
         return None
+    if isinstance(value, list) and path.endswith(".needs"):
+        ids = cast(list[str], value)
+        return "; ".join(questions.get(question_id, question_id) for question_id in ids) or "none"
     if isinstance(value, list) and path.rsplit(".", 1)[-1] in FACT_LISTS:
         count = len(cast(list[Any], value))
         return f"{count} {'fact' if count == 1 else 'facts'}"

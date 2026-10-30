@@ -6,6 +6,7 @@ import { TEXT_BUTTON } from "../ui";
 import { BulletItem } from "./BulletItem";
 import { Findings } from "./Findings";
 import { EducationForm, ProjectForm, RoleForm } from "./ItemForms";
+import { Coursework, RoleRules } from "./ItemMetadata";
 import { entryLabel, type Entry } from "./labels";
 import { bulletPath, findingsAt, itemPath } from "./paths";
 import { useEditing } from "./useEditing";
@@ -80,7 +81,8 @@ function ItemForm({
 
 /**
  * A role, education entry or project, with its bullets and the resume-rule findings about it.
- * Its fields are edited in place; each bullet has its own Edit.
+ * Its fields are edited in place; each bullet has its own Edit. A role's tailoring rules and an
+ * education entry's coursework and rules have their own Edit too (T-043).
  */
 export function ItemCard({
   entry,
@@ -138,6 +140,22 @@ export function ItemCard({
             Edit
           </button>
         </>
+      )}
+      {entry.section === "work" && (
+        <RoleRules
+          role={entry.item}
+          roleTypes={roleTypes}
+          baseVersion={baseVersion}
+          onSaved={onSaved}
+        />
+      )}
+      {entry.section === "education" && (
+        <Coursework
+          education={entry.item}
+          roleTypes={roleTypes}
+          baseVersion={baseVersion}
+          onSaved={onSaved}
+        />
       )}
       {entry.item.highlights.length === 0 ? (
         <p className="mt-3 text-sm text-stone-500">

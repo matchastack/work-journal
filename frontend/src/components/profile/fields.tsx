@@ -1,7 +1,8 @@
-import { useId, type ReactNode } from "react";
+import { useId, useRef, type ReactNode } from "react";
 
 import { failureMessage } from "../../api/auth";
-import { BUTTON, INPUT, LABEL, PRIMARY_BUTTON } from "../ui";
+import { BUTTON, FOCUS, INPUT, LABEL, PRIMARY_BUTTON, TEXT_BUTTON } from "../ui";
+import { useRowFocus } from "./useRowFocus";
 
 /**
  * A card's form, edited in place: Save sends it, and Cancel or Escape closes it. What's wrong
@@ -223,5 +224,123 @@ export function MonthField({ label, value, onChange, hint, required, className }
       />
       <Hint id={`${id}-hint`} hint={hint} />
     </div>
+  );
+}
+
+/** A labelled yes-or-no. */
+export function CheckboxField({
+  label,
+  checked,
+  onChange,
+  hint,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  hint?: string | undefined;
+}) {
+  const id = useId();
+  return (
+    <div>
+      <div className="flex items-center gap-2">
+        <input
+          id={id}
+          type="checkbox"
+          checked={checked}
+          onChange={(event) => {
+            onChange(event.target.checked);
+          }}
+          aria-describedby={hint === undefined ? undefined : `${id}-hint`}
+          className={`h-4 w-4 rounded border-stone-300 ${FOCUS}`}
+        />
+        <label htmlFor={id} className="text-sm text-stone-800">
+          {label}
+        </label>
+      </div>
+      <Hint id={`${id}-hint`} hint={hint} />
+    </div>
+  );
+}
+
+/**
+ * A list of rows in a form, each in a box of its own, named `{noun} 1`, `{noun} 2` and so on,
+ * with a Remove button each and an Add button while there's room. Focus moves to a new row, and
+ * after a removal to the next row or the Add button (`useRowFocus`).
+ */
+export function Rows<Row extends { key: number }>({
+  legend,
+  noun,
+  rows,
+  max,
+  empty,
+  onChange,
+  makeRow,
+  children,
+}: {
+  legend: string;
+  /** What a row is, capitalised: `Swap`. */
+  noun: string;
+  rows: readonly Row[];
+  max: number;
+  /** Said while there are no rows. */
+  empty: string;
+  onChange: (rows: Row[]) => void;
+  /** A new, blank row with this key. */
+  makeRow: (key: number) => Row;
+  children: (row: Row, change: (changes: Partial<Row>) => void, index: number) => ReactNode;
+}) {
+  const nextKey = useRef(Math.max(-1, ...rows.map((row) => row.key)) + 1);
+  const { rowRef, addButton, added, removed } = useRowFocus();
+  return (
+    <fieldset className="space-y-2">
+      <legend className={LABEL}>{legend}</legend>
+      {rows.length === 0 && <p className="text-sm text-stone-500">{empty}</p>}
+      {rows.map((row, index) => {
+        const name = `${noun} ${String(index + 1)}`;
+        return (
+          <fieldset
+            key={row.key}
+            ref={rowRef(row.key)}
+            className="rounded border border-stone-200 bg-white p-2"
+          >
+            <legend className="px-1 text-xs text-stone-600">{name}</legend>
+            {children(
+              row,
+              (changes) => {
+                onChange(rows.map((each) => (each.key === row.key ? { ...each, ...changes } : each)));
+              },
+              index,
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                removed(
+                  rows.map((each) => each.key),
+                  row.key,
+                );
+                onChange(rows.filter((each) => each.key !== row.key));
+              }}
+              className={`mt-2 ${TEXT_BUTTON}`}
+            >
+              Remove {name.toLowerCase()}
+            </button>
+          </fieldset>
+        );
+      })}
+      {rows.length < max && (
+        <button
+          ref={addButton}
+          type="button"
+          onClick={() => {
+            const key = nextKey.current++;
+            added(key);
+            onChange([...rows, makeRow(key)]);
+          }}
+          className={TEXT_BUTTON}
+        >
+          Add {/^[aeiou]/i.test(noun) ? "an" : "a"} {noun.toLowerCase()}
+        </button>
+      )}
+    </fieldset>
   );
 }

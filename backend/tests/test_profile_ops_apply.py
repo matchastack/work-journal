@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
+from pydantic import JsonValue
 
 from app.profile_ops import ProfileOpError, apply
 from app.schema.changes import (
@@ -143,6 +144,36 @@ def test_update_field_on_a_role_a_bullet_and_basics(profile: Profile) -> None:
 def test_update_field_rejects_protected_or_unknown_fields(profile: Profile, field: str) -> None:
     with pytest.raises(ProfileOpError, match="no editable field"):
         apply(profile, [UpdateField(target_id="northwind", field=field, value="x")])
+
+
+def test_update_field_replaces_one_of_the_profiles_lists(profile: Profile) -> None:
+    gaps = UpdateField(target_id="profile", field="skillGaps", value=["Rust", "Haskell"])
+    questions = [*profile.model_dump(mode="json")["openQuestions"][:1]]
+    closed = UpdateField(target_id="profile", field="openQuestions", value=questions)
+    result = apply(profile, [gaps, closed])
+    assert result.skill_gaps == ("Rust", "Haskell")
+    assert [question.id for question in result.open_questions] == ["q_nw_volume"]
+
+
+@pytest.mark.parametrize("field", ["basics", "work", "projects", "name"])
+def test_update_field_on_the_profile_takes_only_its_lists(profile: Profile, field: str) -> None:
+    with pytest.raises(ProfileOpError, match="no editable list"):
+        apply(profile, [UpdateField(target_id="profile", field=field, value=[])])
+
+
+def test_an_item_whose_id_is_profile_can_still_be_changed(profile: Profile) -> None:
+    named = profile.projects[0].model_copy(update={"id": "profile", "name": "Profile"})
+    with_item = profile.model_copy(update={"projects": (named, *profile.projects[1:])})
+    op = UpdateField(target_id="profile", field="description", value="A profile page builder.")
+    assert apply(with_item, [op]).projects[0].description == "A profile page builder."
+    gaps = UpdateField(target_id="profile", field="skillGaps", value=["Haskell"])
+    assert apply(with_item, [gaps]).skill_gaps == ("Haskell",)
+
+
+def test_a_profile_list_must_keep_the_profile_valid(profile: Profile) -> None:
+    summaries: JsonValue = [{"roleType": "mobile", "text": "Ships apps."}]
+    with pytest.raises(ProfileOpError, match="undefined role types"):
+        apply(profile, [UpdateField(target_id="profile", field="summaries", value=summaries)])
 
 
 def test_update_field_value_must_keep_the_profile_valid(profile: Profile) -> None:

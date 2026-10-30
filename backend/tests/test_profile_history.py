@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+from pydantic import JsonValue
+
 from app.inbox.describe import DiffPart
 from app.profile.history import VersionChange, describe_path, version_changes
 from app.profile_ops import apply
@@ -123,14 +125,16 @@ def test_facts_are_counted_rather_than_listed() -> None:
     )
     question = ResolveOpenQuestion(question_id="q_nw_volume", fact_ids=("f_volume",))
     status, answers = version_changes(PROFILE, apply(PROFILE, [question]))
-    assert status.title == "openQuestions[q_nw_volume].status"
+    assert status.title == (
+        "Status of the open question How many order events a day do the services handle?"
+    )
     assert (answers.before, answers.after) == ("0 facts", "1 fact")
 
 
-def test_other_sections_keep_their_paths() -> None:
+def test_a_new_skill_is_named() -> None:
     op = AddSkill(skill=Skill(name="Go", category="Languages"))
     (skill,) = version_changes(PROFILE, apply(PROFILE, [op]))
-    assert (skill.title, skill.after) == ("Added: skills[Go]", "Go")
+    assert (skill.title, skill.after) == ("Skill added: Go", "Go")
 
 
 def test_paths_read_as_the_owner_would_say_them() -> None:
@@ -153,13 +157,90 @@ def test_paths_read_as_the_owner_would_say_them() -> None:
     assert describe_path("work[gone].highlights[x].text", PROFILE) == "Text of a bullet under gone"
 
 
+def test_paths_into_the_profiles_own_lists() -> None:
+    assert describe_path("summaries[backend]", PROFILE) == "The summary for Backend / full stack"
+    assert describe_path("skillPresets[backend].lines[Backend & APIs]", PROFILE) == (
+        "Backend & APIs line of the skills preset for Backend / full stack"
+    )
+    assert describe_path("skills[Node.js].aliases", PROFILE) == "Aliases of the skill Node.js"
+    assert describe_path("skillGaps", PROFILE) == "Your skill gaps"
+    assert describe_path("openQuestions[q_gone]", PROFILE) == "The open question q_gone"
+
+
 def test_paths_it_doesnt_know_stay_as_they_are() -> None:
     for path in (
-        "summaries[backend]",
-        "skillPresets[backend].lines[Backend & APIs]",
-        "skills[Node.js].aliases",
+        "roleTypes",
+        "skillGaps[Rust]",
         "work",
         "work[northwind",
         "",
     ):
         assert describe_path(path, PROFILE) == path
+
+
+def test_the_profiles_own_lists_are_named() -> None:
+    """T-043: role types, skills and gaps, presets, summaries and open questions."""
+    data = PROFILE.model_dump(mode="json")
+    data["skills"][0]["tier"] = "working"
+    data["skillPresets"][0]["lines"][0]["skills"] = ["Python"]
+    data["summaries"][1]["text"] = "Data engineer."
+    data["openQuestions"][0]["status"] = "closed"
+    ops = [
+        UpdateField(target_id="profile", field=field, value=data[field])
+        for field in ("skills", "skillPresets", "summaries", "openQuestions")
+    ]
+    ops += [
+        UpdateField(target_id="profile", field="skillGaps", value=["Rust", "Haskell"]),
+        UpdateField(
+            target_id="profile",
+            field="roleTypes",
+            value=[*data["roleTypes"], {"id": "ml", "name": "Machine learning"}],
+        ),
+    ]
+    changes = version_changes(PROFILE, apply(PROFILE, ops))
+    assert [(change.kind, change.title, change.after) for change in changes] == [
+        ("added", "Role type added: Machine learning", "Machine learning"),
+        ("changed", "Tier of the skill Python", "working"),
+        ("changed", "Your skill gaps", "Rust, Haskell"),
+        (
+            "changed",
+            "Skills of Languages line of the skills preset for Backend / full stack",
+            "Python",
+        ),
+        ("changed", "Text of the summary for Data engineering", "Data engineer."),
+        (
+            "changed",
+            "Status of the open question How many order events a day do the services handle?",
+            "closed",
+        ),
+    ]
+
+
+def test_an_entry_of_the_profiles_lists_added_or_removed() -> None:
+    question: JsonValue = {
+        "id": "q_1",
+        "question": "How long did the export take?",
+        "status": "open",
+    }
+    questions: JsonValue = [*PROFILE.model_dump(mode="json")["openQuestions"], question]
+    ops = [
+        UpdateField(target_id="profile", field="openQuestions", value=questions),
+        UpdateField(target_id="profile", field="summaries", value=[]),
+    ]
+    titles = [change.title for change in version_changes(PROFILE, apply(PROFILE, ops))]
+    assert titles == [
+        "Summary removed: Backend / full stack",
+        "Summary removed: Data engineering",
+        "Open question added: How long did the export take?",
+    ]
+    assert describe_path("skills[Python]", PROFILE) == "The skill Python"
+
+
+def test_the_questions_a_bullet_waits_on_are_their_wording() -> None:
+    op = UpdateField(target_id="nw_export", field="needs", value=["q_nw_volume"])
+    (needs,) = version_changes(PROFILE, apply(PROFILE, [op]))
+    assert (needs.title, needs.before, needs.after) == (
+        f"Open questions of a bullet under {NORTHWIND}",
+        "none",
+        "How many order events a day do the services handle?",
+    )

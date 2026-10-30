@@ -842,15 +842,15 @@ As the owner, I want to edit my roles, projects and bullets directly, so that I 
 - [x] Tests.
 
 ### T-043 · Profile page: swaps, titles, coursework, skills, summaries and open questions
-**Status:** ☐ · **Size:** M · **Depends on:** T-042 · **Requirements:** FR-PRF-5, FR-PRF-6, FR-PRF-7, FR-PRF-8, FR-PRF-9, FR-PRF-10, FR-WRT-5 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-042 · **Requirements:** FR-PRF-5, FR-PRF-6, FR-PRF-7, FR-PRF-8, FR-PRF-9, FR-PRF-10, FR-WRT-5 · **PR:** [#67](https://github.com/matchastack/work-journal/pull/67)
 
 As the owner, I want to manage the metadata that drives tailoring, so that my master-resume practice lives in the app.
 
-- [ ] Edit swaps (with their context), approved title variants, load-bearing and keep/cut rules, and honesty boundaries.
-- [ ] Edit coursework subsets, education rules and summary variants.
-- [ ] Edit skills (tier, preferred spelling, verify-before-shipping), the gaps list and skills presets.
-- [ ] Create, answer and close open questions.
-- [ ] Tests.
+- [x] Edit swaps (with their context), approved title variants, load-bearing and keep/cut rules, and honesty boundaries.
+- [x] Edit coursework subsets, education rules and summary variants.
+- [x] Edit skills (tier, preferred spelling, verify-before-shipping), the gaps list and skills presets.
+- [x] Create, answer and close open questions.
+- [x] Tests.
 
 ### T-044 · Resumes page
 **Status:** ☐ · **Size:** M · **Depends on:** T-010, T-011, T-027, T-039 · **Requirements:** FR-RES-5, FR-RES-6 · **PR:** —

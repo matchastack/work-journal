@@ -1,4 +1,5 @@
-"""`/api/profile`: view and edit the signed-in owner's profile, and its versions (T-042)."""
+"""`/api/profile`: view and edit the signed-in owner's profile, its tailoring metadata and its
+versions (T-042, T-043)."""
 
 import uuid
 from collections.abc import Callable, Generator
@@ -13,15 +14,32 @@ from app.deps import Db
 from app.profile.edits import (
     BasicsEdit,
     BulletEdit,
+    CourseworkEdit,
     Edited,
     EducationEdit,
+    OpenQuestionEdit,
     ProjectEdit,
     RoleEdit,
+    RoleRulesEdit,
+    RoleTypesEdit,
+    SkillPresetsEdit,
+    SkillsEdit,
+    SummariesEdit,
+    SwapsEdit,
     basics_changes,
     bullet_changes,
+    coursework_changes,
     education_changes,
+    new_question_changes,
     project_changes,
+    question_changes,
     role_changes,
+    role_rules_changes,
+    role_types_changes,
+    skill_presets_changes,
+    skills_changes,
+    summaries_changes,
+    swaps_changes,
 )
 from app.profile.page import (
     Conflict,
@@ -99,6 +117,102 @@ async def edit_bullet(
     checked by the verifier, but the resume rules' findings show on the page."""
     return await _save(
         db, user.id, response, body.base_version, lambda p: bullet_changes(p, bullet_id, body)
+    )
+
+
+@router.put("/work/{role_id}/rules")
+async def edit_role_rules(
+    role_id: str, body: RoleRulesEdit, user: CurrentUser, db: Db, response: Response
+) -> ProfilePage:
+    """Change a role's tailoring rules (FR-PRF-5): its approved title variants, whether it's
+    load-bearing or held during education, the role types it's kept or cut for, its
+    sensitivity and its honesty boundaries."""
+    return await _save(
+        db, user.id, response, body.base_version, lambda p: role_rules_changes(p, role_id, body)
+    )
+
+
+@router.put("/education/{education_id}/coursework")
+async def edit_coursework(
+    education_id: str, body: CourseworkEdit, user: CurrentUser, db: Db, response: Response
+) -> ProfilePage:
+    """Change an education entry's full coursework list, its coursework for each role type and
+    its rules (FR-PRF-7)."""
+    return await _save(
+        db,
+        user.id,
+        response,
+        body.base_version,
+        lambda p: coursework_changes(p, education_id, body),
+    )
+
+
+@router.put("/bullets/{bullet_id}/swaps")
+async def edit_swaps(
+    bullet_id: str, body: SwapsEdit, user: CurrentUser, db: Db, response: Response
+) -> ProfilePage:
+    """Change a bullet's swaps, the approved phrasings tailored resumes can use (FR-WRT-5)."""
+    return await _save(
+        db, user.id, response, body.base_version, lambda p: swaps_changes(p, bullet_id, body)
+    )
+
+
+@router.put("/role-types")
+async def edit_role_types(
+    body: RoleTypesEdit, user: CurrentUser, db: Db, response: Response
+) -> ProfilePage:
+    """Change the role types. One still in use can't be removed."""
+    return await _save(
+        db, user.id, response, body.base_version, lambda p: role_types_changes(p, body)
+    )
+
+
+@router.put("/skills")
+async def edit_skills(
+    body: SkillsEdit, user: CurrentUser, db: Db, response: Response
+) -> ProfilePage:
+    """Change the skills and the gaps list (FR-PRF-6)."""
+    return await _save(db, user.id, response, body.base_version, lambda p: skills_changes(p, body))
+
+
+@router.put("/skill-presets")
+async def edit_skill_presets(
+    body: SkillPresetsEdit, user: CurrentUser, db: Db, response: Response
+) -> ProfilePage:
+    """Change the skills presets, one per role type (FR-PRF-9)."""
+    return await _save(
+        db, user.id, response, body.base_version, lambda p: skill_presets_changes(p, body)
+    )
+
+
+@router.put("/summaries")
+async def edit_summaries(
+    body: SummariesEdit, user: CurrentUser, db: Db, response: Response
+) -> ProfilePage:
+    """Change the summary variants, one per role type (FR-PRF-8)."""
+    return await _save(
+        db, user.id, response, body.base_version, lambda p: summaries_changes(p, body)
+    )
+
+
+@router.post("/open-questions")
+async def add_open_question(
+    body: OpenQuestionEdit, user: CurrentUser, db: Db, response: Response
+) -> ProfilePage:
+    """Add an open question, blocking the bullets it names (FR-PRF-10)."""
+    return await _save(
+        db, user.id, response, body.base_version, lambda p: new_question_changes(p, body)
+    )
+
+
+@router.put("/open-questions/{question_id}")
+async def edit_open_question(
+    question_id: str, body: OpenQuestionEdit, user: CurrentUser, db: Db, response: Response
+) -> ProfilePage:
+    """Change an open question: its wording, its status (open, answered or closed) and the
+    bullets it blocks."""
+    return await _save(
+        db, user.id, response, body.base_version, lambda p: question_changes(p, question_id, body)
     )
 
 
