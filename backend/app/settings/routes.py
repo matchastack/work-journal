@@ -1,11 +1,14 @@
-"""`/api/settings`: the signed-in owner's preferences (T-048, FR-SET-1 to FR-SET-5)."""
+"""`/api/settings`: the signed-in owner's preferences and data (T-048, FR-SET-1 to FR-SET-6,
+NFR-PRIV-3)."""
 
+import logging
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Response, status
+from fastapi.responses import JSONResponse
 
 from app.auth.routes import NO_STORE
-from app.auth.sessions import CurrentUser
+from app.auth.sessions import CurrentUser, clear_session_cookies
 from app.db.settings import (
     get_style_notes,
     handle_taken,
@@ -15,7 +18,9 @@ from app.db.settings import (
 )
 from app.deps import AppSettings, Db
 from app.reminders import default_schedule
+from app.schema.common import Model
 from app.schema.settings import ConfidentialTerms, PortfolioSettings, ReminderSettings, StyleNotes
+from app.settings.data import delete_all_data, export_data
 from app.settings.views import (
     ReminderView,
     SettingsView,
@@ -26,7 +31,13 @@ from app.settings.views import (
 )
 from app.telegram.reminders import change_reminders
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/settings", tags=["settings"])
+
+
+class DataDeletion(Model):
+    confirm: str
+    """The owner's GitHub username, typed to confirm, in any case."""
 
 
 @router.get("")
@@ -87,3 +98,38 @@ async def change_confidential_terms(
     await save_confidential_terms(db, user.id, body)
     await db.commit()
     return body
+
+
+@router.get(
+    "/export.json",
+    response_class=JSONResponse,
+    responses={200: {"content": {"application/json": {"schema": {"type": "object"}}}}},
+)
+async def export_all(user: CurrentUser, db: Db) -> JSONResponse:
+    """Everything stored for the owner, as a JSON file (FR-SET-6, NFR-PRIV-3)."""
+    now = datetime.now(UTC)
+    content = await export_data(db, user, now=now)
+    name = f"work-journal-data-{now:%Y-%m-%d}.json"
+    headers = NO_STORE | {"Content-Disposition": f'attachment; filename="{name}"'}
+    return JSONResponse(content, headers=headers)
+
+
+@router.delete("/data", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_data(
+    body: DataDeletion, user: CurrentUser, db: Db, settings: AppSettings
+) -> Response:
+    """Delete the owner's account and everything stored for them, and sign them out everywhere
+    (FR-SET-6, NFR-PRIV-3). `confirm` must be their GitHub username (422 otherwise)."""
+    login = user.github_login or ""
+    if not login or body.confirm.lower() != login.lower():
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "Type your GitHub username to confirm; nothing was deleted",
+        )
+    user_id = user.id
+    await delete_all_data(db, user_id)
+    await db.commit()
+    logger.info("User %s deleted all their data", user_id)
+    response = Response(status_code=status.HTTP_204_NO_CONTENT, headers=NO_STORE)
+    clear_session_cookies(response, settings)
+    return response

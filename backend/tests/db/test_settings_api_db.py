@@ -1,21 +1,46 @@
 """`/api/settings` for the signed-in owner, against the test database (T-048)."""
 
 import asyncio
+import base64
+import hashlib
+import json
+import logging
 import random
 import uuid
 from collections.abc import Awaitable, Callable, Iterator
-from datetime import UTC, datetime, time
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, time
+from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.auth.sessions import CSRF_HEADER, SESSION_COOKIE, start_session
 from app.config import Settings
-from app.db.models import TelegramLink, User
+from app.db.crypto import KeyRing, key_ring, new_key, use_key_ring
+from app.db.models import (
+    ApplicationRow,
+    Artifact,
+    Base,
+    ChangeOpRow,
+    ChangeSetRow,
+    JobPostingRow,
+    JournalEntry,
+    JournalMessage,
+    JournalMessageEdit,
+    LlmCallRow,
+    Refresh,
+    TelegramLink,
+    TelegramUpdate,
+    User,
+    VariantRow,
+)
+from app.db.profiles import save_version
 from app.db.settings import (
     add_style_notes,
     get_confidential_terms,
@@ -27,7 +52,10 @@ from app.db.settings import (
     save_reminder_settings,
     save_reminder_state,
 )
+from app.db.store import save_facts
 from app.main import create_app
+from app.schema.fact import Fact
+from app.schema.profile import Profile
 from app.schema.settings import (
     ConfidentialTerms,
     PortfolioSettings,
@@ -35,10 +63,25 @@ from app.schema.settings import (
     ReminderState,
     StyleNote,
 )
+from app.settings.data import NOT_EXPORTED, user_tables
+from app.telegram.linking import new_link_token
 
 BROWSER = "https://testserver"
 ADDED = datetime(2026, 10, 12, 9, 0, tzinfo=UTC)
+PROFILE = Profile.model_validate_json(
+    (Path(__file__).parents[1] / "fixtures" / "profile.json").read_text(encoding="utf-8")
+)
+NOTE = "Cut the nightly export \N{EN DASH} 50 to 12 minutes"
+"""A journal message, with a character the export must keep as it was sent."""
+PDF = b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n"
 _random = random.SystemRandom()
+
+
+@pytest.fixture(autouse=True)
+def keys() -> Iterator[None]:
+    use_key_ring(KeyRing.parse(new_key("k1")))
+    yield
+    use_key_ring(None)
 
 
 def seed[T](database_url: str, build: Callable[[AsyncSession], Awaitable[T]]) -> T:
@@ -59,16 +102,20 @@ def seed[T](database_url: str, build: Callable[[AsyncSession], Awaitable[T]]) ->
 @pytest.fixture(autouse=True)
 def delete_users_made(database_url: str) -> Iterator[None]:
     """The tests commit, so the users each one makes are deleted afterwards, with all their
-    rows."""
+    rows, and so are the raw updates it keeps, which other tests' keys can't read."""
 
-    async def users(session: AsyncSession) -> set[uuid.UUID]:
-        return set(await session.scalars(select(User.id)))
+    async def existing(session: AsyncSession) -> tuple[set[uuid.UUID], set[int]]:
+        users = set(await session.scalars(select(User.id)))
+        return users, set(await session.scalars(select(TelegramUpdate.update_id)))
 
-    before = seed(database_url, users)
+    users, updates = seed(database_url, existing)
     yield
 
     async def delete_new(session: AsyncSession) -> None:
-        await session.execute(delete(User).where(User.id.not_in(before)))
+        await session.execute(delete(User).where(User.id.not_in(users)))
+        await session.execute(
+            delete(TelegramUpdate).where(TelegramUpdate.update_id.not_in(updates))
+        )
 
     seed(database_url, delete_new)
 
@@ -438,3 +485,346 @@ def test_a_rejection_reason_added_later_joins_the_notes(
     notes = client.get("/api/settings").json()["styleNotes"]["notes"]
     assert [note["text"] for note in notes] == ["Mine", "From a rejection"]
     assert StyleNote.model_validate(notes[1]).source == "rejection"
+
+
+# --- Export and delete all data ------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Filled:
+    """What `fill_every_table` made."""
+
+    entry_id: uuid.UUID
+    refresh_id: uuid.UUID
+    updates: tuple[int, ...]
+    """Raw updates from the owner's chat."""
+    other_update: int
+    """A raw update from another chat."""
+
+
+def update_payload(update_id: int, chat_id: int, *, press: bool = False) -> str:
+    message = {
+        "message_id": update_id % 1000,
+        "chat": {"id": chat_id, "type": "private"},
+        "date": 1790000000,
+        "text": NOTE,
+    }
+    if press:
+        query = {"id": str(update_id), "data": "+nothing", "message": message}
+        return json.dumps({"update_id": update_id, "callback_query": query})
+    return json.dumps({"update_id": update_id, "message": message})
+
+
+def fill_every_table(database_url: str, owner: Owner) -> Filled:
+    """A row of the owner's in every table that belongs to a user, and raw updates from their
+    chat and from another."""
+
+    async def build(session: AsyncSession) -> Filled:
+        now = datetime(2026, 10, 30, 9, 0, tzinfo=UTC)
+        session.add(TelegramLink(user_id=owner.id, chat_id=owner.chat_id))
+        await new_link_token(session, owner.id)
+        await save_portfolio_settings(session, owner.id, PortfolioSettings(handle=owner.login))
+        entry = JournalEntry(
+            user_id=owner.id, opened_at=now, last_message_at=now, closed_at=now, closed_by="done"
+        )
+        session.add(entry)
+        await session.flush()
+        message = JournalMessage(
+            user_id=owner.id,
+            chat_id=owner.chat_id,
+            message_id=_random.randrange(10**9),
+            entry_id=entry.id,
+            sender="owner",
+            text=NOTE,
+            sent_at=now,
+            edited_at=now,
+        )
+        session.add(message)
+        await session.flush()
+        session.add(
+            JournalMessageEdit(
+                user_id=owner.id, message_id=message.id, text="Cut the export", replaced_at=now
+            )
+        )
+        fact = Fact(id=f"{entry.id}_1", statement="Cut the export to 12 minutes.")
+        await save_facts(session, owner.id, [fact])
+        change_set = ChangeSetRow(user_id=owner.id, author="ai", status="applied", base_version=1)
+        session.add(change_set)
+        await session.flush()
+        session.add(
+            ChangeOpRow(
+                user_id=owner.id,
+                change_set_id=change_set.id,
+                position=0,
+                op={"op": "update_field"},
+                status="accepted",
+            )
+        )
+        await save_version(session, owner.id, PROFILE, author="owner")
+        await save_version(session, owner.id, PROFILE, author="ai", change_set_id=change_set.id)
+        sha = hashlib.sha256(PDF).hexdigest()
+        session.add(Artifact(user_id=owner.id, sha256=sha, media_type="application/pdf", data=PDF))
+        await session.flush()
+        refresh = Refresh(
+            user_id=owner.id,
+            status="proposed",
+            finished_at=now,
+            change_set_id=change_set.id,
+            outputs="updated",
+            output_version=2,
+            outputs_at=now,
+            master_pdf_sha256=sha,
+            master_pages=1,
+        )
+        posting = JobPostingRow(user_id=owner.id, text="Backend engineer", posting={})
+        session.add_all([refresh, posting, VariantRow(user_id=owner.id, id="master", data={})])
+        await session.flush()
+        session.add(
+            ApplicationRow(
+                user_id=owner.id,
+                id="app_1",
+                data={},
+                applied_on=date(2026, 10, 30),
+                posting_id=posting.id,
+                pdf_sha256=sha,
+            )
+        )
+        session.add(
+            LlmCallRow(
+                user_id=owner.id,
+                at=now,
+                task="extraction",
+                tier="standard",
+                model="model-standard",
+                prompt="extraction@1",
+                outcome="ok",
+                attempts=1,
+                input_tokens=10,
+                output_tokens=5,
+                cost_usd=Decimal("0.001234"),
+                latency_ms=900,
+            )
+        )
+        first = _random.randrange(10**9, 10**10)
+        ids = (first, first + 1, first + 2)
+        payloads = (
+            update_payload(ids[0], owner.chat_id),
+            update_payload(ids[1], owner.chat_id, press=True),
+            update_payload(ids[2], owner.chat_id + 1),
+        )
+        session.add_all(
+            [TelegramUpdate(update_id=i, payload=p) for i, p in zip(ids, payloads, strict=True)]
+        )
+        await session.flush()
+        return Filled(entry.id, refresh.id, ids[:2], ids[2])
+
+    return seed(database_url, build)
+
+
+def add_job(database_url: str, task: str, status: str, **args: str) -> int:
+    async def build(session: AsyncSession) -> int:
+        statement = text(
+            "INSERT INTO procrastinate_jobs (queue_name, task_name, args, status) VALUES"
+            " ('default', :task, CAST(:args AS jsonb), CAST(:status AS procrastinate_job_status))"
+            " RETURNING id"
+        )
+        values = {"task": task, "args": json.dumps(args), "status": status}
+        return (await session.execute(statement, values)).scalar_one()
+
+    return seed(database_url, build)
+
+
+def jobs_left(database_url: str, ids: list[int]) -> set[int]:
+    async def build(session: AsyncSession) -> set[int]:
+        statement = text("SELECT id FROM procrastinate_jobs WHERE id = ANY(:ids)")
+        return set((await session.execute(statement, {"ids": ids})).scalars())
+
+    return seed(database_url, build)
+
+
+def delete_jobs(database_url: str, ids: list[int]) -> None:
+    async def build(session: AsyncSession) -> None:
+        statement = text("DELETE FROM procrastinate_jobs WHERE id = ANY(:ids)")
+        await session.execute(statement, {"ids": ids})
+
+    seed(database_url, build)
+
+
+def rows_of(database_url: str, user_id: uuid.UUID) -> dict[str, int]:
+    """How many rows the user has in `users` and in each table that belongs to a user."""
+
+    async def build(session: AsyncSession) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        users = Base.metadata.tables["users"]
+        query = select(func.count()).select_from(users).where(users.c.id == user_id)
+        counts["users"] = (await session.execute(query)).scalar_one()
+        for table in user_tables():
+            query = select(func.count()).select_from(table).where(table.c.user_id == user_id)
+            counts[table.name] = (await session.execute(query)).scalar_one()
+        return counts
+
+    return seed(database_url, build)
+
+
+def updates_left(database_url: str, ids: tuple[int, ...]) -> set[int]:
+    async def build(session: AsyncSession) -> set[int]:
+        query = select(TelegramUpdate.update_id).where(TelegramUpdate.update_id.in_(ids))
+        return set(await session.scalars(query))
+
+    return seed(database_url, build)
+
+
+def test_the_tests_fill_every_table_that_belongs_to_a_user(database_url: str, owner: Owner) -> None:
+    """So the export and deletion tests cover a table added later, once it's filled here."""
+    fill_every_table(database_url, owner)
+    counts = rows_of(database_url, owner.id)
+    assert [name for name, count in counts.items() if count == 0] == []
+    every = {table.name for table in Base.metadata.sorted_tables} - {"telegram_updates"}
+    assert counts.keys() == every
+
+
+def test_the_export_holds_every_row_of_the_owners(
+    database_url: str, owner: Owner, client: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    filled = fill_every_table(database_url, owner)
+    other = Owner(database_url)
+    fill_every_table(database_url, other)
+    caplog.set_level(logging.DEBUG)
+    response = client.get("/api/settings/export.json")
+    assert response.status_code == 200
+    assert response.headers["Cache-Control"] == "no-store"
+    today = datetime.now(UTC).date()
+    disposition = f'attachment; filename="work-journal-data-{today:%Y-%m-%d}.json"'
+    assert response.headers["Content-Disposition"] == disposition
+    export = response.json()
+    assert (export["format"], export["version"]) == ("work-journal-export", 1)
+    assert datetime.fromisoformat(export["exported_at"]).date() == today
+    assert export["account"]["id"] == str(owner.id)
+    assert export["account"]["github_login"] == owner.login
+    tables = export["tables"]
+    expected = {table.name for table in user_tables()} - NOT_EXPORTED | {"telegram_updates"}
+    assert tables.keys() == expected
+    assert [name for name in expected if not tables[name]] == [], "a row in each"
+    assert all("user_id" not in row for rows in tables.values() for row in rows)
+    assert owner.session_token not in response.text
+    assert owner.csrf_token not in response.text
+
+    [message] = tables["journal_messages"]
+    assert message["text"] == NOTE, "decrypted, as it was sent"
+    assert message["entry_id"] == str(filled.entry_id)
+    assert tables["journal_message_edits"][0]["text"] == "Cut the export"
+    assert tables["facts"][0]["data"]["statement"] == "Cut the export to 12 minutes."
+    assert [version["number"] for version in tables["profile_versions"]] == [1, 2]
+    assert tables["profile_versions"][0]["profile"]["basics"]["name"] == PROFILE.basics.name
+    assert base64.b64decode(tables["artifacts"][0]["data"]) == PDF
+    assert tables["llm_calls"][0]["cost_usd"] == "0.001234"
+    assert tables["refreshes"][0]["id"] == str(filled.refresh_id)
+    assert tables["settings"] == [
+        {
+            "key": "portfolio",
+            "value": PortfolioSettings(handle=owner.login).model_dump(mode="json"),
+            "updated_at": tables["settings"][0]["updated_at"],
+        }
+    ]
+    updates = tables["telegram_updates"]
+    assert [update["update_id"] for update in updates] == list(filled.updates)
+    assert updates[0]["payload"]["message"]["text"] == NOTE
+    assert str(other.id) not in response.text, "nothing of another user's"
+    assert other.login not in response.text
+    assert NOTE not in caplog.text
+
+
+def test_the_export_needs_a_signed_in_owner(client: TestClient) -> None:
+    client.cookies.clear()
+    assert client.get("/api/settings/export.json").status_code == 401
+
+
+def test_an_owner_with_nothing_yet_exports_empty_tables(client: TestClient) -> None:
+    tables = client.get("/api/settings/export.json").json()["tables"]
+    assert tables["journal_messages"] == []
+    assert tables["telegram_updates"] == []
+
+
+def test_deleting_all_data_needs_the_csrf_header_and_the_owners_username(
+    database_url: str, owner: Owner, client: TestClient
+) -> None:
+    fill_every_table(database_url, owner)
+    body = {"confirm": owner.login}
+    assert client.request("DELETE", "/api/settings/data", json=body).status_code == 403
+    for wrong in ({"confirm": "someone-else"}, {"confirm": ""}, {}):
+        refused = client.request("DELETE", "/api/settings/data", json=wrong, headers=owner.csrf)
+        assert refused.status_code == 422, wrong
+    assert rows_of(database_url, owner.id)["journal_messages"] == 1, "nothing deleted"
+    assert client.get("/api/settings").status_code == 200
+
+
+def test_deleting_all_data_leaves_nothing_of_the_owners(
+    database_url: str, owner: Owner, client: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    filled = fill_every_table(database_url, owner)
+    other = Owner(database_url)
+    other_filled = fill_every_table(database_url, other)
+    entry, refresh = str(filled.entry_id), str(filled.refresh_id)
+    jobs = {
+        "entry": add_job(database_url, "extract_entry", "todo", entry_id=entry),
+        "refresh": add_job(database_url, "refresh_profile", "failed", refresh_id=refresh),
+        "running": add_job(database_url, "update_outputs", "doing", refresh_id=refresh),
+        "other": add_job(
+            database_url, "extract_entry", "todo", entry_id=str(other_filled.entry_id)
+        ),
+    }
+    caplog.set_level(logging.DEBUG)
+    try:
+        body = {"confirm": f"  {owner.login.upper()} "}
+        response = client.request("DELETE", "/api/settings/data", json=body, headers=owner.csrf)
+        assert response.status_code == 204
+        assert response.headers["Cache-Control"] == "no-store"
+        cookies = response.headers.get_list("set-cookie")
+        assert any(c.startswith('__Host-wj_session=""') and "Max-Age=0" in c for c in cookies)
+        assert any(c.startswith('__Host-wj_csrf=""') and "Max-Age=0" in c for c in cookies)
+
+        assert set(rows_of(database_url, owner.id).values()) == {0}
+        everything = (*filled.updates, filled.other_update)
+        assert updates_left(database_url, everything) == {filled.other_update}
+        left = jobs_left(database_url, list(jobs.values()))
+        assert left == {jobs["running"], jobs["other"]}, "only a running job, and another's"
+        assert 0 not in rows_of(database_url, other.id).values(), "another user's rows stay"
+        assert updates_left(database_url, other_filled.updates) == set(other_filled.updates)
+        assert client.get("/api/settings").status_code == 401, "signed out"
+        assert NOTE not in caplog.text
+    finally:
+        delete_jobs(database_url, list(jobs.values()))
+
+
+def test_an_account_with_nothing_in_it_can_be_deleted(
+    database_url: str, owner: Owner, client: TestClient
+) -> None:
+    body = {"confirm": owner.login}
+    response = client.request("DELETE", "/api/settings/data", json=body, headers=owner.csrf)
+    assert response.status_code == 204
+    assert rows_of(database_url, owner.id)["users"] == 0
+
+
+def test_a_raw_update_the_keys_cant_read_is_passed_over(
+    database_url: str, owner: Owner, client: TestClient
+) -> None:
+    """It can't be told whose it is, so it stays until it's 7 days old."""
+    link_chat(database_url, owner)
+    unreadable = _random.randrange(10**9, 10**10)
+    readable = unreadable + 1
+    ours = key_ring()
+    use_key_ring(KeyRing.parse(new_key("k1")))
+
+    async def build(session: AsyncSession, update_id: int) -> None:
+        payload = update_payload(update_id, owner.chat_id)
+        session.add(TelegramUpdate(update_id=update_id, payload=payload))
+
+    seed(database_url, lambda session: build(session, unreadable))
+    use_key_ring(ours)
+    seed(database_url, lambda session: build(session, readable))
+    updates = client.get("/api/settings/export.json").json()["tables"]["telegram_updates"]
+    assert [update["update_id"] for update in updates] == [readable]
+    body = {"confirm": owner.login}
+    response = client.request("DELETE", "/api/settings/data", json=body, headers=owner.csrf)
+    assert response.status_code == 204
+    assert updates_left(database_url, (unreadable, readable)) == {unreadable}
