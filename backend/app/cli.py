@@ -38,6 +38,7 @@ from app.db.profiles import (
     latest_version,
     list_change_sets,
     load_master_profile,
+    lock_profile,
     save_version,
 )
 from app.db.settings import (
@@ -459,7 +460,7 @@ def _save_swaps(ops: Sequence[AddSwap], *, path: Path | None, db: bool, user: st
 async def _save_swap_version(login: str | None, ops: Sequence[AddSwap]) -> int:
     async with _database() as session:
         user_id = await _user(session, login)
-        version = await _latest(session, user_id)
+        version = await _latest(session, user_id, lock=True)
         updated = _with_ops(version.profile, ops)
         saved = await save_version(session, user_id, updated, author="owner")
     return saved.number
@@ -810,7 +811,7 @@ async def _save_review(
     or the profile changed during the review. Returns the new version's number, if any."""
     async with _database() as session:
         current = await get_change_set(session, user_id, change_set_id)
-        latest = await latest_version(session, user_id)
+        latest = await lock_profile(session, user_id)
         if (
             current.change_set.status != "proposed"
             or latest is None
@@ -1993,9 +1994,10 @@ async def _writing_inputs(login: str | None) -> tuple[Profile, list[Fact], tuple
     return version.profile, stored, notes.avoid
 
 
-async def _latest(session: AsyncSession, user_id: uuid.UUID) -> Version:
-    """The user's newest profile version. Exits when they have none."""
-    version = await latest_version(session, user_id)
+async def _latest(session: AsyncSession, user_id: uuid.UUID, *, lock: bool = False) -> Version:
+    """The user's newest profile version, locked for a change built on it when `lock`. Exits when
+    they have none."""
+    version = await (lock_profile if lock else latest_version)(session, user_id)
     if version is None:
         typer.echo("The database has no profile yet; load one with `wj db load-profile`.", err=True)
         raise typer.Exit(1)

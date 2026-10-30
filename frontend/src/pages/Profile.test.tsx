@@ -711,6 +711,9 @@ describe("the profile page", () => {
     await userEvent.click(form.getByRole("button", { name: "Add a profile" }));
     const networks = form.getAllByRole("textbox", { name: "Network" });
     expect(networks).toHaveLength(2);
+    await vi.waitFor(() => {
+      expect(networks[1]).toHaveFocus();
+    });
     await userEvent.type(networks[1] ?? document.body, "LinkedIn");
     await userEvent.type(
       form.getAllByRole("textbox", { name: "Username" })[1] ?? document.body,
@@ -718,6 +721,16 @@ describe("the profile page", () => {
     );
     await userEvent.click(form.getByRole("button", { name: "Remove profile 1" }));
     expect(form.getAllByRole("textbox", { name: "Network" })).toHaveLength(1);
+    await vi.waitFor(() => {
+      expect(form.getByRole("textbox", { name: "Network" })).toHaveFocus();
+    });
+    await userEvent.click(form.getByRole("button", { name: "Remove profile 1" }));
+    await vi.waitFor(() => {
+      expect(form.getByRole("button", { name: "Add a profile" })).toHaveFocus();
+    });
+    await userEvent.click(form.getByRole("button", { name: "Add a profile" }));
+    await userEvent.type(form.getByRole("textbox", { name: "Network" }), "LinkedIn");
+    await userEvent.type(form.getByRole("textbox", { name: "Username" }), "casey-morgan-example");
     await userEvent.click(form.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Saved as version 2.")).toBeInTheDocument();

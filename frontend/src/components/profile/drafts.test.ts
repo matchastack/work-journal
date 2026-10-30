@@ -59,6 +59,7 @@ describe("small helpers", () => {
     expect(orNull("  ")).toBeNull();
     expect(orNull(" Springfield ")).toBe("Springfield");
     expect(commaList(" backend, ,data ,")).toEqual(["backend", "data"]);
+    expect(commaList("SQL (Postgres, MySQL), Python")).toEqual(["SQL (Postgres, MySQL)", "Python"]);
   });
 
   it("check months and their order", () => {
@@ -231,6 +232,20 @@ describe("a project's edit", () => {
     notes: [],
   };
 
+  it("keeps an entry with a comma when the stack isn't touched", () => {
+    const keywords = ["Software Engineer, Backend", "SQL (Postgres, MySQL)"];
+    const draft = projectDraft({ ...project, keywords });
+    const result = projectEditOf({ ...draft, description: "A new description." }, 1);
+    expect("edit" in result && result.edit.keywords).toEqual(keywords);
+    const edited = projectEditOf({ ...draft, keywords: `${draft.keywords}, Python` }, 1);
+    expect("edit" in edited && edited.edit.keywords).toEqual([
+      "Software Engineer",
+      "Backend",
+      "SQL (Postgres, MySQL)",
+      "Python",
+    ]);
+  });
+
   it("sends its tech stack and status", () => {
     const draft = { ...projectDraft(project), keywords: "Python, PyTorch, ONNX" };
     expect(projectEditOf(draft, 5)).toEqual({
@@ -259,3 +274,4 @@ describe("a project's edit", () => {
     });
   });
 });
+
