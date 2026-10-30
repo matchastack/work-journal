@@ -756,6 +756,70 @@
           }
         }
       }
+    },
+    "/api/linkedin": {
+      "get": {
+        "tags": [
+          "linkedin"
+        ],
+        "summary": "Linkedin Page",
+        "description": "The LinkedIn pack's sections that changed since it was last marked done (FR-LIN-2), each\nwith its length and LinkedIn's limit (FR-LIN-3).",
+        "operationId": "linkedin_page_api_linkedin_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkedInPage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/linkedin/done": {
+      "post": {
+        "tags": [
+          "linkedin"
+        ],
+        "summary": "Mark Pack Done",
+        "description": "Mark the pack done once its sections are pasted into LinkedIn: they're stored as the\nsnapshot that later packs are compared with (FR-LIN-3). A flagged section is left out, so\nit's written again. 409 when there's no pack, or it isn't the one with `digest`.",
+        "operationId": "mark_pack_done_api_linkedin_done_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkDone"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Marked"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2028,6 +2092,208 @@
           "edits"
         ],
         "title": "JournalMessageView"
+      },
+      "LinkedInPage": {
+        "properties": {
+          "pack": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LinkedInPagePack"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "profileVersion": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profileversion"
+          },
+          "markedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Markedat"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "pack",
+          "profileVersion",
+          "markedAt"
+        ],
+        "title": "LinkedInPage"
+      },
+      "LinkedInPagePack": {
+        "properties": {
+          "digest": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Digest"
+          },
+          "profileVersion": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profileversion"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/LinkedInPageSection"
+            },
+            "type": "array",
+            "title": "Sections"
+          },
+          "unchanged": {
+            "type": "integer",
+            "title": "Unchanged"
+          },
+          "removed": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Removed"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "digest",
+          "profileVersion",
+          "sections",
+          "unchanged",
+          "removed"
+        ],
+        "title": "LinkedInPagePack"
+      },
+      "LinkedInPageSection": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Key"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "headline",
+              "about",
+              "position"
+            ],
+            "title": "Kind"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Label"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text"
+          },
+          "length": {
+            "type": "integer",
+            "title": "Length"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "flagged": {
+            "type": "boolean",
+            "title": "Flagged"
+          },
+          "report": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VerifierReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Notes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "kind",
+          "label",
+          "text",
+          "length",
+          "limit",
+          "flagged",
+          "report",
+          "notes"
+        ],
+        "title": "LinkedInPageSection",
+        "description": "A section to paste into LinkedIn."
+      },
+      "MarkDone": {
+        "properties": {
+          "digest": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Digest"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "digest"
+        ],
+        "title": "MarkDone"
+      },
+      "Marked": {
+        "properties": {
+          "marked": {
+            "type": "integer",
+            "title": "Marked"
+          },
+          "flagged": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Flagged"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "marked",
+          "flagged"
+        ],
+        "title": "Marked"
       },
       "Me": {
         "properties": {
