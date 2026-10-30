@@ -652,7 +652,13 @@ def _synthesize(
     typer.echo(f"Planning changes from {_count(len(new), 'new fact')}.")
     try:
         synthesis = synthesize(
-            profile, new, _llm_client(), sources=pool, base_version=base_version, avoid=avoid
+            profile,
+            new,
+            _llm_client(),
+            sources=pool,
+            base_version=base_version,
+            avoid=avoid,
+            concurrency=get_settings().refresh_concurrency,
         )
     except LLMConfigError as error:
         typer.echo(str(error), err=True)

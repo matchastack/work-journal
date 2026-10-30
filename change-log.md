@@ -2,6 +2,16 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-30 · T-064 Refreshes of months of facts within the time limit · [#53](https://github.com/matchastack/work-journal/pull/53)
+**Changed:** a refresh writes and checks its bullets 10 at a time instead of one by one, so a refresh of about 100 facts finishes within the 300 s Vercel gives it; `REFRESH_CONCURRENCY` sets how many.
+
+**Verify:**
+- CI is green on the PR
+- `uv run wj propose --db` with many new facts proposes the same kind of changes as before, much faster
+- Ctrl+C during `uv run wj propose --db` stops it at once and marks the refresh failed
+- After `/refresh` with a few dozen new facts, the bot says how many updates are proposed, not that the refresh didn't finish, and the Inbox lists them with their verifier reports
+- If the API answers 429 during a refresh, a lower `REFRESH_CONCURRENCY` in Vercel's environment variables stops it
+
 ## 2026-10-28 · T-074 Read only what can count · [#62](https://github.com/matchastack/work-journal/pull/62)
 **Changed:** the digest reads only pull requests merged into the default branch, leaves out a pull request reverted from the command line, keeps your own commits in another person's pull request, and handles GitHub's secondary rate limit and empty repositories.
 

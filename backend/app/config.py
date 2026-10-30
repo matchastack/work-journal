@@ -70,6 +70,9 @@ class Settings(BaseSettings):
     llm_call_log: Path = LOCAL_DIR / "llm-calls.jsonl"
     """Where the command line logs each LLM call's task, model, tokens and cost. The app logs them
     to the `llm_calls` table."""
+    refresh_concurrency: Annotated[int, Field(ge=1)] = 10
+    """How many bullets a refresh writes and checks at once (T-064). 10 fit a refresh of 100 facts
+    in a Vercel function's 300 s; lower it if the Claude API answers 429 (Too Many Requests)."""
     telegram_bot_token: SecretStr | None = None
     """The bot's token from Telegram's @BotFather."""
     telegram_webhook_secret: SecretStr | None = None

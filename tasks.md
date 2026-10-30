@@ -788,15 +788,17 @@ As the owner, I want a refresh to update my LinkedIn text and portfolio page too
 - [ ] Tests use the fake LLM client.
 
 ### T-064 · Refreshes of months of facts within the time limit
-**Status:** ☐ · **Size:** S · **Depends on:** T-038 · **Requirements:** FR-REV-6, NFR-PERF-1 (and G3) · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-038 · **Requirements:** FR-REV-6, NFR-PERF-1 (and G3) · **PR:** [#53](https://github.com/matchastack/work-journal/pull/53)
 
 As the owner, I want a refresh after months away to finish, so that a long gap never stops me getting a current resume.
 
 A refresh runs within one Vercel function call, 300 s at most. The plan takes one heavy-tier call, then each bullet is written and verified in turn, so a refresh of many facts can run out of time; it then says it didn't finish, and `wj propose --db` on the owner's computer is the way round.
 
-- [ ] Bullets are written and verified a few at a time, or across jobs, so a refresh of 100 facts finishes within the limit.
-- [ ] The fake client's tests stay deterministic.
-- [ ] Tests.
+- [x] Bullets are written and verified a few at a time, or across jobs, so a refresh of 100 facts finishes within the limit.
+- [x] The fake client's tests stay deterministic.
+- [x] Tests.
+
+**Built (2026-10-16):** the first bullet is written alone, so that its profile context is cached, then the rest `REFRESH_CONCURRENCY` at a time (default 10) in threads. Order, IDs and notes are settled from the plan, so the change set doesn't depend on which bullet finishes first. At about 12 s a bullet and 2 minutes for the plan, the 50 or so bullets of 100 facts take about 90 s, and the refresh ends near 210 s, within the 260 s a tick gives it. Splitting the work across jobs was left out: on Vercel the next tick is a day away, and G3 wants proposals within 5 minutes.
 
 ### T-039 · Web app scaffold
 **Status:** ☑ · **Size:** M · **Depends on:** T-029 · **Requirements:** NFR-MAINT-1, NFR-A11Y-1 · **PR:** [#18](https://github.com/matchastack/work-journal/pull/18)
