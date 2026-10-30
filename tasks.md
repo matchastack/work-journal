@@ -842,7 +842,7 @@ As the owner, I want to edit my roles, projects and bullets directly, so that I 
 - [x] Tests.
 
 ### T-043 · Profile page: swaps, titles, coursework, skills, summaries and open questions
-**Status:** ◐ · **Size:** M · **Depends on:** T-042 · **Requirements:** FR-PRF-5, FR-PRF-6, FR-PRF-7, FR-PRF-8, FR-PRF-9, FR-PRF-10, FR-WRT-5 · **PR:** [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+**Status:** ◐ · **Size:** M · **Depends on:** T-042 · **Requirements:** FR-PRF-5, FR-PRF-6, FR-PRF-7, FR-PRF-8, FR-PRF-9, FR-PRF-10, FR-WRT-5 · **PR:** [#67](https://github.com/matchastack/work-journal/pull/67)
 
 As the owner, I want to manage the metadata that drives tailoring, so that my master-resume practice lives in the app.
 

@@ -2,7 +2,7 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-30 · T-043 Profile page: tailoring metadata · [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+## 2026-10-30 · T-043 Profile page: tailoring metadata · [#67](https://github.com/matchastack/work-journal/pull/67)
 **Changed:** the Profile page edits what drives tailoring: each role's tailoring rules, each education entry's coursework and rules, each bullet's swaps, and your role types, skills and gaps, skills presets, summaries and open questions. Each save is a change set by you and a new version, and History names what changed.
 
 **Verify:**
