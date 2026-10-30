@@ -9,6 +9,7 @@ from app.evals.dataset import (
     AdversarialCase,
     DatasetError,
     ExtractionCase,
+    RepoCase,
     Suite,
     WritingCase,
     load_dataset,
@@ -231,3 +232,58 @@ def test_a_missing_profile_is_an_error(tmp_path: Path) -> None:
 def test_case_ids_cant_break_the_reports_tables(tmp_path: Path) -> None:
     case = '\n[[cases]]\nid = "a | b"\nfacts = ["fact_nw_export"]\n'
     assert "cases.0.id" in failure(tmp_path, "writing", HEADER + case)
+
+
+REPO_HEADER = f'profile = "{FIXTURES / "profile.json"}"\n'
+REPO_ITEM = '[[cases.items]]\nlabel = "pr1"\nkind = "pull"\nmonth = "2023-06"\ntitle = "Cache"\n'
+
+
+def test_a_repo_case_loads(tmp_path: Path) -> None:
+    case = f'[[cases]]\nid = "cache"\nproject = "recipe_box"\n{REPO_ITEM}'
+    expected = '[[cases.expected]]\nterms = ["cach"]\nitems = ["pr1"]\nownership = "owned"\n'
+    write(tmp_path, "repo", REPO_HEADER + case + expected)
+    dataset = load_dataset(tmp_path, "repo")
+    assert dataset is not None
+    (loaded,) = dataset.cases
+    assert isinstance(loaded, RepoCase)
+    assert (loaded.owned, loaded.items[0].maker, loaded.expected[0].items) == (
+        True,
+        "owner",
+        ("pr1",),
+    )
+
+
+@pytest.mark.parametrize(
+    ("case", "problem"),
+    [
+        (f'project = "nope"\n{REPO_ITEM}', "there's no project 'nope'"),
+        (REPO_ITEM, "name either a project or a new_project"),
+        (f'project = "recipe_box"\nnew_project = "Box"\n{REPO_ITEM}', "name either a project"),
+        (f'project = "recipe_box"\n{REPO_ITEM}{REPO_ITEM}', "two items have the same label"),
+        (
+            f'project = "recipe_box"\n{REPO_ITEM}maker = "agent"\n',
+            "item 'pr1': an agent's item names its agent",
+        ),
+        (
+            'project = "recipe_box"\n[[cases.items]]\nlabel = "about"\nkind = "pull"\n'
+            'month = "2023-06"\ntitle = "x"\n',
+            "only the about item is labelled about",
+        ),
+        (
+            f'project = "recipe_box"\n{REPO_ITEM}[[cases.expected]]\nitems = ["c9"]\n',
+            "there's no item 'c9'",
+        ),
+    ],
+)
+def test_a_repo_case_with_a_problem_is_an_error(tmp_path: Path, case: str, problem: str) -> None:
+    message = failure(tmp_path, "repo", REPO_HEADER + f'\n[[cases]]\nid = "bad"\n{case}')
+    assert "case 'bad'" in message
+    assert problem in message
+
+
+def test_a_repo_item_needs_a_month_and_a_label(tmp_path: Path) -> None:
+    item = '[[cases.items]]\nlabel = "x1"\nkind = "pull"\nmonth = "2023-13"\ntitle = "x"\n'
+    case = f'[[cases]]\nid = "bad"\nproject = "recipe_box"\n{item}'
+    message = failure(tmp_path, "repo", REPO_HEADER + case)
+    assert "cases.0.items.0.label" in message
+    assert "cases.0.items.0.month" in message

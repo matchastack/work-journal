@@ -78,6 +78,8 @@ Run these from `backend/` (uv project, Python 3.12):
 | Propose profile changes from the journal facts since the last refresh, as `/refresh` does (needs the LLM settings) | `uv run wj propose --db` |
 | Review the proposed changes one by one and save the accepted ones as the next version, then render | `uv run wj apply --db`, then `uv run wj render --db` |
 | Write the LinkedIn pack: the headline, About and position texts that changed since you last marked it done (needs the LLM settings) | `uv run wj linkedin --db`, then, once pasted into LinkedIn, `uv run wj linkedin done --db` |
+| Print exactly what the model would read from a GitHub repository's history, and what it leaves out (needs `GITHUB_REPOS_TOKEN`, which must be the owner's; `--since YYYY-MM`) | `uv run wj github digest <owner/repo>` (add `--db` to check the token against the user in the database) |
+| Extract the facts in a GitHub repository's history for one project, checked against the items they cite, and print them as JSON (needs `GITHUB_REPOS_TOKEN` and the LLM settings; `--new-project <name>` for a new project, `--ownership` to cap the owner's part) | `uv run wj github extract <owner/repo> --project <id>` (add `--db` for the profile in the database) |
 | Evaluate the LLM steps on the fictional cases, against the bar (needs `ANTHROPIC_API_KEY` and `LLM_MODEL_STANDARD`; `evals/README.md`) | `uv run wj eval all` (add `--private` for your cases in `local/evals/`) |
 | Lint | `uv run ruff check .` |
 | Format | `uv run ruff format .` |

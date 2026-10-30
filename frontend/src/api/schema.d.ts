@@ -461,7 +461,8 @@ export interface components {
         };
         /**
          * Fact
-         * @description Something that happened, extracted from a journal entry or an imported bullet.
+         * @description Something that happened, extracted from a journal entry, an imported bullet or a
+         *     repository's history.
          */
         Fact: {
             /** Id */
@@ -510,9 +511,10 @@ export interface components {
              * @default journal
              * @enum {string}
              */
-            origin: "journal" | "import";
+            origin: "journal" | "import" | "github";
             /** Entryid */
             entryId?: string | null;
+            source?: components["schemas"]["RepoSource"] | null;
         };
         /**
          * FactEdit
@@ -733,9 +735,10 @@ export interface components {
              * @default journal
              * @enum {string}
              */
-            origin: "journal" | "import";
+            origin: "journal" | "import" | "github";
             /** Entryid */
             entryId?: string | null;
+            source?: components["schemas"]["RepoSource"] | null;
             /**
              * Citedby
              * @default []
@@ -825,6 +828,38 @@ export interface components {
             low: number;
             /** High */
             high: number;
+        };
+        /**
+         * RepoItem
+         * @description A pull request, a commit or a repository's description that a GitHub fact rests on.
+         */
+        RepoItem: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "about" | "pull" | "commit";
+            /**
+             * Ref
+             * @default
+             */
+            ref: string;
+            /** Url */
+            url: string;
+        };
+        /**
+         * RepoSource
+         * @description Where a fact from GitHub comes from (FR-GH-6): its repository and the items it cites.
+         */
+        RepoSource: {
+            /** Repository */
+            repository: string;
+            /** Url */
+            url: string;
+            /** Private */
+            private: boolean;
+            /** Items */
+            items: components["schemas"]["RepoItem"][];
         };
         /** RoleOption */
         RoleOption: {

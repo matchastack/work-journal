@@ -541,6 +541,7 @@ def test_editing_a_fact_changes_its_fields_and_keeps_where_it_came_from(
         "proposedItem": None,
         "questionId": None,
         "confidentialityFlags": [],
+        "source": None,
         "citedBy": [EXPORT_BULLET],
     }
     assert client.get("/api/journal").json()["entries"][0]["facts"][0] == fact
