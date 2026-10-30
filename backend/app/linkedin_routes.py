@@ -9,8 +9,10 @@ or is flagged.
 
 import hashlib
 from datetime import UTC, datetime
+from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Response, status
+from pydantic import StringConstraints
 
 from app.auth.routes import NO_STORE
 from app.auth.sessions import CurrentUser
@@ -48,8 +50,8 @@ class LinkedInPageSection(Model):
 
 class LinkedInPagePack(Model):
     digest: NonEmptyStr
-    """Identifies the pack. Marking it done sends it back, so a pack written since the page
-    loaded is never marked done unseen."""
+    """Identifies the pack: a SHA-256 of it, in hex. Marking it done sends it back, so a pack
+    written since the page loaded is never marked done unseen."""
     profile_version: int | None
     """The profile version the pack was written from."""
     sections: tuple[LinkedInPageSection, ...]
@@ -70,7 +72,7 @@ class LinkedInPage(Model):
 
 
 class MarkDone(Model):
-    digest: NonEmptyStr
+    digest: Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
     """The digest of the pack the owner pasted."""
 
 

@@ -2262,7 +2262,7 @@
         "properties": {
           "digest": {
             "type": "string",
-            "minLength": 1,
+            "pattern": "^[0-9a-f]{64}$",
             "title": "Digest"
           }
         },

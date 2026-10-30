@@ -173,6 +173,8 @@ def test_the_page_needs_a_signed_in_owner_and_marking_needs_the_csrf_header(
     owner.save_pack(first_pack())
     digest = client.get("/api/linkedin").json()["pack"]["digest"]
     assert client.post("/api/linkedin/done", json={"digest": digest}).status_code == 403
+    assert mark(client, owner, digest.upper()).status_code == 422
+    assert mark(client, owner, digest + "0").status_code == 422
     assert owner.done() is None
     client.cookies.clear()
     assert client.get("/api/linkedin").status_code == 401
