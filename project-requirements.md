@@ -77,6 +77,7 @@ Keeping all of this current depends on remembering to do it, and on remembering 
 - A portfolio page hosted by the app.
 - A LinkedIn update pack (assisted: the owner pastes it in).
 - Import of the owner's master resume from LaTeX.
+- Project facts from the owner's GitHub repositories, read with a read-only token (§7.16).
 - A web app for review, journal, profile, resumes, tailoring, portfolio, LinkedIn and settings.
 - Deployment for one invited user.
 
@@ -84,6 +85,7 @@ Keeping all of this current depends on remembering to do it, and on remembering 
 - Automatic editing of LinkedIn profiles. It isn't possible (see [C1](#11-constraints-and-assumptions)).
 - Updating third-party job boards.
 - Editing websites the app doesn't host, such as an existing GitHub Pages site.
+- Writing to GitHub, reading code diffs, and reading repositories for the owner's roles. Work for a role stays journaled (§7.16).
 - Public sign-up, billing and custom domains.
 - Voice notes, images and file attachments.
 - Native mobile apps. Telegram is the mobile surface.
@@ -105,8 +107,10 @@ See milestones M3 and M4 in [§14](#14-milestones).
 |---|---|
 | **Message** | One Telegram message from the owner or the bot. |
 | **Entry** | Messages grouped into one journal entry. An entry closes after 30 minutes of quiet or on `/done`. |
-| **Fact** | A neutral, structured record of something that happened, with these parts: a statement; metrics (subject, value, unit, qualifier); an ownership level (led / owned / contributed / assisted); tools; outcome; date; and the source entry. Facts are the ground truth for meaning and numbers. |
+| **Fact** | A neutral, structured record of something that happened, with these parts: a statement; metrics (subject, value, unit, qualifier); an ownership level (led / owned / contributed / assisted); tools; outcome; date; and its source: a journal entry, the imported resume, or the pull requests and commits of a linked repository. Facts are the ground truth for meaning and numbers. |
 | **Brag bank** | All facts, whether or not any output uses them. |
+| **Repository link** | A GitHub repository linked to one project in the profile. Its merged pull requests and commits become facts, as journal entries do, and each is read only once (§7.16). |
+| **AI coding agent** | A tool, such as Claude Code, that commits or opens pull requests for the owner. Its work for the owner counts as theirs, since they thought of and directed it (FR-GH-4). |
 | **Master profile** | The curated superset of everything worth using: basics, roles, education, projects, skills, summaries and bullets, with their metadata. Every change creates a new version. |
 | **Bullet** | One line under a role or project, with: a stable ID; text; strength (high / medium / low, optionally per role type); verification status (yes / partial / no); swaps; open questions; notes; and a status (active / benched / planned). |
 | **Swap** | A pre-approved alternative phrasing for a bullet or part of a bullet, tuned to a role type's or posting's vocabulary. It's the same fact in different words. |
@@ -142,6 +146,10 @@ See milestones M3 and M4 in [§14](#14-milestones).
   2. After that, it works through open questions a little at a time.
 - **J5 — LinkedIn.** After a refresh, the owner opens the LinkedIn page and sees only the sections that changed. They copy each one into LinkedIn and mark it done.
 - **J6 — Maintain.** The owner edits the master profile directly. For example: fix wording, bench a bullet, add a swap or answer an open question. These edits create versions like any other change.
+- **J7 — Link a repository.**
+  1. The owner links a GitHub repository to a project in their profile, or to a new one they name, and chooses the month to read from.
+  2. The app reads the merged pull requests and commits that count as the owner's work, including those an AI coding agent made for them, and saves facts that cite them.
+  3. From then on, each `/refresh` first reads what's new in every linked repository, then proposes changes from all new facts (J2).
 
 ## 7. Functional requirements
 
@@ -330,6 +338,23 @@ Priority: **M** = Must (v1) · **S** = Should (v1 if time allows) · **C** = Cou
 | FR-AUTH-2 | The session cookie is HTTP-only, Secure and SameSite=Lax. Logging out clears it. | M | |
 | FR-AUTH-3 | Email or Google sign-in, and public sign-up. | C | M4 |
 
+### 7.16 GitHub projects (FR-GH)
+
+The owner's GitHub repositories are a second source of facts, for projects only. Repository history becomes facts the same way a journal entry does; from there, the refresh, the verifier and the review work as for any fact.
+
+| ID | Requirement | Pri | Acceptance criteria |
+|---|---|---|---|
+| FR-GH-1 | The app reads GitHub with a fine-grained personal access token, set in the `GITHUB_REPOS_TOKEN` environment variable. The token is read-only and limited to the repositories the owner picks. The app never writes to GitHub. | S | Before anything is read, the app refuses a token that isn't fine-grained (`github_pat_...`), and one whose account isn't the owner's. The token never appears in the database, a log or an error message. |
+| FR-GH-2 | The owner links a repository to one project: one in the profile, or a new one they name. Repositories are for personal and open-source projects; work for a role stays journaled. | S | A GitHub fact links to its project and never to a role. Synthesis puts it only under that project, or under the new project it names. Linking a benched project warns that its bullets never render (R8). Linking a repository again carries on where it stopped; unlinking stops reading it and keeps its facts. |
+| FR-GH-3 | Linking imports the history from a month the owner chooses. In a repository the owner's account owns that isn't a fork, the app reads every pull request merged into the default branch and every commit on it, plus the description, the languages and the README. Elsewhere, it reads only the pull requests and commits that count as the owner's work (FR-GH-4), not the whole history. A pull request merged into another branch isn't read, as that work may never ship. | S | For a project already in the profile, the history starts by default at the month the profile was loaded, so what the imported resume already says isn't proposed again. Before importing, the app says how many pull requests and commits it found and how many model calls they take, and asks to go on. `wj github digest` shows exactly what the model would read, without calling it. |
+| FR-GH-4 | **Whose work counts.** Two kinds of work count as the owner's: their own, and the work an AI coding agent did for them, such as Claude Code or GitHub Copilot's coding agent. The owner thought of and directed the agent's work, and it shows AI-assisted development. An agent's work counts in a repository the owner's account owns. Elsewhere, it counts when it's part of the owner's pull request, or names the owner as co-author or assignee. Other people's work doesn't count, and nor do automation bots such as Dependabot, Renovate and github-actions. | S | Agents are recognised from a list in code, and an agent the list doesn't know counts as another person. Code labels an agent's item with the agent's name, and adds the agent to the tools of the facts that cite it. An AI co-author doesn't lower the ownership cap (FR-GH-6). A new skill named only by agent-made facts carries a note in the Inbox: accept it only if you can defend it (R3). The agent itself is exempt. A fixture repository whose commits are all by Claude Code gives the owner's facts, owned, with Claude Code as a tool. A Dependabot pull request gives no fact, and nor does another person's commit. |
+| FR-GH-5 | Some items are left out: merges, reverts and the commits they revert (and a pull request whose squash or merge commit was reverted), empty messages, and squash commits that repeat a pull request. Before the model sees the text, code removes several things: commit hashes, issue and pull-request numbers, addresses, emails, @mentions, trailers such as `Co-authored-by`, checklists, and the README's roadmap, to-do and acknowledgement sections. | S | No line, commit or star count reaches the model, and no number the code removed can back a metric. Code writes who made each item in words, without digits. |
+| FR-GH-6 | The history becomes facts (standard tier), a few dozen items at a time. Each fact cites the pull requests and commits it rests on. Every number in a fact must be in the cited items' own text (FR-EXT-2), and every tool must be named there. Code sets the project and the date (the month of the latest cited pull request or commit; the about text dates nothing). Code also sets the ownership cap: owned in a repository the owner's account owns that isn't a fork; contributed elsewhere, or when another person co-authored a cited item. The owner can change the cap when linking, but never to led. | S | A fact that cites no item, or an item it wasn't given, is dropped. Known-bad cases are caught: a number found only in an uncited item, a tool named nowhere, and "led". |
+| FR-GH-7 | Each item is read once. The app keeps the keys of the items it has read: commit hashes and pull-request numbers, never their text. Each read looks back 14 days before the last one, so commits pushed late are still found. | S | Two reads at once never save the same item twice, for example a refresh on the server and `wj github sync`. A second read with nothing new makes no model call. A window the model can't read is recorded and skipped. When GitHub can't be reached, that repository waits for the next read. |
+| FR-GH-8 | Each refresh (FR-REV-6) first reads what's new in every linked repository, then proposes changes from all new facts, journal ones included. On the server, it reads a limited number of windows, so the refresh still fits the function's time limit. `wj propose --db` and `wj github sync` read everything. | S | A repository that can't be read never stops the refresh. The bot says what it read, what's left and what failed (FR-REM-6). With GitHub unreachable, a refresh still proposes from the journal's facts. |
+| FR-GH-9 | Repository text is handled like journal text (NFR-PRIV-2): it goes only to the Claude API, and is never logged or stored. The app keeps only the facts (encrypted), the links to their items, and the read keys. Repository names are stored encrypted and kept out of logs, and job arguments carry IDs only. | S | A whole read, logged at debug level, shows no repository name, path, text or token. |
+| FR-GH-10 | GitHub facts show on the Journal page, by repository and month, with links to their pull requests and commits. They can be edited and deleted like other facts (FR-JRN-6), and the export includes them (FR-JRN-7). The Inbox shows each GitHub source fact with its repository and links (FR-REV-1). | S | When a refresh creates a project from a public repository's facts, the project gets the repository's address as its URL. A private repository's name and address never reach the profile, a resume or the portfolio page. |
+
 ## 8. Resume rules
 
 These rules come from the owner's own master-resume practice. Code enforces them for every **sendable** resume, which means every tailored resume. The full master document is exempt from R6, because it spans several pages by design.
@@ -356,7 +381,7 @@ These rules come from the owner's own master-resume practice. Code enforces them
 | NFR-SEC-3 | LaTeX compiles with shell-escape off, restricted file access, a 30 s timeout and an isolated temporary directory. Every value is escaped. |
 | NFR-SEC-4 | The Telegram webhook verifies the secret-token header. GitHub OAuth uses a `state` parameter. Requests that change state are protected against CSRF. |
 | NFR-PRIV-1 | No personal data is committed to git. Tests and fixtures use a fictional person. |
-| NFR-PRIV-2 | Journal text is sent only to the Claude API, and is never logged. |
+| NFR-PRIV-2 | Journal text, and the repository text read for project facts (§7.16), are sent only to the Claude API, and are never logged. |
 | NFR-PRIV-3 | The owner can export all their data and delete all their data. |
 | NFR-PRIV-4 | Confidential terms never appear in public outputs: the portfolio page, published PDFs or the LinkedIn pack. |
 | NFR-REL-1 | Webhook processing is idempotent, and background jobs retry with backoff. |
@@ -380,7 +405,7 @@ The heavier models are used only where a task needs them. Exact model versions a
 | Tier | Model family | Used for |
 |---|---|---|
 | Heavy | Claude Opus | Profile synthesis (turning facts into a change set); tailoring selection and swap choice; PDF resume import (M4) |
-| Standard | Claude Sonnet | Fact extraction; the catch-up interview; writing a single bullet or applying a swap; the claim verifier; the LinkedIn pack |
+| Standard | Claude Sonnet | Fact extraction, from journal notes and repository history; the catch-up interview; writing a single bullet or applying a swap; the claim verifier; the LinkedIn pack |
 | Light | Claude Haiku | Follow-up questions; bot summaries; message triage; parsing job postings |
 
 ### Rules
@@ -406,6 +431,7 @@ At list prices in September 2026: about US$2/month for regular journaling, plus 
 | C4 | v1 has one user, the owner. The data model is ready for more: every row belongs to a user. |
 | C5 | The resume template needs pdfLaTeX (it uses `\pdfgentounicode`). |
 | C6 | Hosting is free: Vercel's Hobby plan (for personal, non-commercial use) runs the app, and Neon's free plan holds Postgres. Neither runs an always-on process, so Vercel's cron calls the app's tick once a day, the most its free plan allows (§13). That's enough: the owner journals at the end of the day, `/done` runs the jobs that follow at once, and the database, whose free plan counts the hours it's awake, wakes only when it's used. Vercel can't run LaTeX, so resumes render on the owner's machine for now: a refresh's master resume when `wj tick` or `wj worker` runs there, and any version with `wj render --db`. |
+| C7 | GitHub's REST API has limits: a token may make 5,000 requests an hour, and its search allows 30 requests a minute and returns at most 1,000 results a query. A commit is recognised as the owner's only when GitHub links its email to their account. It's recognised as an AI agent's only when the app knows the agent (FR-GH-4); an agent the app doesn't know counts as another person until it's added. Only the default branch is read. A commit pushed more than 14 days after it was made, outside a pull request, may be missed. Fine-grained tokens expire, so the owner renews theirs. |
 | A1 | The owner provides `master-resume.tex` (received). The JSON twin isn't needed (OQ-1). Past applications aren't imported; the app's application log starts with the first tailored resume. |
 | A2 | The owner refreshes only when they need current outputs, such as before a job hunt, so refreshes may be months apart. |
 
@@ -422,6 +448,10 @@ At list prices in September 2026: about US$2/month for regular journaling, plus 
 | LLM costs creep up | Budget overrun | Model routing, prompt caching, the cost log and a monthly view |
 | The Telegram API changes | Capture breaks | A thin client for the few Bot API methods used, and tests with recorded payloads |
 | A free plan changes, or ticks stop | Jobs run late, or the app has to move | Jobs wait in Postgres and run on the next tick. The app runs anywhere Python and Postgres do, with `wj worker` in place of the tick. |
+| Other people's work is credited to the owner | Inflated claims | Only the owner's own work, and AI agents' work for them, is read (FR-GH-4). Code caps ownership, and every fact cites its pull requests and commits |
+| Code an AI agent wrote is claimed as a skill the owner can't defend | A failed interview question (R3) | A new skill named only by agent-made facts carries a note in the Inbox, and the owner decides |
+| A private repository is revealed | Privacy | Only a public repository's address reaches the profile. Repository names are encrypted and never logged (FR-GH-9, FR-GH-10) |
+| Weak bullets from repository history, or secrets in commit messages | A weaker resume, or a leak | No line, commit or star counts reach the model, and routine work is left out. Only personal and open-source repositories are read, and every change is reviewed before anything is published |
 
 ## 13. Architecture overview
 
@@ -429,9 +459,9 @@ At list prices in September 2026: about US$2/month for regular journaling, plus 
 Telegram ──webhook──▶ ┌─────────────────────────────────┐ ──▶ PostgreSQL (Neon):
                       │ FastAPI app (a Vercel function) │     data and the job queue
 Vercel cron ──tick──▶ │ API, webhook, tick, portfolio   │ ──▶ Claude API
-  (once a day)        └─────────────────────────────────┘
+  (once a day)        └─────────────────────────────────┘ ──▶ GitHub API (read-only token)
 React web app: built into the function, which serves it at /
-Owner's machine: the `wj` commands, including `wj render --db` (LaTeX)
+Owner's machine: the `wj` commands, including `wj render --db` (LaTeX) and `wj github` (GitHub)
 ```
 
 | Component | Responsibility |
@@ -441,6 +471,7 @@ Owner's machine: the `wj` commands, including `wj render --db` (LaTeX)
 | PostgreSQL (Neon) | All data and the job queue. Profile versions are stored as immutable JSONB snapshots, and PDFs as bytes keyed by content hash. |
 | Claude API | Extraction, writing, verification, synthesis and tailoring, routed by tier (§10) |
 | TeX Live | Resume rendering on the owner's machine (a refresh's master resume through `wj tick` or `wj worker`, and `wj render --db`), until rendering moves to a host that can run it |
+| GitHub REST API | The owner's repository history, for project facts (§7.16). It's read with a read-only token, by `wj github` and at the start of each refresh |
 
 ### Stack
 
@@ -461,7 +492,7 @@ Owner's machine: the `wj` commands, including `wj render --db` (LaTeX)
 | Area | Tables |
 |---|---|
 | Accounts | `users`, `settings`, `telegram_links` |
-| Journal | `telegram_updates`, `journal_messages`, `journal_entries`, `facts` |
+| Journal | `telegram_updates`, `journal_messages`, `journal_entries`, `facts`, `repo_links`, `repo_items` |
 | Profile | `profile_versions`, `change_sets`, `change_ops`, `variants`, `publications` |
 | Applications | `job_postings`, `applications`, `artifacts` |
 | Operations | `llm_calls` |

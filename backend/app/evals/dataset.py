@@ -4,6 +4,7 @@
 - `writing.toml`: facts and what a bullet written from them must and mustn't say (facts to
   bullets).
 - `adversarial.toml`: known-bad text the verifier must catch, and faithful text it must pass.
+- `repo.toml`: items of a repository's history and the facts they give (FR-GH-6).
 
 Notes and outputs that try to trick the extractor or the writer, such as instructions in a note,
 are cases in their own suites, with `never` patterns.
@@ -37,8 +38,8 @@ from app.schema.profile import Profile
 from app.validate.verifier import TextKind
 from app.writing import locate_bullet
 
-Suite = Literal["extraction", "writing", "adversarial"]
-SUITES: tuple[Suite, ...] = ("extraction", "writing", "adversarial")
+Suite = Literal["extraction", "writing", "adversarial", "repo"]
+SUITES: tuple[Suite, ...] = ("extraction", "writing", "adversarial", "repo")
 
 FICTIONAL_DIR = Path(__file__).resolve().parents[2] / "evals"
 """The committed dataset about the fictional person (`backend/evals/`)."""
@@ -134,6 +135,52 @@ class AdversarialCase(_Entry):
     faithful text, which must pass."""
 
 
+class RepoCaseItem(_Entry):
+    """One item of a repository's history, as the digest shows it (`app/github/digest.py`)."""
+
+    label: Annotated[str, StringConstraints(pattern=r"^(about|pr[1-9][0-9]*|c[1-9][0-9]*)$")]
+    kind: Literal["about", "pull", "commit"]
+    month: Annotated[str, StringConstraints(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")]
+    """When it happened, as YYYY-MM."""
+    maker: Literal["owner", "agent"] = "owner"
+    """Who made it: the owner, or an AI coding agent for them."""
+    agent: str | None = None
+    """The AI coding agent that made it or helped make it, such as `Claude Code`."""
+    coauthored: bool = False
+    """Whether another person had a part in it."""
+    title: str = Field(min_length=1)
+    body: str = ""
+
+
+class ExpectedRepoFact(_Entry):
+    """A fact the items give. A kept fact recovers it when it matches every part."""
+
+    terms: tuple[Pattern, ...] = ()
+    """Patterns the fact's statement, outcome or tools must match."""
+    numbers: tuple[float, ...] = ()
+    """Numbers the fact's metrics must hold."""
+    items: tuple[str, ...] = ()
+    """Labels of the items it rests on, of which the fact must cite at least one."""
+    ownership: Ownership | None = None
+    """The most ownership the items support. More is an inflated claim."""
+
+
+class RepoCase(_Entry):
+    id: CaseId
+    repository: str = "casey-example/example"
+    owned: bool = True
+    """Whether the owner's account owns the repository, and it isn't a fork."""
+    project: str | None = None
+    """The project in the profile the facts belong to."""
+    new_project: str | None = None
+    """Or the name of a new project."""
+    items: tuple[RepoCaseItem, ...] = Field(min_length=1, max_length=30)
+    expected: tuple[ExpectedRepoFact, ...] = ()
+    """The facts the items give. With none, any fact is spurious."""
+    never: tuple[Pattern, ...] = ()
+    """Patterns no fact may match, such as a count of commits."""
+
+
 class _File(_Entry):
     profile: Path
     """The profile JSON, relative to this file."""
@@ -159,13 +206,18 @@ class AdversarialFile(_FileWithFacts):
     cases: tuple[AdversarialCase, ...]
 
 
-_FILES: dict[Suite, type[ExtractionFile | WritingFile | AdversarialFile]] = {
+class RepoFile(_File):
+    cases: tuple[RepoCase, ...]
+
+
+_FILES: dict[Suite, type[ExtractionFile | WritingFile | AdversarialFile | RepoFile]] = {
     "extraction": ExtractionFile,
     "writing": WritingFile,
     "adversarial": AdversarialFile,
+    "repo": RepoFile,
 }
 
-Case = ExtractionCase | WritingCase | AdversarialCase
+Case = ExtractionCase | WritingCase | AdversarialCase | RepoCase
 
 
 @dataclass(frozen=True)
@@ -200,6 +252,8 @@ def load_dataset(folder: Path, suite: Suite) -> Dataset | None:
             case if case.written else case.model_copy(update={"written": file.written})
             for case in file.cases
         )
+    elif isinstance(file, RepoFile):
+        cases = file.cases
     else:
         facts = _facts(path, file)
         cases = file.cases
@@ -270,6 +324,8 @@ def _check(dataset: Dataset) -> None:
             for expected in case.expected:
                 problems += _unknown("role", [expected.role], roles)
                 problems += _unknown("project", [expected.project], projects)
+        elif isinstance(case, RepoCase):
+            problems += _repo_problems(case, projects)
         else:
             problems += _unknown("fact", case.facts, set(dataset.facts))
             problems += _unknown("item", [case.under], items)
@@ -282,6 +338,23 @@ def _check(dataset: Dataset) -> None:
                 problems.append("the facts don't all belong to one item; say which with `under`")
         if problems:
             raise DatasetError(f"{where}: {'; '.join(problems)}")
+
+
+def _repo_problems(case: RepoCase, projects: set[str]) -> list[str]:
+    problems = _unknown("project", [case.project], projects)
+    if (case.project is None) == (case.new_project is None):
+        problems.append("name either a project or a new_project")
+    labels = [item.label for item in case.items]
+    if len(set(labels)) < len(labels):
+        problems.append("two items have the same label")
+    for item in case.items:
+        if (item.label == "about") != (item.kind == "about"):
+            problems.append(f"item {item.label!r}: only the about item is labelled about")
+        if item.maker == "agent" and item.agent is None:
+            problems.append(f"item {item.label!r}: an agent's item names its agent")
+    for expected in case.expected:
+        problems += _unknown("item", list(expected.items), set(labels))
+    return problems
 
 
 def _unknown(kind: str, ids: Sequence[str | None], known: set[str]) -> list[str]:
