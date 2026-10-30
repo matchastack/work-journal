@@ -226,3 +226,10 @@ def test_a_reminder_schedule_that_cant_be_followed_is_rejected(
     monkeypatch.setenv(name, value)
     with pytest.raises(ValidationError, match=error):
         Settings()
+
+
+def test_the_github_repos_token_stays_out_of_reprs(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GITHUB_REPOS_TOKEN", "github_pat_not-a-real-token")
+    settings = Settings()
+    assert "not-a-real-token" not in repr(settings)
+    assert settings.github_repos_token is not None

@@ -89,3 +89,48 @@ def test_fact_defaults() -> None:
 def test_fact_rejects_unknown_ownership() -> None:
     with pytest.raises(ValidationError):
         Fact.model_validate({"id": "f1", "statement": "x", "ownership": "spearheaded"})
+
+
+GITHUB_SOURCE = {
+    "repository": "casey-example/recipe-box",
+    "url": "https://github.com/casey-example/recipe-box",
+    "private": False,
+    "items": [
+        {"kind": "pull", "ref": "4", "url": "https://github.com/casey-example/recipe-box/pull/4"}
+    ],
+}
+
+
+def test_a_fact_from_github_keeps_its_source() -> None:
+    fact = Fact.model_validate(
+        {
+            "id": "gh_0123abcd_1",
+            "statement": "Added a weekly shopping list to Recipe Box.",
+            "projectId": "recipe_box",
+            "origin": "github",
+            "source": GITHUB_SOURCE,
+        }
+    )
+    assert fact.source is not None
+    assert fact.source.items[0].ref == "4"
+    assert Fact.model_validate_json(fact.model_dump_json()) == fact
+
+
+def test_facts_stored_before_github_still_parse() -> None:
+    stored = '{"id": "e1_1", "statement": "Cut the export to 12 minutes.", "origin": "journal"}'
+    assert Fact.model_validate_json(stored).source is None
+
+
+@pytest.mark.parametrize(
+    ("fields", "words"),
+    [
+        ({"origin": "github"}, "has a source"),
+        ({"origin": "journal", "source": GITHUB_SOURCE}, "has a source"),
+        ({"origin": "github", "source": GITHUB_SOURCE, "roleId": "northwind"}, "never to"),
+        ({"origin": "github", "source": GITHUB_SOURCE, "entryId": "e1"}, "never to"),
+        ({"origin": "github", "source": {**GITHUB_SOURCE, "items": []}}, "at least 1"),
+    ],
+)
+def test_a_fact_from_github_has_a_source_and_no_role(fields: dict[str, object], words: str) -> None:
+    with pytest.raises(ValidationError, match=words):
+        Fact.model_validate({"id": "gh_x_1", "statement": "Did a thing.", **fields})

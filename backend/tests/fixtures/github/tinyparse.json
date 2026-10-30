@@ -1,0 +1,433 @@
+{
+  "repository": {
+    "id": 700003,
+    "full_name": "tinyparse-org/tinyparse",
+    "html_url": "https://github.com/tinyparse-org/tinyparse",
+    "private": false,
+    "fork": false,
+    "owner": {
+      "login": "tinyparse-org",
+      "id": 9001,
+      "type": "Organization"
+    },
+    "description": "A tiny parser for config files.",
+    "default_branch": "main",
+    "pushed_at": "2025-03-07T10:00:00Z"
+  },
+  "languages": {
+    "Rust": 120400
+  },
+  "readme": "# tinyparse\n\nA tiny parser for config files.\n",
+  "commits": [
+    {
+      "sha": "58cf55df083fc84b6156286ed148f50e4b71c04b",
+      "html_url": "https://github.com/tinyparse-org/tinyparse/commit/58cf55df083fc84b6156286ed148f50e4b71c04b",
+      "commit": {
+        "message": "Fix a typo in the docs (#44)",
+        "author": {
+          "name": "Copilot",
+          "email": "198982749+Copilot@users.noreply.github.com",
+          "date": "2025-03-07T10:00:00Z"
+        },
+        "committer": {
+          "name": "Copilot",
+          "email": "198982749+Copilot@users.noreply.github.com",
+          "date": "2025-03-07T10:00:00Z"
+        }
+      },
+      "author": {
+        "login": "copilot-swe-agent[bot]",
+        "id": 198982749,
+        "type": "Bot"
+      },
+      "committer": {
+        "login": "copilot-swe-agent[bot]",
+        "id": 198982749,
+        "type": "Bot"
+      },
+      "parents": [
+        {
+          "sha": "437733a4f3a64640f2ac78a3d77fa9bbb7ccddb1"
+        }
+      ]
+    },
+    {
+      "sha": "1db275947135344db2abf54db82e9d72372b9dd9",
+      "html_url": "https://github.com/tinyparse-org/tinyparse/commit/1db275947135344db2abf54db82e9d72372b9dd9",
+      "commit": {
+        "message": "Add a streaming API (#43)",
+        "author": {
+          "name": "Sam Example",
+          "email": "sam@example.com",
+          "date": "2025-03-05T10:00:00Z"
+        },
+        "committer": {
+          "name": "Sam Example",
+          "email": "sam@example.com",
+          "date": "2025-03-05T10:00:00Z"
+        }
+      },
+      "author": {
+        "login": "sam-example",
+        "id": 5151,
+        "type": "User"
+      },
+      "committer": {
+        "login": "sam-example",
+        "id": 5151,
+        "type": "User"
+      },
+      "parents": [
+        {
+          "sha": "18529f87e9b588b0a1dbbacd3a1612ec4f09aa91"
+        }
+      ]
+    },
+    {
+      "sha": "b7571d0e75dea48cd1652bbf18cdc70c1e63430c",
+      "html_url": "https://github.com/tinyparse-org/tinyparse/commit/b7571d0e75dea48cd1652bbf18cdc70c1e63430c",
+      "commit": {
+        "message": "Speed up the tokenizer (#42)",
+        "author": {
+          "name": "Copilot",
+          "email": "198982749+Copilot@users.noreply.github.com",
+          "date": "2025-03-01T10:00:00Z"
+        },
+        "committer": {
+          "name": "Copilot",
+          "email": "198982749+Copilot@users.noreply.github.com",
+          "date": "2025-03-01T10:00:00Z"
+        }
+      },
+      "author": {
+        "login": "copilot-swe-agent[bot]",
+        "id": 198982749,
+        "type": "Bot"
+      },
+      "committer": {
+        "login": "copilot-swe-agent[bot]",
+        "id": 198982749,
+        "type": "Bot"
+      },
+      "parents": [
+        {
+          "sha": "39c9ee24777a2ab54c491e36a02ca044002ee12c"
+        }
+      ]
+    },
+    {
+      "sha": "b8a0fc6d2fd61b704c94aec50f9d7c9b87ee989d",
+      "html_url": "https://github.com/tinyparse-org/tinyparse/commit/b8a0fc6d2fd61b704c94aec50f9d7c9b87ee989d",
+      "commit": {
+        "message": "Parse quoted strings with escapes (#41)",
+        "author": {
+          "name": "Casey Morgan",
+          "email": "casey@example.com",
+          "date": "2025-02-14T10:00:00Z"
+        },
+        "committer": {
+          "name": "Casey Morgan",
+          "email": "casey@example.com",
+          "date": "2025-02-14T10:00:00Z"
+        }
+      },
+      "author": {
+        "login": "casey-example",
+        "id": 4242,
+        "type": "User"
+      },
+      "committer": {
+        "login": "casey-example",
+        "id": 4242,
+        "type": "User"
+      },
+      "parents": [
+        {
+          "sha": "777fb79ccdd628698a29e566a098344ed87514e5"
+        }
+      ]
+    },
+    {
+      "sha": "7663b3de4806d5369bb0ed59fd5279cfe8ac42c7",
+      "html_url": "https://github.com/tinyparse-org/tinyparse/commit/7663b3de4806d5369bb0ed59fd5279cfe8ac42c7",
+      "commit": {
+        "message": "Release 0.9.0",
+        "author": {
+          "name": "Sam Example",
+          "email": "sam@example.com",
+          "date": "2025-01-25T10:00:00Z"
+        },
+        "committer": {
+          "name": "Sam Example",
+          "email": "sam@example.com",
+          "date": "2025-01-25T10:00:00Z"
+        }
+      },
+      "author": {
+        "login": "sam-example",
+        "id": 5151,
+        "type": "User"
+      },
+      "committer": {
+        "login": "sam-example",
+        "id": 5151,
+        "type": "User"
+      },
+      "parents": [
+        {
+          "sha": "42f731ca085a3d8d43370a7dc70ab88e1b85c57c"
+        }
+      ]
+    },
+    {
+      "sha": "c3410bd0678c73947c751c95a70f6ed9dd291ae8",
+      "html_url": "https://github.com/tinyparse-org/tinyparse/commit/c3410bd0678c73947c751c95a70f6ed9dd291ae8",
+      "commit": {
+        "message": "Fix the README example",
+        "author": {
+          "name": "Casey Morgan",
+          "email": "casey@example.com",
+          "date": "2025-01-20T10:00:00Z"
+        },
+        "committer": {
+          "name": "Casey Morgan",
+          "email": "casey@example.com",
+          "date": "2025-01-20T10:00:00Z"
+        }
+      },
+      "author": {
+        "login": "casey-example",
+        "id": 4242,
+        "type": "User"
+      },
+      "committer": {
+        "login": "casey-example",
+        "id": 4242,
+        "type": "User"
+      },
+      "parents": [
+        {
+          "sha": "e4e0a920d53f2f1424e44d6e2401b270f29998ba"
+        }
+      ]
+    }
+  ],
+  "pulls": [
+    {
+      "pull": {
+        "number": 40,
+        "title": "Add a config linter",
+        "body": "Lints config files.",
+        "html_url": "https://github.com/tinyparse-org/tinyparse/pull/40",
+        "state": "closed",
+        "user": {
+          "login": "sam-example",
+          "id": 5151,
+          "type": "User"
+        },
+        "assignees": [],
+        "pull_request": {
+          "merged_at": "2025-01-30T10:00:00Z",
+          "html_url": "https://github.com/tinyparse-org/tinyparse/pull/40"
+        }
+      },
+      "commits": []
+    },
+    {
+      "pull": {
+        "number": 41,
+        "title": "Parse quoted strings with escapes",
+        "body": "Handles escapes in quoted strings. Parsing a 2 MB file went from 900 ms to 350 ms.",
+        "html_url": "https://github.com/tinyparse-org/tinyparse/pull/41",
+        "state": "closed",
+        "user": {
+          "login": "casey-example",
+          "id": 4242,
+          "type": "User"
+        },
+        "assignees": [],
+        "pull_request": {
+          "merged_at": "2025-02-14T10:00:00Z",
+          "html_url": "https://github.com/tinyparse-org/tinyparse/pull/41"
+        }
+      },
+      "commits": [
+        {
+          "sha": "7930362985e665be88ea2217f3cac4b24521b50e",
+          "html_url": "https://github.com/tinyparse-org/tinyparse/commit/7930362985e665be88ea2217f3cac4b24521b50e",
+          "commit": {
+            "message": "Parse escapes in quoted strings",
+            "author": {
+              "name": "Casey Morgan",
+              "email": "casey@example.com",
+              "date": "2025-02-10T20:00:00Z"
+            },
+            "committer": {
+              "name": "Casey Morgan",
+              "email": "casey@example.com",
+              "date": "2025-02-10T20:00:00Z"
+            }
+          },
+          "author": {
+            "login": "casey-example",
+            "id": 4242,
+            "type": "User"
+          },
+          "committer": {
+            "login": "casey-example",
+            "id": 4242,
+            "type": "User"
+          },
+          "parents": [
+            {
+              "sha": "da901f73f640e25e57cf02cda1db019428478d1d"
+            }
+          ]
+        },
+        {
+          "sha": "f0930fad9400cbd0b6a4aba2103b9b0ca45ec527",
+          "html_url": "https://github.com/tinyparse-org/tinyparse/commit/f0930fad9400cbd0b6a4aba2103b9b0ca45ec527",
+          "commit": {
+            "message": "Add escape tests",
+            "author": {
+              "name": "Sam Example",
+              "email": "sam@example.com",
+              "date": "2025-02-11T09:00:00Z"
+            },
+            "committer": {
+              "name": "Sam Example",
+              "email": "sam@example.com",
+              "date": "2025-02-11T09:00:00Z"
+            }
+          },
+          "author": {
+            "login": "sam-example",
+            "id": 5151,
+            "type": "User"
+          },
+          "committer": {
+            "login": "sam-example",
+            "id": 5151,
+            "type": "User"
+          },
+          "parents": [
+            {
+              "sha": "b275e1eb0dc81017190d2539e11cdeb595b9894f"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pull": {
+        "number": 42,
+        "title": "Speed up the tokenizer",
+        "body": "Reads input in 64 KB chunks.",
+        "html_url": "https://github.com/tinyparse-org/tinyparse/pull/42",
+        "state": "closed",
+        "user": {
+          "login": "Copilot",
+          "id": 198982749,
+          "type": "Bot"
+        },
+        "assignees": [
+          {
+            "login": "casey-example",
+            "id": 4242,
+            "type": "User"
+          }
+        ],
+        "pull_request": {
+          "merged_at": "2025-03-01T10:00:00Z",
+          "html_url": "https://github.com/tinyparse-org/tinyparse/pull/42"
+        }
+      },
+      "commits": [
+        {
+          "sha": "d524971e54b79f6ee278fa6fb628e2eb9f0aafba",
+          "html_url": "https://github.com/tinyparse-org/tinyparse/commit/d524971e54b79f6ee278fa6fb628e2eb9f0aafba",
+          "commit": {
+            "message": "Read input in chunks\n\nCo-authored-by: casey-example <4242+casey-example@users.noreply.github.com>",
+            "author": {
+              "name": "Copilot",
+              "email": "198982749+Copilot@users.noreply.github.com",
+              "date": "2025-02-28T09:00:00Z"
+            },
+            "committer": {
+              "name": "Copilot",
+              "email": "198982749+Copilot@users.noreply.github.com",
+              "date": "2025-02-28T09:00:00Z"
+            }
+          },
+          "author": {
+            "login": "copilot-swe-agent[bot]",
+            "id": 198982749,
+            "type": "Bot"
+          },
+          "committer": {
+            "login": "copilot-swe-agent[bot]",
+            "id": 198982749,
+            "type": "Bot"
+          },
+          "parents": [
+            {
+              "sha": "ea8047e3b77742e3a90e2e80c646506e5be197da"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pull": {
+        "number": 43,
+        "title": "Add a streaming API",
+        "body": "Streams large files.",
+        "html_url": "https://github.com/tinyparse-org/tinyparse/pull/43",
+        "state": "closed",
+        "user": {
+          "login": "sam-example",
+          "id": 5151,
+          "type": "User"
+        },
+        "assignees": [
+          {
+            "login": "casey-example",
+            "id": 4242,
+            "type": "User"
+          }
+        ],
+        "pull_request": {
+          "merged_at": "2025-03-05T10:00:00Z",
+          "html_url": "https://github.com/tinyparse-org/tinyparse/pull/43"
+        }
+      },
+      "commits": []
+    },
+    {
+      "pull": {
+        "number": 44,
+        "title": "Fix a typo in the docs",
+        "body": "One word.",
+        "html_url": "https://github.com/tinyparse-org/tinyparse/pull/44",
+        "state": "closed",
+        "user": {
+          "login": "Copilot",
+          "id": 198982749,
+          "type": "Bot"
+        },
+        "assignees": [
+          {
+            "login": "sam-example",
+            "id": 5151,
+            "type": "User"
+          }
+        ],
+        "pull_request": {
+          "merged_at": "2025-03-07T10:00:00Z",
+          "html_url": "https://github.com/tinyparse-org/tinyparse/pull/44"
+        }
+      },
+      "commits": []
+    }
+  ]
+}
