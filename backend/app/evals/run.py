@@ -12,6 +12,12 @@ Each case gets the numbers the evaluation bar is about:
   and each `never` match. For adversarial cases, other known-bad text the verifier didn't catch.
 - **Fact recall:** for extraction, the expected facts that a kept fact matches, one to one.
 
+Repository history (`repo`) is scored as extraction is, against each fact's cited items rather
+than a note: each number they don't give is altered, and a fact that cites nothing or an item it
+wasn't given, names a tool its items don't name, claims more ownership than expected, or matches
+a `never` pattern is inflated. A kept fact recovers an expected one only if it cites one of the
+expected items.
+
 A case's notes say what went wrong with case IDs, counts, pattern numbers and the verifier's
 codes only: never text from a note, a fact or an output, which can be the owner's (NFR-PRIV-2).
 The cost comes from the call log the client writes to.
@@ -21,6 +27,7 @@ import math
 import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
+from datetime import UTC, datetime
 from typing import get_args
 
 from app.evals.dataset import (
@@ -28,7 +35,9 @@ from app.evals.dataset import (
     Case,
     Dataset,
     ExpectedFact,
+    ExpectedRepoFact,
     ExtractionCase,
+    RepoCase,
     Suite,
     WritingCase,
     writing_item,
@@ -40,6 +49,23 @@ from app.extraction import (
     ask_for_facts,
     check_facts,
     names_tool,
+)
+from app.github.authors import Authorship
+from app.github.digest import (
+    COMMIT_CHARS,
+    PULL_CHARS,
+    Digest,
+    Item,
+    clean,
+    clean_readme,
+    made_by,
+)
+from app.github.extraction import (
+    RepoExtractionReply,
+    RepoFactReply,
+    RepoTarget,
+    ask_for_repo_facts,
+    check_repo_facts,
 )
 from app.llm.client import LLMCallError, LLMClient
 from app.llm.usage import CallRecord, MemoryCallLog
@@ -181,6 +207,8 @@ def run_case(case: Case, dataset: Dataset, client: LLMClient) -> CaseResult:
             return _writing(case, dataset, client)
         case AdversarialCase():
             return _adversarial(case, dataset, client)
+        case RepoCase():
+            return _repo(case, dataset.profile, client)
 
 
 # --- Extraction ------------------------------------------------------------------------------
@@ -264,6 +292,124 @@ def _recovers(fact: Fact, expected: ExpectedFact) -> bool:
     if expected.role is not None and fact.role_id != expected.role:
         return False
     return expected.project is None or fact.project_id == expected.project
+
+
+# --- Repository history ----------------------------------------------------------------------
+
+
+@dataclass
+class _RepoModelFact:
+    reply: RepoFactReply
+    kept: Fact | None
+    unbacked: int
+    problems: list[str] = field(default_factory=list[str])
+
+
+def _repo(case: RepoCase, profile: Profile, client: LLMClient) -> CaseResult:
+    digest = _case_digest(case)
+    target = RepoTarget(project_id=case.project, new_project=case.new_project)
+    reply = ask_for_repo_facts(digest, 0, profile, client, target=target)
+    items = {item.label: item for item in digest.items}
+    facts: list[_RepoModelFact] = []
+    for replied in reply.facts:
+        cited = [items[label] for label in replied.items if label in items]
+        if not replied.items or len(cited) < len(set(replied.items)):
+            problem = "cites no item" if not replied.items else "cites an item it wasn't given"
+            facts.append(_RepoModelFact(replied, None, 0, [problem]))
+            continue
+        checked = check_repo_facts(
+            RepoExtractionReply(facts=(replied,)), digest, 0, profile, target=target, part="eval"
+        )
+        unbacked = sum(len(dropped.reasons) for dropped in checked.dropped)
+        kept = checked.facts[0] if checked.facts else None
+        fact = _RepoModelFact(replied, kept, unbacked)
+        evidence = "\n\n".join(item.evidence for item in cited)
+        if any(not names_tool(evidence, tool, profile.skills) for tool in replied.tools):
+            fact.problems.append("a tool its items don't name")
+        text = "\n".join([replied.statement, replied.outcome or "", *replied.tools])
+        fact.problems += [f"never pattern {n}" for n, hit in _search(case.never, text) if hit]
+        facts.append(fact)
+    notes: list[str] = []
+    unmatched = [fact for fact in facts if fact.kept is not None]
+    recovered = 0
+    for number, expected in enumerate(case.expected, start=1):
+        match = next((fact for fact in unmatched if _recovers_repo(fact, expected)), None)
+        if match is None:
+            notes.append(f"missed expected fact {number}")
+            continue
+        recovered += 1
+        unmatched.remove(match)
+        assert match.kept is not None
+        if expected.ownership and _above(match.kept.ownership, expected.ownership):
+            match.problems.append(f"ownership above {expected.ownership} (expected fact {number})")
+    altered = sum(fact.unbacked for fact in facts)
+    if altered:
+        notes.append(_count(altered, "number") + " the cited items don't give")
+    inflated = [fact for fact in facts if fact.problems]
+    for fact in inflated:
+        notes.append("a fact claims more than its items: " + ", ".join(fact.problems))
+    spurious = not case.expected and bool(reply.facts)
+    if spurious:
+        notes.append(_count(len(reply.facts), "fact") + " where none were expected")
+    elif unmatched:
+        notes.append(_count(len(unmatched), "extra fact"))
+    return CaseResult(
+        case_id=case.id,
+        passed=recovered == len(case.expected) and not altered and not inflated and not spurious,
+        altered_numbers=altered,
+        inflated_claims=len(inflated),
+        expected_facts=len(case.expected),
+        recovered_facts=recovered,
+        notes=tuple(notes),
+    )
+
+
+def _case_digest(case: RepoCase) -> Digest:
+    """The case's items as one part of a digest, cleaned as `build_digest` cleans them."""
+    url = f"https://github.com/{case.repository}"
+    items = tuple(
+        Item(
+            label=item.label,
+            kind=item.kind,
+            ref=item.label,
+            url=f"{url}/{item.label}",
+            at=datetime.strptime(item.month, "%Y-%m").replace(tzinfo=UTC),
+            title=clean(item.title, max_chars=COMMIT_CHARS, leftovers=False),
+            body=clean_readme(item.body)
+            if item.kind == "about"
+            else clean(item.body, max_chars=PULL_CHARS),
+            made_by=""
+            if item.kind == "about"
+            else made_by(
+                Authorship(
+                    "agent" if item.maker == "agent" else "owner", item.agent, item.coauthored
+                )
+            ),
+            agent=item.agent,
+            coauthored=item.coauthored,
+        )
+        for item in case.items
+    )
+    return Digest(
+        repository=case.repository,
+        url=url,
+        private=False,
+        owned=case.owned,
+        items=items,
+        windows=(items,),
+        left_out={},
+        pulls_read=sum(item.kind == "pull" for item in items),
+        commits_read=sum(item.kind == "commit" for item in items),
+    )
+
+
+def _recovers_repo(fact: _RepoModelFact, expected: ExpectedRepoFact) -> bool:
+    if fact.kept is None:
+        return False
+    as_journal = ExpectedFact(terms=expected.terms, numbers=expected.numbers)
+    if not _recovers(fact.kept, as_journal):
+        return False
+    return not expected.items or bool(set(expected.items) & set(fact.reply.items))
 
 
 def _numbers(value: SingleValue | ChangeValue | RangeValue) -> tuple[float, ...]:

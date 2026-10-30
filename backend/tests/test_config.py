@@ -195,3 +195,10 @@ def test_a_relative_web_app_folder_is_inside_backend(monkeypatch: pytest.MonkeyP
     """On Vercel, the build puts the web app in `backend/webapp`."""
     monkeypatch.setenv("WEB_DIST_DIR", "webapp")
     assert Settings().web_dist_dir == BACKEND / "webapp"
+
+
+def test_the_github_repos_token_stays_out_of_reprs(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GITHUB_REPOS_TOKEN", "github_pat_not-a-real-token")
+    settings = Settings()
+    assert "not-a-real-token" not in repr(settings)
+    assert settings.github_repos_token is not None

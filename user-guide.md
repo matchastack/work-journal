@@ -29,6 +29,7 @@ Every generated sentence is checked against your facts, so wording never changes
 | Fix a note or a saved fact | The web app, Journal page |
 | Update your profile from new notes | `/refresh` in Telegram, then the web app's Inbox |
 | Render the master resume, tailor a resume, build the portfolio page, write LinkedIn text | The command-line tool (web pages **Coming**) |
+| See what a GitHub repository's history would give one of your projects, and the facts in it | `wj github digest`, then `wj github extract` (saving the facts for `/refresh` is **Coming**: T-069 to T-072) |
 
 ## Set up on your computer
 
@@ -53,6 +54,7 @@ Open `http://localhost:8000/healthz` to check it is up, or `http://localhost:800
 | `DATABASE_URL` | PostgreSQL, needed for the bot, the web app and every `--db` command |
 | `DATA_ENCRYPTION_KEY` | Encrypts journal and fact text. Make one with `uv run wj keys new` and keep a copy somewhere safe: without it the stored journal can't be read |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `ALLOWED_GITHUB_LOGINS` | Sign-in to the web app. Only the GitHub usernames listed can sign in; empty means nobody |
+| `GITHUB_REPOS_TOKEN` | Reads your GitHub repositories' history for project facts: a fine-grained, read-only token (see [Projects from GitHub](#projects-from-github)) |
 | `APP_URL` | The app's address. `http://localhost:8000` by default; `https://` everywhere but your own computer |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` | The bot's token from @BotFather, and a random secret for the webhook |
 | `ANTHROPIC_API_KEY`, `LLM_MODEL_HEAVY`, `LLM_MODEL_STANDARD`, `LLM_MODEL_LIGHT` | Claude. Any command that writes or reads text with the model needs these |
@@ -244,6 +246,50 @@ uv run wj linkedin done --db     # mark the pack done, once you have pasted it i
 
 Paste the text into LinkedIn yourself; Work Journal never posts there.
 
+### Projects from GitHub
+
+Work Journal can read a GitHub repository's history to find facts for one of your projects, so you don't have to journal about side projects. For now, `wj github digest` shows exactly what it would read, and `wj github extract` prints the facts the model finds in it. Saving those facts, so that `/refresh` turns them into bullets, is **Coming** (T-069 to T-072).
+
+**Make a token.** On GitHub, open Settings, Developer settings, Personal access tokens, Fine-grained tokens, and generate a new token:
+
+- Repository access: only the repositories you want read.
+- Permissions: Metadata, Contents and Pull requests, each **Read-only**.
+
+Put it in `backend/.env` as `GITHUB_REPOS_TOKEN`. Work Journal refuses a classic token (`ghp_...`). It also refuses a token for any account but yours, checked against the GitHub username in your profile (`basics.profiles`), or with `--db`, against the account you sign in with.
+
+```sh
+uv run wj github digest <owner/repo>                   # the whole history
+uv run wj github digest <owner/repo> --since 2025-01   # from January 2025 on
+uv run wj github digest <owner/repo> --db              # check the token against your account
+```
+
+It prints what it read and what it left out, then the digest, in parts, as the model will read it. It calls no model and stores nothing.
+
+- **What it reads.**
+  - In your own repository (not a fork): every pull request merged into the default branch and every commit on it, plus the description, the languages and the README.
+  - In someone else's repository: only your work there, which means the pull requests you opened or were assigned that were merged into the default branch, and your own commits on it.
+  - A pull request merged into another branch, such as a release branch, isn't read: only what reached the default branch counts.
+- **Whose work counts.** Yours, and what an AI coding agent such as Claude Code or GitHub Copilot's coding agent did for you; its items say, for example, "By Claude Code, for you". Other people's work and automation bots such as Dependabot don't count.
+- **What it leaves out:** merges, reverts and what they revert (a pull request too, when its squash or merge commit was reverted), commits that are part of a pull request, and empty messages. Your own commits in another person's pull request are kept, each on its own.
+- **What it removes from the text:** commit hashes, issue numbers, links, emails, @mentions, sign-off lines and checklists. From the README, it also removes code blocks and the roadmap, to-do and acknowledgement sections. Nothing removed can back a number in a fact.
+
+A commit counts as yours only when GitHub links its email to your account (GitHub, Settings, Emails).
+
+**The facts in it.** Name the project the facts belong to, from your profile or a new one:
+
+```sh
+uv run wj github extract <owner/repo> --project recipe_box         # a project in your profile, by ID
+uv run wj github extract <owner/repo> --new-project "Recipe Box"   # a new project
+```
+
+It prints the facts as JSON, then lists on the error stream what it left out and why. It calls the standard-tier model once for each part of the digest, and stores nothing. If the model declines a part, or can't answer it in the right shape, that part is skipped: the facts from the other parts are still printed, the skipped part is named at the end, and the command exits with status 1. It takes `--since`, `--profile` and `--db`, as `wj github digest` does. Each fact:
+
+- cites the pull requests and commits it rests on, with their links (`source`);
+- has only the numbers and tools its cited items give: a fact with a number they don't give is left out, and a tool they don't name is removed;
+- belongs to the project you named, never to a role, and is dated by the latest pull request or commit it cites (a fact that cites only the repository's description and README has no date);
+- claims at most "owned" in your own repository, and "contributed" elsewhere or when another person co-authored the work. It's never "led". `--ownership` changes that cap;
+- lists the AI coding agent among its tools when one made or helped with the work.
+
 ### Work on single notes and bullets
 
 | Task | Command |
@@ -286,5 +332,8 @@ Every sentence written passes the verifier before it is stored or printed.
 | `wj render` or `wj tailor` can't find LaTeX | Install TeX Live (`backend/templates/README.md`) |
 | The bot says a refresh didn't finish in time | Run `uv run wj propose --db` from your computer |
 | Journal text can't be read after changing keys | `DATA_ENCRYPTION_KEY` must still include the key the text was written with |
+| `wj github digest` says the token belongs to another GitHub account | Use a token of your own account: the one your profile's GitHub username names, or the one you sign in with |
+| `wj github digest` says the repository doesn't exist | Give the token access to that repository, with Contents and Pull requests set to read-only |
+| `wj github digest` says GitHub's rate limit is used up | Wait until the time it gives (a minute when GitHub doesn't say), then run it again |
 
 More hosting problems are in [docs/deploy.md](docs/deploy.md#when-something-goes-wrong).
