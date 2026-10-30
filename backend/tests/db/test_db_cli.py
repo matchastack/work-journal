@@ -1,6 +1,7 @@
 """`wj db load-profile` and the commands' --db option, against the test database."""
 
 import asyncio
+import hashlib
 import json
 import uuid
 from collections.abc import Iterator
@@ -13,6 +14,7 @@ from sqlalchemy import Executable, delete, func, insert, select
 from sqlalchemy.ext.asyncio import create_async_engine
 from typer.testing import CliRunner, Result
 
+import app.render.resume as resume_module
 from app import cli as cli_module
 from app.cli import cli
 from app.config import Settings, get_settings
@@ -26,6 +28,7 @@ from app.db.models import (
     JobPostingRow,
     ProfileVersionRow,
     Refresh,
+    RenderRow,
     Setting,
     User,
 )
@@ -33,6 +36,7 @@ from app.linkedin import WrittenSection
 from app.llm.client import LLMClient
 from app.llm.fake import FakeMessages, reply
 from app.llm.usage import MemoryCallLog
+from app.render.compile import CompiledPdf, inspect_pdf
 from app.render.resume import RenderedResume, render_key
 from app.schema.fact import Fact
 from app.schema.jobs import Application, JobPosting
@@ -157,6 +161,47 @@ def test_render_reads_the_database(tmp_path: Path, owner: str) -> None:
     assert out.read_bytes().startswith(b"%PDF")
 
 
+def test_render_keeps_the_render_and_uses_it_again(
+    tmp_path: Path, database_url: str, owner: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """T-044: renders are cached by content hash, so the same LaTeX source isn't compiled twice,
+    by `wj render --db` or by the next refresh."""
+    loaded = invoke("db", "load-profile", str(FIXTURES / "profile.json"), "--user", owner)
+    assert loaded.exit_code == 0, loaded.output
+    pdf = (FIXTURES / "pdfs" / "backend-resume.pdf").read_bytes()
+    sources: list[str] = []
+
+    def compile_latex(source: str, **_: object) -> CompiledPdf:
+        sources.append(source)
+        return inspect_pdf(pdf)
+
+    monkeypatch.setattr(resume_module, "compile_latex", compile_latex)
+    first = tmp_path / "first.pdf"
+    result = invoke("render", "--db", "--user", owner, "--out", str(first))
+    assert result.exit_code == 0, result.output
+    assert len(sources) == 1
+    assert "wasn't compiled again" not in result.stdout
+    user = select(User.id).where(User.github_login == owner).scalar_subquery()
+    [(key, sha256, pages)] = run_rows(
+        database_url,
+        select(RenderRow.key, RenderRow.pdf_sha256, RenderRow.pages).where(
+            RenderRow.user_id == user
+        ),
+    )
+    assert (sha256, pages) == (hashlib.sha256(pdf).hexdigest(), 1)
+
+    again = tmp_path / "again.pdf"
+    result = invoke("render", "--db", "--user", owner, "--out", str(again))
+    assert result.exit_code == 0, result.output
+    assert len(sources) == 1, "not compiled again"
+    assert again.read_bytes() == first.read_bytes() == pdf
+    assert again.with_suffix(".tex").read_text(encoding="utf-8") == sources[0]
+    assert "The same LaTeX source was rendered before, so it wasn't compiled again." in (
+        result.stdout
+    )
+    assert scalars(database_url, select(RenderRow.key).where(RenderRow.user_id == user)) == [key]
+
+
 def test_import_tex_can_save_straight_to_the_database(
     tmp_path: Path, database_url: str, owner: str
 ) -> None:
@@ -274,6 +319,13 @@ def test_tailor_logs_the_application_in_the_database(
     ], "the stand-in PDF has no text"
     [pdf] = scalars(database_url, select(Artifact.data).where(Artifact.user_id == user))
     assert bytes(pdf) == b"%PDF-1.5 tailored"
+    [kept] = run_rows(
+        database_url,
+        select(RenderRow.pdf_sha256, RenderRow.pages, RenderRow.cuts).where(
+            RenderRow.user_id == user
+        ),
+    )
+    assert kept == (hashlib.sha256(b"%PDF-1.5 tailored").hexdigest(), 1, []), "for T-044"
     [text] = scalars(database_url, select(JobPostingRow.text).where(JobPostingRow.user_id == user))
     assert text == posting.read_text(encoding="utf-8").strip()
     listed = invoke("applications", "--db", "--user", owner)
