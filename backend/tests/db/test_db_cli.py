@@ -33,7 +33,7 @@ from app.linkedin import WrittenSection
 from app.llm.client import LLMClient
 from app.llm.fake import FakeMessages, reply
 from app.llm.usage import MemoryCallLog
-from app.render.resume import RenderedResume
+from app.render.resume import RenderedResume, render_key
 from app.schema.fact import Fact
 from app.schema.jobs import Application, JobPosting
 from app.schema.profile import Profile, Swap
@@ -246,7 +246,7 @@ def test_tailor_logs_the_application_in_the_database(
     )
     monkeypatch.setattr(cli_module, "_llm_client", lambda: llm)
 
-    def render(selection: Selection) -> RenderedResume:
+    def render(selection: Selection, **_: object) -> RenderedResume:
         return RenderedResume(
             pdf=b"%PDF-1.5 tailored",
             tex="",
@@ -255,6 +255,7 @@ def test_tailor_logs_the_application_in_the_database(
             cuts=(),
             warnings=(),
             selection=selection,
+            key=render_key(selection),
         )
 
     monkeypatch.setattr(cli_module, "render_resume", render)
