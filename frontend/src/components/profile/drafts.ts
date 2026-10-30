@@ -44,12 +44,39 @@ export function orNull(text: string): string | null {
   return trimmed === "" ? null : trimmed;
 }
 
-/** Comma-separated text as a list, without blanks. */
+/**
+ * Comma-separated text as a list, without blanks. A comma inside parentheses stays in its entry,
+ * as in `SQL (Postgres, MySQL)`, as the master resume's importer reads it.
+ */
 export function commaList(text: string): string[] {
-  return text
-    .split(",")
-    .map((part) => part.trim())
-    .filter((part) => part !== "");
+  const parts: string[] = [];
+  let current = "";
+  let depth = 0;
+  for (const char of text) {
+    if (char === "," && depth === 0) {
+      parts.push(current);
+      current = "";
+      continue;
+    }
+    depth += char === "(" ? 1 : char === ")" ? -1 : 0;
+    current += char;
+  }
+  parts.push(current);
+  return parts.map((part) => part.trim()).filter((part) => part !== "");
+}
+
+/**
+ * A list edited as text: `saved` as it was while the text is still `shown`, so an entry the text
+ * can't hold, such as one with a comma outside parentheses, survives a save that doesn't touch
+ * it. Otherwise, the entries `split` reads from the text.
+ */
+export function editedList(
+  text: string,
+  saved: readonly string[],
+  shown: string,
+  split: (text: string) => string[] = commaList,
+): string[] {
+  return text === shown ? [...saved] : split(text);
 }
 
 /** What's wrong with a start and end date, if anything: each is a month such as 2026-10, and
@@ -332,6 +359,8 @@ export interface ProjectDraft {
   name: string;
   description: string;
   keywords: string;
+  /** The tech stack as saved, kept while its text is untouched. */
+  savedKeywords: string[];
   url: string;
   startDate: string;
   endDate: string;
@@ -345,6 +374,7 @@ export function projectDraft(project: Project): ProjectDraft {
     name: project.name,
     description: project.description ?? "",
     keywords: project.keywords.join(", "),
+    savedKeywords: [...project.keywords],
     url: project.url ?? "",
     startDate: project.startDate ?? "",
     endDate: project.endDate ?? "",
@@ -366,7 +396,7 @@ export function projectEditOf(draft: ProjectDraft, baseVersion: number): Result<
   if (draft.status === "benched" && reason === null) {
     return { problem: "Say why the project is benched." };
   }
-  const keywords = commaList(draft.keywords);
+  const keywords = editedList(draft.keywords, draft.savedKeywords, draft.savedKeywords.join(", "));
   if (keywords.length > LIMITS.keywords) {
     return { problem: `The tech stack can list at most ${String(LIMITS.keywords)} entries.` };
   }
