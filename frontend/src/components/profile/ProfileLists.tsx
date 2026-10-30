@@ -194,6 +194,7 @@ function SkillsForm({ profile, baseVersion, onSaved, onDone }: Part & { onDone: 
           tier: "",
           verifyBeforeShipping: false,
           aliases: "",
+          savedAliases: [],
         })}
       >
         {(skill, changeSkill) => (
@@ -334,7 +335,7 @@ function PresetsForm({ profile, baseVersion, onSaved, onDone }: Part & { onDone:
         onChange={(presets) => {
           change({ presets });
         }}
-        makeRow={(key) => ({ key, roleType: "", lines: "" })}
+        makeRow={(key) => ({ key, roleType: "", lines: "", savedLines: null })}
       >
         {(preset, changePreset) => (
           <div className="space-y-2">

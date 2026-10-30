@@ -114,9 +114,16 @@ describe("a role's tailoring rules", () => {
 
 describe("a bullet's swaps", () => {
   it("need their phrasing, and a blank part replaced is the whole bullet", () => {
-    const swap = { key: 0, text: " ", replaces: "", contexts: "", origin: "approved" as const };
+    const swap = {
+      key: 0,
+      text: " ",
+      replaces: "",
+      contexts: "",
+      savedContexts: [],
+      origin: "approved" as const,
+    };
     expect(swapsEditOf({ swaps: [swap] }, 1)).toEqual({ problem: "Swap 1 needs its phrasing." });
-    const filled = { ...swap, text: "high-volume services", contexts: "platform roles, backend" };
+    const filled = { ...swap, text: "high-volume services", contexts: "platform roles\nbackend" };
     expect(swapsEditOf({ swaps: [filled] }, 1)).toEqual({
       edit: {
         baseVersion: 1,
@@ -134,7 +141,7 @@ describe("a bullet's swaps", () => {
 });
 
 describe("coursework", () => {
-  it("keeps a role type's courses in the full list's order and drops removed ones", () => {
+  it("keeps a role type's courses in their order and drops removed ones", () => {
     const draft = {
       courses: "Algorithms\nDatabases",
       subsets: [{ key: 0, roleType: "backend", courses: ["Databases", "Compilers", "Algorithms"] }],
@@ -144,7 +151,7 @@ describe("coursework", () => {
       edit: {
         baseVersion: 2,
         courses: ["Algorithms", "Databases"],
-        courseworkSubsets: [{ roleType: "backend", courses: ["Algorithms", "Databases"] }],
+        courseworkSubsets: [{ roleType: "backend", courses: ["Databases", "Algorithms"] }],
         rules: ["Never print the GPA."],
       },
     });
@@ -219,7 +226,7 @@ describe("skills presets and summaries", () => {
     expect(presetsEditOf({ presets: drafts }, 1)).toEqual({
       edit: { baseVersion: 1, skillPresets: profile().skillPresets },
     });
-    const wrong = [{ key: 0, roleType: "backend", lines: "Python, SQL" }];
+    const wrong = [{ key: 0, roleType: "backend", lines: "Python, SQL", savedLines: null }];
     expect(presetsEditOf({ presets: wrong }, 1)).toEqual({
       problem:
         '"Python, SQL" in the backend preset needs a label and skills, such as Languages: Python, SQL.',
@@ -287,6 +294,31 @@ describe("open questions", () => {
     });
     expect(questionEditOf(questionDraft(null, withBullet), 2)).toEqual({
       problem: "The open question needs its question.",
+    });
+  });
+});
+
+describe("lists the forms didn't change", () => {
+  it("are sent as they were saved, commas and all", () => {
+    const contexts = ["Software Engineer, Backend at Example Corp"];
+    const swap = { key: 0, text: "x", replaces: "", origin: "approved" as const };
+    const untouched = { ...swap, contexts: contexts.join("\n"), savedContexts: contexts };
+    expect(swapsEditOf({ swaps: [untouched] }, 1)).toMatchObject({
+      edit: { swaps: [{ contexts }] },
+    });
+    const [python] = skillsDraft(profile()).skills;
+    if (python === undefined) {
+      throw new Error("no skill");
+    }
+    const aliases = ["Python 3, CPython"];
+    const skill = { ...python, aliases: aliases.join(", "), savedAliases: aliases };
+    expect(skillsEditOf({ skills: [skill], gaps: "" }, 1)).toMatchObject({
+      edit: { skills: [{ aliases }] },
+    });
+    const lines = [{ label: "Data", skills: ["SQL (Postgres, MySQL)", "dbt, Core"] }];
+    const presets = presetDrafts(profile({ skillPresets: [{ roleType: "backend", lines }] }));
+    expect(presetsEditOf({ presets }, 1)).toEqual({
+      edit: { baseVersion: 1, skillPresets: [{ roleType: "backend", lines }] },
     });
   });
 });

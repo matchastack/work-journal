@@ -380,7 +380,14 @@ export function SwapsForm({
         onChange={(swaps) => {
           change({ swaps });
         }}
-        makeRow={(key) => ({ key, text: "", replaces: "", contexts: "", origin: "approved" })}
+        makeRow={(key) => ({
+          key,
+          text: "",
+          replaces: "",
+          contexts: "",
+          savedContexts: [],
+          origin: "approved",
+        })}
       >
         {(swap, changeSwap) => (
           <div className="space-y-2">
@@ -403,14 +410,15 @@ export function SwapsForm({
                 }}
                 maxLength={LIMITS.reason}
               />
-              <TextField
+              <TextArea
                 label="Fits (optional)"
-                hint="Separated by commas, such as a role type or a posting."
+                hint="One per line, such as a role type or the posting it was written for."
                 value={swap.contexts}
                 onChange={(contexts) => {
                   changeSwap({ contexts });
                 }}
                 maxLength={LIMITS.text}
+                rows={2}
               />
             </div>
           </div>

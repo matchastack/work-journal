@@ -4,8 +4,10 @@
  * skills and gaps, skills presets, summaries and open questions. As in `drafts.ts`, each
  * `...EditOf` returns the edit the API takes, or what's wrong with the draft.
  *
- * Lists of sentences, such as honesty boundaries, are a line each; lists of short names, such
- * as a swap's contexts, are separated by commas.
+ * Lists of sentences, such as honesty boundaries or a swap's contexts, are a line each; lists of
+ * short names, such as a skill's other spellings, are separated by commas (`commaList`). A list
+ * whose text wasn't touched is sent as it was saved (`editedList`), so an entry its text can't
+ * hold survives.
  */
 
 import type {
@@ -18,13 +20,14 @@ import type {
   RoleRulesEdit,
   RoleType,
   RoleTypesEdit,
+  SkillPreset,
   SkillPresetsEdit,
   SkillsEdit,
   SummariesEdit,
   Swap,
   SwapsEdit,
 } from "../../api/profile";
-import { commaList, LIMITS, orNull, tagsProblem, type Result } from "./drafts";
+import { commaList, editedList, LIMITS, orNull, tagsProblem, type Result } from "./drafts";
 
 /** The API's limits for metadata, in entries (`backend/app/profile/edits.py`). */
 export const METADATA_LIMITS = {
@@ -151,6 +154,7 @@ export interface SwapDraft {
   text: string;
   replaces: string;
   contexts: string;
+  savedContexts: string[];
   origin: Swap["origin"];
 }
 
@@ -159,7 +163,8 @@ export function swapDrafts(swaps: readonly Swap[]): SwapDraft[] {
     key,
     text: swap.text,
     replaces: swap.replaces ?? "",
-    contexts: swap.contexts.join(", "),
+    contexts: swap.contexts.join("\n"),
+    savedContexts: [...swap.contexts],
     origin: swap.origin,
   }));
 }
@@ -177,7 +182,12 @@ export function swapsEditOf(
     if (text === "") {
       return { problem: `Swap ${String(index + 1)} needs its phrasing.` };
     }
-    const contexts = commaList(swap.contexts);
+    const contexts = editedList(
+      swap.contexts,
+      swap.savedContexts,
+      swap.savedContexts.join("\n"),
+      lineList,
+    );
     const problem =
       listProblem([text], "a swap", { count: 1, length: LIMITS.bullet }) ??
       listProblem(contexts, "contexts", { count: METADATA_LIMITS.list, length: LIMITS.name });
@@ -215,7 +225,10 @@ export function courseworkDraft(education: Education): CourseworkDraft {
   };
 }
 
-/** A course taken off the full list leaves the role types' coursework too. */
+/**
+ * A course taken off the full list leaves the role types' coursework too. Each role type's
+ * courses keep their order, which resumes print them in, with newly ticked ones last.
+ */
 export function courseworkEditOf(
   draft: CourseworkDraft,
   baseVersion: number,
@@ -241,7 +254,7 @@ export function courseworkEditOf(
   }
   const courseworkSubsets = draft.subsets.map((subset) => ({
     roleType: subset.roleType,
-    courses: courses.filter((course) => subset.courses.includes(course)),
+    courses: subset.courses.filter((course) => courses.includes(course)),
   }));
   const empty = courseworkSubsets.find((subset) => subset.courses.length === 0);
   if (empty !== undefined) {
@@ -301,6 +314,7 @@ export interface SkillDraft {
   tier: Tier;
   verifyBeforeShipping: boolean;
   aliases: string;
+  savedAliases: string[];
 }
 
 export interface SkillsDraft {
@@ -318,6 +332,7 @@ export function skillsDraft(profile: Profile): SkillsDraft {
       tier: skill.tier ?? "",
       verifyBeforeShipping: skill.verifyBeforeShipping,
       aliases: skill.aliases.join(", "),
+      savedAliases: [...skill.aliases],
     })),
     gaps: profile.skillGaps.join("\n"),
   };
@@ -333,7 +348,7 @@ export function skillsEditOf(draft: SkillsDraft, baseVersion: number): Result<Sk
     if (name === "" || category === "") {
       return { problem: `Skill ${String(index + 1)} needs a name and a category.` };
     }
-    const aliases = commaList(skill.aliases);
+    const aliases = editedList(skill.aliases, skill.savedAliases, skill.savedAliases.join(", "));
     const problem =
       listProblem([name, category], "a skill's name and category", {
         count: 2,
@@ -385,14 +400,21 @@ export interface PresetDraft {
   roleType: string;
   /** A line each, as `Languages: Python, SQL`. */
   lines: string;
+  /** The lines as saved, sent as they are while their text is untouched; null for a new preset. */
+  savedLines: SkillPreset["lines"] | null;
 }
 
 export function presetDrafts(profile: Profile): PresetDraft[] {
   return profile.skillPresets.map((preset, key) => ({
     key,
     roleType: preset.roleType,
-    lines: preset.lines.map((line) => `${line.label}: ${line.skills.join(", ")}`).join("\n"),
+    lines: presetText(preset.lines),
+    savedLines: preset.lines,
   }));
+}
+
+function presetText(lines: SkillPreset["lines"]): string {
+  return lines.map((line) => `${line.label}: ${line.skills.join(", ")}`).join("\n");
 }
 
 export function presetsEditOf(
@@ -403,6 +425,10 @@ export function presetsEditOf(
   for (const preset of draft.presets) {
     if (preset.roleType === "") {
       return { problem: "Choose the role type of each skills preset." };
+    }
+    if (preset.savedLines !== null && preset.lines === presetText(preset.savedLines)) {
+      skillPresets.push({ roleType: preset.roleType, lines: preset.savedLines });
+      continue;
     }
     const lines = lineList(preset.lines);
     if (lines.length === 0) {

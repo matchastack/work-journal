@@ -1054,7 +1054,7 @@ describe("the profile's tailoring metadata", () => {
     const edit: CourseworkEdit = {
       baseVersion: 1,
       courses: ["Algorithms", "Databases", "Statistics"],
-      courseworkSubsets: [{ roleType: "data", courses: ["Databases", "Statistics"] }],
+      courseworkSubsets: [{ roleType: "data", courses: ["Statistics", "Databases"] }],
       rules: ["Never print the GPA."],
     };
     expect(server.sent).toEqual([
@@ -1066,7 +1066,7 @@ describe("the profile's tailoring metadata", () => {
       },
     ]);
     const saved = await block("Coursework and rules", 4);
-    expect(saved.getByText("Databases, Statistics")).toBeInTheDocument();
+    expect(saved.getByText("Statistics, Databases")).toBeInTheDocument();
   });
 
   it("edits skills and gaps, refusing a gap that's also a skill", async () => {
