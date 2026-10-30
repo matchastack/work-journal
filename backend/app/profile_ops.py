@@ -38,6 +38,14 @@ ITEM_SECTIONS: dict[str, type[BaseModel]] = {
 PROTECTED_FIELDS = frozenset({"id", "highlights"})
 """Fields UpdateField may not touch: identity, and bullets (use the bullet operations)."""
 
+PROFILE_TARGET = "profile"
+"""The UpdateField target for the profile's own lists, as `basics` is for the basics."""
+PROFILE_LISTS = frozenset(
+    {"roleTypes", "skills", "skillGaps", "skillPresets", "summaries", "openQuestions"}
+)
+"""The lists UpdateField may replace on the profile itself. Its items have their own operations,
+and the basics their own target."""
+
 
 class ProfileOpError(ValueError):
     """An operation couldn't be applied. The profile is left unchanged."""
@@ -136,6 +144,11 @@ def _find_question(data: Json, question_id: str) -> Json:
 def _update_field(data: Json, op: UpdateField) -> None:
     target: Json
     model: type[BaseModel]
+    if op.target_id == PROFILE_TARGET:
+        if op.field not in PROFILE_LISTS:
+            raise ProfileOpError(f"the profile has no editable list {op.field!r}")
+        data[op.field] = op.value
+        return
     if op.target_id == "basics":
         target, model = data["basics"], Basics
     else:

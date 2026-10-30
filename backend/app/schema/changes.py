@@ -73,7 +73,8 @@ class AddProject(OpBase):
 class UpdateField(OpBase):
     op: Literal["update_field"] = "update_field"
     target_id: Id
-    """An item or bullet ID, or `basics`."""
+    """An item or bullet ID, `basics`, or `profile` for one of the profile's own lists, such as
+    `skills` or `openQuestions`, which the value replaces whole."""
     field: NonEmptyStr
     """The field's JSON name, e.g. `endDate`."""
     value: JsonValue

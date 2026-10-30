@@ -18,6 +18,7 @@ from typing import Literal, assert_never
 
 from pydantic import ConfigDict, JsonValue
 
+from app.profile_ops import PROFILE_TARGET
 from app.schema.changes import (
     AddBullet,
     AddEducation,
@@ -229,7 +230,10 @@ def _add(
 
 
 def _describe_update(op: UpdateField, profile: Profile) -> Description:
-    if op.target_id == "basics":
+    if op.target_id == PROFILE_TARGET:
+        current = profile.model_dump(mode="json", by_alias=True).get(op.field)
+        target, outputs = "your profile", ALL_OUTPUTS
+    elif op.target_id == "basics":
         current = profile.basics.model_dump(mode="json", by_alias=True).get(op.field)
         target, outputs = "your basics", ALL_OUTPUTS
     elif (item := _item(profile, op.target_id)) is not None:
