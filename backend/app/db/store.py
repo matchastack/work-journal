@@ -1,12 +1,14 @@
-"""The engine's other data: facts, variants, job postings, applications, artifacts and LLM calls.
+"""The engine's other data: facts, variants, job postings, applications, artifacts, renders and
+LLM calls.
 
 Facts are stored encrypted (FR-JRN-4). Artifacts, such as resume PDFs, are stored once under
-their SHA-256 hash.
+their SHA-256 hash. A render keeps a resume PDF under the hash of what it was made from
+(`render_key`), so the same LaTeX source isn't compiled twice.
 """
 
 import hashlib
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
@@ -22,11 +24,16 @@ from app.db.models import (
     FactRow,
     JobPostingRow,
     LlmCallRow,
+    RenderRow,
     VariantRow,
 )
+from app.render.fit import Cut
+from app.render.resume import RenderedResume, StoredRender
 from app.schema.fact import Fact
 from app.schema.jobs import Application, JobPosting
 from app.schema.variant import Variant
+
+PDF = "application/pdf"
 
 
 @dataclass(frozen=True)
@@ -208,6 +215,78 @@ async def get_artifact(
         )
     ).one_or_none()
     return None if row is None else (row[0], bytes(row[1]))
+
+
+@dataclass(frozen=True)
+class RenderInfo:
+    """What a kept render says about its PDF."""
+
+    pages: int
+    cuts: tuple[Cut, ...]
+    """What was cut to fit the page limit, in the order it was cut."""
+    warnings: tuple[str, ...]
+
+
+async def find_render(session: AsyncSession, user_id: uuid.UUID, key: str) -> StoredRender | None:
+    """The render kept under `key` (`render_key`), to rebuild without compiling."""
+    row = (
+        await session.execute(
+            select(Artifact.data, RenderRow.cuts)
+            .join(
+                Artifact,
+                (Artifact.user_id == RenderRow.user_id) & (Artifact.sha256 == RenderRow.pdf_sha256),
+            )
+            .where(RenderRow.user_id == user_id, RenderRow.key == key)
+        )
+    ).one_or_none()
+    if row is None:
+        return None
+    bullets = sum(cut.get("kind") == "bullet" for cut in row[1])
+    return StoredRender(pdf=bytes(row[0]), bullet_cuts=bullets)
+
+
+async def save_render(session: AsyncSession, user_id: uuid.UUID, rendered: RenderedResume) -> str:
+    """Keep a render's PDF under its key, unless it was rebuilt from one kept already, and
+    return the PDF's SHA-256 hash."""
+    if rendered.reused:
+        return hashlib.sha256(rendered.pdf).hexdigest()
+    sha256 = await store_artifact(session, user_id, rendered.pdf, PDF)
+    cuts = [{"kind": cut.kind, "id": cut.id, "text": cut.text} for cut in rendered.cuts]
+    await session.execute(
+        insert(RenderRow)
+        .values(
+            user_id=user_id,
+            key=rendered.key,
+            pdf_sha256=sha256,
+            pages=rendered.pages,
+            cuts=cuts,
+            warnings=list(rendered.warnings),
+        )
+        .on_conflict_do_nothing(index_elements=[RenderRow.user_id, RenderRow.key])
+    )
+    return sha256
+
+
+async def renders_of(
+    session: AsyncSession, user_id: uuid.UUID, pdfs: Collection[str]
+) -> dict[str, RenderInfo]:
+    """What the kept renders say about each of these PDFs, by hash. A PDF stored before renders
+    were kept has none."""
+    if not pdfs:
+        return {}
+    rows = await session.execute(
+        select(RenderRow.pdf_sha256, RenderRow.pages, RenderRow.cuts, RenderRow.warnings)
+        .where(RenderRow.user_id == user_id, RenderRow.pdf_sha256.in_(list(pdfs)))
+        .order_by(RenderRow.created_at)
+    )
+    return {
+        sha256: RenderInfo(
+            pages=pages,
+            cuts=tuple(Cut(kind=cut["kind"], id=cut["id"], text=cut["text"]) for cut in cuts),
+            warnings=tuple(warnings),
+        )
+        for sha256, pages, cuts, warnings in rows
+    }
 
 
 async def record_llm_call(
