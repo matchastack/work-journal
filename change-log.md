@@ -2,7 +2,7 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-30 · T-042 Profile page: items, bullets and versions · [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+## 2026-10-30 · T-042 Profile page: items, bullets and versions · [#66](https://github.com/matchastack/work-journal/pull/66)
 **Changed:** the web app's Profile page shows your basics, roles, education, projects and bullets, with the resume-rule findings, and lets you edit them in place. Each save is a change set by you and a new version. The history shows what each version changed and restores any of them as a new version.
 
 **Verify:**

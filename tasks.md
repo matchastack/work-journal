@@ -832,7 +832,7 @@ As the owner, I want to read my journal as one document and correct it, so that 
 - [x] Tests.
 
 ### T-042 · Profile page: items, bullets and versions
-**Status:** ◐ · **Size:** M · **Depends on:** T-027, T-039 · **Requirements:** FR-PRF-3, FR-PRF-4, FR-PRF-11 · **PR:** [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+**Status:** ◐ · **Size:** M · **Depends on:** T-027, T-039 · **Requirements:** FR-PRF-3, FR-PRF-4, FR-PRF-11 · **PR:** [#66](https://github.com/matchastack/work-journal/pull/66)
 
 As the owner, I want to edit my roles, projects and bullets directly, so that I can fix things without going through the bot.
 
