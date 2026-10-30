@@ -729,7 +729,7 @@ As the owner, I want at most one short follow-up question when my note is missin
 **Built (2026-10-13):** the bot asks when the entry closes, before the role question, and only within the entry timeout of the close with no other entry open, since without an always-on worker it can't wait for a pause while the entry is open. The model writes the question about the note; code asks a fixed one instead if it has a number or isn't one short question. `/skip` does what the Skip button does, and a question with no answer within the entry timeout lapses.
 
 ### T-035 · Reminders
-**Status:** ☐ · **Size:** M · **Depends on:** T-028, T-031 · **Requirements:** FR-REM-1, FR-REM-2, FR-REM-3, FR-SET-2 · **Needs:** OQ-4 · **PR:** —
+**Status:** ☐ · **Size:** M · **Depends on:** T-028, T-031 · **Requirements:** FR-REM-1, FR-REM-2, FR-REM-3, FR-SET-2 · **Needs:** OQ-4 (answered) · **PR:** —
 
 As the owner, I want a gentle reminder on my schedule, so that journaling becomes a habit.
 
@@ -749,14 +749,14 @@ As the owner, I want the bot to ask me the open questions from my master resume,
 - [ ] Tests.
 
 ### T-037 · Catch-up interview
-**Status:** ☐ · **Size:** M · **Depends on:** T-033 · **Requirements:** FR-REM-4 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-033 · **Requirements:** FR-REM-4 · **PR:** [#51](https://github.com/matchastack/work-journal/pull/51)
 
 As the owner, I want a short guided interview on first use, so that the months since my last resume update are captured quickly.
 
-- [ ] It runs once after linking, or on `/catchup`, using the standard tier.
-- [ ] It asks one question at a time, up to about 10, about roles, projects, achievements and skills since the profile was last updated.
-- [ ] Answers become entries, then facts. When the interview ends, the bot offers `/refresh` to turn them into proposed changes.
-- [ ] The owner can stop at any time and resume later.
+- [x] It runs once after linking, or on `/catchup`, using the standard tier.
+- [x] It asks one question at a time, up to about 10, about roles, projects, achievements and skills since the profile was last updated.
+- [x] Answers become entries, then facts. When the interview ends, the bot offers `/refresh` to turn them into proposed changes.
+- [x] The owner can stop at any time and resume later.
 
 ### T-038 · Refresh: proposals on demand and the master resume
 **Status:** ☑ · **Size:** M · **Depends on:** T-010, T-018, T-027, T-028, T-033 · **Requirements:** FR-REV-6, FR-REV-7, FR-REM-6, FR-RES-5 · **PR:** [#43](https://github.com/matchastack/work-journal/pull/43)

@@ -106,7 +106,7 @@ The bot journals only for a chat linked to your account. From `backend/`:
 uv run wj telegram link --user <github-login>
 ```
 
-It prints a one-time link, good for 15 minutes. Open it in Telegram; the bot answers "Linked." A message from any other chat gets a note on how to link.
+It prints a one-time link, good for 15 minutes. Open it in Telegram; the bot answers "Linked." A message from any other chat gets a note on how to link. The first time you link a chat, the bot starts the catch-up interview (below).
 
 ### Connect the bot
 
@@ -127,18 +127,29 @@ When an entry closes, the bot may then:
 2. **Ask which role the entry is about.** Tap a role, or **New role** and send its title and organisation as your next message.
 3. **Reply with the facts it saved.** The reply links to the entry in the web app's Journal page.
 
+### Catch-up interview
+
+To capture the months since your resume was last updated, the bot interviews you: once when you first link your chat, and whenever you send `/catchup`. It asks up to 10 questions, one at a time, about new roles, projects, results and skills.
+
+- **Answer** in one message that makes sense on its own, as you would write a note. Each answer becomes an entry of its own: the bot asks which role it's about and saves its facts, from your words only, then asks the next question.
+- **Skip** (or `/skip`) moves on to the next question.
+- **Stop for now** (or `/done`) pauses the interview. If you don't answer within 30 minutes (or `ENTRY_TIMEOUT_MINUTES`), the bot keeps your next message as an ordinary note and pauses too. Send `/catchup` to carry on with the same question.
+
+After the last question, send `/refresh` to turn your answers into proposed changes. While the interview runs, the bot asks no follow-up questions about other notes.
+
 ### Commands
 
 | Command | What it does |
 |---|---|
-| `/done` | Close the current entry now |
-| `/skip` | Skip the question about the last entry |
+| `/done` | Close the current entry now, or pause the catch-up interview |
+| `/skip` | Skip the bot's question: the follow-up question about the last entry, or the interview's |
 | `/refresh` | Propose profile changes from your new facts. The bot says how many it proposes with a link to the Inbox, or that there is nothing new. While a refresh runs, `/refresh` says so. If proposals are still waiting, decide on them before sending it again |
+| `/catchup` | Start the catch-up interview, or carry on where it paused |
 | `/help` | List the commands |
 
 Commands are never journaled. Message text is stored encrypted and is never logged.
 
-**Coming:** reminders to journal (T-035), prompts for open questions (T-036) and a catch-up interview (T-037).
+**Coming:** reminders to journal (T-035) and prompts for open questions (T-036).
 
 ## The web app
 
@@ -176,7 +187,7 @@ The master resume is then due to be rendered from the new version (see [Running 
 
 ### Journal
 
-Everything you have sent the bot as one document, oldest first and grouped by month, with each entry's messages and saved facts together. An entry shows a status when it is not finished: open, waiting for you to choose its role in Telegram, finding its facts, or failed. An entry the bot judged not to be about work is marked.
+Everything you have sent the bot as one document, oldest first and grouped by month, with each entry's messages and saved facts together. An entry shows a status when it is not finished: open, waiting for you to choose its role in Telegram, finding its facts, or failed. An entry the bot judged not to be about work is marked, and an answer from the catch-up interview shows the question it answers.
 
 You can correct anything in place:
 

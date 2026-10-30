@@ -399,14 +399,15 @@ class TelegramUpdate(Base):
 class JournalEntry(Base):
     """Messages grouped into one journal entry (FR-CAP-4). A user has at most one open entry; it
     closes after a quiet spell (`closed_by` is `quiet`) or on `/done` (`done`), and stays closed.
-    Once closed, the bot may ask one follow-up question (FR-CAP-6), then asks which role it's about
-    (FR-CAP-11). When the owner has answered, it
+    An answer in the catch-up interview (`CatchUp`) is an entry of its own, closed as it's made
+    (`catchup`), with the question it answers. Once closed, the bot may ask one follow-up question
+    (FR-CAP-6), then asks which role it's about (FR-CAP-11). When the owner has answered, it
     triages the entry, saves its facts and replies (`processed_at`), or gives up after its retries
     (`failed_at`)."""
 
     __tablename__ = "journal_entries"
     __table_args__ = (
-        CheckConstraint("closed_by IN ('quiet', 'done')", name="closed_by"),
+        CheckConstraint("closed_by IN ('quiet', 'done', 'catchup')", name="closed_by"),
         CheckConstraint("(closed_at IS NULL) = (closed_by IS NULL)", name="closed"),
         CheckConstraint("triage IN ('work', 'other')", name="triage"),
         CheckConstraint("(triage IS NULL) = (processed_at IS NULL)", name="processed"),
@@ -441,7 +442,7 @@ class JournalEntry(Base):
     """When its first message was sent."""
     last_message_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    closed_by: Mapped[Literal["quiet", "done"] | None] = mapped_column(String(8))
+    closed_by: Mapped[Literal["quiet", "done", "catchup"] | None] = mapped_column(String(8))
     triage: Mapped[Literal["work", "other"] | None] = mapped_column(String(8))
     """Whether the entry is about work (FR-CAP-8): only work gives facts."""
     processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -469,7 +470,54 @@ class JournalEntry(Base):
     awaiting_follow_up: Mapped[bool] = mapped_column(server_default=text("false"))
     """Whether the follow-up question waits for the owner's answer or Skip. At most one of a
     user's entries waits for one."""
+    question: Mapped[str | None] = mapped_column(EncryptedText("journal_entries.question"))
+    """For an answer in the catch-up interview, the question it answers. Such an entry gets no
+    follow-up question: the interview asks its own."""
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class CatchUp(Base):
+    """One catch-up interview (FR-REM-4, `app/telegram/catch_up.py`): questions about the time
+    since the profile was last updated, one at a time. Each answer becomes a journal entry.
+
+    It's `thinking` while its job writes the next question, `asking` while that question waits
+    for the owner's answer, `paused` when the owner stopped it or went quiet, and `finished` when
+    it has no more questions. A user has at most one that isn't finished."""
+
+    __tablename__ = "catch_ups"
+    __table_args__ = (
+        CheckConstraint("status IN ('thinking', 'asking', 'paused', 'finished')", name="status"),
+        CheckConstraint("(status = 'finished') = (finished_at IS NOT NULL)", name="finished"),
+        CheckConstraint(
+            "status <> 'asking' OR (question IS NOT NULL AND asked_at IS NOT NULL)", name="asking"
+        ),
+        Index(
+            "uq_catch_ups_one_unfinished",
+            "user_id",
+            unique=True,
+            postgresql_where=text("status <> 'finished'"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, server_default=func.gen_random_uuid())
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    status: Mapped[Literal["thinking", "asking", "paused", "finished"]] = mapped_column(
+        String(16), server_default="thinking"
+    )
+    transcript: Mapped[str] = mapped_column(EncryptedText("catch_ups.transcript"))
+    """The questions answered or skipped so far, each with the journal entry of its answer, as
+    JSON (`Asked`). The answers' text stays in the journal."""
+    question: Mapped[str | None] = mapped_column(EncryptedText("catch_ups.question"))
+    """The question that waits for an answer: asked, or to ask again when a paused interview
+    resumes."""
+    question_id: Mapped[int | None] = mapped_column(BigInteger)
+    """The question in the owner's chat, as a Telegram message ID: its buttons answer for it."""
+    asked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    """When the question was asked. It lapses after the entry timeout, and the interview pauses."""
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class JournalMessage(Base):

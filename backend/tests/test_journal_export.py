@@ -55,6 +55,7 @@ def entry(opened_at: datetime, *texts: str, **fields: object) -> JournalEntryVie
             "triage": "work",
             "roleId": None,
             "newRole": None,
+            "question": None,
             "messages": messages,
             "facts": (),
         }
@@ -158,6 +159,28 @@ def test_an_empty_journal_says_so() -> None:
         "\n"
         "Exported Mon 12 Oct 2026, 06:03 (UTC): 0 entries and 0 facts from them.\n"
     )
+
+
+def test_a_catch_up_answer_comes_with_its_question() -> None:
+    """FR-REM-4: the export has the question too, so a short answer still makes sense."""
+    answer = entry(
+        datetime(2026, 10, 4, 10, 0, tzinfo=UTC),
+        "Mostly Terraform, plus some Go.",
+        question="Which tools have you started using since then?",
+    )
+    export = JournalExport(
+        exported_at=datetime(2026, 10, 12, 6, 3, tzinfo=UTC),
+        entries=(answer,),
+        roles=(),
+        projects=(),
+        imported_facts=(),
+    )
+    markdown = to_markdown(export, ZoneInfo("UTC"))
+    assert (
+        "Catch-up question: Which tools have you started using since then?\n"
+        "\n"
+        "Mostly Terraform, plus some Go.\n"
+    ) in markdown
 
 
 def test_times_are_written_in_ascii_in_the_time_zone() -> None:

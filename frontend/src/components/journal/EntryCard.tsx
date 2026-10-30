@@ -34,7 +34,8 @@ function plural(count: number, one: string, many: string): string {
   return `${String(count)} ${count === 1 ? one : many}`;
 }
 
-/** One journal entry: its messages, then the facts saved from it. The bot's reply links here
+/** One journal entry: its messages, after the catch-up question they answer, if any, then the
+ * facts saved from it. The bot's reply links here
  * (`/journal#<entry id>`), so it can take focus. */
 export function EntryCard({
   entry,
@@ -76,6 +77,11 @@ export function EntryCard({
         {role !== null && <p className="text-sm text-stone-600">{role}</p>}
       </header>
       <div className="mt-3 space-y-3">
+        {entry.question !== null && (
+          <p className="text-sm text-stone-600">
+            <span className="font-medium">Catch-up question:</span> {entry.question}
+          </p>
+        )}
         {entry.messages.map((message) => (
           <MessageItem key={message.id} message={message} deletable={entry.messages.length > 1} />
         ))}
