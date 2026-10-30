@@ -2,6 +2,7 @@ import { useId, useRef, type ReactNode } from "react";
 
 import { failureMessage } from "../../api/auth";
 import { BUTTON, FOCUS, INPUT, LABEL, PRIMARY_BUTTON, TEXT_BUTTON } from "../ui";
+import { useRowFocus } from "./useRowFocus";
 
 /**
  * A card's form, edited in place: Save sends it, and Cancel or Escape closes it. What's wrong
@@ -263,7 +264,8 @@ export function CheckboxField({
 
 /**
  * A list of rows in a form, each in a box of its own, named `{noun} 1`, `{noun} 2` and so on,
- * with a Remove button each and an Add button while there's room.
+ * with a Remove button each and an Add button while there's room. Focus moves to a new row, and
+ * after a removal to the next row or the Add button (`useRowFocus`).
  */
 export function Rows<Row extends { key: number }>({
   legend,
@@ -288,6 +290,7 @@ export function Rows<Row extends { key: number }>({
   children: (row: Row, change: (changes: Partial<Row>) => void, index: number) => ReactNode;
 }) {
   const nextKey = useRef(Math.max(-1, ...rows.map((row) => row.key)) + 1);
+  const { rowRef, addButton, added, removed } = useRowFocus();
   return (
     <fieldset className="space-y-2">
       <legend className={LABEL}>{legend}</legend>
@@ -295,7 +298,11 @@ export function Rows<Row extends { key: number }>({
       {rows.map((row, index) => {
         const name = `${noun} ${String(index + 1)}`;
         return (
-          <fieldset key={row.key} className="rounded border border-stone-200 bg-white p-2">
+          <fieldset
+            key={row.key}
+            ref={rowRef(row.key)}
+            className="rounded border border-stone-200 bg-white p-2"
+          >
             <legend className="px-1 text-xs text-stone-600">{name}</legend>
             {children(
               row,
@@ -307,6 +314,10 @@ export function Rows<Row extends { key: number }>({
             <button
               type="button"
               onClick={() => {
+                removed(
+                  rows.map((each) => each.key),
+                  row.key,
+                );
                 onChange(rows.filter((each) => each.key !== row.key));
               }}
               className={`mt-2 ${TEXT_BUTTON}`}
@@ -318,9 +329,12 @@ export function Rows<Row extends { key: number }>({
       })}
       {rows.length < max && (
         <button
+          ref={addButton}
           type="button"
           onClick={() => {
-            onChange([...rows, makeRow(nextKey.current++)]);
+            const key = nextKey.current++;
+            added(key);
+            onChange([...rows, makeRow(key)]);
           }}
           className={TEXT_BUTTON}
         >

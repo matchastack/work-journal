@@ -1003,6 +1003,14 @@ describe("the profile's tailoring metadata", () => {
     const form = within(screen.getByRole("form", { name: "Edit the swaps" }));
     expect(form.getByText("No swaps yet.")).toBeInTheDocument();
     await userEvent.click(form.getByRole("button", { name: "Add a swap" }));
+    await vi.waitFor(() => {
+      expect(form.getByRole("textbox", { name: "Phrasing" })).toHaveFocus();
+    });
+    await userEvent.click(form.getByRole("button", { name: "Remove swap 1" }));
+    await vi.waitFor(() => {
+      expect(form.getByRole("button", { name: "Add a swap" })).toHaveFocus();
+    });
+    await userEvent.click(form.getByRole("button", { name: "Add a swap" }));
     await userEvent.type(form.getByRole("textbox", { name: "Phrasing" }), "Shortened the export");
     await userEvent.type(
       form.getByRole("textbox", { name: "Replaces (optional)" }),
