@@ -832,14 +832,14 @@ As the owner, I want to read my journal as one document and correct it, so that 
 - [x] Tests.
 
 ### T-042 · Profile page: items, bullets and versions
-**Status:** ☐ · **Size:** M · **Depends on:** T-027, T-039 · **Requirements:** FR-PRF-3, FR-PRF-4, FR-PRF-11 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-027, T-039 · **Requirements:** FR-PRF-3, FR-PRF-4, FR-PRF-11 · **PR:** [#66](https://github.com/matchastack/work-journal/pull/66)
 
 As the owner, I want to edit my roles, projects and bullets directly, so that I can fix things without going through the bot.
 
-- [ ] View and edit basics, roles, education, projects and bullets. A bullet's text, status (active, benched with a reason, or planned), strength, verification status and tags can all be edited.
-- [ ] Edits go through change sets and create versions.
-- [ ] Version history with diffs, and a Restore button (which creates a new version).
-- [ ] Tests.
+- [x] View and edit basics, roles, education, projects and bullets. A bullet's text, status (active, benched with a reason, or planned), strength, verification status and tags can all be edited.
+- [x] Edits go through change sets and create versions.
+- [x] Version history with diffs, and a Restore button (which creates a new version).
+- [x] Tests.
 
 ### T-043 · Profile page: swaps, titles, coursework, skills, summaries and open questions
 **Status:** ☐ · **Size:** M · **Depends on:** T-042 · **Requirements:** FR-PRF-5, FR-PRF-6, FR-PRF-7, FR-PRF-8, FR-PRF-9, FR-PRF-10, FR-WRT-5 · **PR:** —

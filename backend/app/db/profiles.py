@@ -3,10 +3,13 @@
 Every change to the master profile saves a new version, recording its parent, its author and the
 change set that made it (FR-PRF-2). Versions are immutable (NFR-DATA-1), so restoring an old one
 saves a copy of it as the newest version (FR-PRF-3).
+
+The owner's own edits in the web app are change sets too (FR-PRF-11), applied as soon as they're
+saved: the owner doesn't review what they wrote themselves, so they never wait in the Inbox.
 """
 
 import uuid
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -14,6 +17,7 @@ from pydantic import JsonValue
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import profile_ops
 from app.db.models import ChangeOpRow, ChangeSetRow, ProfileVersionRow, User
 from app.schema.changes import (
     Author,
@@ -29,6 +33,14 @@ from app.schema.profile import Profile
 
 class VersionError(LookupError):
     """A version or change set doesn't exist, or the request doesn't fit the history."""
+
+
+class StaleVersion(VersionError):
+    """The newest version isn't the one a change was made from: the profile moved on."""
+
+    def __init__(self, latest: int) -> None:
+        self.latest = latest
+        super().__init__(f"the newest version is {latest}")
 
 
 @dataclass(frozen=True)
@@ -146,6 +158,59 @@ async def list_versions(session: AsyncSession, user_id: uuid.UUID) -> list[Versi
     ]
 
 
+async def lock_profile(session: AsyncSession, user_id: uuid.UUID) -> Version | None:
+    """The user's newest version, locked against other saves until the transaction ends, or None
+    before a profile is loaded. A change built on it reads it this way, so a version saved
+    meanwhile, such as the owner's edit, is waited for rather than undone."""
+    await session.execute(select(User.id).where(User.id == user_id).with_for_update())
+    return await latest_version(session, user_id)
+
+
+async def lock_latest(session: AsyncSession, user_id: uuid.UUID, *, expected: int) -> Version:
+    """The user's newest version, which must be `expected`, locked as `lock_profile` locks it, so
+    two changes can't both be made from it.
+
+    Raises `VersionError` when there's no profile yet, and `StaleVersion` when the newest version
+    isn't `expected`.
+    """
+    latest = await lock_profile(session, user_id)
+    if latest is None:
+        raise VersionError("there's no profile yet")
+    if latest.number != expected:
+        raise StaleVersion(latest.number)
+    return latest
+
+
+async def save_owner_changes(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    base: Version,
+    ops: Sequence[ChangeOp],
+    *,
+    summary: str,
+) -> Version:
+    """Apply the owner's own edits to `base`, the newest version, and save the result as the next
+    version (FR-PRF-11). They're stored as one change set by the owner, every operation accepted
+    and the change set applied, since there's nothing to review. Call it with the lock from
+    `lock_latest` held, and with at least one operation.
+
+    Raises `ProfileOpError` when the operations don't apply; nothing is saved then.
+    """
+    profile = profile_ops.apply(base.profile, ops)
+    change_set = ChangeSet(
+        author="owner",
+        ops=tuple(ReviewedOp(op=op, status="accepted") for op in ops),
+        summary=summary,
+        base_version=base.number,
+    )
+    change_set_id = await propose_change_set(session, user_id, change_set)
+    version = await save_version(
+        session, user_id, profile, author="owner", change_set_id=change_set_id
+    )
+    await close_change_set(session, user_id, change_set_id, "applied")
+    return version
+
+
 async def restore_version(
     session: AsyncSession, user_id: uuid.UUID, number: int, *, author: Author = "owner"
 ) -> Version:
@@ -227,6 +292,21 @@ async def list_change_sets(
         query = query.where(ChangeSetRow.status == status)
     ids = await session.scalars(query.order_by(ChangeSetRow.created_at, ChangeSetRow.id))
     return [await get_change_set(session, user_id, change_set_id) for change_set_id in ids]
+
+
+async def change_set_summaries(
+    session: AsyncSession, user_id: uuid.UUID, ids: Iterable[uuid.UUID]
+) -> dict[uuid.UUID, str | None]:
+    """The summaries of the user's change sets with these IDs, by ID."""
+    wanted = set(ids)
+    if not wanted:
+        return {}
+    rows = await session.execute(
+        select(ChangeSetRow.id, ChangeSetRow.summary).where(
+            ChangeSetRow.user_id == user_id, ChangeSetRow.id.in_(wanted)
+        )
+    )
+    return {change_set_id: summary for change_set_id, summary in rows}
 
 
 async def decide_op(

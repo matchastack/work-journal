@@ -756,6 +756,400 @@
           }
         }
       }
+    },
+    "/api/profile": {
+      "get": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Profile",
+        "description": "The latest version of the profile, with its resume-rule findings. Everything is null\nbefore a profile is loaded.",
+        "operationId": "profile_api_profile_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfilePage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/profile/basics": {
+      "put": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Edit Basics",
+        "description": "Change the basics. The fields that changed are saved as a change set by you and a new\nversion (FR-PRF-11); nothing changed saves nothing. 409 when the profile is no longer at\n`baseVersion`.",
+        "operationId": "edit_basics_api_profile_basics_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BasicsEdit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfilePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/profile/work/{role_id}": {
+      "put": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Edit Role",
+        "description": "Change a role, as `PUT /api/profile/basics` does the basics.",
+        "operationId": "edit_role_api_profile_work__role_id__put",
+        "parameters": [
+          {
+            "name": "role_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Role Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfilePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/profile/education/{education_id}": {
+      "put": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Edit Education",
+        "description": "Change an education entry, as `PUT /api/profile/basics` does the basics.",
+        "operationId": "edit_education_api_profile_education__education_id__put",
+        "parameters": [
+          {
+            "name": "education_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Education Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EducationEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfilePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/profile/projects/{project_id}": {
+      "put": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Edit Project",
+        "description": "Change a project, as `PUT /api/profile/basics` does the basics.",
+        "operationId": "edit_project_api_profile_projects__project_id__put",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfilePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/profile/bullets/{bullet_id}": {
+      "put": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Edit Bullet",
+        "description": "Change a bullet: its text, status (benching needs a reason, FR-PRF-4), strength,\nverification and tags, as `PUT /api/profile/basics` does the basics. Your own words aren't\nchecked by the verifier, but the resume rules' findings show on the page.",
+        "operationId": "edit_bullet_api_profile_bullets__bullet_id__put",
+        "parameters": [
+          {
+            "name": "bullet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bullet Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulletEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfilePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/profile/versions": {
+      "get": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Versions",
+        "description": "Every version, newest first, with what each one's change set did.",
+        "operationId": "versions_api_profile_versions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/profile/versions/{number}": {
+      "get": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Version",
+        "description": "A version, with what it changed against its parent.",
+        "operationId": "version_api_profile_versions__number__get",
+        "parameters": [
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/profile/versions/{number}/restore": {
+      "post": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Restore Version",
+        "description": "Save a copy of version `number` as the newest version (FR-PRF-3); the versions in between\nstay. 409 when the profile is no longer at `baseVersion`, or already matches that version.",
+        "operationId": "restore_version_api_profile_versions__number__restore_post",
+        "parameters": [
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Restore"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfilePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -780,6 +1174,466 @@
           "version"
         ],
         "title": "Applied"
+      },
+      "Basics": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "emailVisibility": {
+            "type": "string",
+            "enum": [
+              "public",
+              "resume_only",
+              "private"
+            ],
+            "title": "Emailvisibility",
+            "default": "public"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "phoneVisibility": {
+            "type": "string",
+            "enum": [
+              "public",
+              "resume_only",
+              "private"
+            ],
+            "title": "Phonevisibility",
+            "default": "resume_only"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Location"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "locationVisibility": {
+            "type": "string",
+            "enum": [
+              "public",
+              "resume_only",
+              "private"
+            ],
+            "title": "Locationvisibility",
+            "default": "public"
+          },
+          "profiles": {
+            "items": {
+              "$ref": "#/components/schemas/SocialProfile"
+            },
+            "type": "array",
+            "title": "Profiles",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "Basics"
+      },
+      "BasicsEdit": {
+        "properties": {
+          "baseVersion": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Baseversion"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Location"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "profiles": {
+            "items": {
+              "$ref": "#/components/schemas/SocialProfile"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Profiles"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "baseVersion",
+          "name",
+          "label",
+          "email",
+          "phone",
+          "url",
+          "summary",
+          "location",
+          "profiles"
+        ],
+        "title": "BasicsEdit"
+      },
+      "Bullet": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^[a-z0-9][a-z0-9_-]*$",
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text"
+          },
+          "strength": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "title": "Strength",
+            "default": "medium"
+          },
+          "strengthOverrides": {
+            "items": {
+              "$ref": "#/components/schemas/StrengthOverride"
+            },
+            "type": "array",
+            "title": "Strengthoverrides",
+            "default": []
+          },
+          "verification": {
+            "type": "string",
+            "enum": [
+              "yes",
+              "partial",
+              "no"
+            ],
+            "title": "Verification",
+            "default": "no"
+          },
+          "verificationNote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verificationnote"
+          },
+          "swaps": {
+            "items": {
+              "$ref": "#/components/schemas/Swap"
+            },
+            "type": "array",
+            "title": "Swaps",
+            "default": []
+          },
+          "needs": {
+            "items": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[a-z0-9][a-z0-9_-]*$"
+            },
+            "type": "array",
+            "title": "Needs",
+            "default": []
+          },
+          "notes": {
+            "items": {
+              "$ref": "#/components/schemas/Note"
+            },
+            "type": "array",
+            "title": "Notes",
+            "default": []
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "benched",
+              "planned"
+            ],
+            "title": "Status",
+            "default": "active"
+          },
+          "statusReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Statusreason"
+          },
+          "tags": {
+            "items": {
+              "type": "string",
+              "maxLength": 32,
+              "pattern": "^[a-z0-9][a-z0-9_-]*$"
+            },
+            "type": "array",
+            "title": "Tags",
+            "default": []
+          },
+          "priority": {
+            "type": "integer",
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Priority",
+            "default": 2
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "public",
+              "resume_only",
+              "private"
+            ],
+            "title": "Visibility",
+            "default": "public"
+          },
+          "sources": {
+            "items": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[a-z0-9][a-z0-9_-]*$"
+            },
+            "type": "array",
+            "title": "Sources",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "text"
+        ],
+        "title": "Bullet",
+        "description": "One highlight line under a role, education entry or project."
+      },
+      "BulletEdit": {
+        "properties": {
+          "baseVersion": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Baseversion"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Text"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "benched",
+              "planned"
+            ],
+            "title": "Status"
+          },
+          "statusReason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Statusreason"
+          },
+          "strength": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "title": "Strength"
+          },
+          "verification": {
+            "type": "string",
+            "enum": [
+              "yes",
+              "partial",
+              "no"
+            ],
+            "title": "Verification"
+          },
+          "verificationNote": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verificationnote"
+          },
+          "tags": {
+            "items": {
+              "type": "string",
+              "maxLength": 32,
+              "pattern": "^[a-z0-9][a-z0-9_-]*$"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Tags"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "baseVersion",
+          "text",
+          "status",
+          "statusReason",
+          "strength",
+          "verification",
+          "verificationNote",
+          "tags"
+        ],
+        "title": "BulletEdit"
       },
       "BulletText": {
         "properties": {
@@ -912,6 +1766,31 @@
         "title": "ClaimJudgement",
         "description": "The claim check's verdict on one claim in the text."
       },
+      "CourseworkSubset": {
+        "properties": {
+          "roleType": {
+            "type": "string",
+            "maxLength": 32,
+            "pattern": "^[a-z0-9][a-z0-9_-]*$",
+            "title": "Roletype"
+          },
+          "courses": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Courses"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "roleType",
+          "courses"
+        ],
+        "title": "CourseworkSubset",
+        "description": "The courses to list for one role type."
+      },
       "Decision": {
         "properties": {
           "status": {
@@ -987,6 +1866,218 @@
         ],
         "title": "DiffPart",
         "description": "Words the texts share, or that one of them has. Its spaces count, so the parts rebuild\neach text exactly."
+      },
+      "Education": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^[a-z0-9][a-z0-9_-]*$",
+            "title": "Id"
+          },
+          "institution": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Institution"
+          },
+          "studyType": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Studytype"
+          },
+          "area": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Area"
+          },
+          "honours": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Honours"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "startDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+            "title": "Startdate"
+          },
+          "endDate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enddate"
+          },
+          "courses": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Courses",
+            "default": []
+          },
+          "courseworkSubsets": {
+            "items": {
+              "$ref": "#/components/schemas/CourseworkSubset"
+            },
+            "type": "array",
+            "title": "Courseworksubsets",
+            "default": []
+          },
+          "highlights": {
+            "items": {
+              "$ref": "#/components/schemas/Bullet"
+            },
+            "type": "array",
+            "title": "Highlights",
+            "default": []
+          },
+          "rules": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Rules",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "institution",
+          "studyType",
+          "area",
+          "startDate"
+        ],
+        "title": "Education",
+        "description": "A degree or qualification (JSON Resume `education` entry)."
+      },
+      "EducationEdit": {
+        "properties": {
+          "baseVersion": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Baseversion"
+          },
+          "institution": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Institution"
+          },
+          "studyType": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Studytype"
+          },
+          "area": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Area"
+          },
+          "honours": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Honours"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "startDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+            "title": "Startdate"
+          },
+          "endDate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enddate"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "baseVersion",
+          "institution",
+          "studyType",
+          "area",
+          "honours",
+          "location",
+          "url",
+          "startDate",
+          "endDate"
+        ],
+        "title": "EducationEdit"
       },
       "Fact": {
         "properties": {
@@ -2029,6 +3120,120 @@
         ],
         "title": "JournalMessageView"
       },
+      "LintFinding": {
+        "properties": {
+          "rule": {
+            "type": "string",
+            "enum": [
+              "dates",
+              "spelling",
+              "duplicates",
+              "R1",
+              "R2",
+              "R3",
+              "R4",
+              "R9",
+              "R10"
+            ],
+            "title": "Rule"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warning"
+            ],
+            "title": "Severity"
+          },
+          "location": {
+            "type": "string",
+            "title": "Location"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "where": {
+            "type": "string",
+            "title": "Where"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "rule",
+          "severity",
+          "location",
+          "message",
+          "where"
+        ],
+        "title": "LintFinding"
+      },
+      "LintView": {
+        "properties": {
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/LintFinding"
+            },
+            "type": "array",
+            "title": "Findings"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Notes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "findings",
+          "notes"
+        ],
+        "title": "LintView"
+      },
+      "Location": {
+        "properties": {
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "countryCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Countrycode"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Location"
+      },
       "Me": {
         "properties": {
           "id": {
@@ -2155,6 +3360,474 @@
         ],
         "title": "Metric"
       },
+      "Note": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "note",
+              "warning",
+              "upgrade"
+            ],
+            "title": "Kind",
+            "default": "note"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "Note",
+        "description": "A remark attached to an item, e.g. a warning about what must not be claimed."
+      },
+      "OpenQuestion": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^[a-z0-9][a-z0-9_-]*$",
+            "title": "Id"
+          },
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Question"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "answered",
+              "closed"
+            ],
+            "title": "Status",
+            "default": "open"
+          },
+          "answerFactIds": {
+            "items": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[a-z0-9][a-z0-9_-]*$"
+            },
+            "type": "array",
+            "title": "Answerfactids",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "question"
+        ],
+        "title": "OpenQuestion",
+        "description": "A missing detail that blocks a stronger bullet."
+      },
+      "Profile": {
+        "properties": {
+          "basics": {
+            "$ref": "#/components/schemas/Basics"
+          },
+          "roleTypes": {
+            "items": {
+              "$ref": "#/components/schemas/RoleType"
+            },
+            "type": "array",
+            "title": "Roletypes",
+            "default": []
+          },
+          "work": {
+            "items": {
+              "$ref": "#/components/schemas/Role"
+            },
+            "type": "array",
+            "title": "Work",
+            "default": []
+          },
+          "education": {
+            "items": {
+              "$ref": "#/components/schemas/Education"
+            },
+            "type": "array",
+            "title": "Education",
+            "default": []
+          },
+          "projects": {
+            "items": {
+              "$ref": "#/components/schemas/Project"
+            },
+            "type": "array",
+            "title": "Projects",
+            "default": []
+          },
+          "skills": {
+            "items": {
+              "$ref": "#/components/schemas/Skill"
+            },
+            "type": "array",
+            "title": "Skills",
+            "default": []
+          },
+          "skillGaps": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Skillgaps",
+            "default": []
+          },
+          "skillPresets": {
+            "items": {
+              "$ref": "#/components/schemas/SkillPreset"
+            },
+            "type": "array",
+            "title": "Skillpresets",
+            "default": []
+          },
+          "summaries": {
+            "items": {
+              "$ref": "#/components/schemas/Summary"
+            },
+            "type": "array",
+            "title": "Summaries",
+            "default": []
+          },
+          "openQuestions": {
+            "items": {
+              "$ref": "#/components/schemas/OpenQuestion"
+            },
+            "type": "array",
+            "title": "Openquestions",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "basics"
+        ],
+        "title": "Profile",
+        "description": "The master profile: the superset every resume, page and LinkedIn text is drawn from."
+      },
+      "ProfilePage": {
+        "properties": {
+          "version": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VersionSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Profile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lint": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LintView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "version",
+          "profile",
+          "lint"
+        ],
+        "title": "ProfilePage",
+        "description": "The latest version, or nulls before a profile is loaded."
+      },
+      "Project": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^[a-z0-9][a-z0-9_-]*$",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "keywords": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Keywords",
+            "default": []
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "startDate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startdate"
+          },
+          "endDate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enddate"
+          },
+          "highlights": {
+            "items": {
+              "$ref": "#/components/schemas/Bullet"
+            },
+            "type": "array",
+            "title": "Highlights",
+            "default": []
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "benched",
+              "planned"
+            ],
+            "title": "Status",
+            "default": "active"
+          },
+          "statusReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Statusreason"
+          },
+          "keepFor": {
+            "items": {
+              "type": "string",
+              "maxLength": 32,
+              "pattern": "^[a-z0-9][a-z0-9_-]*$"
+            },
+            "type": "array",
+            "title": "Keepfor",
+            "default": []
+          },
+          "cutFor": {
+            "items": {
+              "type": "string",
+              "maxLength": 32,
+              "pattern": "^[a-z0-9][a-z0-9_-]*$"
+            },
+            "type": "array",
+            "title": "Cutfor",
+            "default": []
+          },
+          "tags": {
+            "items": {
+              "type": "string",
+              "maxLength": 32,
+              "pattern": "^[a-z0-9][a-z0-9_-]*$"
+            },
+            "type": "array",
+            "title": "Tags",
+            "default": []
+          },
+          "priority": {
+            "type": "integer",
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Priority",
+            "default": 2
+          },
+          "notes": {
+            "items": {
+              "$ref": "#/components/schemas/Note"
+            },
+            "type": "array",
+            "title": "Notes",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "Project",
+        "description": "A personal or academic project (JSON Resume `projects` entry)."
+      },
+      "ProjectEdit": {
+        "properties": {
+          "baseVersion": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Baseversion"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "keywords": {
+            "items": {
+              "type": "string",
+              "maxLength": 200,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Keywords"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "startDate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startdate"
+          },
+          "endDate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enddate"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "benched",
+              "planned"
+            ],
+            "title": "Status"
+          },
+          "statusReason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Statusreason"
+          },
+          "tags": {
+            "items": {
+              "type": "string",
+              "maxLength": 32,
+              "pattern": "^[a-z0-9][a-z0-9_-]*$"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Tags"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "baseVersion",
+          "name",
+          "description",
+          "keywords",
+          "url",
+          "startDate",
+          "endDate",
+          "status",
+          "statusReason",
+          "tags"
+        ],
+        "title": "ProjectEdit"
+      },
       "ProjectOption": {
         "properties": {
           "id": {
@@ -2267,6 +3940,266 @@
         "title": "RepoSource",
         "description": "Where a fact from GitHub comes from (FR-GH-6): its repository and the items it cites."
       },
+      "Restore": {
+        "properties": {
+          "baseVersion": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Baseversion"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "baseVersion"
+        ],
+        "title": "Restore"
+      },
+      "Role": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^[a-z0-9][a-z0-9_-]*$",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "position": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Position"
+          },
+          "titleVariants": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Titlevariants",
+            "default": []
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "startDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+            "title": "Startdate"
+          },
+          "endDate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enddate"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "highlights": {
+            "items": {
+              "$ref": "#/components/schemas/Bullet"
+            },
+            "type": "array",
+            "title": "Highlights",
+            "default": []
+          },
+          "loadBearing": {
+            "type": "boolean",
+            "title": "Loadbearing",
+            "default": false
+          },
+          "duringEducation": {
+            "type": "boolean",
+            "title": "Duringeducation",
+            "default": false
+          },
+          "keepFor": {
+            "items": {
+              "type": "string",
+              "maxLength": 32,
+              "pattern": "^[a-z0-9][a-z0-9_-]*$"
+            },
+            "type": "array",
+            "title": "Keepfor",
+            "default": []
+          },
+          "cutFor": {
+            "items": {
+              "type": "string",
+              "maxLength": 32,
+              "pattern": "^[a-z0-9][a-z0-9_-]*$"
+            },
+            "type": "array",
+            "title": "Cutfor",
+            "default": []
+          },
+          "sensitivity": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "sensitive"
+            ],
+            "title": "Sensitivity",
+            "default": "normal"
+          },
+          "honestyBoundaries": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Honestyboundaries",
+            "default": []
+          },
+          "priority": {
+            "type": "integer",
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Priority",
+            "default": 2
+          },
+          "notes": {
+            "items": {
+              "$ref": "#/components/schemas/Note"
+            },
+            "type": "array",
+            "title": "Notes",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "position",
+          "startDate"
+        ],
+        "title": "Role",
+        "description": "A job (JSON Resume `work` entry)."
+      },
+      "RoleEdit": {
+        "properties": {
+          "baseVersion": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Baseversion"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "position": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Position"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "startDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+            "title": "Startdate"
+          },
+          "endDate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enddate"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "baseVersion",
+          "name",
+          "position",
+          "location",
+          "url",
+          "startDate",
+          "endDate",
+          "summary"
+        ],
+        "title": "RoleEdit"
+      },
       "RoleOption": {
         "properties": {
           "id": {
@@ -2285,6 +4218,29 @@
           "label"
         ],
         "title": "RoleOption"
+      },
+      "RoleType": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 32,
+            "pattern": "^[a-z0-9][a-z0-9_-]*$",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "RoleType",
+        "description": "A kind of job the owner applies for, e.g. backend or ML."
       },
       "SingleValue": {
         "properties": {
@@ -2306,6 +4262,151 @@
         ],
         "title": "SingleValue",
         "description": "One number, e.g. `93` (% accuracy)."
+      },
+      "Skill": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "category": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Category"
+          },
+          "tier": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "strong",
+                  "working",
+                  "academic"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tier"
+          },
+          "verifyBeforeShipping": {
+            "type": "boolean",
+            "title": "Verifybeforeshipping",
+            "default": false
+          },
+          "aliases": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Aliases",
+            "default": []
+          },
+          "notes": {
+            "items": {
+              "$ref": "#/components/schemas/Note"
+            },
+            "type": "array",
+            "title": "Notes",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "category"
+        ],
+        "title": "Skill"
+      },
+      "SkillLine": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Label"
+          },
+          "skills": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Skills"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "label",
+          "skills"
+        ],
+        "title": "SkillLine",
+        "description": "One line of a skills section, e.g. `Languages: Python, SQL`."
+      },
+      "SkillPreset": {
+        "properties": {
+          "roleType": {
+            "type": "string",
+            "maxLength": 32,
+            "pattern": "^[a-z0-9][a-z0-9_-]*$",
+            "title": "Roletype"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/SkillLine"
+            },
+            "type": "array",
+            "title": "Lines"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "roleType",
+          "lines"
+        ],
+        "title": "SkillPreset",
+        "description": "The skills section to use for one role type."
+      },
+      "SocialProfile": {
+        "properties": {
+          "network": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Network"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "network"
+        ],
+        "title": "SocialProfile",
+        "description": "An online profile, e.g. GitHub or LinkedIn (JSON Resume `basics.profiles`)."
       },
       "SourceFact": {
         "properties": {
@@ -2345,6 +4446,100 @@
         ],
         "title": "SourceFact",
         "description": "A fact an operation cites."
+      },
+      "StrengthOverride": {
+        "properties": {
+          "roleType": {
+            "type": "string",
+            "maxLength": 32,
+            "pattern": "^[a-z0-9][a-z0-9_-]*$",
+            "title": "Roletype"
+          },
+          "strength": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "title": "Strength"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "roleType",
+          "strength"
+        ],
+        "title": "StrengthOverride",
+        "description": "A bullet's strength for one role type, when it differs from the default."
+      },
+      "Summary": {
+        "properties": {
+          "roleType": {
+            "type": "string",
+            "maxLength": 32,
+            "pattern": "^[a-z0-9][a-z0-9_-]*$",
+            "title": "Roletype"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "roleType",
+          "text"
+        ],
+        "title": "Summary",
+        "description": "A summary paragraph for one role type. Off by default."
+      },
+      "Swap": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text"
+          },
+          "replaces": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replaces"
+          },
+          "contexts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Contexts",
+            "default": []
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "imported",
+              "approved"
+            ],
+            "title": "Origin",
+            "default": "imported"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "Swap",
+        "description": "An approved alternative phrasing: the same fact in another audience's words."
       },
       "TelegramDeepLink": {
         "properties": {
@@ -2546,6 +4741,183 @@
         ],
         "title": "VerifierReport",
         "description": "What the verifier found in one text. Text that doesn't pass is flagged: it's shown to the\nowner, who must accept it by hand (FR-FID-7)."
+      },
+      "VersionChange": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "added",
+              "removed",
+              "changed"
+            ],
+            "title": "Kind"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "context": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          },
+          "after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After"
+          },
+          "diff": {
+            "items": {
+              "$ref": "#/components/schemas/DiffPart"
+            },
+            "type": "array",
+            "title": "Diff"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "path",
+          "title",
+          "context",
+          "before",
+          "after",
+          "diff"
+        ],
+        "title": "VersionChange",
+        "description": "One difference between a version and its parent."
+      },
+      "VersionDetail": {
+        "properties": {
+          "version": {
+            "$ref": "#/components/schemas/VersionSummary"
+          },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/VersionChange"
+            },
+            "type": "array",
+            "title": "Changes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "version",
+          "changes"
+        ],
+        "title": "VersionDetail"
+      },
+      "VersionList": {
+        "properties": {
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/VersionSummary"
+            },
+            "type": "array",
+            "title": "Versions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "versions"
+        ],
+        "title": "VersionList"
+      },
+      "VersionSummary": {
+        "properties": {
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "parent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent"
+          },
+          "author": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "ai"
+            ],
+            "title": "Author"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Createdat"
+          },
+          "restoredFrom": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restoredfrom"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "number",
+          "parent",
+          "author",
+          "createdAt",
+          "restoredFrom",
+          "summary"
+        ],
+        "title": "VersionSummary"
       }
     }
   }
