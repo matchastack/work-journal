@@ -2,6 +2,16 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-30 · T-043 Profile page: tailoring metadata · [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+**Changed:** the Profile page edits what drives tailoring: each role's tailoring rules, each education entry's coursework and rules, each bullet's swaps, and your role types, skills and gaps, skills presets, summaries and open questions. Each save is a change set by you and a new version, and History names what changed.
+
+**Verify:**
+- CI is green on the PR
+- Editing a role's tailoring rules (a title variant, Load-bearing, Keep for) shows "Saved as version N", and History says what changed
+- A gap that's also a skill, or a role type you don't have, is refused with what's wrong
+- Adding a role type, then a summary and a skills preset for it, saves each as a version
+- Adding an open question that blocks a bullet lists the bullet under it; setting it to Answered keeps it, marked Answered
+
 ## 2026-10-30 · T-042 Profile page: items, bullets and versions · [#66](https://github.com/matchastack/work-journal/pull/66)
 **Changed:** the web app's Profile page shows your basics, roles, education, projects and bullets, with the resume-rule findings, and lets you edit them in place. Each save is a change set by you and a new version. The history shows what each version changed and restores any of them as a new version.
 

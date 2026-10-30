@@ -27,7 +27,7 @@ Every generated sentence is checked against your facts, so wording never changes
 |---|---|
 | Record what you did | The Telegram bot |
 | Fix a note or a saved fact | The web app, Journal page |
-| Fix your profile by hand, or go back to an earlier version | The web app, Profile page |
+| Fix your profile by hand, keep its tailoring rules, or go back to an earlier version | The web app, Profile page |
 | Update your profile from new notes | `/refresh` in Telegram, then the web app's Inbox |
 | Render the master resume, tailor a resume, build the portfolio page, write LinkedIn text | The command-line tool (web pages **Coming**) |
 | See what a GitHub repository's history would give one of your projects, and the facts in it | `wj github digest`, then `wj github extract` (saving the facts for `/refresh` is **Coming**: T-069 to T-072) |
@@ -149,7 +149,7 @@ Open `http://localhost:5173` while developing, or your deployed address. Sign in
 |---|---|---|
 | [Inbox](#inbox) | Built | Review the changes proposed from your journal |
 | [Journal](#journal) | Built | Everything you sent the bot, with the facts saved from it |
-| [Profile](#profile) | Built (more Coming in T-043) | Your basics, roles, education, projects and bullets, with every earlier version |
+| [Profile](#profile) | Built | Your basics, roles, education, projects and bullets, the rules that drive tailoring, and every earlier version |
 | Resumes | Coming (T-044) | Preview and download resume variants |
 | Tailor | Coming (T-045) | Tailor a resume to a job posting, and see where you applied |
 | Portfolio | Coming (T-046) | Choose what the public page shows, and publish it |
@@ -189,7 +189,7 @@ You can correct anything in place:
 
 ### Profile
 
-Your master profile as it is now: the version your resumes, portfolio page and LinkedIn text are made from. The links beside it jump to each section: **Basics**, **Work**, **Education**, **Projects**, **Resume rules** and **History**. If it says "No profile yet", load your master resume first (see [First-time data](#first-time-data)).
+Your master profile as it is now: the version your resumes, portfolio page and LinkedIn text are made from. The links beside it jump to each section: **Basics**, **Work**, **Education**, **Projects**, **Role types**, **Skills**, **Skills presets**, **Summaries**, **Open questions**, **Resume rules** and **History**. If it says "No profile yet", load your master resume first (see [First-time data](#first-time-data)).
 
 Each bullet shows its status, strength, verification and tags. A benched bullet shows why it was benched, and a planned one is marked; neither appears on a resume.
 
@@ -202,6 +202,19 @@ Each bullet shows its status, strength, verification and tags. A benched bullet 
 - **Bullets:** the text, status (active, benched with a reason, or planned with an optional note), strength, verification and its note, and tags.
 
 Each save makes a new version of your profile, marked as yours; a save that changes nothing makes none. The page says "Saved as version N." Your own words are not checked by the verifier, since nothing generated them. Your resumes, portfolio page and LinkedIn text catch up at your next `/refresh`.
+
+The rules that drive tailored resumes have their own **Edit** buttons:
+
+- **Tailoring rules** (on each role): approved title variants (one per line), **Load-bearing** (always shown), **Held while studying** (can be cut without leaving a gap), the role types it's kept or cut for, whether it's sensitive (described by architecture and outcomes only), and honesty boundaries: things never to claim, one per line.
+- **Coursework and rules** (on each education entry): the full coursework list (one course per line), the courses to list for each role type (tick them), and rules such as "Never print the GPA." Taking a course off the full list takes it off the role types' lists too.
+- **Edit swaps** (on each bullet): the approved phrasings a tailored resume can use instead of the whole bullet or the part it replaces, and where each fits. A swap you add counts as approved by you.
+- **Role types:** the kinds of job you apply for, such as `backend`. Presets, summaries, coursework and tailoring rules are kept by role type, so add one here first. Its ID can't change once saved, and a role type still in use can't be removed until you change what uses it.
+- **Skills and gaps:** each skill's name (the spelling to use), category, tier, other spellings to correct, and **Verify before shipping** (you confirm it each time a resume lists it). **Gaps** lists skills a resume must never claim, one per line; a gap can't also be a skill.
+- **Skills presets:** the skills section for each role type, a line each, such as `Languages: Python, SQL`.
+- **Summaries:** a summary paragraph for each role type. They're off by default: a resume uses one only when asked.
+- **Open questions:** details that would make a bullet stronger, such as the scale of a system. **Add an open question**, tick the bullets it blocks, and set it to Answered once you've put the detail in the bullet, or Closed if it no longer matters.
+
+Each of these saves a new version too, and History names what changed, such as "Tier of the skill Python".
 
 You can't add or remove roles, projects or bullets here. New bullets come from your journal through `/refresh`, so that each one traces back to a fact; to drop a bullet, bench it.
 
