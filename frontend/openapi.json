@@ -1033,6 +1033,428 @@
         }
       }
     },
+    "/api/profile/work/{role_id}/rules": {
+      "put": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Edit Role Rules",
+        "description": "Change a role's tailoring rules (FR-PRF-5): its approved title variants, whether it's\nload-bearing or held during education, the role types it's kept or cut for, its\nsensitivity and its honesty boundaries.",
+        "operationId": "edit_role_rules_api_profile_work__role_id__rules_put",
+        "parameters": [
+          {
+            "name": "role_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Role Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleRulesEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfilePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/profile/education/{education_id}/coursework": {
+      "put": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Edit Coursework",
+        "description": "Change an education entry's full coursework list, its coursework for each role type and\nits rules (FR-PRF-7).",
+        "operationId": "edit_coursework_api_profile_education__education_id__coursework_put",
+        "parameters": [
+          {
+            "name": "education_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Education Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CourseworkEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfilePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/profile/bullets/{bullet_id}/swaps": {
+      "put": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Edit Swaps",
+        "description": "Change a bullet's swaps, the approved phrasings tailored resumes can use (FR-WRT-5).",
+        "operationId": "edit_swaps_api_profile_bullets__bullet_id__swaps_put",
+        "parameters": [
+          {
+            "name": "bullet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bullet Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SwapsEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfilePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/profile/role-types": {
+      "put": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Edit Role Types",
+        "description": "Change the role types. One still in use can't be removed.",
+        "operationId": "edit_role_types_api_profile_role_types_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleTypesEdit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfilePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/profile/skills": {
+      "put": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Edit Skills",
+        "description": "Change the skills and the gaps list (FR-PRF-6).",
+        "operationId": "edit_skills_api_profile_skills_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillsEdit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfilePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/profile/skill-presets": {
+      "put": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Edit Skill Presets",
+        "description": "Change the skills presets, one per role type (FR-PRF-9).",
+        "operationId": "edit_skill_presets_api_profile_skill_presets_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillPresetsEdit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfilePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/profile/summaries": {
+      "put": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Edit Summaries",
+        "description": "Change the summary variants, one per role type (FR-PRF-8).",
+        "operationId": "edit_summaries_api_profile_summaries_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SummariesEdit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfilePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/profile/open-questions": {
+      "post": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Add Open Question",
+        "description": "Add an open question, blocking the bullets it names (FR-PRF-10).",
+        "operationId": "add_open_question_api_profile_open_questions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenQuestionEdit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfilePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/profile/open-questions/{question_id}": {
+      "put": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Edit Open Question",
+        "description": "Change an open question: its wording, its status (open, answered or closed) and the\nbullets it blocks.",
+        "operationId": "edit_open_question_api_profile_open_questions__question_id__put",
+        "parameters": [
+          {
+            "name": "question_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Question Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenQuestionEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfilePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/profile/versions": {
       "get": {
         "tags": [
@@ -1766,6 +2188,53 @@
         "title": "ClaimJudgement",
         "description": "The claim check's verdict on one claim in the text."
       },
+      "CourseworkEdit": {
+        "properties": {
+          "baseVersion": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Baseversion"
+          },
+          "courses": {
+            "items": {
+              "type": "string",
+              "maxLength": 200,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Courses"
+          },
+          "courseworkSubsets": {
+            "items": {
+              "$ref": "#/components/schemas/CourseworkSubsetEdit"
+            },
+            "type": "array",
+            "maxItems": 30,
+            "title": "Courseworksubsets"
+          },
+          "rules": {
+            "items": {
+              "type": "string",
+              "maxLength": 500,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Rules"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "baseVersion",
+          "courses",
+          "courseworkSubsets",
+          "rules"
+        ],
+        "title": "CourseworkEdit",
+        "description": "An education entry's coursework and rules (FR-PRF-7)."
+      },
       "CourseworkSubset": {
         "properties": {
           "roleType": {
@@ -1790,6 +2259,34 @@
         ],
         "title": "CourseworkSubset",
         "description": "The courses to list for one role type."
+      },
+      "CourseworkSubsetEdit": {
+        "properties": {
+          "roleType": {
+            "type": "string",
+            "maxLength": 32,
+            "pattern": "^[a-z0-9][a-z0-9_-]*$",
+            "title": "Roletype"
+          },
+          "courses": {
+            "items": {
+              "type": "string",
+              "maxLength": 200,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Courses"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "roleType",
+          "courses"
+        ],
+        "title": "CourseworkSubsetEdit"
       },
       "Decision": {
         "properties": {
@@ -3429,6 +3926,50 @@
         "title": "OpenQuestion",
         "description": "A missing detail that blocks a stronger bullet."
       },
+      "OpenQuestionEdit": {
+        "properties": {
+          "baseVersion": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Baseversion"
+          },
+          "question": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Question"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "answered",
+              "closed"
+            ],
+            "title": "Status"
+          },
+          "bulletIds": {
+            "items": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[a-z0-9][a-z0-9_-]*$"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Bulletids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "baseVersion",
+          "question",
+          "status",
+          "bulletIds"
+        ],
+        "title": "OpenQuestionEdit",
+        "description": "An open question: what it asks, its status, and the bullets it blocks (FR-PRF-10)."
+      },
       "Profile": {
         "properties": {
           "basics": {
@@ -4219,6 +4760,85 @@
         ],
         "title": "RoleOption"
       },
+      "RoleRulesEdit": {
+        "properties": {
+          "baseVersion": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Baseversion"
+          },
+          "titleVariants": {
+            "items": {
+              "type": "string",
+              "maxLength": 200,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Titlevariants"
+          },
+          "loadBearing": {
+            "type": "boolean",
+            "title": "Loadbearing"
+          },
+          "duringEducation": {
+            "type": "boolean",
+            "title": "Duringeducation"
+          },
+          "keepFor": {
+            "items": {
+              "type": "string",
+              "maxLength": 32,
+              "pattern": "^[a-z0-9][a-z0-9_-]*$"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Keepfor"
+          },
+          "cutFor": {
+            "items": {
+              "type": "string",
+              "maxLength": 32,
+              "pattern": "^[a-z0-9][a-z0-9_-]*$"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Cutfor"
+          },
+          "sensitivity": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "sensitive"
+            ],
+            "title": "Sensitivity"
+          },
+          "honestyBoundaries": {
+            "items": {
+              "type": "string",
+              "maxLength": 500,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Honestyboundaries"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "baseVersion",
+          "titleVariants",
+          "loadBearing",
+          "duringEducation",
+          "keepFor",
+          "cutFor",
+          "sensitivity",
+          "honestyBoundaries"
+        ],
+        "title": "RoleRulesEdit",
+        "description": "A role's tailoring rules (FR-PRF-5)."
+      },
       "RoleType": {
         "properties": {
           "id": {
@@ -4241,6 +4861,54 @@
         ],
         "title": "RoleType",
         "description": "A kind of job the owner applies for, e.g. backend or ML."
+      },
+      "RoleTypeEdit": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 32,
+            "pattern": "^[a-z0-9][a-z0-9_-]*$",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "RoleTypeEdit"
+      },
+      "RoleTypesEdit": {
+        "properties": {
+          "baseVersion": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Baseversion"
+          },
+          "roleTypes": {
+            "items": {
+              "$ref": "#/components/schemas/RoleTypeEdit"
+            },
+            "type": "array",
+            "maxItems": 30,
+            "title": "Roletypes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "baseVersion",
+          "roleTypes"
+        ],
+        "title": "RoleTypesEdit",
+        "description": "The kinds of job you apply for, which presets, summaries and rules are kept by."
       },
       "SingleValue": {
         "properties": {
@@ -4321,6 +4989,76 @@
         ],
         "title": "Skill"
       },
+      "SkillEdit": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "previousName": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previousname"
+          },
+          "category": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Category"
+          },
+          "tier": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "strong",
+                  "working",
+                  "academic"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tier"
+          },
+          "verifyBeforeShipping": {
+            "type": "boolean",
+            "title": "Verifybeforeshipping"
+          },
+          "aliases": {
+            "items": {
+              "type": "string",
+              "maxLength": 200,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Aliases"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "previousName",
+          "category",
+          "tier",
+          "verifyBeforeShipping",
+          "aliases"
+        ],
+        "title": "SkillEdit"
+      },
       "SkillLine": {
         "properties": {
           "label": {
@@ -4344,6 +5082,34 @@
         ],
         "title": "SkillLine",
         "description": "One line of a skills section, e.g. `Languages: Python, SQL`."
+      },
+      "SkillLineEdit": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "skills": {
+            "items": {
+              "type": "string",
+              "maxLength": 200,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Skills"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "label",
+          "skills"
+        ],
+        "title": "SkillLineEdit"
       },
       "SkillPreset": {
         "properties": {
@@ -4369,6 +5135,93 @@
         ],
         "title": "SkillPreset",
         "description": "The skills section to use for one role type."
+      },
+      "SkillPresetEdit": {
+        "properties": {
+          "roleType": {
+            "type": "string",
+            "maxLength": 32,
+            "pattern": "^[a-z0-9][a-z0-9_-]*$",
+            "title": "Roletype"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/SkillLineEdit"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Lines"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "roleType",
+          "lines"
+        ],
+        "title": "SkillPresetEdit"
+      },
+      "SkillPresetsEdit": {
+        "properties": {
+          "baseVersion": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Baseversion"
+          },
+          "skillPresets": {
+            "items": {
+              "$ref": "#/components/schemas/SkillPresetEdit"
+            },
+            "type": "array",
+            "maxItems": 30,
+            "title": "Skillpresets"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "baseVersion",
+          "skillPresets"
+        ],
+        "title": "SkillPresetsEdit",
+        "description": "The skills section for each role type (FR-PRF-9)."
+      },
+      "SkillsEdit": {
+        "properties": {
+          "baseVersion": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Baseversion"
+          },
+          "skills": {
+            "items": {
+              "$ref": "#/components/schemas/SkillEdit"
+            },
+            "type": "array",
+            "maxItems": 300,
+            "title": "Skills"
+          },
+          "skillGaps": {
+            "items": {
+              "type": "string",
+              "maxLength": 200,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Skillgaps"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "baseVersion",
+          "skills",
+          "skillGaps"
+        ],
+        "title": "SkillsEdit",
+        "description": "Your skills and the gaps list (FR-PRF-6)."
       },
       "SocialProfile": {
         "properties": {
@@ -4474,6 +5327,31 @@
         "title": "StrengthOverride",
         "description": "A bullet's strength for one role type, when it differs from the default."
       },
+      "SummariesEdit": {
+        "properties": {
+          "baseVersion": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Baseversion"
+          },
+          "summaries": {
+            "items": {
+              "$ref": "#/components/schemas/SummaryEdit"
+            },
+            "type": "array",
+            "maxItems": 30,
+            "title": "Summaries"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "baseVersion",
+          "summaries"
+        ],
+        "title": "SummariesEdit",
+        "description": "A summary paragraph for each role type (FR-PRF-8), used only when a resume asks for one."
+      },
       "Summary": {
         "properties": {
           "roleType": {
@@ -4496,6 +5374,29 @@
         ],
         "title": "Summary",
         "description": "A summary paragraph for one role type. Off by default."
+      },
+      "SummaryEdit": {
+        "properties": {
+          "roleType": {
+            "type": "string",
+            "maxLength": 32,
+            "pattern": "^[a-z0-9][a-z0-9_-]*$",
+            "title": "Roletype"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "roleType",
+          "text"
+        ],
+        "title": "SummaryEdit"
       },
       "Swap": {
         "properties": {
@@ -4540,6 +5441,80 @@
         ],
         "title": "Swap",
         "description": "An approved alternative phrasing: the same fact in another audience's words."
+      },
+      "SwapEdit": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Text"
+          },
+          "replaces": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replaces"
+          },
+          "contexts": {
+            "items": {
+              "type": "string",
+              "maxLength": 200,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Contexts"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "imported",
+              "approved"
+            ],
+            "title": "Origin"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text",
+          "replaces",
+          "contexts",
+          "origin"
+        ],
+        "title": "SwapEdit"
+      },
+      "SwapsEdit": {
+        "properties": {
+          "baseVersion": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Baseversion"
+          },
+          "swaps": {
+            "items": {
+              "$ref": "#/components/schemas/SwapEdit"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Swaps"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "baseVersion",
+          "swaps"
+        ],
+        "title": "SwapsEdit",
+        "description": "A bullet's swaps, the approved alternative phrasings (FR-WRT-5)."
       },
       "TelegramDeepLink": {
         "properties": {
