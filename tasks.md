@@ -884,7 +884,7 @@ As the owner, I want my portfolio page served by the app and updated when I refr
 - [ ] The page is cached. Tests: only the published version is shown, and hidden fields are absent.
 
 ### T-047 · LinkedIn page
-**Status:** ◐ · **Size:** S · **Depends on:** T-024, T-039 · **Requirements:** FR-LIN-2, FR-LIN-3 · **PR:** [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+**Status:** ◐ · **Size:** S · **Depends on:** T-024, T-039 · **Requirements:** FR-LIN-2, FR-LIN-3 · **PR:** [#68](https://github.com/matchastack/work-journal/pull/68)
 
 As the owner, I want a checklist of LinkedIn sections to paste, so that LinkedIn stays in step with my resume.
 
