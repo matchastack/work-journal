@@ -756,6 +756,83 @@
           }
         }
       }
+    },
+    "/api/resumes": {
+      "get": {
+        "tags": [
+          "resumes"
+        ],
+        "summary": "Resumes",
+        "description": "The master resume from the latest refresh (FR-RES-5, FR-RES-6), and every tailored\nresume, newest first, with each PDF's page count, cut report and rule findings.",
+        "operationId": "resumes_api_resumes_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Resumes"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/resumes/pdf/{sha256}": {
+      "get": {
+        "tags": [
+          "resumes"
+        ],
+        "summary": "Pdf",
+        "description": "A resume's PDF, to preview in the page (inline) or, with `download=true`, to save. 404\nwhen no resume of the owner's has it.",
+        "operationId": "pdf_api_resumes_pdf__sha256__get",
+        "parameters": [
+          {
+            "name": "sha256",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Sha256"
+            }
+          },
+          {
+            "name": "download",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Download"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1315,6 +1392,50 @@
         ],
         "title": "FactEdit",
         "description": "A fact's fields that the owner can change, all of them at once."
+      },
+      "Finding": {
+        "properties": {
+          "rule": {
+            "type": "string",
+            "enum": [
+              "dates",
+              "spelling",
+              "duplicates",
+              "R1",
+              "R2",
+              "R3",
+              "R4",
+              "R9",
+              "R10"
+            ],
+            "title": "Rule"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warning"
+            ],
+            "title": "Severity"
+          },
+          "location": {
+            "type": "string",
+            "title": "Location"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "rule",
+          "severity",
+          "location",
+          "message"
+        ],
+        "title": "Finding"
       },
       "HTTPValidationError": {
         "properties": {
@@ -2029,6 +2150,82 @@
         ],
         "title": "JournalMessageView"
       },
+      "LintReport": {
+        "properties": {
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "type": "array",
+            "title": "Findings",
+            "default": []
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Notes",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "LintReport"
+      },
+      "MasterResume": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "updated",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "changedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Changedat"
+          },
+          "pdf": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResumePdf"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lint": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LintReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "version",
+          "status",
+          "changedAt",
+          "pdf",
+          "lint"
+        ],
+        "title": "MasterResume",
+        "description": "The full master document (FR-RES-6) of one refresh (FR-RES-5)."
+      },
       "Me": {
         "properties": {
           "id": {
@@ -2267,6 +2464,136 @@
         "title": "RepoSource",
         "description": "Where a fact from GitHub comes from (FR-GH-6): its repository and the items it cites."
       },
+      "ResumeCut": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "bullet",
+              "role",
+              "project"
+            ],
+            "title": "Kind"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "id",
+          "text"
+        ],
+        "title": "ResumeCut",
+        "description": "Content cut to fit the page limit (FR-RES-7)."
+      },
+      "ResumePdf": {
+        "properties": {
+          "sha256": {
+            "type": "string",
+            "title": "Sha256"
+          },
+          "pages": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pages"
+          },
+          "cuts": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ResumeCut"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cuts"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "sha256",
+          "pages",
+          "cuts"
+        ],
+        "title": "ResumePdf"
+      },
+      "Resumes": {
+        "properties": {
+          "profileVersion": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profileversion"
+          },
+          "master": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MasterResume"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lastRendered": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MasterResume"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tailored": {
+            "items": {
+              "$ref": "#/components/schemas/TailoredResume"
+            },
+            "type": "array",
+            "title": "Tailored"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "profileVersion",
+          "master",
+          "lastRendered",
+          "tailored"
+        ],
+        "title": "Resumes"
+      },
       "RoleOption": {
         "properties": {
           "id": {
@@ -2345,6 +2672,70 @@
         ],
         "title": "SourceFact",
         "description": "A fact an operation cites."
+      },
+      "TailoredResume": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "company": {
+            "type": "string",
+            "title": "Company"
+          },
+          "position": {
+            "type": "string",
+            "title": "Position"
+          },
+          "appliedOn": {
+            "type": "string",
+            "format": "date",
+            "title": "Appliedon"
+          },
+          "loggedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Loggedat"
+          },
+          "pdf": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResumePdf"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rules": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LintReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sendable": {
+            "type": "boolean",
+            "title": "Sendable"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "company",
+          "position",
+          "appliedOn",
+          "loggedAt",
+          "pdf",
+          "rules",
+          "sendable"
+        ],
+        "title": "TailoredResume",
+        "description": "A resume tailored to a job posting, as its application logged it (FR-TLR-8)."
       },
       "TelegramDeepLink": {
         "properties": {
