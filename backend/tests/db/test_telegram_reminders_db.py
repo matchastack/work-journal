@@ -56,7 +56,7 @@ from app.telegram.reminders import (
 )
 from app.telegram.roles import GONE, NAME_PROMPT, NEW_ROLE
 
-pytestmark = pytest.mark.anyio
+pytestmark = [pytest.mark.anyio, pytest.mark.reminders]
 
 FRIDAY = datetime(2026, 10, 16, 10, 0, tzinfo=UTC)
 """Friday 16 October 2026 at 18:00 in Singapore, when the default reminder is due."""
