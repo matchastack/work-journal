@@ -22,6 +22,7 @@ from app.schema.common import Model
 from app.schema.settings import ConfidentialTerms, PortfolioSettings, ReminderSettings, StyleNotes
 from app.settings.data import delete_all_data, export_data
 from app.settings.views import (
+    ReminderChange,
     ReminderView,
     SettingsView,
     StyleNotesChange,
@@ -52,14 +53,15 @@ async def settings_page(
 
 @router.put("/reminders")
 async def change_reminder_settings(
-    body: ReminderSettings, user: CurrentUser, db: Db, settings: AppSettings, response: Response
+    body: ReminderChange, user: CurrentUser, db: Db, settings: AppSettings, response: Response
 ) -> ReminderView:
-    """Replace the reminder schedule and pause (FR-SET-2). A day, time or time zone left null
-    follows the app's default."""
+    """Replace the reminder schedule (FR-SET-2), and the pause unless `paused` is null. A day,
+    time or time zone left null follows the app's default."""
     response.headers.update(NO_STORE)
-    await change_reminders(db, user.id, body)
+    schedule = ReminderSettings(days=body.days, time=body.time, time_zone=body.time_zone)
+    saved = await change_reminders(db, user.id, schedule, paused=body.paused)
     await db.commit()
-    return reminder_view(body, default_schedule(settings))
+    return reminder_view(saved, default_schedule(settings))
 
 
 @router.put("/portfolio")

@@ -2,7 +2,7 @@ import { useId, useState } from "react";
 
 import {
   useSaveReminders,
-  type ReminderSettings,
+  type ReminderChange,
   type ReminderView,
   type Weekday,
 } from "../../api/settings";
@@ -76,7 +76,7 @@ export function RemindersForm({ reminders }: { reminders: ReminderView }) {
     setProblem(null);
     save.reset();
   };
-  const send = (settings: ReminderSettings) => {
+  const send = (settings: ReminderChange) => {
     save.mutate(settings, {
       onSuccess: (saved) => {
         setDraft(draftOf(saved));
@@ -117,7 +117,8 @@ export function RemindersForm({ reminders }: { reminders: ReminderView }) {
               days: draft.days,
               time: draft.time,
               timeZone: draft.timeZone.trim(),
-              paused: draft.paused,
+              // Unchanged, the pause is left as it is: /pause may have come since the page loaded.
+              paused: draft.paused === reminders.paused ? null : draft.paused,
             });
           }
         }}
@@ -226,7 +227,12 @@ export function RemindersForm({ reminders }: { reminders: ReminderView }) {
               disabled={save.isPending}
               onClick={() => {
                 setProblem(null);
-                send({ days: null, time: null, timeZone: null, paused: draft.paused });
+                send({
+                  days: null,
+                  time: null,
+                  timeZone: null,
+                  paused: draft.paused === reminders.paused ? null : draft.paused,
+                });
               }}
               className={TEXT_BUTTON}
             >

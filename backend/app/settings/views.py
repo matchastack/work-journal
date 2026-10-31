@@ -24,11 +24,14 @@ from app.schema.common import Model
 from app.schema.settings import (
     MAX_ITEMS,
     ConfidentialTerms,
+    Days,
+    LocalTime,
     Phrases,
     PortfolioSettings,
     ReminderSettings,
     StyleNote,
     StyleNotes,
+    TimeZone,
     Weekday,
     once_each,
 )
@@ -79,6 +82,18 @@ class SettingsView(Model):
     portfolio: PortfolioSettings
     style_notes: StyleNotes
     confidential_terms: ConfidentialTerms
+
+
+class ReminderChange(Model):
+    """The reminder schedule the Settings page saves (FR-SET-2). A day, time or time zone left
+    null follows the app's default."""
+
+    days: Days | None = None
+    time: LocalTime | None = None
+    time_zone: TimeZone | None = None
+    paused: bool | None = None
+    """Null keeps the pause as it is now, so a `/pause` sent while the page was open isn't
+    undone."""
 
 
 class StyleNotesChange(Model):

@@ -6,7 +6,7 @@ import type { components } from "./schema";
 
 export type SettingsView = components["schemas"]["SettingsView"];
 export type ReminderView = components["schemas"]["ReminderView"];
-export type ReminderSettings = components["schemas"]["ReminderSettings"];
+export type ReminderChange = components["schemas"]["ReminderChange"];
 export type Weekday = components["schemas"]["ReminderSchedule"]["days"][number];
 export type PortfolioSettings = components["schemas"]["PortfolioSettings"];
 export type Visibility = PortfolioSettings["defaultVisibility"];
@@ -59,7 +59,7 @@ function useSaveGroup<Key extends keyof SettingsView, Input>(
 }
 
 export function useSaveReminders() {
-  return useSaveGroup("reminders", (body: ReminderSettings) =>
+  return useSaveGroup("reminders", (body: ReminderChange) =>
     api.PUT("/api/settings/reminders", { body }),
   );
 }

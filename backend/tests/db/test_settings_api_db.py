@@ -287,6 +287,31 @@ def test_the_owner_sets_their_reminder_schedule_and_pause(
     assert client.get("/api/settings").json()["reminders"] == response.json()
 
 
+def test_a_pause_sent_while_the_page_was_open_stays(
+    database_url: str, owner: Owner, client: TestClient
+) -> None:
+    """The page sends a null pause unless the owner changed it, so `/pause` isn't undone."""
+
+    async def paused_from_telegram(session: AsyncSession) -> None:
+        await save_reminder_settings(session, owner.id, ReminderSettings(paused=True))
+
+    seed(database_url, paused_from_telegram)
+    body = {"days": ["mon"], "time": "09:00", "timeZone": "Asia/Singapore", "paused": None}
+    response = client.put("/api/settings/reminders", json=body, headers=owner.csrf)
+    assert (response.json()["paused"], response.json()["chosen"]) == (True, True)
+    resumed = client.put(
+        "/api/settings/reminders", json=body | {"paused": False}, headers=owner.csrf
+    )
+    assert resumed.json()["paused"] is False
+
+    async def stored(session: AsyncSession) -> ReminderSettings:
+        return await get_reminder_settings(session, owner.id)
+
+    assert seed(database_url, stored) == ReminderSettings(
+        days=("mon",), time=time(9, 0), time_zone="Asia/Singapore", paused=False
+    )
+
+
 def test_nulls_go_back_to_the_default_schedule_and_the_record_stays(
     database_url: str, owner: Owner, client: TestClient
 ) -> None:

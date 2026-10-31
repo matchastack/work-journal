@@ -190,13 +190,18 @@ async def resume(
 
 
 async def change_reminders(
-    session: AsyncSession, owner: uuid.UUID, reminders: ReminderSettings
-) -> None:
-    """Replace the owner's reminder schedule and pause, from the Settings page (FR-SET-2),
-    holding the owner's lock, so that it can't interleave with `/pause`, `/resume` or a run of
-    the job. The next reminder due on the new schedule goes out as usual."""
+    session: AsyncSession, owner: uuid.UUID, schedule: ReminderSettings, *, paused: bool | None
+) -> ReminderSettings:
+    """Replace the owner's reminder schedule from the Settings page (FR-SET-2), and their pause
+    unless `paused` is None, holding the owner's lock, so that it can't interleave with `/pause`,
+    `/resume` or a run of the job. Left None, the pause stays as it is now, so a `/pause` sent
+    while the page was open isn't undone. The next reminder due on the new schedule goes out as
+    usual. Returns the setting saved."""
     await _lock(session, owner)
-    await save_reminder_settings(session, owner, reminders)
+    current = await get_reminder_settings(session, owner)
+    saved = schedule.model_copy(update={"paused": current.paused if paused is None else paused})
+    await save_reminder_settings(session, owner, saved)
+    return saved
 
 
 async def _lock(session: AsyncSession, owner: uuid.UUID) -> int | None:

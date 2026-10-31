@@ -395,8 +395,8 @@ export interface paths {
         get?: never;
         /**
          * Change Reminder Settings
-         * @description Replace the reminder schedule and pause (FR-SET-2). A day, time or time zone left null
-         *     follows the app's default.
+         * @description Replace the reminder schedule (FR-SET-2), and the pause unless `paused` is null. A day,
+         *     time or time zone left null follows the app's default.
          */
         put: operations["change_reminder_settings_api_settings_reminders_put"];
         post?: never;
@@ -1019,6 +1019,21 @@ export interface components {
             high: number;
         };
         /**
+         * ReminderChange
+         * @description The reminder schedule the Settings page saves (FR-SET-2). A day, time or time zone left
+         *     null follows the app's default.
+         */
+        ReminderChange: {
+            /** Days */
+            days?: ("mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun")[] | null;
+            /** Time */
+            time?: string | null;
+            /** Timezone */
+            timeZone?: string | null;
+            /** Paused */
+            paused?: boolean | null;
+        };
+        /**
          * ReminderSchedule
          * @description When reminders go out: on `days`, at `time` (`HH:MM`) in `time_zone`.
          */
@@ -1029,26 +1044,6 @@ export interface components {
             time: string;
             /** Timezone */
             timeZone: string;
-        };
-        /**
-         * ReminderSettings
-         * @description The owner's reminder schedule and pause (FR-REM-1, FR-SET-2), under `reminders`.
-         *
-         *     A field left unset takes the app's default (`REMINDER_DAYS`, `REMINDER_TIME` and
-         *     `REMINDER_TIME_ZONE`), so a change to those reaches every user who hasn't chosen their own.
-         */
-        ReminderSettings: {
-            /** Days */
-            days?: ("mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun")[] | null;
-            /** Time */
-            time?: string | null;
-            /** Timezone */
-            timeZone?: string | null;
-            /**
-             * Paused
-             * @default false
-             */
-            paused: boolean;
         };
         /**
          * ReminderView
@@ -1861,7 +1856,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ReminderSettings"];
+                "application/json": components["schemas"]["ReminderChange"];
             };
         };
         responses: {

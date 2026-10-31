@@ -785,13 +785,13 @@
           "settings"
         ],
         "summary": "Change Reminder Settings",
-        "description": "Replace the reminder schedule and pause (FR-SET-2). A day, time or time zone left null\nfollows the app's default.",
+        "description": "Replace the reminder schedule (FR-SET-2), and the pause unless `paused` is null. A day,\ntime or time zone left null follows the app's default.",
         "operationId": "change_reminder_settings_api_settings_reminders_put",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReminderSettings"
+                "$ref": "#/components/schemas/ReminderChange"
               }
             }
           },
@@ -2519,44 +2519,7 @@
         "title": "RangeValue",
         "description": "A range, e.g. `2-3` (hours a week)."
       },
-      "ReminderSchedule": {
-        "properties": {
-          "days": {
-            "items": {
-              "type": "string",
-              "enum": [
-                "mon",
-                "tue",
-                "wed",
-                "thu",
-                "fri",
-                "sat",
-                "sun"
-              ]
-            },
-            "type": "array",
-            "title": "Days"
-          },
-          "time": {
-            "type": "string",
-            "title": "Time"
-          },
-          "timeZone": {
-            "type": "string",
-            "title": "Timezone"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "days",
-          "time",
-          "timeZone"
-        ],
-        "title": "ReminderSchedule",
-        "description": "When reminders go out: on `days`, at `time` (`HH:MM`) in `time_zone`."
-      },
-      "ReminderSettings": {
+      "ReminderChange": {
         "properties": {
           "days": {
             "anyOf": [
@@ -2606,15 +2569,58 @@
             "title": "Timezone"
           },
           "paused": {
-            "type": "boolean",
-            "title": "Paused",
-            "default": false
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused"
           }
         },
         "additionalProperties": false,
         "type": "object",
-        "title": "ReminderSettings",
-        "description": "The owner's reminder schedule and pause (FR-REM-1, FR-SET-2), under `reminders`.\n\nA field left unset takes the app's default (`REMINDER_DAYS`, `REMINDER_TIME` and\n`REMINDER_TIME_ZONE`), so a change to those reaches every user who hasn't chosen their own."
+        "title": "ReminderChange",
+        "description": "The reminder schedule the Settings page saves (FR-SET-2). A day, time or time zone left\nnull follows the app's default."
+      },
+      "ReminderSchedule": {
+        "properties": {
+          "days": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "mon",
+                "tue",
+                "wed",
+                "thu",
+                "fri",
+                "sat",
+                "sun"
+              ]
+            },
+            "type": "array",
+            "title": "Days"
+          },
+          "time": {
+            "type": "string",
+            "title": "Time"
+          },
+          "timeZone": {
+            "type": "string",
+            "title": "Timezone"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "days",
+          "time",
+          "timeZone"
+        ],
+        "title": "ReminderSchedule",
+        "description": "When reminders go out: on `days`, at `time` (`HH:MM`) in `time_zone`."
       },
       "ReminderView": {
         "properties": {

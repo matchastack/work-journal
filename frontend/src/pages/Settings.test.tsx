@@ -4,7 +4,7 @@ import { createMemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createQueryClient } from "../api/queryClient";
-import type { ReminderSettings, SettingsView } from "../api/settings";
+import type { ReminderChange, SettingsView } from "../api/settings";
 import { App } from "../App";
 import { LINK_CHECK_MS } from "../components/settings/TelegramSection";
 import { clockTime } from "../format";
@@ -85,7 +85,7 @@ function serveSettings(refuse: Record<string, Response> = {}) {
         case "GET /api/settings":
           return state.signedIn ? json(current) : json({ detail: "Not signed in" }, 401);
         case "PUT /api/settings/reminders": {
-          const chosen = body as ReminderSettings;
+          const chosen = body as ReminderChange;
           const schedule = {
             days: chosen.days ?? DEFAULT.days,
             time: chosen.time ?? DEFAULT.time,
@@ -95,7 +95,7 @@ function serveSettings(refuse: Record<string, Response> = {}) {
             schedule,
             default: DEFAULT,
             chosen: chosen.days !== null || chosen.time !== null || chosen.timeZone !== null,
-            paused: chosen.paused,
+            paused: chosen.paused ?? current.reminders.paused,
             summary: `${schedule.days.join(", ")} at ${schedule.time} (${schedule.timeZone})`,
           };
           return json(current.reminders);
@@ -275,6 +275,21 @@ describe("the settings page", () => {
     expect(reminders.getByRole("checkbox", { name: "Friday" })).toBeChecked();
     expect(reminders.getByRole("checkbox", { name: "Monday" })).not.toBeChecked();
     expect(reminders.getByLabelText("Time zone")).toHaveValue("Asia/Singapore");
+  });
+
+  it("leaves the pause alone unless it's changed, so a /pause from the chat stays", async () => {
+    const { sent } = serveSettings();
+    renderAt();
+    const reminders = await section("Reminders");
+    await userEvent.click(reminders.getByRole("checkbox", { name: "Monday" }));
+    await userEvent.click(reminders.getByRole("button", { name: "Save reminders" }));
+    expect(await reminders.findByText("Saved.")).toBeInTheDocument();
+    expect(sent.at(-1)?.body).toEqual({
+      days: ["mon", "fri"],
+      time: "18:00",
+      timeZone: "Asia/Singapore",
+      paused: null,
+    });
   });
 
   it("asks for a day and a time zone before saving the reminders", async () => {
