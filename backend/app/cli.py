@@ -106,7 +106,7 @@ from app.tailoring.applications import LoggedApplication, ResumeChecks, record
 from app.tailoring.ats import report_lines as ats_lines
 from app.tailoring.coverage import report_lines as coverage_lines
 from app.tailoring.posting import parse_posting
-from app.tailoring.tailor import posting_spellings, tailor, use_phrasings
+from app.tailoring.tailor import posting_spellings, tailor, use_phrasings, used_phrasings
 from app.telegram.api import BotApi, TelegramError
 from app.telegram.journal import COMMANDS
 from app.telegram.linking import deep_link, new_link_token
@@ -1188,9 +1188,9 @@ def tailor_resume(
     for warning in rendered.warnings:
         typer.echo(f"Warning: {warning}", err=True)
     application, checks = record(
-        tailored,
+        parsed,
         rendered.selection,
-        accepted=accepted,
+        used=used_phrasings(tailored, accepted),
         rules=report,
         posting_text=posting_text,
         pdf=rendered.pdf,
