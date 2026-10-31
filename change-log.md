@@ -2,6 +2,15 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-30 · T-044 Resumes page · [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+**Changed:** the web app's Resumes page previews and downloads the master resume from the latest refresh and every tailored resume, with each one's page count, cut report and rule findings; renders are kept by the hash of their LaTeX source (migration 0016), so the same source isn't compiled twice.
+
+**Verify:**
+- CI is green on #PRNUM
+- After `scripts/post-deploy.sh`, the Resumes page shows your master resume once `uv run wj tick` has rendered it, and says to run it while it waits
+- A resume from `uv run wj tailor <posting-file> --db` appears at the top of Tailored resumes; its preview opens and Download PDF saves it
+- Running `uv run wj render --db` twice says the second time that it wasn't compiled again
+
 ## 2026-10-28 · T-074 Read only what can count · [#62](https://github.com/matchastack/work-journal/pull/62)
 **Changed:** the digest reads only pull requests merged into the default branch, leaves out a pull request reverted from the command line, keeps your own commits in another person's pull request, and handles GitHub's secondary rate limit and empty repositories.
 
