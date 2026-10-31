@@ -186,6 +186,22 @@ def require_sendable(
     return report
 
 
+def verify_before_shipping_uses(
+    selection: Selection, profile: Profile
+) -> dict[str, tuple[str, ...]]:
+    """Where a resume lists or names each skill marked verify-before-shipping, by the skill's
+    name, in the profile's order: the skills a sendable resume needs confirmed (R3). Skills it
+    doesn't use are left out."""
+    content = _selection_content(selection)
+    uses: dict[str, tuple[str, ...]] = {}
+    for skill in profile.skills:
+        if skill.verify_before_shipping:
+            locations = tuple(dict.fromkeys(_uses(content, skill.name, skill.aliases)))
+            if locations:
+                uses[skill.name] = locations
+    return uses
+
+
 TEXT = "text"
 """The location of every finding from `check_text`: the text it checks."""
 

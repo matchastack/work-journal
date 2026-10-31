@@ -211,13 +211,21 @@ def plan_resume(
 
 
 def choose(
-    profile: Profile, posting: JobPosting, plan: TailoringPlan, *, confirmed: Collection[str] = ()
+    profile: Profile,
+    posting: JobPosting,
+    plan: TailoringPlan,
+    *,
+    confirmed: Collection[str] = (),
+    dropped: Collection[str] = (),
 ) -> Chosen:
     """The plan, checked against the profile as the module's docstring says. A pure function: the
     same plan gives the same choices. `confirmed` lists the skills marked verify-before-shipping
-    that may be listed."""
+    that may be listed, and `dropped` skills the owner left out of this resume, which aren't
+    listed and aren't noted."""
     notes: list[str] = []
-    selection, role_type, planned = _select(profile, posting, plan, confirmed, notes)
+    selection, role_type, planned = _select(
+        profile, posting, plan, confirmed, notes, dropped=dropped
+    )
     return Chosen(selection=selection, role_type=role_type, planned=planned, notes=tuple(notes))
 
 
@@ -365,6 +373,8 @@ def _select(
     plan: TailoringPlan,
     confirmed: Collection[str],
     notes: list[str],
+    *,
+    dropped: Collection[str] = (),
 ) -> tuple[Selection, Tag | None, dict[str, PlannedBullet]]:
     """The checked selection, the role type, and the planned bullets it shows, by ID."""
     role_type: Tag | None = plan.role_type
@@ -422,7 +432,7 @@ def _select(
         )
         for selected in base.education
     )
-    skills = _skills(profile, posting, plan.skills, base.skills, confirmed, notes)
+    skills = _skills(profile, posting, plan.skills, base.skills, confirmed, notes, dropped)
     selection = base.model_copy(
         update={
             "work": work,
@@ -536,9 +546,10 @@ def _skills(
     preset: Sequence[SkillLine],
     confirmed: Collection[str],
     notes: list[str],
+    dropped: Collection[str] = (),
 ) -> tuple[SkillLine, ...]:
     """The planned skills lines, or the role type's preset if the plan has none, keeping only
-    catalogue skills, each once, in the posting's spelling."""
+    catalogue skills, each once, in the posting's spelling, without the `dropped` ones."""
     catalogue = {
         spelling.casefold(): skill
         for skill in profile.skills
@@ -552,6 +563,7 @@ def _skills(
     for term in posting_spellings(posting):
         spellings.setdefault(term.casefold(), term)
     done = {name.casefold() for name in confirmed}
+    left_out = {name.casefold() for name in dropped}
     lines = planned or [PlannedSkillLine(label=line.label, skills=line.skills) for line in preset]
     listed: set[str] = set()
     grouped: dict[str, list[str]] = {}
@@ -564,7 +576,7 @@ def _skills(
             if skill is None:
                 notes.append(f"{name} isn't in your skills catalogue, so it's left out")
                 continue
-            if skill.name in listed:
+            if skill.name in listed or skill.name.casefold() in left_out:
                 continue
             if skill.verify_before_shipping and skill.name.casefold() not in done:
                 notes.append(
