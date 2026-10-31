@@ -28,6 +28,7 @@ Every generated sentence is checked against your facts, so wording never changes
 | Record what you did | The Telegram bot |
 | Fix a note or a saved fact | The web app, Journal page |
 | Update your profile from new notes | `/refresh` in Telegram, then the web app's Inbox |
+| Link Telegram, change reminders, style notes and other preferences, or export or delete your data | The web app, Settings page |
 | Render the master resume, tailor a resume, build the portfolio page, write LinkedIn text | The command-line tool (web pages **Coming**) |
 | See what a GitHub repository's history would give one of your projects, and the facts in it | `wj github digest`, then `wj github extract` (saving the facts for `/refresh` is **Coming**: T-069 to T-072) |
 
@@ -101,13 +102,13 @@ uv run wj db load-profile --user <github-login>    # loads them into the databas
 
 ### Link your chat
 
-The bot journals only for a chat linked to your account. From `backend/`:
+The bot journals only for a chat linked to your account. In the web app, open [Settings](#settings) and press **Link Telegram**: scan the QR code with your phone's camera, or press **Open in Telegram**, then press **Start** in Telegram. Or, from `backend/`:
 
 ```sh
 uv run wj telegram link --user <github-login>
 ```
 
-It prints a one-time link, good for 15 minutes. Open it in Telegram; the bot answers "Linked." A message from any other chat gets a note on how to link.
+It prints the same kind of link. A link works once, for 15 minutes; the bot answers "Linked." Linking another chat moves the link there. A message from any other chat gets a note on how to link.
 
 ### Connect the bot
 
@@ -130,11 +131,11 @@ When an entry closes, the bot may then:
 
 ### Reminders
 
-The bot reminds you to journal on your schedule: by default on Fridays at 18:00, Asia/Singapore (set `REMINDER_DAYS`, `REMINDER_TIME` and `REMINDER_TIME_ZONE` to change it). There's no reminder if you journaled in the last 3 days.
+The bot reminds you to journal on your schedule: by default on Fridays at 18:00, Asia/Singapore. Choose your own days, time and time zone on the [Settings](#settings) page. Until you do, you get the app's default, which `REMINDER_DAYS`, `REMINDER_TIME` and `REMINDER_TIME_ZONE` change. There's no reminder if you journaled in the last 3 days.
 
 - **Nothing this week** notes that there was nothing to journal and skips the rest of the week's reminders.
 - **Remind me tomorrow** brings the reminder back the next day at the same time.
-- `/pause` stops reminders and `/resume` restarts them; `/resume` says when they go out.
+- `/pause` stops reminders and `/resume` restarts them; `/resume` says when they go out. **Pause reminders** on the Settings page does the same.
 
 On the hosted app, the reminder goes out with the daily tick, which runs at 18:00 Singapore time, so it arrives between 18:00 and 19:00. A reminder that can't go out within 4 hours of its time, the same day, is skipped. For another reminder time, move the tick's hour too (`docs/deploy.md`, step 5). With `uv run wj worker` running, reminders go out on the minute.
 
@@ -166,7 +167,7 @@ Open `http://localhost:5173` while developing, or your deployed address. Sign in
 | Tailor | Coming (T-045) | Tailor a resume to a job posting, and see where you applied |
 | Portfolio | Coming (T-046) | Choose what the public page shows, and publish it |
 | LinkedIn | Coming (T-047) | Copy the updated sections into LinkedIn |
-| Settings | Coming (T-048) | Telegram, reminders and style notes |
+| [Settings](#settings) | Built | Telegram, reminders, the portfolio page, style notes, confidential terms and your data |
 
 A page that is not built yet says which task will add it. Until then, use the command-line equivalents in the next chapter.
 
@@ -198,6 +199,17 @@ You can correct anything in place:
 - **Entries:** delete a whole entry, with its messages and facts. If the profile cites any of those facts, the page names the bullets and asks you to confirm first.
 
 **Download Markdown** and **Download JSON** at the top save the whole journal.
+
+### Settings
+
+Your preferences, one section each. Each section has its own **Save** button and says "Saved." when it is.
+
+- **Telegram:** whether your chat is linked, and since when. **Link Telegram** (or **Relink**) shows a one-time link to the bot as a QR code and an **Open in Telegram** button, good for 15 minutes. Once you press **Start** in Telegram, the page says your chat is linked. See [Link your chat](#link-your-chat).
+- **Reminders:** the days, the time and the time zone (an IANA name such as `Asia/Singapore`; **Use this device's** fills in your browser's), and **Pause reminders**. The section shows the schedule now in force. After you choose your own, **Use the default schedule** goes back to the app's default. On the hosted app, reminders go out with the daily tick at 18:00 Singapore time, so for another time move the tick's hour too ([Reminders](#reminders)).
+- **Portfolio page:** the handle in your page's address, `/p/<handle>` (2 to 40 lowercase letters, digits and single hyphens; it's saved in lowercase, and one another account has is refused), the default visibility (Public, Resume only or Private) for what you haven't given a visibility of its own, **Show that I'm open to work**, and **Let search engines index the page**. They're kept now and take effect when the public portfolio page arrives (**Coming**: T-046).
+- **Style notes:** words to avoid and notes about your style, one per line. The style check flags the words to avoid in everything written for you; the LinkedIn text follows the notes for now. The reasons you give for rejecting a change in the Inbox are added to the notes.
+- **Confidential terms:** names and words that must never appear on your portfolio page, in published PDFs or in LinkedIn text, one per line. They're kept now and blocked once the confidentiality checks arrive (**Coming**: T-049).
+- **Your data:** **Download all my data** saves one JSON file with everything stored for you: your journal (readable, not encrypted), facts, profile versions, proposed changes, applications, resume PDFs, settings and the bot's recent raw messages from your chat. Sign-in sessions and link tokens are left out. **Delete all my data** asks you to type your GitHub username, then deletes your account and everything stored for it, and signs you out everywhere. It can't be undone, so download your data first. Your messages stay in your Telegram chat, and files on your computer, such as `local/`, are not touched. If you sign in again, you start with an empty journal.
 
 ## The command-line tool
 
@@ -338,7 +350,7 @@ Every sentence written passes the verifier before it is stored or printed.
 | A command says `relation "..." does not exist` | The database is missing tables: `uv run alembic upgrade head` |
 | GitHub sends you back to the wrong address after signing in | `APP_URL` and the GitHub OAuth app's callback URL must match: `<APP_URL>/auth/callback` |
 | Sign-in is refused | Your GitHub username (in lowercase) must be in `ALLOWED_GITHUB_LOGINS` |
-| The bot ignores your messages | The chat isn't linked: `uv run wj telegram link --user <github-login>`. If you used `wj telegram poll`, run `wj telegram set-webhook` to go back to the webhook |
+| The bot ignores your messages | The chat isn't linked: link it from the Settings page, or with `uv run wj telegram link --user <github-login>`. If you used `wj telegram poll`, run `wj telegram set-webhook` to go back to the webhook |
 | Tapping a role under the bot's question does nothing | Run `wj telegram set-webhook` again so Telegram sends button presses |
 | A model command says a tier has no model | Set `ANTHROPIC_API_KEY` and the `LLM_MODEL_*` variable for that tier |
 | `wj render` or `wj tailor` can't find LaTeX | Install TeX Live (`backend/templates/README.md`) |

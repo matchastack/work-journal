@@ -53,7 +53,7 @@ export const PAGES: readonly Page[] = [
   {
     path: "settings",
     title: "Settings",
-    summary: "Telegram, reminders, style notes and the rest.",
+    summary: "Telegram, reminders, your portfolio page, style notes and your data.",
     task: "T-048",
   },
 ];

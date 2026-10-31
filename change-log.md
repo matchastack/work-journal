@@ -2,6 +2,16 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-30 · T-048 Settings page · [#70](https://github.com/matchastack/work-journal/pull/70)
+**Changed:** the web app's Settings page links Telegram with a deep link and a QR code, and edits the reminder schedule, time zone and pause, the portfolio page's settings, the style notes and the confidential terms; it also downloads all your data as JSON and deletes all of it once you type your GitHub username.
+
+**Verify:**
+- CI is green on the PR
+- On Settings, **Link Telegram** shows a QR code; scanning it and pressing Start links the chat, and the page then says it's linked
+- Changing the reminder time and saving makes `/resume` (after `/pause`) name the new time
+- **Download all my data** saves a JSON file with your journal text readable in it
+- Try **Delete all my data** only on a test account: it asks for the username, then signs you out, and signing in again starts with an empty journal
+
 ## 2026-10-30 · T-035 Reminders · [#52](https://github.com/matchastack/work-journal/pull/52)
 **Changed:** The bot sends a gentle reminder on your schedule (Fridays at 18:00, Asia/Singapore, by default), skipped if you journaled in the last 3 days, with "Nothing this week" and "Remind me tomorrow" buttons. `/pause` and `/resume` stop and restart it, and Vercel's daily tick now runs at 18:00 Singapore time to send it.
 

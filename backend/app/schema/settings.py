@@ -1,13 +1,15 @@
 """The owner's settings, each stored as JSON under its key in `settings` (`app/db/settings.py`)."""
 
+import re
+from collections.abc import Sequence
 from datetime import date, datetime
 from datetime import time as clock_time
 from typing import Annotated, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import AfterValidator, AwareDatetime, Field
+from pydantic import AfterValidator, AwareDatetime, Field, StringConstraints
 
-from app.schema.common import Model, NonEmptyStr
+from app.schema.common import Model, NonEmptyStr, Visibility
 
 
 class StyleNote(Model):
@@ -90,3 +92,69 @@ class ReminderState(Model):
     nothing_weeks: tuple[date, ...] = ()
     """The weeks of the reminders whose "Nothing this week" was pressed (FR-REM-3), as their
     Mondays in the owner's time zone, oldest first."""
+
+
+HANDLE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+"""Lowercase letters and digits, with single hyphens between them: safe in a URL as it is."""
+HANDLE_LENGTH = (2, 40)
+MAX_ITEMS = 200
+"""The most words, notes or terms one list may hold."""
+
+
+def _handle(value: str) -> str:
+    handle = value.lower()
+    shortest, longest = HANDLE_LENGTH
+    if not shortest <= len(handle) <= longest or not HANDLE.fullmatch(handle):
+        raise ValueError(
+            f"use {shortest} to {longest} letters, digits and single hyphens, starting and ending"
+            " with a letter or digit, such as casey-example"
+        )
+    return handle
+
+
+def once_each(values: Sequence[str]) -> tuple[str, ...]:
+    """`values` in order, without a repeat that differs only in case."""
+    seen: set[str] = set()
+    kept: list[str] = []
+    for value in values:
+        if value.casefold() not in seen:
+            seen.add(value.casefold())
+            kept.append(value)
+    return tuple(kept)
+
+
+Handle = Annotated[str, AfterValidator(_handle)]
+"""The portfolio page's address, `/p/<handle>`, in lowercase: `Casey-Example` is kept as
+`casey-example`."""
+Phrase = Annotated[str, StringConstraints(min_length=1, max_length=100)]
+"""A word or a short phrase, such as a word to avoid or a confidential term."""
+Phrases = Annotated[tuple[Phrase, ...], Field(max_length=MAX_ITEMS), AfterValidator(once_each)]
+"""Words or phrases, each once whatever its case, in the order given."""
+
+
+class PortfolioSettings(Model):
+    """The public portfolio page's settings (FR-SET-3, FR-PRT-4, FR-PRT-5), under `portfolio`.
+
+    The page and its publishing arrive with T-046, which reads these. Until then they're only
+    kept.
+    """
+
+    handle: Handle | None = None
+    """The page's address, `/p/<handle>`. None until the owner chooses one: there's no default,
+    since the handle is still an open question (OQ-3). No two users have the same one."""
+    default_visibility: Visibility = "public"
+    """The visibility the page gives what the owner hasn't given a visibility of its own."""
+    open_to_work: bool = False
+    """Whether the page says the owner is open to work."""
+    indexing: bool = True
+    """Whether search engines may index the page. Off, the page asks them not to (noindex)."""
+
+
+class ConfidentialTerms(Model):
+    """Words and names that must never appear in public outputs: the portfolio page, published
+    PDFs and the LinkedIn pack (FR-SET-5, NFR-PRIV-4), under `confidential_terms`.
+
+    T-049 blocks them, matching whole words in any case. Until then they're only kept.
+    """
+
+    terms: Phrases = ()

@@ -11,11 +11,13 @@ sent. The reminder's text is fixed, so no model writes it. Its buttons (FR-REM-3
   reminders are paused, it only says so, since the pause would skip that reminder.
 
 Only the newest reminder's buttons work; a press on an older one changes nothing. `/pause` and
-`/resume` set the pause in the owner's reminder setting (FR-SET-2).
+`/resume` set the pause in the owner's reminder setting (FR-SET-2), and the Settings page changes
+the whole setting (`change_reminders`).
 
 The owner's `telegram_links` row, locked, serializes every change to the reminder record and
-setting: the job, the buttons, `/pause` and `/resume`. So two runs can't both send one reminder,
-and a press can't undo what a run records. Only user IDs, times and outcomes are logged.
+setting: the job, the buttons, `/pause`, `/resume` and the Settings page. So two runs can't both
+send one reminder, and a press can't undo what a run records. Only user IDs, times and outcomes
+are logged.
 """
 
 import logging
@@ -36,6 +38,7 @@ from app.db.settings import (
     save_reminder_state,
 )
 from app.reminders import Schedule, describe, due, effective, recorded, tomorrow, week_of
+from app.schema.settings import ReminderSettings
 from app.telegram.api import BotCall, send
 from app.telegram.roles import Answer
 from app.telegram.updates import CallbackQuery
@@ -184,6 +187,21 @@ async def resume(
         return Answer((send(chat_id, already_on_text(schedule)),))
     await save_reminder_settings(session, owner, stored.model_copy(update={"paused": False}))
     return Answer((send(chat_id, resumed_text(schedule)),))
+
+
+async def change_reminders(
+    session: AsyncSession, owner: uuid.UUID, schedule: ReminderSettings, *, paused: bool | None
+) -> ReminderSettings:
+    """Replace the owner's reminder schedule from the Settings page (FR-SET-2), and their pause
+    unless `paused` is None, holding the owner's lock, so that it can't interleave with `/pause`,
+    `/resume` or a run of the job. Left None, the pause stays as it is now, so a `/pause` sent
+    while the page was open isn't undone. The next reminder due on the new schedule goes out as
+    usual. Returns the setting saved."""
+    await _lock(session, owner)
+    current = await get_reminder_settings(session, owner)
+    saved = schedule.model_copy(update={"paused": current.paused if paused is None else paused})
+    await save_reminder_settings(session, owner, saved)
+    return saved
 
 
 async def _lock(session: AsyncSession, owner: uuid.UUID) -> int | None:

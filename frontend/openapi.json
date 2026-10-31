@@ -756,6 +756,253 @@
           }
         }
       }
+    },
+    "/api/settings": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Settings Page",
+        "description": "Every preference: the Telegram link, the reminders, the portfolio page, the style notes\nand the confidential terms.",
+        "operationId": "settings_page_api_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/reminders": {
+      "put": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Change Reminder Settings",
+        "description": "Replace the reminder schedule (FR-SET-2), and the pause unless `paused` is null. A day,\ntime or time zone left null follows the app's default.",
+        "operationId": "change_reminder_settings_api_settings_reminders_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReminderChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReminderView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/portfolio": {
+      "put": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Change Portfolio",
+        "description": "Replace the portfolio page's settings (FR-SET-3). A handle another user has is refused\n(409).",
+        "operationId": "change_portfolio_api_settings_portfolio_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PortfolioSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortfolioSettings"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/style-notes": {
+      "put": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Change Style Notes",
+        "description": "Replace the words to avoid and the style notes (FR-SET-4). A note kept from before keeps\nwhere it came from.",
+        "operationId": "change_style_notes_api_settings_style_notes_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StyleNotesChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StyleNotes"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/confidential-terms": {
+      "put": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Change Confidential Terms",
+        "description": "Replace the confidential terms (FR-SET-5).",
+        "operationId": "change_confidential_terms_api_settings_confidential_terms_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfidentialTerms"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfidentialTerms"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/export.json": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Export All",
+        "description": "Everything stored for the owner, as a JSON file (FR-SET-6, NFR-PRIV-3).",
+        "operationId": "export_all_api_settings_export_json_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/data": {
+      "delete": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Delete Data",
+        "description": "Delete the owner's account and everything stored for them, and sign them out everywhere\n(FR-SET-6, NFR-PRIV-3). `confirm` must be their GitHub username (422 otherwise).",
+        "operationId": "delete_data_api_settings_data_delete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DataDeletion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -911,6 +1158,39 @@
         ],
         "title": "ClaimJudgement",
         "description": "The claim check's verdict on one claim in the text."
+      },
+      "ConfidentialTerms": {
+        "properties": {
+          "terms": {
+            "items": {
+              "type": "string",
+              "maxLength": 100,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 200,
+            "title": "Terms",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ConfidentialTerms",
+        "description": "Words and names that must never appear in public outputs: the portfolio page, published\nPDFs and the LinkedIn pack (FR-SET-5, NFR-PRIV-4), under `confidential_terms`.\n\nT-049 blocks them, matching whole words in any case. Until then they're only kept."
+      },
+      "DataDeletion": {
+        "properties": {
+          "confirm": {
+            "type": "string",
+            "title": "Confirm"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "confirm"
+        ],
+        "title": "DataDeletion"
       },
       "Decision": {
         "properties": {
@@ -2155,6 +2435,45 @@
         ],
         "title": "Metric"
       },
+      "PortfolioSettings": {
+        "properties": {
+          "handle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Handle"
+          },
+          "defaultVisibility": {
+            "type": "string",
+            "enum": [
+              "public",
+              "resume_only",
+              "private"
+            ],
+            "title": "Defaultvisibility",
+            "default": "public"
+          },
+          "openToWork": {
+            "type": "boolean",
+            "title": "Opentowork",
+            "default": false
+          },
+          "indexing": {
+            "type": "boolean",
+            "title": "Indexing",
+            "default": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PortfolioSettings",
+        "description": "The public portfolio page's settings (FR-SET-3, FR-PRT-4, FR-PRT-5), under `portfolio`.\n\nThe page and its publishing arrive with T-046, which reads these. Until then they're only\nkept."
+      },
       "ProjectOption": {
         "properties": {
           "id": {
@@ -2199,6 +2518,142 @@
         ],
         "title": "RangeValue",
         "description": "A range, e.g. `2-3` (hours a week)."
+      },
+      "ReminderChange": {
+        "properties": {
+          "days": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "mon",
+                    "tue",
+                    "wed",
+                    "thu",
+                    "fri",
+                    "sat",
+                    "sun"
+                  ]
+                },
+                "type": "array",
+                "minItems": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days"
+          },
+          "time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time"
+          },
+          "timeZone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone"
+          },
+          "paused": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ReminderChange",
+        "description": "The reminder schedule the Settings page saves (FR-SET-2). A day, time or time zone left\nnull follows the app's default."
+      },
+      "ReminderSchedule": {
+        "properties": {
+          "days": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "mon",
+                "tue",
+                "wed",
+                "thu",
+                "fri",
+                "sat",
+                "sun"
+              ]
+            },
+            "type": "array",
+            "title": "Days"
+          },
+          "time": {
+            "type": "string",
+            "title": "Time"
+          },
+          "timeZone": {
+            "type": "string",
+            "title": "Timezone"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "days",
+          "time",
+          "timeZone"
+        ],
+        "title": "ReminderSchedule",
+        "description": "When reminders go out: on `days`, at `time` (`HH:MM`) in `time_zone`."
+      },
+      "ReminderView": {
+        "properties": {
+          "schedule": {
+            "$ref": "#/components/schemas/ReminderSchedule"
+          },
+          "default": {
+            "$ref": "#/components/schemas/ReminderSchedule"
+          },
+          "chosen": {
+            "type": "boolean",
+            "title": "Chosen"
+          },
+          "paused": {
+            "type": "boolean",
+            "title": "Paused"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "schedule",
+          "default",
+          "chosen",
+          "paused",
+          "summary"
+        ],
+        "title": "ReminderView",
+        "description": "The owner's reminders (FR-SET-2): the schedule they follow, which is the app's default\nfor what they haven't chosen, and whether they're paused."
       },
       "RepoItem": {
         "properties": {
@@ -2286,6 +2741,36 @@
         ],
         "title": "RoleOption"
       },
+      "SettingsView": {
+        "properties": {
+          "telegram": {
+            "$ref": "#/components/schemas/TelegramView"
+          },
+          "reminders": {
+            "$ref": "#/components/schemas/ReminderView"
+          },
+          "portfolio": {
+            "$ref": "#/components/schemas/PortfolioSettings"
+          },
+          "styleNotes": {
+            "$ref": "#/components/schemas/StyleNotes"
+          },
+          "confidentialTerms": {
+            "$ref": "#/components/schemas/ConfidentialTerms"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "telegram",
+          "reminders",
+          "portfolio",
+          "styleNotes",
+          "confidentialTerms"
+        ],
+        "title": "SettingsView",
+        "description": "Everything the Settings page shows."
+      },
       "SingleValue": {
         "properties": {
           "kind": {
@@ -2346,6 +2831,92 @@
         "title": "SourceFact",
         "description": "A fact an operation cites."
       },
+      "StyleNote": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "rejection"
+            ],
+            "title": "Source",
+            "default": "owner"
+          },
+          "addedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Addedat"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text",
+          "addedAt"
+        ],
+        "title": "StyleNote",
+        "description": "A preference about wording. A reason the owner gave for rejecting a proposed change\nbecomes one (FR-REV-4)."
+      },
+      "StyleNotes": {
+        "properties": {
+          "avoid": {
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "type": "array",
+            "title": "Avoid",
+            "default": []
+          },
+          "notes": {
+            "items": {
+              "$ref": "#/components/schemas/StyleNote"
+            },
+            "type": "array",
+            "title": "Notes",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "StyleNotes",
+        "description": "The owner's style notes, which apply to every writing style (FR-WRT-4, FR-SET-4)."
+      },
+      "StyleNotesChange": {
+        "properties": {
+          "avoid": {
+            "items": {
+              "type": "string",
+              "maxLength": 100,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 200,
+            "title": "Avoid",
+            "default": []
+          },
+          "notes": {
+            "items": {
+              "type": "string",
+              "maxLength": 500,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 200,
+            "title": "Notes",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "StyleNotesChange",
+        "description": "The owner's style notes as the page saves them (FR-SET-4): every word to avoid and every\nnote, each once whatever its case."
+      },
       "TelegramDeepLink": {
         "properties": {
           "url": {
@@ -2392,6 +2963,34 @@
           "linkedAt"
         ],
         "title": "TelegramLinkStatus"
+      },
+      "TelegramView": {
+        "properties": {
+          "linked": {
+            "type": "boolean",
+            "title": "Linked"
+          },
+          "linkedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linkedat"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "linked",
+          "linkedAt"
+        ],
+        "title": "TelegramView",
+        "description": "Whether the owner's Telegram chat is linked, and since when (FR-SET-1)."
       },
       "ValidationError": {
         "properties": {
