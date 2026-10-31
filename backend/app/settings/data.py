@@ -24,7 +24,17 @@ from decimal import Decimal
 from typing import Any
 
 from pydantic import ValidationError
-from sqlalchemy import LargeBinary, RowMapping, Table, bindparam, delete, select, text, type_coerce
+from sqlalchemy import (
+    ColumnElement,
+    LargeBinary,
+    RowMapping,
+    Table,
+    bindparam,
+    delete,
+    select,
+    text,
+    type_coerce,
+)
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.types import String
@@ -61,13 +71,20 @@ DELETE_JOBS = text(
 still has to finish. Their arguments are IDs (`app/jobs.py`)."""
 
 
+def _order(table: Table) -> list[ColumnElement[Any]]:
+    """Oldest first, then by a version's number, then by the key: an export reads in order, and
+    the same data always exports the same way. Rows saved together share a `created_at`."""
+    columns = [table.c[name] for name in ("created_at", "number") if name in table.c]
+    return [*columns, *table.primary_key.columns]
+
+
 async def export_data(session: AsyncSession, user: User, *, now: datetime) -> dict[str, Any]:
     """Everything stored for `user`, as of `now`, as JSON-ready values."""
     tables: dict[str, list[dict[str, Any]]] = {}
     for table in user_tables():
         if table.name in NOT_EXPORTED:
             continue
-        query = select(table).where(table.c.user_id == user.id).order_by(*table.primary_key.columns)
+        query = select(table).where(table.c.user_id == user.id).order_by(*_order(table))
         rows = await session.execute(query)
         tables[table.name] = [_row(table, row) for row in rows.mappings()]
     chat_id = await _chat(session, user.id)
