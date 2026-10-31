@@ -853,7 +853,7 @@ As the owner, I want to manage the metadata that drives tailoring, so that my ma
 - [ ] Tests.
 
 ### T-044 · Resumes page
-**Status:** ◐ · **Size:** M · **Depends on:** T-010, T-011, T-027, T-039 · **Requirements:** FR-RES-5, FR-RES-6 · **PR:** [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+**Status:** ◐ · **Size:** M · **Depends on:** T-010, T-011, T-027, T-039 · **Requirements:** FR-RES-5, FR-RES-6 · **PR:** [#69](https://github.com/matchastack/work-journal/pull/69)
 
 As the owner, I want to preview and download my master resume and my tailored resumes, so that I always have a current version ready.
 
