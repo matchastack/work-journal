@@ -2,7 +2,7 @@
 
 import asyncio
 import uuid
-from collections.abc import Iterator
+from collections.abc import Awaitable, Callable, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -172,6 +172,30 @@ async def test_extracting_a_closed_entry_right_away_never_fails(
         await extract_now(uuid.uuid4())
     assert "RuntimeError" in caplog.text
     assert "secret" not in caplog.text
+
+
+@pytest.mark.anyio
+async def test_entries_handed_on_together_are_queued_in_order_for_one_tick(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Such as an entry that went quiet and the answer to an open question that closed it."""
+    queued: list[uuid.UUID] = []
+    ticks: list[bool] = []
+
+    async def record(entry_id: uuid.UUID) -> bool:
+        queued.append(entry_id)
+        return True
+
+    async def one_tick(*, first: Callable[[], Awaitable[object]]) -> int:
+        await first()
+        ticks.append(True)
+        return 0
+
+    monkeypatch.setattr("app.tick.queue_extraction", record)
+    monkeypatch.setattr("app.tick.tick", one_tick)
+    entries = (uuid.uuid4(), uuid.uuid4())
+    await extract_now(*entries)
+    assert (tuple(queued), ticks) == (entries, [True])
 
 
 # --- /internal/tick ------------------------------------------------------------------------------

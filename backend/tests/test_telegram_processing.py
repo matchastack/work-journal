@@ -54,6 +54,21 @@ def test_facts_left_out_for_their_numbers_are_counted() -> None:
     assert nothing.endswith(f"It's in your journal:\n{LINK}")
 
 
+def test_facts_that_answer_an_open_question_say_when_theyre_used() -> None:
+    """FR-EXT-4: the next /refresh proposes the stronger bullet."""
+    saved = facts("Handled order events.", "Ran the queue.")
+    two = reply_text("work", saved, 0, LINK, answers=True)
+    assert two.splitlines()[3:6] == [
+        "They answer your open question, so your next /refresh can use them.",
+        "",
+        "See them in your journal:",
+    ]
+    one = reply_text("work", facts("Handled order events."), 0, LINK, answers=True)
+    assert "It answers your open question, so your next /refresh can use it." in one.splitlines()
+    nothing = reply_text("work", [], 0, LINK, answers=True)
+    assert "open question" not in nothing
+
+
 def test_an_entry_not_about_work_is_only_acknowledged() -> None:
     """FR-CAP-8."""
     assert reply_text("other", [], 0, LINK) == (

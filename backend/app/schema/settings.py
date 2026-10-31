@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import AfterValidator, AwareDatetime, Field
 
-from app.schema.common import Model, NonEmptyStr
+from app.schema.common import Id, Model, NonEmptyStr
 
 
 class StyleNote(Model):
@@ -76,6 +76,14 @@ class ReminderSettings(Model):
     """Set by `/pause` and cleared by `/resume` (FR-REM-3)."""
 
 
+class Answering(Model):
+    """The open question whose answer the owner's next message is (FR-EXT-4)."""
+
+    question_id: Id
+    since: AwareDatetime
+    """When the owner pressed "Answer the question": the wait lapses after the entry timeout."""
+
+
 class ReminderState(Model):
     """The bot's record of the owner's reminders, under `reminder_state` (`app/reminders.py`)."""
 
@@ -90,3 +98,11 @@ class ReminderState(Model):
     nothing_weeks: tuple[date, ...] = ()
     """The weeks of the reminders whose "Nothing this week" was pressed (FR-REM-3), as their
     Mondays in the owner's time zone, oldest first."""
+    message_question: Id | None = None
+    """The open question the newest reminder message asks (FR-REM-5), which its "Answer the
+    question" button answers, until one of its buttons is pressed."""
+    asked: tuple[Id, ...] = ()
+    """The open questions asked in the current round, oldest first (`app/open_questions.py`)."""
+    answering: Answering | None = None
+    """The question whose "Answer the question" was pressed, until the owner's next message
+    takes the answer or the wait lapses."""

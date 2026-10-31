@@ -139,7 +139,7 @@ async def test_the_next_message_answers_and_joins_the_entry(
     """The question loses its Skip button, and the entry's jobs go on to its role."""
     _, entry_id = await asked_entry(session, chat_id)
     handled = await handle_update(session, message(chat_id, ANSWER))
-    assert handled == Handled((without_skip(chat_id),), ready=entry_id)
+    assert handled == Handled((without_skip(chat_id),), ready=(entry_id,))
     assert await entries_of(session, chat_id) == [(entry_id, ANSWER)]
     assert await awaits(session, entry_id) is False
 
@@ -162,7 +162,7 @@ async def test_a_message_after_the_timeout_is_a_new_note(
 async def test_the_skip_button_skips_the_question(session: AsyncSession, chat_id: int) -> None:
     _, entry_id = await asked_entry(session, chat_id)
     handled = await handle_update(session, press(chat_id))
-    assert handled == Handled((answered_press(), without_skip(chat_id)), ready=entry_id)
+    assert handled == Handled((answered_press(), without_skip(chat_id)), ready=(entry_id,))
     assert await awaits(session, entry_id) is False
 
     await handle_update(session, message(chat_id, "Shipped the export fix."))
@@ -177,7 +177,7 @@ async def test_skip_skips_the_waiting_question(
     """Even one that has lapsed but hasn't been let go yet."""
     _, entry_id = await asked_entry(session, chat_id, asked=SENT - timedelta(minutes=asked_ago))
     handled = await handle_update(session, message(chat_id, "/skip"))
-    assert handled == Handled((sent(chat_id, SKIPPED), without_skip(chat_id)), ready=entry_id)
+    assert handled == Handled((sent(chat_id, SKIPPED), without_skip(chat_id)), ready=(entry_id,))
     assert await awaits(session, entry_id) is False
     assert await entries_of(session, chat_id) == [], "commands aren't journaled"
 
@@ -230,6 +230,6 @@ async def test_a_new_roles_name_comes_before_the_answer(
     session.add(other)
     await session.flush()
     handled = await handle_update(session, message(chat_id, "Data Engineer, Fabrikam"))
-    assert handled.ready == other.id
+    assert handled.ready == (other.id,)
     assert await entries_of(session, chat_id) == []
     assert await awaits(session, entry_id) is True

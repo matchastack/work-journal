@@ -2,7 +2,8 @@
 
 Besides preferences, two keys keep the LinkedIn pack's state (T-024): the pack last written, and
 the snapshot of the sections last marked done. `reminders` holds the owner's reminder schedule
-and pause, and `reminder_state` the bot's record of the reminders it sent or skipped (T-035).
+and pause, and `reminder_state` the bot's record of the reminders it sent or skipped (T-035) and
+of the open questions they asked (T-036).
 """
 
 import uuid

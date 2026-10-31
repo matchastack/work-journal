@@ -136,6 +136,8 @@ The bot reminds you to journal on your schedule: by default on Fridays at 18:00,
 - **Remind me tomorrow** brings the reminder back the next day at the same time.
 - `/pause` stops reminders and `/resume` restarts them; `/resume` says when they go out.
 
+**Open questions.** If your master resume has open questions (details a bullet needs, such as a number or your part in the work), a reminder ends with the most valuable one, with an **Answer the question** button. Press it and send your answer in one message that makes sense on its own, within 30 minutes. It becomes an entry of its own, and its facts, from your words only, are linked to the question. The next `/refresh` then proposes the stronger bullet, and the question counts as answered once you accept that change in the Inbox. Questions take turns, most valuable first; one whose answer you reject in the Inbox comes back later.
+
 On the hosted app, the reminder goes out with the daily tick, which runs at 18:00 Singapore time, so it arrives between 18:00 and 19:00. A reminder that can't go out within 4 hours of its time, the same day, is skipped. For another reminder time, move the tick's hour too (`docs/deploy.md`, step 5). With `uv run wj worker` running, reminders go out on the minute.
 
 ### Commands
@@ -151,7 +153,7 @@ On the hosted app, the reminder goes out with the daily tick, which runs at 18:0
 
 Commands are never journaled. Message text is stored encrypted and is never logged.
 
-**Coming:** prompts for open questions (T-036) and a catch-up interview (T-037).
+**Coming:** a catch-up interview (T-037).
 
 ## The web app
 
