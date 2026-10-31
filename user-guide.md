@@ -59,6 +59,7 @@ Open `http://localhost:8000/healthz` to check it is up, or `http://localhost:800
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` | The bot's token from @BotFather, and a random secret for the webhook |
 | `ANTHROPIC_API_KEY`, `LLM_MODEL_HEAVY`, `LLM_MODEL_STANDARD`, `LLM_MODEL_LIGHT` | Claude. Any command that writes or reads text with the model needs these |
 | `ENTRY_TIMEOUT_MINUTES` | Minutes of quiet that close a journal entry (default 30) |
+| `REMINDER_DAYS`, `REMINDER_TIME`, `REMINDER_TIME_ZONE` | When the bot reminds you to journal: days such as `fri` or `mon,thu`, a local time and an IANA time zone (default Fridays at 18:00, Asia/Singapore) |
 
 ### Local database
 
@@ -127,6 +128,16 @@ When an entry closes, the bot may then:
 2. **Ask which role the entry is about.** Tap a role, or **New role** and send its title and organisation as your next message.
 3. **Reply with the facts it saved.** The reply links to the entry in the web app's Journal page.
 
+### Reminders
+
+The bot reminds you to journal on your schedule: by default on Fridays at 18:00, Asia/Singapore (set `REMINDER_DAYS`, `REMINDER_TIME` and `REMINDER_TIME_ZONE` to change it). There's no reminder if you journaled in the last 3 days.
+
+- **Nothing this week** notes that there was nothing to journal and skips the rest of the week's reminders.
+- **Remind me tomorrow** brings the reminder back the next day at the same time.
+- `/pause` stops reminders and `/resume` restarts them; `/resume` says when they go out.
+
+On the hosted app, the reminder goes out with the daily tick, which runs at 18:00 Singapore time, so it arrives between 18:00 and 19:00. A reminder that can't go out within 4 hours of its time, the same day, is skipped. For another reminder time, move the tick's hour too (`docs/deploy.md`, step 5). With `uv run wj worker` running, reminders go out on the minute.
+
 ### Commands
 
 | Command | What it does |
@@ -134,11 +145,13 @@ When an entry closes, the bot may then:
 | `/done` | Close the current entry now |
 | `/skip` | Skip the question about the last entry |
 | `/refresh` | Propose profile changes from your new facts. The bot says how many it proposes with a link to the Inbox, or that there is nothing new. While a refresh runs, `/refresh` says so. If proposals are still waiting, decide on them before sending it again |
+| `/pause` | Stop reminders |
+| `/resume` | Restart reminders, and say when they go out |
 | `/help` | List the commands |
 
 Commands are never journaled. Message text is stored encrypted and is never logged.
 
-**Coming:** reminders to journal (T-035), prompts for open questions (T-036) and a catch-up interview (T-037).
+**Coming:** prompts for open questions (T-036) and a catch-up interview (T-037).
 
 ## The web app
 
@@ -305,7 +318,7 @@ Every sentence written passes the verifier before it is stored or printed.
 | Task | Command |
 |---|---|
 | Run the background worker (queued jobs and scheduled tasks) until Ctrl-C | `uv run wj worker` |
-| Run one tick of background work, as the hosted app's daily cron does | `uv run wj tick` |
+| Run one tick of background work, as the hosted app's daily cron does (at 18:00 Singapore time) | `uv run wj tick` |
 | Apply database migrations | `uv run alembic upgrade head` |
 | Make a new encryption key | `uv run wj keys new` |
 | Re-encrypt stored text with the first key in `DATA_ENCRYPTION_KEY` | `uv run wj keys rotate` |

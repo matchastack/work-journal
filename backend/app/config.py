@@ -5,6 +5,7 @@ Every variable is listed in `backend/.env.example`; empty values fall back to th
 """
 
 import re
+from datetime import time
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal
@@ -12,6 +13,8 @@ from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+from app.schema.settings import Days, LocalTime, TimeZone
 
 REPOSITORY = Path(__file__).resolve().parents[2]
 BACKEND = Path(__file__).resolve().parents[1]
@@ -78,6 +81,13 @@ class Settings(BaseSettings):
     entry_timeout_minutes: Annotated[int, Field(ge=1)] = 30
     """Minutes of quiet after which a journal entry closes, and the next message starts a new one
     (FR-CAP-4)."""
+    reminder_days: Annotated[Days, NoDecode] = ("fri",)
+    """The days reminders go out for a user who hasn't chosen theirs (FR-REM-1): `mon` to `sun`,
+    separated by commas, as in `REMINDER_DAYS=mon,thu`."""
+    reminder_time: LocalTime = time(18, 0)
+    """The local time those reminders go out, in hours and minutes, such as `18:00`."""
+    reminder_time_zone: TimeZone = "Asia/Singapore"
+    """The IANA time zone of `reminder_time`."""
     cron_secret: SecretStr | None = None
     """The secret Vercel's cron sends to `/internal/tick` as `Authorization: Bearer <secret>`.
     Without it, the tick refuses every request."""
@@ -110,6 +120,14 @@ class Settings(BaseSettings):
     def https(self) -> bool:
         """Whether the app is served over HTTPS, as it is everywhere but on this computer."""
         return self.app_url.startswith("https://")
+
+    @field_validator("reminder_days", mode="before")
+    @classmethod
+    def split_days(cls, value: object) -> object:
+        """Accept a list separated by commas or spaces, in any case: `REMINDER_DAYS=Mon, Thu`."""
+        if isinstance(value, str):
+            return [day.lower() for day in re.split(r"[\s,]+", value) if day]
+        return value
 
     @field_validator("allowed_github_logins", mode="before")
     @classmethod

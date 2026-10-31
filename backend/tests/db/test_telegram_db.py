@@ -6,7 +6,7 @@ import json
 import random
 import uuid
 from collections.abc import Iterator
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -328,6 +328,8 @@ def test_polling_journals_updates_as_the_webhook_does(database_url: str, chat_id
         "done",
         "skip",
         "refresh",
+        "pause",
+        "resume",
         "help",
     ]
     assert calls[3][1] == {"chat_id": stranger, "text": LINK_HINT}
@@ -453,6 +455,23 @@ def test_help_lists_the_commands(
     assert "/refresh - propose profile changes from your new facts" in answer
     assert "/help - list the commands" in answer
     assert entries(database_url, chat_id) == []
+
+
+def test_the_webhook_follows_the_default_reminder_schedule(database_url: str, chat_id: int) -> None:
+    """For an owner who hasn't chosen theirs: `REMINDER_DAYS`, `REMINDER_TIME` and
+    `REMINDER_TIME_ZONE` (FR-REM-1). The reminders themselves are tested in
+    `test_telegram_reminders_db.py`."""
+    settings = Settings(
+        database_url=SecretStr(database_url),
+        telegram_webhook_secret=SecretStr(SECRET),
+        reminder_days=("mon",),
+        reminder_time=time(7, 30),
+        reminder_time_zone="Europe/London",
+    )
+    link(database_url, chat_id)
+    with TestClient(create_app(settings)) as client:
+        answer = send(client, chat_id, 1, NINE, "/resume")
+    assert answer == "Reminders are already on: Mondays at 07:30 (Europe/London)."
 
 
 def test_an_unknown_command_is_not_journaled(
