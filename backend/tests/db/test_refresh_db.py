@@ -20,15 +20,18 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import app.jobs as job_module
+import app.render.resume as resume_module
 from app.config import Settings, get_settings
 from app.db.crypto import KeyRing, new_key, use_key_ring
 from app.db.models import FactRow, LlmCallRow, Refresh, TelegramLink, User
 from app.db.profiles import decide_op, list_change_sets, propose_change_set, save_version
 from app.db.store import (
+    find_render,
     get_artifact,
     list_applications,
     save_application,
     save_facts,
+    save_render,
     store_artifact,
 )
 from app.inbox.review import apply_change_set
@@ -51,11 +54,14 @@ from app.refresh import (
     RefreshInterrupted,
     begin_proposals,
     change_set_decided,
+    master_selection,
     outputs_to_update,
     record_outputs,
     record_proposals,
     start_refresh,
 )
+from app.render.compile import CompiledPdf, CompileError
+from app.render.resume import RenderedResume, StoredRender, render_key
 from app.schema.changes import AddSkill, ChangeSet, ReviewedOp
 from app.schema.fact import Fact
 from app.schema.jobs import Application, JobPosting
@@ -339,6 +345,41 @@ async def test_outputs_that_cant_be_rendered_are_marked_failed(session: AsyncSes
     assert await outputs_to_update(session, refresh_id) is None
 
 
+def master_render(profile: Profile, pdf: bytes, *, reused: bool = False) -> RenderedResume:
+    """The master document of `profile`, as LaTeX would render it into `pdf`."""
+    chosen = master_selection(profile)
+    return RenderedResume(
+        pdf=pdf,
+        tex="\\documentclass{article}",
+        pages=2,
+        text="Casey Morgan",
+        cuts=(),
+        warnings=(),
+        selection=chosen,
+        key=render_key(chosen),
+        reused=reused,
+    )
+
+
+async def test_the_rendered_master_resume_is_kept_with_its_render(
+    session: AsyncSession,
+) -> None:
+    """FR-RES-5, T-044: the PDF and its page count go with the refresh, and the render is kept
+    under its key, so the same source isn't compiled again."""
+    user_id = await new_user(session)
+    refresh_id = await due(session, user_id)
+    job = await outputs_to_update(session, refresh_id)
+    assert job is not None
+    rendered = master_render(PROFILE, b"%PDF-1.5 master")
+    assert await record_outputs(session, job, rendered, now=NOW)
+    row = await refresh_row(session, refresh_id)
+    sha256 = hashlib.sha256(b"%PDF-1.5 master").hexdigest()
+    assert (row.outputs, row.master_pdf_sha256, row.master_pages) == ("updated", sha256, 2)
+    assert await find_render(session, user_id, rendered.key) == StoredRender(
+        pdf=b"%PDF-1.5 master", bullet_cuts=0
+    )
+
+
 async def test_superseded_outputs_are_left_as_they_are(session: AsyncSession) -> None:
     user_id = await new_user(session)
     first = await due(session, user_id)
@@ -584,6 +625,53 @@ async def test_the_sweep_queues_what_refreshes_wait_for(committed: Committed) ->
     assert len(queued) == len(set(map(str, queued))), "queued once"
 
 
+async def test_the_output_update_uses_a_kept_render_of_the_same_source(
+    committed: Committed, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """T-044: renders are cached by content hash. A refresh whose version renders to LaTeX
+    source rendered before, such as one with nothing new, keeps that PDF without compiling."""
+
+    def no_compile(source: str, **_: object) -> CompiledPdf:
+        raise AssertionError("the master resume was compiled again")
+
+    monkeypatch.setattr(resume_module, "compile_latex", no_compile)
+    user_id, refresh_id = await committed()
+    pdf = (Path(__file__).parents[1] / "fixtures" / "pdfs" / "backend-resume.pdf").read_bytes()
+    async with database() as session:
+        await save_render(session, user_id, master_render(PROFILE, pdf))
+        inputs = await begin_proposals(session, refresh_id, now=NOW)
+        assert inputs is not None
+        await record_proposals(session, inputs, Synthesis(change_set=None), now=NOW)
+
+    await run_output_update(refresh_id)
+    row = await committed_row(refresh_id)
+    assert (row.outputs, row.output_version) == ("updated", 1)
+    assert (row.master_pdf_sha256, row.master_pages) == (hashlib.sha256(pdf).hexdigest(), 1)
+
+
+async def test_a_master_resume_that_cant_be_rendered_fails_the_outputs(
+    committed: Committed, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Without TeX Live, say: the error's type is logged, never the LaTeX log."""
+
+    def fail(source: str, **_: object) -> CompiledPdf:
+        raise CompileError("LaTeX failed: ! Undefined control sequence.", log=source)
+
+    monkeypatch.setattr(resume_module, "compile_latex", fail)
+    user_id, refresh_id = await committed()
+    async with database() as session:
+        inputs = await begin_proposals(session, refresh_id, now=NOW)
+        assert inputs is not None
+        await record_proposals(session, inputs, Synthesis(change_set=None), now=NOW)
+
+    await run_output_update(refresh_id)
+    row = await committed_row(refresh_id)
+    assert (row.outputs, row.master_pdf_sha256) == ("failed", None)
+    async with database() as session:
+        key = render_key(master_selection(PROFILE))
+        assert await find_render(session, user_id, key) is None
+
+
 @pytest.mark.latex
 async def test_the_output_update_renders_the_master_resume(committed: Committed) -> None:
     """FR-RES-5: the master resume from the refresh's version, kept as a PDF. A tailored resume
@@ -621,5 +709,7 @@ async def test_the_output_update_renders_the_master_resume(committed: Committed)
             "application/pdf",
             tailored,
         )
+        kept = await find_render(session, user_id, render_key(master_selection(PROFILE)))
+        assert kept == StoredRender(pdf=stored[1], bullet_cuts=0), "kept under its key"
     await run_output_update(refresh_id)
     assert (await committed_row(refresh_id)).outputs_at == row.outputs_at, "once"

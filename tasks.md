@@ -853,14 +853,19 @@ As the owner, I want to manage the metadata that drives tailoring, so that my ma
 - [ ] Tests.
 
 ### T-044 · Resumes page
-**Status:** ☐ · **Size:** M · **Depends on:** T-010, T-011, T-027, T-039 · **Requirements:** FR-RES-5, FR-RES-6 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-010, T-011, T-027, T-039 · **Requirements:** FR-RES-5, FR-RES-6 · **PR:** [#69](https://github.com/matchastack/work-journal/pull/69)
 
 As the owner, I want to preview and download my master resume and my tailored resumes, so that I always have a current version ready.
 
-- [ ] Lists the master document from the latest refresh and every tailored resume, with a PDF preview and a download for each.
-- [ ] Shows a PDF preview, a page-count badge, the cut report and lint findings, with a download button.
-- [ ] Renders are cached by content hash.
-- [ ] Tests.
+- [x] Lists the master document from the latest refresh and every tailored resume, with a PDF preview and a download for each.
+- [x] Shows a PDF preview, a page-count badge, the cut report and lint findings, with a download button.
+- [x] Renders are cached by content hash.
+- [x] Tests.
+
+**Built (2026-10-30):**
+- The API never runs LaTeX (C6): the page shows the PDFs rendered on the owner's computer, by `wj tick` or `wj worker` after a refresh and by `wj tailor --db`, and says which command renders a master resume that waits. While it waits, the last one rendered is listed too.
+- A render is kept under the SHA-256 of what it's made from: the LaTeX source of the whole selection, the template's other files and, with a page limit, the order fitting cuts in. A render whose key is kept isn't compiled again, by the output update, `wj render --db` or `wj tailor --db`. Its page count, cut report and warnings are kept with it (`renders`, migration 0016).
+- The master's lint findings are the profile check (`wj lint`) of the version it shows; a tailored resume's are the resume rules' findings kept with its application.
 
 ### T-045 · Tailor page and application history
 **Status:** ☐ · **Size:** M · **Depends on:** T-021, T-022, T-039 · **Requirements:** FR-TLR-1, FR-TLR-2, FR-TLR-3, FR-TLR-4, FR-TLR-6, FR-TLR-7, FR-TLR-8, FR-TLR-9 · **PR:** —

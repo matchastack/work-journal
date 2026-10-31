@@ -494,7 +494,7 @@ Owner's machine: the `wj` commands, including `wj render --db` (LaTeX) and `wj g
 | Accounts | `users`, `settings`, `telegram_links` |
 | Journal | `telegram_updates`, `journal_messages`, `journal_entries`, `facts`, `repo_links`, `repo_items` |
 | Profile | `profile_versions`, `change_sets`, `change_ops`, `variants`, `publications` |
-| Applications | `job_postings`, `applications`, `artifacts` |
+| Applications and resumes | `job_postings`, `applications`, `artifacts`, `renders` |
 | Operations | `llm_calls` |
 
 ## 14. Milestones

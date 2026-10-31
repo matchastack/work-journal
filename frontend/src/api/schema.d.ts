@@ -364,6 +364,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/resumes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resumes
+         * @description The master resume from the latest refresh (FR-RES-5, FR-RES-6), and every tailored
+         *     resume, newest first, with each PDF's page count, cut report and rule findings.
+         */
+        get: operations["resumes_api_resumes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resumes/pdf/{sha256}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Pdf
+         * @description A resume's PDF, to preview in the page (inline) or, with `download=true`, to save. 404
+         *     when no resume of the owner's has it.
+         */
+        get: operations["pdf_api_resumes_pdf__sha256__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -544,6 +586,23 @@ export interface components {
             projectId: string | null;
             /** Proposedrole */
             proposedRole: string | null;
+        };
+        /** Finding */
+        Finding: {
+            /**
+             * Rule
+             * @enum {string}
+             */
+            rule: "dates" | "spelling" | "duplicates" | "R1" | "R2" | "R3" | "R4" | "R9" | "R10";
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "error" | "warning";
+            /** Location */
+            location: string;
+            /** Message */
+            message: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -762,6 +821,39 @@ export interface components {
             /** Edits */
             edits: components["schemas"]["MessageEdit"][];
         };
+        /** LintReport */
+        LintReport: {
+            /**
+             * Findings
+             * @default []
+             */
+            findings: components["schemas"]["Finding"][];
+            /**
+             * Notes
+             * @default []
+             */
+            notes: string[];
+        };
+        /**
+         * MasterResume
+         * @description The full master document (FR-RES-6) of one refresh (FR-RES-5).
+         */
+        MasterResume: {
+            /** Version */
+            version: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "updated" | "failed";
+            /**
+             * Changedat
+             * Format: date-time
+             */
+            changedAt: string;
+            pdf: components["schemas"]["ResumePdf"] | null;
+            lint: components["schemas"]["LintReport"] | null;
+        };
         /** Me */
         Me: {
             /**
@@ -859,6 +951,44 @@ export interface components {
             /** Items */
             items: components["schemas"]["RepoItem"][];
         };
+        /**
+         * ResumeCut
+         * @description Content cut to fit the page limit (FR-RES-7).
+         */
+        ResumeCut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "bullet" | "role" | "project";
+            /** Id */
+            id: string;
+            /** Text */
+            text: string;
+        };
+        /** ResumePdf */
+        ResumePdf: {
+            /** Sha256 */
+            sha256: string;
+            /** Pages */
+            pages: number | null;
+            /** Cuts */
+            cuts: components["schemas"]["ResumeCut"][] | null;
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: string[];
+        };
+        /** Resumes */
+        Resumes: {
+            /** Profileversion */
+            profileVersion: number | null;
+            master: components["schemas"]["MasterResume"] | null;
+            lastRendered: components["schemas"]["MasterResume"] | null;
+            /** Tailored */
+            tailored: components["schemas"]["TailoredResume"][];
+        };
         /** RoleOption */
         RoleOption: {
             /** Id */
@@ -890,6 +1020,32 @@ export interface components {
             statement: string | null;
             /** Entryid */
             entryId: string | null;
+        };
+        /**
+         * TailoredResume
+         * @description A resume tailored to a job posting, as its application logged it (FR-TLR-8).
+         */
+        TailoredResume: {
+            /** Id */
+            id: string;
+            /** Company */
+            company: string;
+            /** Position */
+            position: string;
+            /**
+             * Appliedon
+             * Format: date
+             */
+            appliedOn: string;
+            /**
+             * Loggedat
+             * Format: date-time
+             */
+            loggedAt: string;
+            pdf: components["schemas"]["ResumePdf"] | null;
+            rules: components["schemas"]["LintReport"] | null;
+            /** Sendable */
+            sendable: boolean;
         };
         /** TelegramDeepLink */
         TelegramDeepLink: {
@@ -1507,6 +1663,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Applied"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resumes_api_resumes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Resumes"];
+                };
+            };
+        };
+    };
+    pdf_api_resumes_pdf__sha256__get: {
+        parameters: {
+            query?: {
+                download?: boolean;
+            };
+            header?: never;
+            path: {
+                sha256: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
                 };
             };
             /** @description Validation Error */

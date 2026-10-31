@@ -1,10 +1,17 @@
+import re
 from pathlib import Path
 
 import pytest
 
 import app.render.resume as resume_module
 from app.render.compile import CompiledPdf
-from app.render.resume import RenderError, contact_items, render_resume
+from app.render.resume import (
+    RenderError,
+    StoredRender,
+    contact_items,
+    render_key,
+    render_resume,
+)
 from app.schema.profile import Profile, SocialProfile
 from app.schema.variant import Variant
 from app.selection import MASTER_VARIANT, Contact, Selection, select
@@ -155,3 +162,105 @@ def test_without_a_page_limit_nothing_is_cut() -> None:
 def test_template_problems_are_render_errors(template: str, message: str) -> None:
     with pytest.raises(RenderError, match=message):
         render_resume(selection(template=template), TEMPLATES)
+    with pytest.raises(RenderError, match=message):
+        render_key(selection(template=template), TEMPLATES)
+
+
+# --- Renders cached by content hash ---------------------------------------------------------------
+
+
+def with_bullet(chosen: Selection, bullet_id: str, **changes: object) -> Selection:
+    """`chosen` with one of its roles' bullets changed."""
+    work = tuple(
+        role.model_copy(
+            update={
+                "bullets": tuple(
+                    bullet.model_copy(update=changes) if bullet.id == bullet_id else bullet
+                    for bullet in role.bullets
+                )
+            }
+        )
+        for role in chosen.work
+    )
+    return chosen.model_copy(update={"work": work})
+
+
+def fake_compile(source: str, **_: object) -> CompiledPdf:
+    """One page per three bullets, so the tiny template's selection needs cuts."""
+    pages = 1 + source.count("\n- ") // 3
+    return CompiledPdf(pdf=b"%PDF", pages=pages, text=source, bitmap_fonts=False)
+
+
+def no_compile(source: str, **_: object) -> CompiledPdf:
+    raise AssertionError("a stored render isn't compiled again")
+
+
+def test_the_key_is_the_hash_of_what_the_render_is_made_from(tmp_path: Path) -> None:
+    master = selection()
+    key = render_key(master)
+    assert re.fullmatch(r"[0-9a-f]{64}", key)
+    assert render_key(select(PROFILE, MASTER_VARIANT)) == key, "the same source, the same key"
+    assert render_key(with_bullet(master, "nw_export", text="Cut the export job.")) != key
+    assert render_key(master.model_copy(update={"template": "tiny"}), TEMPLATES) != key
+
+    tiny = master.model_copy(update={"template": "tiny"})
+    (tmp_path / "tiny").mkdir()
+    (tmp_path / "tiny" / "resume.tex").write_bytes((TEMPLATES / "tiny" / "resume.tex").read_bytes())
+    assert render_key(tiny, tmp_path) == render_key(tiny, TEMPLATES)
+    (tmp_path / "tiny" / "resume.cls").write_text("% a class file", encoding="utf-8")
+    assert render_key(tiny, tmp_path) != render_key(tiny, TEMPLATES), "other files count too"
+
+
+def test_with_a_page_limit_the_order_of_cuts_counts_too() -> None:
+    """Which bullets fitting cuts depends on their priority, which the source doesn't show."""
+    unlimited = selection(template="tiny", max_pages=None)
+    limited = selection(template="tiny", max_pages=1)
+    assert render_key(unlimited, TEMPLATES) != render_key(limited, TEMPLATES)
+    lower = "nw_orders"
+    assert render_key(with_bullet(unlimited, lower, priority=3), TEMPLATES) == render_key(
+        unlimited, TEMPLATES
+    ), "nothing is cut without a limit"
+    assert render_key(with_bullet(limited, lower, priority=3), TEMPLATES) != render_key(
+        limited, TEMPLATES
+    )
+
+
+def test_a_render_knows_its_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(resume_module, "compile_latex", fake_compile)
+    chosen = selection(template="tiny", max_pages=1)
+    rendered = render_resume(chosen, TEMPLATES)
+    assert (rendered.key, rendered.reused) == (render_key(chosen, TEMPLATES), False)
+
+
+def test_a_stored_render_is_rebuilt_without_compiling(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The stored PDF, and the same cuts made to the selection, so the source, the cut report
+    and what the PDF shows match the first render."""
+    chosen = selection(template="tiny", max_pages=1)
+    monkeypatch.setattr(resume_module, "compile_latex", fake_compile)
+    first = render_resume(chosen, TEMPLATES)
+    bullets = sum(cut.kind == "bullet" for cut in first.cuts)
+    assert bullets and len(first.cuts) > bullets, "a role or project went with its bullets"
+
+    monkeypatch.setattr(resume_module, "compile_latex", no_compile)
+    pdf = (FIXTURES / "pdfs" / "backend-resume.pdf").read_bytes()
+    again = render_resume(chosen, TEMPLATES, stored=StoredRender(pdf=pdf, bullet_cuts=bullets))
+    assert again.reused
+    assert (again.key, again.tex, again.cuts, again.selection) == (
+        first.key,
+        first.tex,
+        first.cuts,
+        first.selection,
+    )
+    assert (again.pdf, again.pages, again.warnings) == (pdf, 1, ())
+    assert "Casey Morgan" in again.text
+
+
+def test_a_stored_render_without_cuts_is_the_whole_selection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(resume_module, "compile_latex", no_compile)
+    pdf = (FIXTURES / "pdfs" / "backend-resume.pdf").read_bytes()
+    chosen = selection()
+    rendered = render_resume(chosen, stored=StoredRender(pdf=pdf, bullet_cuts=0))
+    assert (rendered.cuts, rendered.selection, rendered.key) == ((), chosen, render_key(chosen))
+    assert "\\documentclass" in rendered.tex

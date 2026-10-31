@@ -60,6 +60,12 @@ export function dateAndTime(iso: string): string {
   return `${String(date.getDate())} ${shortMonth(date)} ${String(date.getFullYear())}, ${clockTime(iso)}`;
 }
 
+/** A calendar date such as `2026-10-04`, which has no time zone, as `4 Oct 2026`. */
+export function calendarDate(day: string): string {
+  const [year = "", month = "", date = ""] = day.split("-");
+  return `${String(Number(date))} ${MONTHS[Number(month) - 1]?.slice(0, 3) ?? month} ${year}`;
+}
+
 /** A fact's `YYYY-MM` date as `Oct 2026`. */
 export function factMonth(yearMonth: string): string {
   const [year = "", month = ""] = yearMonth.split("-");

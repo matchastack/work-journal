@@ -28,6 +28,7 @@ Every generated sentence is checked against your facts, so wording never changes
 | Record what you did | The Telegram bot |
 | Fix a note or a saved fact | The web app, Journal page |
 | Update your profile from new notes | `/refresh` in Telegram, then the web app's Inbox |
+| Preview and download your master resume and tailored resumes | The web app, Resumes page |
 | Render the master resume, tailor a resume, build the portfolio page, write LinkedIn text | The command-line tool (web pages **Coming**) |
 | See what a GitHub repository's history would give one of your projects, and the facts in it | `wj github digest`, then `wj github extract` (saving the facts for `/refresh` is **Coming**: T-069 to T-072) |
 
@@ -149,7 +150,7 @@ Open `http://localhost:5173` while developing, or your deployed address. Sign in
 | [Inbox](#inbox) | Built | Review the changes proposed from your journal |
 | [Journal](#journal) | Built | Everything you sent the bot, with the facts saved from it |
 | Profile | Coming (T-042, T-043) | Your roles, projects and skills, with every earlier version |
-| Resumes | Coming (T-044) | Preview and download resume variants |
+| [Resumes](#resumes) | Built | Preview and download your master resume and tailored resumes |
 | Tailor | Coming (T-045) | Tailor a resume to a job posting, and see where you applied |
 | Portfolio | Coming (T-046) | Choose what the public page shows, and publish it |
 | LinkedIn | Coming (T-047) | Copy the updated sections into LinkedIn |
@@ -186,6 +187,17 @@ You can correct anything in place:
 
 **Download Markdown** and **Download JSON** at the top save the whole journal.
 
+### Resumes
+
+Your master resume from the latest refresh comes first, then every resume you tailored to a job posting, newest first. Each one has a preview of its PDF (if your browser shows none, use **Open the PDF in a new tab**) and a **Download PDF** button.
+
+- **Master resume:** your whole profile, on as many pages as it takes, with the profile version it shows and its page count. The hosted app can't run LaTeX, so after you apply a refresh's changes the page says the new version waits to be rendered: run `uv run wj tick` on your computer, where TeX Live is installed, and reload the page. Until then, the last master resume rendered is shown below it. If your profile has changed since the latest refresh, the page says so; send `/refresh` to bring the resume up to date.
+- **Tailored resumes:** each shows the role and company, the date you made it and its application ID. **Show preview** opens its PDF. Its page count is red if it isn't one page. A resume that breaks a resume rule is marked **Don't send**, with the errors under Resume rules; fix them and tailor it again before you send anything.
+- **Cut report:** what was left out to fit one page, lowest value first. The master resume is never cut.
+- **Checks:** for the master resume, the profile check (`wj lint`) of its version; for a tailored resume, the resume rules' findings from when it was made.
+
+Resumes made with `wj tailor` without `--db` stay in `local/resumes/` and don't appear here.
+
 ## The command-line tool
 
 The `wj` tool runs from `backend/` as `uv run wj <command>`. Add `--help` to any command for its options. Most commands take their data from `local/` (for example `local/profile.json`); add `--db` to use the database instead, and `--user <github-login>` if the database has more than one user.
@@ -198,6 +210,8 @@ The `wj` tool runs from `backend/` as `uv run wj <command>`. Add `--help` to any
 | Render the master resume to `local/resumes/master.pdf`, with its `.tex` beside it | `uv run wj render` (add `--out <path>`) |
 
 Rendering needs TeX Live; install it as `backend/templates/README.md` says. Linting flags problems such as a placeholder, a skill from the gaps list or a suspicious number shared across roles. Fix them in the profile before sending anything.
+
+With `--db`, Work Journal keeps each render in the database. When nothing in the resume has changed since a render it kept, `wj render --db`, `wj tailor --db` and the refresh's master resume use that render again instead of compiling, and `wj render --db` says so.
 
 ### Update the profile from your journal
 
@@ -312,7 +326,7 @@ Every sentence written passes the verifier before it is stored or printed.
 | After each deploy of `main`: wait for the app, migrate, point Telegram at the webhook | `scripts/post-deploy.sh` |
 | Score the LLM steps on the fictional cases | `uv run wj eval all` (`--private` for your own cases in `local/evals/`) |
 
-**The master resume after a refresh.** The hosted app can't run LaTeX. After you apply changes in the Inbox, or when `/refresh` finds nothing new, run `uv run wj tick` on a computer with TeX Live and the settings from `docs/deploy.md` step 6. It renders the master resume and keeps it in the database, and `uv run wj render --db` writes the newest version to `local/resumes/master.pdf` at any time.
+**The master resume after a refresh.** The hosted app can't run LaTeX. After you apply changes in the Inbox, or when `/refresh` finds nothing new, run `uv run wj tick` on a computer with TeX Live and the settings from `docs/deploy.md` step 6. It renders the master resume and keeps it in the database, where the web app's [Resumes](#resumes) page shows it, and `uv run wj render --db` writes the newest version to `local/resumes/master.pdf` at any time.
 
 **Rotating keys.** Add the new key in front of the old one in `DATA_ENCRYPTION_KEY`, run `wj keys rotate`, and only then remove the old key.
 

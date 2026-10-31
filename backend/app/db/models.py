@@ -314,6 +314,33 @@ class Artifact(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class RenderRow(Base):
+    """A resume rendered from LaTeX, kept under its key (`render_key` in `app/render/resume.py`):
+    the SHA-256 of the LaTeX source it was compiled from, with the template's other files and the
+    order fitting cuts in. A render whose key is kept isn't compiled again (T-044): its PDF, in
+    `artifacts`, is used as it is. The master resume of a refresh and a tailored resume find
+    theirs by the PDF's hash."""
+
+    __tablename__ = "renders"
+    __table_args__ = (
+        ForeignKeyConstraint(["user_id", "pdf_sha256"], ["artifacts.user_id", "artifacts.sha256"]),
+        Index(None, "user_id", "pdf_sha256"),
+        CheckConstraint("pages > 0", name="pages"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    pdf_sha256: Mapped[str] = mapped_column(String(64))
+    pages: Mapped[int]
+    cuts: Mapped[list[dict[str, Any]]] = mapped_column(JSONB)
+    """What was cut to fit the page limit, in the order it was cut: each one's kind (`bullet`,
+    `role` or `project`), ID and text."""
+    warnings: Mapped[list[str]] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class ApplicationRow(Base):
     """A tailored resume made for one job posting (FR-TLR-8), with its verifier report
     (FR-FID-8) and its PDF."""

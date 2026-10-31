@@ -15,8 +15,9 @@
    show the newest version then, so edits the owner made since the last refresh reach them too.
 4. The `update_outputs` job renders the master resume from that version and keeps the PDF
    (`outputs_to_update`, `record_outputs`). Rendering needs LaTeX, which Vercel lacks (C6), so the
-   job waits for a worker that has it (`LATEX_QUEUE` in `app/jobs.py`). Tailored resumes made
-   before are never changed.
+   job waits for a worker that has it (`LATEX_QUEUE` in `app/jobs.py`). A render of the same
+   LaTeX source kept before, such as a refresh's with nothing new, is used again rather than
+   compiled (`render_key`). Tailored resumes made before are never changed.
 
 Nothing here runs on a schedule or when an entry closes. Fact text is never logged.
 """
@@ -34,13 +35,13 @@ from app import selection
 from app.db.models import ChangeSetRow, FactRow, ProfileVersionRow, Refresh, User
 from app.db.profiles import Version, get_version, latest_version, propose_change_set
 from app.db.settings import get_style_notes
-from app.db.store import store_artifact
-from app.render.resume import RenderedResume, render_resume
+from app.db.store import save_render
+from app.render.resume import RenderedResume
 from app.schema.fact import Fact
 from app.schema.profile import Profile
+from app.selection import Selection
 from app.synthesis import Synthesis
 
-PDF = "application/pdf"
 UNFINISHED_AFTER = timedelta(minutes=30)
 """How long after a try at a refresh started it counts as unfinished: well past the 300 s a try
 may run in a tick, and time enough for `wj propose --db`, which has no limit. Until then, another
@@ -302,17 +303,17 @@ async def outputs_to_update(session: AsyncSession, refresh_id: uuid.UUID) -> Out
     )
 
 
-def render_master(profile: Profile) -> RenderedResume:
-    """The full master document (FR-RES-5, FR-RES-6). Raises what `render_resume` raises."""
-    return render_resume(selection.select(profile, selection.MASTER_VARIANT))
+def master_selection(profile: Profile) -> Selection:
+    """What the full master document shows (FR-RES-5, FR-RES-6)."""
+    return selection.select(profile, selection.MASTER_VARIANT)
 
 
 async def record_outputs(
     session: AsyncSession, job: OutputsJob, rendered: RenderedResume | None, *, now: datetime
 ) -> bool:
-    """Keep the master resume rendered for the refresh, or mark its outputs failed when it
-    couldn't be rendered (None). Returns False, changing nothing, when they don't wait for this
-    update any more, such as when a later refresh's fell due."""
+    """Keep the master resume rendered for the refresh, with its render (`save_render`), or mark
+    its outputs failed when it couldn't be rendered (None). Returns False, changing nothing, when
+    they don't wait for this update any more, such as when a later refresh's fell due."""
     refresh = await session.scalar(
         select(Refresh).where(Refresh.id == job.refresh_id).with_for_update()
     )
@@ -322,7 +323,7 @@ async def record_outputs(
     if rendered is None:
         refresh.outputs = "failed"
         return True
-    refresh.master_pdf_sha256 = await store_artifact(session, job.user_id, rendered.pdf, PDF)
+    refresh.master_pdf_sha256 = await save_render(session, job.user_id, rendered)
     refresh.master_pages = rendered.pages
     refresh.outputs = "updated"
     return True

@@ -31,6 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.db.engine import create_engine, session_factory, with_query
 from app.db.models import JournalEntry
+from app.db.store import find_render
 from app.llm.client import LLMClient, LLMConfigError, LLMInvalidOutput, LLMRefusal
 from app.llm.usage import CallLog, DatabaseCallLog
 from app.refresh import (
@@ -38,15 +39,15 @@ from app.refresh import (
     begin_proposals,
     due_outputs,
     fail_refresh,
+    master_selection,
     outputs_to_update,
     record_outputs,
     record_proposals,
-    render_master,
     running_refreshes,
 )
 from app.render.compile import CompileError
 from app.render.fit import FitError
-from app.render.resume import RenderError
+from app.render.resume import RenderError, render_key, render_resume
 from app.synthesis import Synthesis, synthesize
 from app.telegram.api import BotApi, TelegramError
 from app.telegram.entries import close_quiet_entries
@@ -357,15 +358,20 @@ async def queue_output_update(refresh_id: uuid.UUID) -> bool:
 
 async def run_output_update(refresh_id: uuid.UUID) -> None:
     """Render the master resume from the version the refresh's outputs are to show, outside a
-    transaction, and keep it. A resume that can't be rendered won't render on a retry, so the
-    outputs are marked failed; the next refresh tries again. Only the error's type is logged: a
-    LaTeX error can quote the resume."""
+    transaction, and keep it. A render of the same LaTeX source kept before is used again
+    without compiling. A resume that can't be rendered won't render on a retry, so the outputs
+    are marked failed; the next refresh tries again. Only the error's type is logged: a LaTeX
+    error can quote the resume."""
     async with database() as session:
         job = await outputs_to_update(session, refresh_id)
     if job is None:
         return
+    chosen = master_selection(job.profile)
     try:
-        rendered = await asyncio.to_thread(render_master, job.profile)
+        key = render_key(chosen)
+        async with database() as session:
+            stored = await find_render(session, job.user_id, key)
+        rendered = await asyncio.to_thread(render_resume, chosen, stored=stored)
     except (CompileError, RenderError, FitError) as error:
         logger.warning(
             "couldn't render the master resume for refresh %s: %s",
@@ -376,7 +382,8 @@ async def run_output_update(refresh_id: uuid.UUID) -> None:
     async with database() as session:
         kept = await record_outputs(session, job, rendered, now=datetime.now(UTC))
     if kept and rendered is not None:
-        logger.info("the master resume shows profile version %d now", job.version)
+        how = "kept from an earlier render" if rendered.reused else "rendered"
+        logger.info("the master resume shows profile version %d now, %s", job.version, how)
 
 
 async def _give_up(entry_id: uuid.UUID, error: BaseException) -> None:
