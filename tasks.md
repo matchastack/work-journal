@@ -895,7 +895,7 @@ As the owner, I want a checklist of LinkedIn sections to paste, so that LinkedIn
 - [ ] Tests.
 
 ### T-048 · Settings page
-**Status:** ◐ · **Size:** M · **Depends on:** T-031, T-035, T-039 · **Requirements:** FR-SET-1, FR-SET-2, FR-SET-3, FR-SET-4, FR-SET-5, FR-SET-6, NFR-PRIV-3 · **PR:** [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+**Status:** ◐ · **Size:** M · **Depends on:** T-031, T-035, T-039 · **Requirements:** FR-SET-1, FR-SET-2, FR-SET-3, FR-SET-4, FR-SET-5, FR-SET-6, NFR-PRIV-3 · **PR:** [#70](https://github.com/matchastack/work-journal/pull/70)
 
 As the owner, I want all my preferences in one place, so that I can tune the app without code changes.
 

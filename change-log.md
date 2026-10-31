@@ -2,7 +2,7 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-30 · T-048 Settings page · [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+## 2026-10-30 · T-048 Settings page · [#70](https://github.com/matchastack/work-journal/pull/70)
 **Changed:** the web app's Settings page links Telegram with a deep link and a QR code, and edits the reminder schedule, time zone and pause, the portfolio page's settings, the style notes and the confidential terms; it also downloads all your data as JSON and deletes all of it once you type your GitHub username.
 
 **Verify:**
