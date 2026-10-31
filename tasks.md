@@ -895,17 +895,19 @@ As the owner, I want a checklist of LinkedIn sections to paste, so that LinkedIn
 - [ ] Tests.
 
 ### T-048 · Settings page
-**Status:** ☐ · **Size:** M · **Depends on:** T-031, T-035, T-039 · **Requirements:** FR-SET-1, FR-SET-2, FR-SET-3, FR-SET-4, FR-SET-5, FR-SET-6, NFR-PRIV-3 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-031, T-035, T-039 · **Requirements:** FR-SET-1, FR-SET-2, FR-SET-3, FR-SET-4, FR-SET-5, FR-SET-6, NFR-PRIV-3 · **PR:** [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
 
 As the owner, I want all my preferences in one place, so that I can tune the app without code changes.
 
-- [ ] Settings:
+- [x] Settings:
   - Telegram link, with a deep link and QR code
   - reminder schedule and time zone
   - portfolio handle, visibility, open to work and indexing
   - style notes and confidential terms
-- [ ] Export all data, and "delete all my data" with confirmation.
-- [ ] Tests.
+- [x] Export all data, and "delete all my data" with confirmation.
+- [x] Tests.
+
+**Built (2026-10-30):** each group is a typed key in the `settings` table, so no migration. The portfolio settings (a handle with no default while OQ-3 is open, unique across users; the default visibility; open to work; indexing, on by default) and the confidential terms are only kept until T-046 and T-049 read them. The page edits the style notes' words to avoid and notes as whole lists; a note kept keeps where it came from. The export holds every row of every table that belongs to the owner, and the raw Telegram updates from their chat, leaving out sign-in sessions and link tokens. Deleting, with the GitHub username typed to confirm, deletes the account and everything that cascades from it, the raw updates from the owner's chat and the jobs queued for their entries and refreshes, and signs them out.
 
 ### T-049 · Confidential terms and sensitive roles
 **Status:** ☐ · **Size:** S · **Depends on:** T-015, T-046 · **Requirements:** FR-SET-5, NFR-PRIV-4, R5 · **PR:** —
