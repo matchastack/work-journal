@@ -1003,6 +1003,114 @@
           }
         }
       }
+    },
+    "/api/portfolio": {
+      "get": {
+        "tags": [
+          "portfolio"
+        ],
+        "summary": "Portfolio",
+        "description": "Whether the page is published, the version it shows, its settings and its resumes.",
+        "operationId": "portfolio_api_portfolio_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortfolioView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/portfolio/publish": {
+      "post": {
+        "tags": [
+          "portfolio"
+        ],
+        "summary": "Publish Page",
+        "description": "Publish the page, at once (FR-PRT-3). Refused (409) without a handle or a profile.",
+        "operationId": "publish_page_api_portfolio_publish_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortfolioView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/portfolio/unpublish": {
+      "post": {
+        "tags": [
+          "portfolio"
+        ],
+        "summary": "Unpublish Page",
+        "description": "Take the page down. Caches may show it for up to about two minutes more.",
+        "operationId": "unpublish_page_api_portfolio_unpublish_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortfolioView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/portfolio/resumes": {
+      "put": {
+        "tags": [
+          "portfolio"
+        ],
+        "summary": "Change Resumes",
+        "description": "Replace the resumes visitors may download (FR-PRT-7). One that can't be offered, such as\na tailored resume with an error, is refused (409).",
+        "operationId": "change_resumes_api_portfolio_resumes_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResumesChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortfolioView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1069,6 +1177,50 @@
         ],
         "title": "ChangeValue",
         "description": "A change from one number to another, e.g. `50 → 12` (minutes)."
+      },
+      "ChosenResume": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "master",
+              "application"
+            ],
+            "title": "Source"
+          },
+          "applicationId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "pattern": "^[a-z0-9][a-z0-9_-]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applicationid"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source",
+          "label",
+          "available"
+        ],
+        "title": "ChosenResume",
+        "description": "A resume the owner chose to offer."
       },
       "Citation": {
         "properties": {
@@ -2472,7 +2624,103 @@
         "additionalProperties": false,
         "type": "object",
         "title": "PortfolioSettings",
-        "description": "The public portfolio page's settings (FR-SET-3, FR-PRT-4, FR-PRT-5), under `portfolio`.\n\nThe page and its publishing arrive with T-046, which reads these. Until then they're only\nkept."
+        "description": "The public portfolio page's settings (FR-SET-3, FR-PRT-4, FR-PRT-5), under `portfolio`.\n\nThe page (`app/portfolio/`) reads them each time it's shown, so a change shows at once."
+      },
+      "PortfolioView": {
+        "properties": {
+          "handle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Handle"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "published": {
+            "type": "boolean",
+            "title": "Published"
+          },
+          "publishedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publishedat"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          },
+          "newestVersion": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Newestversion"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/PortfolioSettings"
+          },
+          "resumes": {
+            "items": {
+              "$ref": "#/components/schemas/ChosenResume"
+            },
+            "type": "array",
+            "title": "Resumes"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/ResumeOption"
+            },
+            "type": "array",
+            "title": "Options"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "handle",
+          "path",
+          "published",
+          "publishedAt",
+          "version",
+          "newestVersion",
+          "settings",
+          "resumes",
+          "options"
+        ],
+        "title": "PortfolioView",
+        "description": "What the Portfolio page shows."
       },
       "ProjectOption": {
         "properties": {
@@ -2492,6 +2740,45 @@
           "name"
         ],
         "title": "ProjectOption"
+      },
+      "PublishedResume": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "master",
+              "application"
+            ],
+            "title": "Source"
+          },
+          "applicationId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "pattern": "^[a-z0-9][a-z0-9_-]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applicationid"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Label"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source",
+          "label"
+        ],
+        "title": "PublishedResume",
+        "description": "A resume visitors may download from the portfolio page (FR-PRT-7): the master resume or a\ntailored one, with the text of its button."
       },
       "RangeValue": {
         "properties": {
@@ -2721,6 +3008,69 @@
         ],
         "title": "RepoSource",
         "description": "Where a fact from GitHub comes from (FR-GH-6): its repository and the items it cites."
+      },
+      "ResumeOption": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "master",
+              "application"
+            ],
+            "title": "Source"
+          },
+          "applicationId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "pattern": "^[a-z0-9][a-z0-9_-]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applicationid"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Label"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source",
+          "name",
+          "label"
+        ],
+        "title": "ResumeOption",
+        "description": "A resume the owner may offer on the page."
+      },
+      "ResumesChange": {
+        "properties": {
+          "resumes": {
+            "items": {
+              "$ref": "#/components/schemas/PublishedResume"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "title": "Resumes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "resumes"
+        ],
+        "title": "ResumesChange",
+        "description": "The resumes the page offers, in order (FR-PRT-7)."
       },
       "RoleOption": {
         "properties": {

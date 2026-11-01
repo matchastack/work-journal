@@ -1,15 +1,17 @@
-"""The owner's settings, each stored as JSON under its key in `settings` (`app/db/settings.py`)."""
+"""The owner's settings, each stored as JSON under its key in `settings` (`app/db/settings.py`).
+
+Besides preferences, some keys keep state, such as whether the portfolio page is published."""
 
 import re
 from collections.abc import Sequence
 from datetime import date, datetime
 from datetime import time as clock_time
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import AfterValidator, AwareDatetime, Field, StringConstraints
+from pydantic import AfterValidator, AwareDatetime, Field, StringConstraints, model_validator
 
-from app.schema.common import Model, NonEmptyStr, Visibility
+from app.schema.common import Id, Model, NonEmptyStr, Visibility
 
 
 class StyleNote(Model):
@@ -135,19 +137,72 @@ Phrases = Annotated[tuple[Phrase, ...], Field(max_length=MAX_ITEMS), AfterValida
 class PortfolioSettings(Model):
     """The public portfolio page's settings (FR-SET-3, FR-PRT-4, FR-PRT-5), under `portfolio`.
 
-    The page and its publishing arrive with T-046, which reads these. Until then they're only
-    kept.
+    The page (`app/portfolio/`) reads them each time it's shown, so a change shows at once.
     """
 
     handle: Handle | None = None
     """The page's address, `/p/<handle>`. None until the owner chooses one: there's no default,
     since the handle is still an open question (OQ-3). No two users have the same one."""
     default_visibility: Visibility = "public"
-    """The visibility the page gives what the owner hasn't given a visibility of its own."""
+    """The visibility the page gives what the owner hasn't given a visibility of its own: the
+    website and the online profiles. The email, the phone, the location and each bullet have
+    their own (`app/schema/profile.py`). Only what's public shows on the page."""
     open_to_work: bool = False
     """Whether the page says the owner is open to work."""
     indexing: bool = True
     """Whether search engines may index the page. Off, the page asks them not to (noindex)."""
+
+
+ResumeLabel = Annotated[str, StringConstraints(min_length=1, max_length=60)]
+"""A download button's text on the portfolio page, such as `Resume`."""
+MAX_RESUMES = 5
+"""The most resumes the portfolio page offers."""
+
+
+class PublishedResume(Model):
+    """A resume visitors may download from the portfolio page (FR-PRT-7): the master resume or a
+    tailored one, with the text of its button."""
+
+    source: Literal["master", "application"]
+    """`master`: the master resume the latest refresh rendered, which changes with each refresh.
+    `application`: the tailored resume of one application."""
+    application_id: Id | None = None
+    """The application, for a tailored resume."""
+    label: ResumeLabel
+
+    @model_validator(mode="after")
+    def names_its_application(self) -> Self:
+        if (self.source == "application") != (self.application_id is not None):
+            raise ValueError("a tailored resume names its application, and the master resume none")
+        return self
+
+    @property
+    def key(self) -> str:
+        """Which resume this is, whatever its label: `master` or `application:<id>`."""
+        return "master" if self.application_id is None else f"application:{self.application_id}"
+
+
+class PortfolioPublishing(Model):
+    """Whether the portfolio page is published, and what it offers (FR-PRT-1, FR-PRT-3, FR-PRT-7),
+    under `portfolio_publishing` (`app/portfolio/publishing.py`)."""
+
+    published: bool = False
+    version: int | None = Field(default=None, ge=1)
+    """The profile version the page showed when it was published: the latest refresh's, or the
+    newest before the first refresh. A later refresh's version replaces it."""
+    published_at: AwareDatetime | None = None
+    resumes: tuple[PublishedResume, ...] = Field(default=(), max_length=MAX_RESUMES)
+    """The resumes visitors may download, in the order the page shows them. They're kept while
+    the page is unpublished."""
+
+    @model_validator(mode="after")
+    def consistent(self) -> Self:
+        if self.published != (self.version is not None and self.published_at is not None):
+            raise ValueError("a published page has a version and a time, and an unpublished none")
+        keys = [resume.key for resume in self.resumes]
+        if len(set(keys)) != len(keys):
+            raise ValueError("each resume can be offered once")
+        return self
 
 
 class ConfidentialTerms(Model):

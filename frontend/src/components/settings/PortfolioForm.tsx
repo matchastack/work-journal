@@ -1,9 +1,12 @@
 import { useId, useState } from "react";
+import { Link } from "react-router";
 
 import { useSavePortfolio, type PortfolioSettings, type Visibility } from "../../api/settings";
 import { FOCUS, INPUT, LABEL, PRIMARY_BUTTON } from "../ui";
 import { HINT } from "./form";
 import { SaveResult, SettingsSection } from "./SettingsSection";
+
+const LINK = `font-medium text-emerald-800 underline underline-offset-2 hover:text-emerald-700 ${FOCUS}`;
 
 /** A handle as the API keeps it: 2 to 40 letters, digits and single hyphens. */
 const HANDLE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -40,7 +43,15 @@ export function PortfolioForm({ portfolio }: { portfolio: PortfolioSettings }) {
   return (
     <SettingsSection
       title="Portfolio page"
-      description="Your public page at /p/<handle>. These settings are kept now and take effect when the public portfolio page is built."
+      description={
+        <>
+          Your public page at /p/&lt;handle&gt;. Changes show on it at once.{" "}
+          <Link to="/portfolio" className={LINK}>
+            Preview and publish it on the Portfolio page
+          </Link>
+          .
+        </>
+      }
     >
       <form
         aria-label="Portfolio page"

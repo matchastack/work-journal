@@ -509,6 +509,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/portfolio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Portfolio
+         * @description Whether the page is published, the version it shows, its settings and its resumes.
+         */
+        get: operations["portfolio_api_portfolio_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/portfolio/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish Page
+         * @description Publish the page, at once (FR-PRT-3). Refused (409) without a handle or a profile.
+         */
+        post: operations["publish_page_api_portfolio_publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/portfolio/unpublish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unpublish Page
+         * @description Take the page down. Caches may show it for up to about two minutes more.
+         */
+        post: operations["unpublish_page_api_portfolio_unpublish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/portfolio/resumes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change Resumes
+         * @description Replace the resumes visitors may download (FR-PRT-7). One that can't be offered, such as
+         *     a tailored resume with an error, is refused (409).
+         */
+        put: operations["change_resumes_api_portfolio_resumes_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -537,6 +618,23 @@ export interface components {
             before: number;
             /** After */
             after: number;
+        };
+        /**
+         * ChosenResume
+         * @description A resume the owner chose to offer.
+         */
+        ChosenResume: {
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "master" | "application";
+            /** Applicationid */
+            applicationId?: string | null;
+            /** Label */
+            label: string;
+            /** Available */
+            available: boolean;
         };
         /**
          * Citation
@@ -973,8 +1071,7 @@ export interface components {
          * PortfolioSettings
          * @description The public portfolio page's settings (FR-SET-3, FR-PRT-4, FR-PRT-5), under `portfolio`.
          *
-         *     The page and its publishing arrive with T-046, which reads these. Until then they're only
-         *     kept.
+         *     The page (`app/portfolio/`) reads them each time it's shown, so a change shows at once.
          */
         PortfolioSettings: {
             /** Handle */
@@ -996,12 +1093,51 @@ export interface components {
              */
             indexing: boolean;
         };
+        /**
+         * PortfolioView
+         * @description What the Portfolio page shows.
+         */
+        PortfolioView: {
+            /** Handle */
+            handle: string | null;
+            /** Path */
+            path: string | null;
+            /** Published */
+            published: boolean;
+            /** Publishedat */
+            publishedAt: string | null;
+            /** Version */
+            version: number | null;
+            /** Newestversion */
+            newestVersion: number | null;
+            settings: components["schemas"]["PortfolioSettings"];
+            /** Resumes */
+            resumes: components["schemas"]["ChosenResume"][];
+            /** Options */
+            options: components["schemas"]["ResumeOption"][];
+        };
         /** ProjectOption */
         ProjectOption: {
             /** Id */
             id: string;
             /** Name */
             name: string;
+        };
+        /**
+         * PublishedResume
+         * @description A resume visitors may download from the portfolio page (FR-PRT-7): the master resume or a
+         *     tailored one, with the text of its button.
+         */
+        PublishedResume: {
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "master" | "application";
+            /** Applicationid */
+            applicationId?: string | null;
+            /** Label */
+            label: string;
         };
         /**
          * RangeValue
@@ -1091,6 +1227,31 @@ export interface components {
             private: boolean;
             /** Items */
             items: components["schemas"]["RepoItem"][];
+        };
+        /**
+         * ResumeOption
+         * @description A resume the owner may offer on the page.
+         */
+        ResumeOption: {
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "master" | "application";
+            /** Applicationid */
+            applicationId?: string | null;
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+        };
+        /**
+         * ResumesChange
+         * @description The resumes the page offers, in order (FR-PRT-7).
+         */
+        ResumesChange: {
+            /** Resumes */
+            resumes: components["schemas"]["PublishedResume"][];
         };
         /** RoleOption */
         RoleOption: {
@@ -2018,6 +2179,99 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    portfolio_api_portfolio_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortfolioView"];
+                };
+            };
+        };
+    };
+    publish_page_api_portfolio_publish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortfolioView"];
+                };
+            };
+        };
+    };
+    unpublish_page_api_portfolio_unpublish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortfolioView"];
+                };
+            };
+        };
+    };
+    change_resumes_api_portfolio_resumes_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResumesChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortfolioView"];
+                };
             };
             /** @description Validation Error */
             422: {

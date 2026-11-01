@@ -9,6 +9,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ s.contact.name }}{% if page.label %} | {{ page.label }}{% endif %}</title>
   <meta name="description" content="{{ page.description }}">
+{% if not page.indexing %}
+  <meta name="robots" content="noindex">
+{% endif %}
   <meta property="og:type" content="profile">
   <meta property="og:title" content="{{ s.contact.name }}{% if page.label %} | {{ page.label }}{% endif %}">
   <meta property="og:description" content="{{ page.description }}">
@@ -17,11 +20,11 @@
   <link rel="canonical" href="{{ page.site_url }}">
 {% endif %}
   <meta name="twitter:card" content="summary">
-  <link rel="stylesheet" href="portfolio.css">
+  <link rel="stylesheet" href="{{ page.assets.stylesheet }}">
   <script type="application/ld+json">
 {{ page.json_ld }}
   </script>
-  <script src="portfolio.js" defer></script>
+  <script src="{{ page.assets.script }}" defer></script>
 </head>
 <body class="min-h-screen bg-white font-sans text-gray-900 antialiased">
   <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:shadow-lg {{ focus }}">Skip to content</a>
@@ -54,6 +57,9 @@
         </h1>
 {% if page.label %}
         <p class="mb-8 text-xl text-gray-600 md:text-2xl">{{ page.label }}</p>
+{% endif %}
+{% if page.open_to_work %}
+        <p class="mb-8"><span class="inline-flex items-center gap-2 rounded-full border border-green-300 bg-green-50 px-4 py-1 text-sm font-medium text-green-800"><span aria-hidden="true" class="h-2 w-2 rounded-full bg-green-600"></span>Open to work</span></p>
 {% endif %}
 {% if s.contact.location %}
         <p class="mx-auto mb-12 max-w-3xl text-lg text-gray-600">{{ s.contact.location }}</p>

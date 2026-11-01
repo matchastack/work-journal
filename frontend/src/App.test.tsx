@@ -65,9 +65,9 @@ describe("the web app", () => {
   it("moves between pages", async () => {
     serveApi();
     renderAt("/inbox");
-    await userEvent.click(await screen.findByRole("link", { name: "Portfolio" }));
-    expect(screen.getByRole("heading", { level: 1, name: "Portfolio" })).toBeInTheDocument();
-    expect(screen.getByText("This page arrives with T-046.")).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("link", { name: "LinkedIn" }));
+    expect(screen.getByRole("heading", { level: 1, name: "LinkedIn" })).toBeInTheDocument();
+    expect(screen.getByText("This page arrives with T-047.")).toBeInTheDocument();
   });
 
   it("sends the CSRF token when signing out", async () => {
