@@ -117,7 +117,7 @@ async def retry(
     response: Response,
     background: BackgroundTasks,
 ) -> TailorDraft:
-    """Try a failed draft again."""
+    """Try a failed draft again, or render its resume again if that failed."""
     response.headers.update(NO_STORE)
     with _errors():
         await retry_draft(db, user.id, draft_id)

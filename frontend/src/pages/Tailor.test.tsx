@@ -465,6 +465,25 @@ describe("the Tailor page", () => {
     ]);
   });
 
+  it("says why a render failed and renders it again", async () => {
+    const failed = draft({
+      render: { status: "failed", pdf: null, ats: null, error: "LaTeX took longer than 30 s." },
+    });
+    const sent = serve(failed, { [`POST /api/tailor/${DRAFT}/retry`]: draft() });
+    renderPage();
+    const pdf = await section("PDF");
+    expect(pdf.getByRole("alert")).toHaveTextContent(
+      "It couldn't be rendered: LaTeX took longer than 30 s.",
+    );
+    await userEvent.setup().click(pdf.getByRole("button", { name: "Render it again" }));
+    expect(
+      await screen.findByText("Waiting for a computer with TeX Live to render it."),
+    ).toBeVisible();
+    expect(sent.map(({ method, path }) => `${method} ${path}`)).toEqual([
+      `POST /api/tailor/${DRAFT}/retry`,
+    ]);
+  });
+
   it("shows the API's reason when a change is refused", async () => {
     serve(draft(), {
       [`PUT /api/tailor/${DRAFT}/skills`]: json({ detail: "It isn't tailored yet" }, 409),

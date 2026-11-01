@@ -172,13 +172,18 @@ async def discard_draft(session: AsyncSession, user_id: uuid.UUID, draft_id: uui
 
 
 async def retry_draft(session: AsyncSession, user_id: uuid.UUID, draft_id: uuid.UUID) -> None:
-    """Try a failed draft again, from parsing its posting if that's what failed."""
+    """Try a failed draft again, from parsing its posting if that's what failed, or render its
+    resume again if that failed, as LaTeX running out of time can."""
     row = await _locked(session, user_id, draft_id)
-    if row.status != "failed":
-        raise DraftConflict("Only a draft that failed can be tried again.")
-    row.status = "parsing" if row.posting is None else "tailoring"
-    row.error = None
-    row.started_at = None
+    if row.status == "failed":
+        row.status = "parsing" if row.posting is None else "tailoring"
+        row.error = None
+        row.started_at = None
+    elif row.render_status == "failed" and row.application_id is None:
+        row.render_status = "waiting"
+        row.render_error = None
+    else:
+        raise DraftConflict("Only a draft or a render that failed can be tried again.")
 
 
 # --- The owner's choices -----------------------------------------------------------------------

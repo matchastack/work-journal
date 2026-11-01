@@ -575,6 +575,34 @@ def test_a_draft_can_be_discarded_or_tried_again(
     assert ran == [failed_id]
 
 
+def test_a_render_that_failed_can_be_tried_again(
+    client: TestClient, owner: Owner, ran: list[uuid.UUID]
+) -> None:
+    """Such as one that ran out of time."""
+    draft_id = ready_draft(owner)
+
+    async def fail(session: AsyncSession) -> None:
+        await session.execute(
+            update(TailorDraftRow)
+            .where(TailorDraftRow.id == draft_id)
+            .values(render_status="failed", render_error="LaTeX took longer than 30 s.")
+        )
+
+    owner.seed(fail)
+    failed = client.get(f"/api/tailor/{draft_id}").json()
+    assert failed["render"]["error"] == "LaTeX took longer than 30 s."
+    assert failed["blocked"][-1] == "The PDF couldn't be rendered."
+    retried = client.post(f"/api/tailor/{draft_id}/retry", headers=owner.csrf)
+    assert retried.status_code == 200, retried.text
+    assert retried.json()["render"] == {
+        "status": "waiting",
+        "pdf": None,
+        "ats": None,
+        "error": None,
+    }
+    assert ran == [draft_id]
+
+
 def test_a_draft_whose_profile_version_is_gone_says_so(client: TestClient, owner: Owner) -> None:
     draft_id = ready_draft(owner)
 

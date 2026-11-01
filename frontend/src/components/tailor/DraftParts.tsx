@@ -5,6 +5,7 @@ import {
   applicationPdfUrl,
   draftPdfUrl,
   useDownload,
+  useRetryDraft,
   type AtsReport,
   type CoverageReport,
   type DraftOutline,
@@ -142,6 +143,7 @@ function AtsCheck({ ats }: { ats: AtsReport }) {
  * rendered, or failed. */
 export function RenderSection({ id, draft }: { id: string; draft: TailorDraft }) {
   const render = draft.render ?? null;
+  const retry = useRetryDraft(draft.id);
   return (
     <Section id={id} title="PDF">
       {render === null ? (
@@ -156,9 +158,24 @@ export function RenderSection({ id, draft }: { id: string; draft: TailorDraft })
           </p>
         </div>
       ) : render.status === "failed" ? (
-        <p role="alert" className="mt-2 rounded-md bg-red-50 p-3 text-sm text-red-900">
-          It couldn&apos;t be rendered: {render.error ?? "no reason was given."}
-        </p>
+        <div role="alert" className="mt-2 rounded-md bg-red-50 p-3 text-sm text-red-900">
+          <p>It couldn&apos;t be rendered: {render.error ?? "no reason was given."}</p>
+          {draft.application === null || draft.application === undefined ? (
+            <button
+              type="button"
+              disabled={retry.isPending}
+              onClick={() => {
+                retry.mutate(undefined);
+              }}
+              className={`mt-2 ${BUTTON}`}
+            >
+              Render it again
+            </button>
+          ) : null}
+          <p role="status" className="mt-1 empty:hidden">
+            {retry.isError ? failureMessage("render it again", retry.error) : null}
+          </p>
+        </div>
       ) : render.pdf ? (
         <>
           <div className="mt-2">

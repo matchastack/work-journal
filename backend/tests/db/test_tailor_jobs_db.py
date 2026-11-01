@@ -18,6 +18,7 @@ from sqlalchemy import delete, select, update
 
 import app.jobs as job_module
 import app.render.resume as resume_module
+import app.tick as tick_module
 from app.config import Settings, get_settings
 from app.db.crypto import KeyRing, new_key, use_key_ring
 from app.db.models import LlmCallRow, TailorDraftRow, User
@@ -358,10 +359,12 @@ async def test_the_sweep_queues_what_drafts_wait_for(
 
 
 async def test_the_page_runs_a_drafts_jobs_right_after_answering(
-    committed: Committed, claude: Callable[..., FakeMessages]
+    committed: Committed, claude: Callable[..., FakeMessages], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """`draft_now`, as the routes call it: a tick that parses the posting and tailors the
-    resume, so they don't wait for the daily one. The render waits for a worker with LaTeX."""
+    resume, so they don't wait for the daily one. Without LaTeX, as on Vercel, the render waits
+    for a worker that has it."""
+    monkeypatch.setattr(tick_module, "worker_queues", lambda: ["default"])
     _, draft_id = await committed()
     claude(reply(POSTING), *tailoring_replies())
     with jobs.replace_connector(InMemoryConnector()):

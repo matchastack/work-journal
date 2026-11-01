@@ -467,7 +467,7 @@ export interface paths {
         put?: never;
         /**
          * Retry
-         * @description Try a failed draft again.
+         * @description Try a failed draft again, or render its resume again if that failed.
          */
         post: operations["retry_api_tailor__draft_id__retry_post"];
         delete?: never;
