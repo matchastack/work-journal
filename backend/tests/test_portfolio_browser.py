@@ -47,7 +47,7 @@ def site(tmp_path_factory: pytest.TempPathFactory) -> Path:
     profile = profile.model_copy(
         update={"basics": basics, "projects": (*profile.projects, pipeline)}
     )
-    return build_portfolio(profile, tmp_path_factory.mktemp("site"), year=2026)
+    return build_portfolio(profile, tmp_path_factory.mktemp("site"), year=2026, open_to_work=True)
 
 
 def open_page(browser: Browser, site: Path, width: int = 1280, javascript: bool = True) -> Page:
