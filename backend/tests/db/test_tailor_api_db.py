@@ -354,6 +354,26 @@ def test_approving_a_phrasing_saves_it_as_a_swap(
     assert draft["profileVersion"] == 1, "the draft still shows the version it was tailored from"
 
 
+def test_a_phrasing_approved_in_another_draft_isnt_saved_twice(
+    client: TestClient, owner: Owner, ran: list[uuid.UUID]
+) -> None:
+    first, second = ready_draft(owner), ready_draft(owner)
+    for draft_id in (first, second):
+        response = client.post(
+            f"/api/tailor/{draft_id}/bullets/nw_export/approve", headers=owner.csrf
+        )
+        assert response.status_code == 200, response.text
+        assert response.json()["bullets"][0]["approved"] is True
+
+    async def swaps(session: AsyncSession) -> tuple[int, int]:
+        latest = await latest_version(session, owner.id)
+        assert latest is not None
+        bullet = next(b for b in latest.profile.work[0].highlights if b.id == "nw_export")
+        return latest.number, len(bullet.swaps)
+
+    assert owner.seed(swaps) == (2, 1)
+
+
 def test_choosing_words_again_uses_the_render_of_those_words(
     client: TestClient, owner: Owner, ran: list[uuid.UUID]
 ) -> None:

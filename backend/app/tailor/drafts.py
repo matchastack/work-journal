@@ -55,7 +55,7 @@ from app.render.compile import CompileError
 from app.render.fit import FitError
 from app.render.resume import RenderedResume, RenderError, StoredRender, render_key, render_resume
 from app.resumes.listing import ResumeCut, ResumePdf, tailored_resumes
-from app.schema.changes import ChangeSet, ReviewedOp
+from app.schema.changes import AddSwap, ChangeSet, ReviewedOp
 from app.schema.fact import Fact
 from app.schema.jobs import JobPosting
 from app.schema.profile import Profile
@@ -663,11 +663,14 @@ async def _save_owner_change(
     session: AsyncSession, user_id: uuid.UUID, reviewed: ReviewedOp, *, summary: str
 ) -> int:
     """Apply one change the owner made to the newest profile version, as a change set by the
-    owner, accepted and applied at once, and save the result as the next version."""
+    owner, accepted and applied at once, and save the result as the next version. A swap the
+    bullet already has, approved from another draft say, saves nothing."""
     await session.execute(select(User.id).where(User.id == user_id).with_for_update())
     latest = await latest_version(session, user_id)
     if latest is None:
         raise DraftConflict("There's no profile to save the swap to.")
+    if isinstance(reviewed.op, AddSwap) and _has_swap(latest.profile, reviewed.op):
+        return latest.number
     try:
         profile = profile_ops.apply(latest.profile, [reviewed.op])
     except profile_ops.ProfileOpError as error:
@@ -681,6 +684,13 @@ async def _save_owner_change(
     )
     await close_change_set(session, user_id, change_set_id, "applied")
     return version.number
+
+
+def _has_swap(profile: Profile, op: AddSwap) -> bool:
+    """Whether the bullet already has this phrasing, for the same part of it, as a swap."""
+    bullet = next((each for each in profile.all_bullets() if each.id == op.bullet_id), None)
+    wanted = (op.swap.text, op.swap.replaces)
+    return bullet is not None and any((swap.text, swap.replaces) == wanted for swap in bullet.swaps)
 
 
 async def _view(session: AsyncSession, row: TailorDraftRow) -> TailorDraft:
