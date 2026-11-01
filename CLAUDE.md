@@ -60,8 +60,8 @@ Run these from `backend/` (uv project, Python 3.12):
 | Run the API locally (auto-reload) | `uv run uvicorn app.main:app --reload`, then open `/healthz` or `/docs` |
 | Start Postgres for local development | `docker compose up -d` (repo root); set `DATABASE_URL` and `TEST_DATABASE_URL` as `compose.yml` says |
 | Apply database migrations | `uv run alembic upgrade head` (after changing `app/db/models.py`: `uv run alembic revision --autogenerate --rev-id <next> -m "<change>"`) |
-| Run the background worker (jobs and scheduled tasks in `app/jobs.py`; with TeX Live, it also renders the master resume after a refresh) | `uv run wj worker` (needs `DATABASE_URL`) |
-| Run one tick of background work, as Vercel's cron does once a day (`app/tick.py`; with TeX Live, it also renders the master resume after a refresh) | `uv run wj tick` (needs `DATABASE_URL`) |
+| Run the background worker (jobs and scheduled tasks in `app/jobs.py`; with TeX Live, it also renders the master resume after a refresh and the Tailor page's drafts) | `uv run wj worker` (needs `DATABASE_URL`) |
+| Run one tick of background work, as Vercel's cron does once a day (`app/tick.py`; with TeX Live, it also renders the master resume after a refresh and the Tailor page's drafts) | `uv run wj tick` (needs `DATABASE_URL`) |
 | Run the command-line tool | `uv run wj --help` |
 | Load the imported profile into the database as version 1 (then `wj lint`, `wj render` and `wj portfolio build` take `--db`) | `uv run wj db load-profile --user <github-login>` |
 | Journal from Telegram on this computer, without the webhook (needs `TELEGRAM_BOT_TOKEN` and `DATABASE_URL`; turns the webhook off) | `uv run wj telegram poll` |
