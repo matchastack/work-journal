@@ -878,7 +878,7 @@ As the owner, I want to paste a posting and get a tailored resume I can adjust, 
 - [ ] Tests.
 
 ### T-046 · Public portfolio page and publishing
-**Status:** ◐ · **Size:** M · **Depends on:** T-023, T-027, T-039 · **Requirements:** FR-PRT-1, FR-PRT-3, FR-PRT-4, FR-PRT-5, FR-PRT-7, FR-SET-3, NFR-PERF-2 · **Needs:** OQ-3 · **PR:** [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+**Status:** ◐ · **Size:** M · **Depends on:** T-023, T-027, T-039 · **Requirements:** FR-PRT-1, FR-PRT-3, FR-PRT-4, FR-PRT-5, FR-PRT-7, FR-SET-3, NFR-PERF-2 · **Needs:** OQ-3 · **PR:** [#71](https://github.com/matchastack/work-journal/pull/71)
 
 As the owner, I want my portfolio page served by the app and updated when I refresh, so that my public profile is current whenever I need it.
 

@@ -2,7 +2,7 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-31 · T-046 Public portfolio page and publishing · [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+## 2026-10-31 · T-046 Public portfolio page and publishing · [#71](https://github.com/matchastack/work-journal/pull/71)
 **Changed:** the web app's Portfolio page previews your public page, chooses the resumes visitors can download, and publishes or unpublishes it; once published, `/p/<handle>` shows the profile version from your latest refresh, with your open-to-work, indexing and visibility settings.
 
 **Verify:**
