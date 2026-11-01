@@ -22,7 +22,9 @@ from typing import Literal
 
 from pydantic import Field
 
+from app.llm.client import LLMClient
 from app.schema.common import Model, Tag
+from app.schema.fact import Fact
 from app.schema.jobs import JobPosting
 from app.schema.profile import Profile
 from app.selection import Selection
@@ -30,7 +32,9 @@ from app.tailoring.tailor import (
     Phrasing,
     TailoringPlan,
     choose,
+    plan_resume,
     posting_spellings,
+    reword,
     with_texts,
 )
 from app.validate.lint import LintReport, check_sendable, verify_before_shipping_uses
@@ -113,6 +117,26 @@ class DraftResume:
     def undecided(self) -> tuple[str, ...]:
         """The skills to confirm or drop before the resume can be downloaded (R3)."""
         return tuple(skill.name for skill in self.skills if skill.decision is None)
+
+
+def draft_tailoring(
+    profile: Profile,
+    posting: JobPosting,
+    client: LLMClient,
+    *,
+    facts: Sequence[Fact] = (),
+    avoid: Sequence[str] = (),
+) -> Tailoring:
+    """Tailor a draft as `tailor` does: the heavy-tier plan, then the wording, each new text
+    checked by the verifier. Skills marked verify-before-shipping wait for the owner's decision,
+    so which ones are listed is chosen later (`draft_resume`)."""
+    plan = plan_resume(profile, posting, client)
+    reworded = reword(
+        profile, posting, client, choose(profile, posting, plan), facts=facts, avoid=avoid
+    )
+    return Tailoring(
+        plan=plan, swaps=reworded.swaps, proposals=reworded.proposals, notes=reworded.notes
+    )
 
 
 def first_choices(tailoring: Tailoring) -> DraftChoices:

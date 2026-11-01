@@ -65,7 +65,7 @@ def upgrade() -> None:
             name=op.f("ck_tailor_drafts_status"),
         ),
         sa.CheckConstraint(
-            "(render_status IS NULL) = (render_key IS NULL)",
+            "render_status <> 'rendered' OR render_key IS NOT NULL",
             name=op.f("ck_tailor_drafts_render_key"),
         ),
         sa.ForeignKeyConstraint(

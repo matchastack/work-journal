@@ -390,7 +390,7 @@ class TailorDraftRow(Base):
         CheckConstraint("(status = 'ready') = (tailoring IS NOT NULL)", name="tailoring"),
         CheckConstraint("(status = 'failed') = (error IS NOT NULL)", name="error"),
         CheckConstraint("render_status IN ('waiting', 'rendered', 'failed')", name="render_status"),
-        CheckConstraint("(render_status IS NULL) = (render_key IS NULL)", name="render_key"),
+        CheckConstraint("render_status <> 'rendered' OR render_key IS NOT NULL", name="render_key"),
         CheckConstraint("(render_status = 'rendered') = (pdf_sha256 IS NOT NULL)", name="pdf"),
         CheckConstraint("application_id IS NULL OR render_status = 'rendered'", name="logged"),
         ForeignKeyConstraint(["user_id", "pdf_sha256"], ["artifacts.user_id", "artifacts.sha256"]),

@@ -3,7 +3,13 @@
 from pathlib import Path
 
 import pytest
+from pydantic import TypeAdapter
 
+from app.config import Settings
+from app.llm.client import LLMClient
+from app.llm.fake import FakeMessages, reply
+from app.llm.usage import MemoryCallLog
+from app.schema.fact import Fact
 from app.schema.jobs import JobPosting
 from app.schema.profile import Profile, SkillLine
 from app.schema.verification import VerifierReport
@@ -14,6 +20,7 @@ from app.tailoring.drafts import (
     approve,
     decide_skill,
     draft_resume,
+    draft_tailoring,
     first_choices,
     proposal,
     use_words,
@@ -25,6 +32,8 @@ from app.tailoring.tailor import (
     PlannedSkillLine,
     TailoringPlan,
 )
+from app.validate.claims import ClaimReply, JudgedClaim
+from app.writing import WrittenBullet
 
 FIXTURES = Path(__file__).parent / "fixtures"
 PROFILE = Profile.model_validate_json((FIXTURES / "profile.json").read_text(encoding="utf-8"))
@@ -171,6 +180,44 @@ def test_text_that_names_a_dropped_skill_still_breaks_r3() -> None:
 def test_only_skills_marked_verify_before_shipping_take_a_decision() -> None:
     with pytest.raises(ChoiceError, match="Python isn't a skill marked verify-before-shipping"):
         decide_skill(first_choices(TAILORING), PROFILE, "Python", "confirmed")
+
+
+def test_a_draft_is_tailored_as_tailor_does_with_its_skills_left_for_later(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The plan is kept, so the skills the owner confirms or drops are chosen again later."""
+    monkeypatch.chdir(tmp_path)
+    for name in Settings.model_fields:
+        monkeypatch.delenv(name.upper(), raising=False)
+    facts = TypeAdapter(tuple[Fact, ...]).validate_json(
+        (FIXTURES / "facts.json").read_text(encoding="utf-8")
+    )
+    plan = PLAN.model_copy(
+        update={
+            "work": (
+                PlannedItem(
+                    id="northwind", bullets=(PlannedBullet(id="nw_export", rephrase=True),)
+                ),
+            )
+        }
+    )
+    judged = JudgedClaim(claim="Cut the job", reason="As stated.", verdict="supported")
+    fake = FakeMessages(
+        reply(plan), reply(WrittenBullet(text=REPHRASED)), reply(ClaimReply(claims=(judged,)))
+    )
+    settings = Settings(llm_model_heavy="heavy-model", llm_model_standard="standard-model")
+    client = LLMClient(settings, fake, MemoryCallLog())
+    tailoring = draft_tailoring(PROFILE, POSTING, client, facts=facts)
+    assert tailoring.plan == plan
+    assert [p.text for p in tailoring.proposals] == [REPHRASED]
+    assert tailoring.swaps == ()
+    assert [request["model"] for request in fake.requests] == [
+        "heavy-model",
+        "standard-model",
+        "standard-model",
+    ]
+    resume = draft_resume(PROFILE, POSTING, tailoring, first_choices(tailoring))
+    assert resume.undecided == ("Kotlin",)
 
 
 def test_the_same_choices_give_the_same_resume() -> None:

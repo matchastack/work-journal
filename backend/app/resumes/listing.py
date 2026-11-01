@@ -108,6 +108,23 @@ async def load_resumes(session: AsyncSession, user_id: uuid.UUID) -> Resumes:
     rendered = None
     if latest is not None and latest.outputs != "updated":
         rendered = await session.scalar(newest.where(Refresh.outputs == "updated"))
+    pdfs = {
+        refresh.master_pdf_sha256
+        for refresh in (latest, rendered)
+        if refresh is not None and refresh.master_pdf_sha256
+    }
+    renders = await renders_of(session, user_id, pdfs)
+    return Resumes(
+        profile_version=profile_version,
+        master=await _master(session, latest, renders),
+        last_rendered=await _master(session, rendered, renders),
+        tailored=await tailored_resumes(session, user_id),
+    )
+
+
+async def tailored_resumes(session: AsyncSession, user_id: uuid.UUID) -> tuple[TailoredResume, ...]:
+    """Every tailored resume, as its application logged it, newest first. The Tailor page lists
+    them as the application history (T-045)."""
     applications = list(
         await session.execute(
             select(
@@ -121,11 +138,6 @@ async def load_resumes(session: AsyncSession, user_id: uuid.UUID) -> Resumes:
         )
     )
     pdfs = {row.pdf_sha256 for row in applications if row.pdf_sha256}
-    pdfs |= {
-        refresh.master_pdf_sha256
-        for refresh in (latest, rendered)
-        if refresh is not None and refresh.master_pdf_sha256
-    }
     renders = await renders_of(session, user_id, pdfs)
     tailored: list[TailoredResume] = []
     for data, logged_at, pdf_sha256, report in applications:
@@ -143,12 +155,7 @@ async def load_resumes(session: AsyncSession, user_id: uuid.UUID) -> Resumes:
                 sendable=rules is not None and rules.ok,
             )
         )
-    return Resumes(
-        profile_version=profile_version,
-        master=await _master(session, latest, renders),
-        last_rendered=await _master(session, rendered, renders),
-        tailored=tuple(tailored),
-    )
+    return tuple(tailored)
 
 
 async def resume_pdf(
