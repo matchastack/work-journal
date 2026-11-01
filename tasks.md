@@ -868,7 +868,7 @@ As the owner, I want to preview and download my master resume and my tailored re
 - The master's lint findings are the profile check (`wj lint`) of the version it shows; a tailored resume's are the resume rules' findings kept with its application.
 
 ### T-045 · Tailor page and application history
-**Status:** ◐ · **Size:** M · **Depends on:** T-021, T-022, T-039 · **Requirements:** FR-TLR-1, FR-TLR-2, FR-TLR-3, FR-TLR-4, FR-TLR-6, FR-TLR-7, FR-TLR-8, FR-TLR-9 · **PR:** [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+**Status:** ◐ · **Size:** M · **Depends on:** T-021, T-022, T-039 · **Requirements:** FR-TLR-1, FR-TLR-2, FR-TLR-3, FR-TLR-4, FR-TLR-6, FR-TLR-7, FR-TLR-8, FR-TLR-9 · **PR:** [#72](https://github.com/matchastack/work-journal/pull/72)
 
 As the owner, I want to paste a posting and get a tailored resume I can adjust, so that applying takes minutes.
 

@@ -2,11 +2,11 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-10-31 · T-045 Tailor page and application history · [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+## 2026-10-31 · T-045 Tailor page and application history · [#72](https://github.com/matchastack/work-journal/pull/72)
 **Changed:** the web app's Tailor page tailors a resume to a pasted posting through background jobs (migration 0017), lets you choose each bullet's words, approve new phrasings as swaps and confirm or drop skills marked verify-before-shipping, and logs the application when you download the PDF; the page lists every application.
 
 **Verify:**
-- CI is green on #PRNUM
+- CI is green on #72
 - After `scripts/post-deploy.sh`, pasting a posting on the Tailor page shows its requirements within a minute, then the draft
 - While `uv run wj worker` runs on your computer, the draft's PDF appears and each change renders again; without it, the page says to run it
 - Approving a phrasing adds it as a swap in a new profile version
