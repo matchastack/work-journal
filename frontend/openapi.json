@@ -833,6 +833,464 @@
           }
         }
       }
+    },
+    "/api/tailor": {
+      "get": {
+        "tags": [
+          "tailor"
+        ],
+        "summary": "Tailor Page",
+        "description": "The drafts not yet downloaded, newest first, and the application history (FR-TLR-8).",
+        "operationId": "tailor_page_api_tailor_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TailorPage"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "tailor"
+        ],
+        "summary": "New Draft",
+        "description": "Tailor a resume to a pasted posting. Jobs parse the posting, then tailor the resume, and\nthe draft says how far they've got.",
+        "operationId": "new_draft_api_tailor_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewDraft"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TailorDraft"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tailor/{draft_id}": {
+      "get": {
+        "tags": [
+          "tailor"
+        ],
+        "summary": "Draft",
+        "description": "A draft: the parsed posting, then the tailored resume with its coverage report, the\nverifier's and the resume rules' findings, its render and the ATS check.",
+        "operationId": "draft_api_tailor__draft_id__get",
+        "parameters": [
+          {
+            "name": "draft_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Draft Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TailorDraft"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "tailor"
+        ],
+        "summary": "Discard",
+        "description": "Discard a draft not yet downloaded. A swap saved from it stays in the profile.",
+        "operationId": "discard_api_tailor__draft_id__delete",
+        "parameters": [
+          {
+            "name": "draft_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Draft Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tailor/{draft_id}/retry": {
+      "post": {
+        "tags": [
+          "tailor"
+        ],
+        "summary": "Retry",
+        "description": "Try a failed draft again, or render its resume again if that failed.",
+        "operationId": "retry_api_tailor__draft_id__retry_post",
+        "parameters": [
+          {
+            "name": "draft_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Draft Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TailorDraft"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tailor/{draft_id}/bullets/{bullet_id}": {
+      "put": {
+        "tags": [
+          "tailor"
+        ],
+        "summary": "Choose",
+        "description": "Choose a reworded bullet's words (FR-TLR-3). A render of the new choices kept before is\nused at once; otherwise the resume is rendered again.",
+        "operationId": "choose_api_tailor__draft_id__bullets__bullet_id__put",
+        "parameters": [
+          {
+            "name": "draft_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Draft Id"
+            }
+          },
+          {
+            "name": "bullet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[a-z0-9][a-z0-9_-]*$",
+              "title": "Bullet Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Words"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TailorDraft"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tailor/{draft_id}/bullets/{bullet_id}/approve": {
+      "post": {
+        "tags": [
+          "tailor"
+        ],
+        "summary": "Approve",
+        "description": "Approve a bullet's new phrasing, which passed the verifier: it's saved as a swap on the\nbullet, in your profile's next version, and the draft uses it (FR-WRT-5).",
+        "operationId": "approve_api_tailor__draft_id__bullets__bullet_id__approve_post",
+        "parameters": [
+          {
+            "name": "draft_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Draft Id"
+            }
+          },
+          {
+            "name": "bullet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[a-z0-9][a-z0-9_-]*$",
+              "title": "Bullet Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TailorDraft"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tailor/{draft_id}/skills": {
+      "put": {
+        "tags": [
+          "tailor"
+        ],
+        "summary": "Decide Skill",
+        "description": "Confirm a skill marked verify-before-shipping for this resume, drop it, or take the\ndecision back (R3).",
+        "operationId": "decide_skill_api_tailor__draft_id__skills_put",
+        "parameters": [
+          {
+            "name": "draft_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Draft Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillChoice"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TailorDraft"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tailor/{draft_id}/pdf": {
+      "get": {
+        "tags": [
+          "tailor"
+        ],
+        "summary": "Pdf",
+        "description": "The PDF of the draft's resume as your choices make it, to preview. 404 until it's\nrendered. Downloading it logs the application, so that's `POST .../application` instead.",
+        "operationId": "pdf_api_tailor__draft_id__pdf_get",
+        "parameters": [
+          {
+            "name": "draft_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Draft Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tailor/{draft_id}/application": {
+      "post": {
+        "tags": [
+          "tailor"
+        ],
+        "summary": "Download",
+        "description": "Log the draft as an application, once (FR-TLR-8), so its PDF can be downloaded from\n`/api/resumes/pdf/{sha256}`. 409 while a skill marked verify-before-shipping waits for a\ndecision (R3) or the PDF isn't rendered. A resume that breaks a rule is logged with its\nerrors, and marked not to send (R2).",
+        "operationId": "download_api_tailor__draft_id__application_post",
+        "parameters": [
+          {
+            "name": "draft_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Draft Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Download"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TailorDraft"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -857,6 +1315,64 @@
           "version"
         ],
         "title": "Applied"
+      },
+      "AtsFinding": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "unreadable",
+              "no_text",
+              "term_missing",
+              "term_hyphenated",
+              "section_missing",
+              "section_order",
+              "ligature",
+              "garbled"
+            ],
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Message"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "AtsFinding"
+      },
+      "AtsReport": {
+        "properties": {
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/AtsFinding"
+            },
+            "type": "array",
+            "title": "Findings",
+            "default": []
+          },
+          "terms": {
+            "type": "integer",
+            "title": "Terms",
+            "default": 0
+          },
+          "sections": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sections",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "AtsReport"
       },
       "BulletText": {
         "properties": {
@@ -989,6 +1505,29 @@
         "title": "ClaimJudgement",
         "description": "The claim check's verdict on one claim in the text."
       },
+      "CoverageReport": {
+        "properties": {
+          "covered": {
+            "items": {
+              "$ref": "#/components/schemas/TermCoverage"
+            },
+            "type": "array",
+            "title": "Covered",
+            "default": []
+          },
+          "missing": {
+            "items": {
+              "$ref": "#/components/schemas/TermCoverage"
+            },
+            "type": "array",
+            "title": "Missing",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CoverageReport"
+      },
       "Decision": {
         "properties": {
           "status": {
@@ -1064,6 +1603,325 @@
         ],
         "title": "DiffPart",
         "description": "Words the texts share, or that one of them has. Its spaces count, so the parts rebuild\neach text exactly."
+      },
+      "Download": {
+        "properties": {
+          "appliedOn": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Appliedon"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Download"
+      },
+      "DraftApplication": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "appliedOn": {
+            "type": "string",
+            "format": "date",
+            "title": "Appliedon"
+          },
+          "pdfSha256": {
+            "type": "string",
+            "title": "Pdfsha256"
+          },
+          "sendable": {
+            "type": "boolean",
+            "title": "Sendable"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "appliedOn",
+          "pdfSha256",
+          "sendable"
+        ],
+        "title": "DraftApplication",
+        "description": "The application a downloaded draft was logged as (FR-TLR-8)."
+      },
+      "DraftOutline": {
+        "properties": {
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "work": {
+            "items": {
+              "$ref": "#/components/schemas/OutlineItem"
+            },
+            "type": "array",
+            "title": "Work",
+            "default": []
+          },
+          "projects": {
+            "items": {
+              "$ref": "#/components/schemas/OutlineItem"
+            },
+            "type": "array",
+            "title": "Projects",
+            "default": []
+          },
+          "skills": {
+            "items": {
+              "$ref": "#/components/schemas/SkillLine"
+            },
+            "type": "array",
+            "title": "Skills",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "DraftOutline",
+        "description": "What the draft shows before it's fitted to one page."
+      },
+      "DraftRender": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "waiting",
+              "rendered",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "pdf": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResumePdf"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ats": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AtsReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "DraftRender",
+        "description": "The render of the resume the owner's choices make."
+      },
+      "DraftSkill": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "confirmed",
+                  "dropped"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision"
+          },
+          "locations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Locations"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "decision",
+          "locations"
+        ],
+        "title": "DraftSkill",
+        "description": "A skill marked verify-before-shipping that the draft lists or names (R3)."
+      },
+      "DraftSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Createdat"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "parsing",
+              "tailoring",
+              "ready",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          },
+          "renderStatus": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "waiting",
+                  "rendered",
+                  "failed"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Renderstatus"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "createdAt",
+          "status",
+          "title",
+          "company",
+          "renderStatus"
+        ],
+        "title": "DraftSummary",
+        "description": "A draft in the list of drafts not yet downloaded."
+      },
+      "DraftWords": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "under": {
+            "type": "string",
+            "title": "Under"
+          },
+          "original": {
+            "type": "string",
+            "title": "Original"
+          },
+          "use": {
+            "type": "string",
+            "enum": [
+              "own",
+              "swap",
+              "phrasing"
+            ],
+            "title": "Use"
+          },
+          "swap": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VerifierReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "phrasing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VerifierReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "approved": {
+            "type": "boolean",
+            "title": "Approved"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "under",
+          "original",
+          "use",
+          "swap",
+          "phrasing",
+          "approved"
+        ],
+        "title": "DraftWords",
+        "description": "A bullet with new words to choose from (FR-TLR-3)."
       },
       "Fact": {
         "properties": {
@@ -1720,6 +2578,87 @@
         ],
         "title": "InboxOp"
       },
+      "JobPosting": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Title"
+          },
+          "company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          },
+          "seniority": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seniority"
+          },
+          "mustHave": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Musthave",
+            "default": []
+          },
+          "niceToHave": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Nicetohave",
+            "default": []
+          },
+          "responsibilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Responsibilities",
+            "default": []
+          },
+          "keyTerms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Keyterms",
+            "default": []
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "title": "JobPosting",
+        "description": "A job posting broken into the parts tailoring matches against. Spellings are kept exact."
+      },
       "Journal": {
         "properties": {
           "entries": {
@@ -2352,6 +3291,80 @@
         ],
         "title": "Metric"
       },
+      "NewDraft": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 50000,
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "NewDraft"
+      },
+      "OutlineBullet": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "text"
+        ],
+        "title": "OutlineBullet"
+      },
+      "OutlineItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "bullets": {
+            "items": {
+              "$ref": "#/components/schemas/OutlineBullet"
+            },
+            "type": "array",
+            "title": "Bullets",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "OutlineItem",
+        "description": "A role or project the draft shows."
+      },
       "ProjectOption": {
         "properties": {
           "id": {
@@ -2634,6 +3647,62 @@
         "title": "SingleValue",
         "description": "One number, e.g. `93` (% accuracy)."
       },
+      "SkillChoice": {
+        "properties": {
+          "skill": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Skill"
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "confirmed",
+                  "dropped"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "skill",
+          "decision"
+        ],
+        "title": "SkillChoice"
+      },
+      "SkillLine": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Label"
+          },
+          "skills": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Skills"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "label",
+          "skills"
+        ],
+        "title": "SkillLine",
+        "description": "One line of a skills section, e.g. `Languages: Python, SQL`."
+      },
       "SourceFact": {
         "properties": {
           "id": {
@@ -2672,6 +3741,204 @@
         ],
         "title": "SourceFact",
         "description": "A fact an operation cites."
+      },
+      "TailorDraft": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Createdat"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "parsing",
+              "tailoring",
+              "ready",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "posting": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobPosting"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "droppedTerms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Droppedterms",
+            "default": []
+          },
+          "profileVersion": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profileversion"
+          },
+          "roleType": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roletype"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Notes",
+            "default": []
+          },
+          "bullets": {
+            "items": {
+              "$ref": "#/components/schemas/DraftWords"
+            },
+            "type": "array",
+            "title": "Bullets",
+            "default": []
+          },
+          "skills": {
+            "items": {
+              "$ref": "#/components/schemas/DraftSkill"
+            },
+            "type": "array",
+            "title": "Skills",
+            "default": []
+          },
+          "outline": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DraftOutline"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rules": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LintReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "coverage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CoverageReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "coverageFitted": {
+            "type": "boolean",
+            "title": "Coveragefitted",
+            "default": false
+          },
+          "render": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DraftRender"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "blocked": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Blocked",
+            "default": []
+          },
+          "application": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DraftApplication"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "createdAt",
+          "status",
+          "error",
+          "posting"
+        ],
+        "title": "TailorDraft",
+        "description": "A resume being tailored to a job posting."
+      },
+      "TailorPage": {
+        "properties": {
+          "drafts": {
+            "items": {
+              "$ref": "#/components/schemas/DraftSummary"
+            },
+            "type": "array",
+            "title": "Drafts"
+          },
+          "applications": {
+            "items": {
+              "$ref": "#/components/schemas/TailoredResume"
+            },
+            "type": "array",
+            "title": "Applications"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "drafts",
+          "applications"
+        ],
+        "title": "TailorPage"
       },
       "TailoredResume": {
         "properties": {
@@ -2783,6 +4050,39 @@
           "linkedAt"
         ],
         "title": "TelegramLinkStatus"
+      },
+      "TermCoverage": {
+        "properties": {
+          "term": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Term"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "must_have",
+              "nice_to_have",
+              "key_term"
+            ],
+            "title": "Kind"
+          },
+          "locations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Locations",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "term",
+          "kind"
+        ],
+        "title": "TermCoverage"
       },
       "ValidationError": {
         "properties": {
@@ -2937,6 +4237,25 @@
         ],
         "title": "VerifierReport",
         "description": "What the verifier found in one text. Text that doesn't pass is flagged: it's shown to the\nowner, who must accept it by hand (FR-FID-7)."
+      },
+      "Words": {
+        "properties": {
+          "use": {
+            "type": "string",
+            "enum": [
+              "own",
+              "swap",
+              "phrasing"
+            ],
+            "title": "Use"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "use"
+        ],
+        "title": "Words"
       }
     }
   }

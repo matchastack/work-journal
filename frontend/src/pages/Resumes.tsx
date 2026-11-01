@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router";
 
 import { resumesQuery, type Resumes as ResumeList } from "../api/resumes";
 import { MasterCard } from "../components/resumes/MasterCard";
 import { Command } from "../components/resumes/ResumeParts";
 import { TailoredCard } from "../components/resumes/TailoredCard";
-import { BUTTON } from "../components/ui";
+import { BUTTON, FOCUS } from "../components/ui";
 
 const EMPTY = "mt-4 rounded-md border border-dashed border-stone-300 p-6 text-stone-600";
 
@@ -62,8 +63,15 @@ function TailoredSection({ resumes }: { resumes: ResumeList }) {
         <div className={EMPTY}>
           <p>No tailored resumes yet.</p>
           <p className="mt-1 text-sm">
-            Run <Command>uv run wj tailor &lt;posting-file&gt; --db</Command> on your computer; each
-            resume it makes appears here.
+            Tailor one to a job posting on the{" "}
+            <Link
+              to="/tailor"
+              className={`rounded text-emerald-800 underline underline-offset-2 ${FOCUS}`}
+            >
+              Tailor page
+            </Link>
+            , or run <Command>uv run wj tailor &lt;posting-file&gt; --db</Command> on your computer;
+            each resume you download or make appears here.
           </p>
         </div>
       ) : (

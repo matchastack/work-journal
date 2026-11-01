@@ -4,13 +4,13 @@
 its text as given, the bullets and swaps it shows, the title it gives the current role, and the
 PDF's hash. The checks are kept with it: the verifier's report on each swap and new phrasing it
 uses, the resume rules' warnings, the keyword coverage report and the ATS check of the PDF's
-text (`app/tailoring/ats.py`). With the database, `wj tailor`
-stores the PDF and the posting beside it; without, it writes a `LoggedApplication` file.
+text (`app/tailoring/ats.py`). With the database, `wj tailor` and the Tailor page store the PDF
+and the posting beside it; without, `wj tailor` writes a `LoggedApplication` file.
 """
 
 import hashlib
 import re
-from collections.abc import Collection
+from collections.abc import Sequence
 from datetime import date
 
 from app.schema.common import Model
@@ -19,7 +19,7 @@ from app.schema.verification import VerifierReport
 from app.selection import Selection
 from app.tailoring.ats import AtsReport, check_text
 from app.tailoring.coverage import CoverageReport, coverage
-from app.tailoring.tailor import Tailored
+from app.tailoring.tailor import Phrasing
 from app.validate.lint import LintReport
 
 _SLUG_LENGTH = 48
@@ -52,10 +52,10 @@ class LoggedApplication(Model):
 
 
 def record(
-    tailored: Tailored,
+    posting: JobPosting,
     printed: Selection,
     *,
-    accepted: Collection[str],
+    used: Sequence[Phrasing],
     rules: LintReport,
     posting_text: str,
     pdf: bytes,
@@ -63,23 +63,18 @@ def record(
     applied_on: date,
     suffix: str,
 ) -> tuple[Application, ResumeChecks]:
-    """The application for a tailored resume, and its checks.
+    """The application for a resume tailored to `posting`, and its checks.
 
     `printed` is what the PDF shows, after cuts to fit the page, `text` the PDF's text as pypdf
-    extracts it, and `accepted` the bullets whose new phrasings the owner approved. `suffix`
-    makes the ID unique, such as random hex.
+    extracts it, and `used` the new words in it: the swaps worked in and the new phrasings the
+    owner approved (`used_phrasings`). `suffix` makes the ID unique, such as random hex.
     """
-    posting = tailored.posting
     bullet_ids = tuple(
         bullet.id
         for item in (*printed.work, *printed.education, *printed.projects)
         for bullet in item.bullets
     )
     shown = set(bullet_ids)
-    used = [
-        *tailored.swaps,
-        *(proposal for proposal in tailored.proposals if proposal.bullet_id in accepted),
-    ]
     used = [phrasing for phrasing in used if phrasing.bullet_id in shown]
     application = Application(
         id=application_id(posting, applied_on, suffix),
@@ -94,14 +89,23 @@ def record(
         swaps_used=tuple(SwapUse(bullet_id=p.bullet_id, text=p.text) for p in used),
         pdf_sha256=hashlib.sha256(pdf).hexdigest(),
     )
-    report = coverage(printed, posting)
+    report, ats = pdf_checks(printed, posting, text)
     checks = ResumeChecks(
         texts=tuple(phrasing.report for phrasing in used),
         rules=rules,
         coverage=report,
-        ats=check_text(text, printed, [entry.term for entry in report.covered]),
+        ats=ats,
     )
     return application, checks
+
+
+def pdf_checks(
+    printed: Selection, posting: JobPosting, text: str
+) -> tuple[CoverageReport, AtsReport]:
+    """The keyword coverage of `printed`, what a PDF shows, and the ATS check of `text`, the
+    PDF's text, for the terms it covers."""
+    report = coverage(printed, posting)
+    return report, check_text(text, printed, [entry.term for entry in report.covered])
 
 
 def application_id(posting: JobPosting, applied_on: date, suffix: str) -> str:

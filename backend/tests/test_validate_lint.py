@@ -16,6 +16,7 @@ from app.validate.lint import (
     format_report,
     lint_profile,
     require_sendable,
+    verify_before_shipping_uses,
 )
 
 PROFILE = Profile.model_validate_json(
@@ -141,6 +142,18 @@ def test_a_verify_before_shipping_skill_needs_confirmation_for_each_resume() -> 
     assert found(report) == [("R3", "error", "skills[Languages]")]
     assert "Kotlin is marked verify-before-shipping" in report.findings[0].message
     assert check_sendable(master, PROFILE, confirmed=["kotlin"]).findings == ()
+
+
+def test_a_resume_says_where_it_uses_each_verify_before_shipping_skill() -> None:
+    """The Tailor page asks for a decision on each (T-045)."""
+    master = select(PROFILE, MASTER_VARIANT)
+    assert verify_before_shipping_uses(master, PROFILE) == {"Kotlin": ("skills[Languages]",)}
+    profile = edited(set_text("nw_export", "Cut the export job to 12 minutes in Kotlin."))
+    resume = tailored(profile)
+    assert verify_before_shipping_uses(resume, profile) == {
+        "Kotlin": ("work[northwind].highlights[nw_export]",)
+    }
+    assert verify_before_shipping_uses(tailored(), PROFILE) == {}
 
 
 def test_the_profile_points_out_where_a_verify_before_shipping_skill_is_used() -> None:

@@ -16,6 +16,7 @@ from app.schema.jobs import JobPosting, SwapUse
 from app.schema.profile import Profile, SkillLine
 from app.tailoring import tailor as tailoring
 from app.tailoring.tailor import (
+    Phrasing,
     PlannedBullet,
     PlannedCourses,
     PlannedItem,
@@ -23,10 +24,15 @@ from app.tailoring.tailor import (
     PlannedTitle,
     Tailored,
     TailoringPlan,
+    choose,
+    plan_resume,
     posting_spellings,
+    reword,
     tailor,
     tailoring_context,
     use_phrasings,
+    used_phrasings,
+    with_texts,
 )
 from app.validate.claims import ClaimReply, JudgedClaim
 from app.validate.lint import check_sendable
@@ -457,4 +463,47 @@ def test_new_phrasings_are_limited_per_resume(monkeypatch: pytest.MonkeyPatch) -
     assert len(fake.requests) == 3
     assert tailored.notes == (
         "nw_orders keeps its own words: new phrasings are limited to 1 per resume",
+    )
+
+
+# --- The steps, one at a time (the Tailor page) ------------------------------------------------
+
+
+def test_the_steps_give_what_tailor_gives() -> None:
+    """`plan_resume`, `choose` and `reword` are `tailor`'s steps: the Tailor page keeps the plan
+    and the wording, and chooses again without a call."""
+    chosen = with_bullets(PlannedBullet(id="nw_export", rephrase=True))
+    tailored, _ = run(chosen, written(REPHRASED), SUPPORTED)
+    fake = FakeMessages(reply(chosen), written(REPHRASED), reply(SUPPORTED))
+    settings = Settings(llm_model_heavy="heavy-model", llm_model_standard="standard-model")
+    client = LLMClient(settings, fake, MemoryCallLog())
+    planned = plan_resume(PROFILE, POSTING, client)
+    checked = choose(PROFILE, POSTING, planned)
+    reworded = reword(PROFILE, POSTING, client, checked, facts=(*FACTS, ORDERS))
+    assert planned == chosen
+    assert checked.selection == tailored.selection
+    assert (reworded.swaps, reworded.proposals) == (tailored.swaps, tailored.proposals)
+    assert (*checked.notes, *reworded.notes) == tailored.notes
+    assert choose(PROFILE, POSTING, planned) == checked, "the same plan gives the same choices"
+
+
+def test_choosing_again_lists_a_skill_once_its_confirmed() -> None:
+    chosen = plan(skills=(PlannedSkillLine(label="Languages", skills=("Python", "Kotlin")),))
+    assert choose(PROFILE, POSTING, chosen).selection.skills == (
+        SkillLine(label="Languages", skills=("Python",)),
+    )
+    assert choose(PROFILE, POSTING, chosen, confirmed=["Kotlin"]).selection.skills == (
+        SkillLine(label="Languages", skills=("Python", "Kotlin")),
+    )
+
+
+def test_new_words_are_kept_as_json() -> None:
+    chosen = with_bullets(PlannedBullet(id="nw_export", rephrase=True))
+    tailored, _ = run(chosen, written(REPHRASED), SUPPORTED)
+    [proposal] = tailored.proposals
+    assert Phrasing.model_validate_json(proposal.model_dump_json()) == proposal
+    assert used_phrasings(tailored, {"nw_export"}) == (proposal,)
+    assert used_phrasings(tailored, set()) == ()
+    assert with_texts(tailored.selection, {"nw_export": REPHRASED}) == use_phrasings(
+        tailored, {"nw_export"}
     )
