@@ -786,6 +786,8 @@ As the owner, I want my profile and master resume updated only when I ask, so th
 As the owner, I want a refresh to update my LinkedIn text and portfolio page too, so that every output shows the same new version.
 
 - [ ] The output-update job (T-038) also regenerates the LinkedIn pack, and moves the portfolio page to the new version if it's published.
+
+**Note (T-046):** a published portfolio page already moves to a refresh's version as soon as its outputs fall due, including after a refresh with no new facts (`shown_version` in `app/portfolio/publishing.py`), so this task is left with the LinkedIn pack.
 - [ ] A refresh with no new facts still brings both up to date with the latest version.
 - [ ] Tests use the fake LLM client.
 
@@ -876,14 +878,16 @@ As the owner, I want to paste a posting and get a tailored resume I can adjust, 
 - [ ] Tests.
 
 ### T-046 · Public portfolio page and publishing
-**Status:** ☐ · **Size:** M · **Depends on:** T-023, T-027, T-039 · **Requirements:** FR-PRT-1, FR-PRT-3, FR-PRT-4, FR-PRT-5, FR-PRT-7, FR-SET-3, NFR-PERF-2 · **Needs:** OQ-3 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-023, T-027, T-039 · **Requirements:** FR-PRT-1, FR-PRT-3, FR-PRT-4, FR-PRT-5, FR-PRT-7, FR-SET-3, NFR-PERF-2 · **Needs:** OQ-3 · **PR:** [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
 
 As the owner, I want my portfolio page served by the app and updated when I refresh, so that my public profile is current whenever I need it.
 
-- [ ] `/p/<handle>` renders the published version with the built-in template. An unknown handle returns 404.
-- [ ] Publish and unpublish from the web app, with a preview first. While it's published, the page shows the version from the latest refresh (T-038).
-- [ ] Visibility, open-to-work and noindex settings are respected. The resumes I choose can be downloaded.
-- [ ] The page is cached. Tests: only the published version is shown, and hidden fields are absent.
+- [x] `/p/<handle>` renders the published version with the built-in template. An unknown handle returns 404.
+- [x] Publish and unpublish from the web app, with a preview first. While it's published, the page shows the version from the latest refresh (T-038).
+- [x] Visibility, open-to-work and noindex settings are respected. The resumes I choose can be downloaded.
+- [x] The page is cached. Tests: only the published version is shown, and hidden fields are absent.
+
+**Built (2026-10-31):** stacked on T-048 (#70), whose portfolio settings it reads; OQ-3's handle stays open, so there's no default handle and the page can't be published until the owner chooses one in Settings. Whether the page is published, the version it was published with and the resumes it offers are a settings key (`portfolio_publishing`), so no migration. Publishing pins the version the outputs show (the latest refresh's, or the newest before the first refresh), and a later refresh's replaces it as soon as that refresh's outputs fall due, without waiting for the master resume's render; so versions made since a refresh never show, and the move T-061 lists for the portfolio page is done. The default visibility covers the website and online profiles, the only contact details without a visibility of their own. The owner may offer the master resume the latest refresh rendered and tailored resumes that passed their checks, each with its own button text; only those PDFs are served. The page and its PDFs are cached by shared caches for 60 s plus 60 s stale, and browsers check them each time, so unpublishing shows within about two minutes; a 404 is never cached. Confidential terms aren't blocked yet (T-049).
 
 ### T-047 · LinkedIn page
 **Status:** ☐ · **Size:** S · **Depends on:** T-024, T-039 · **Requirements:** FR-LIN-2, FR-LIN-3 · **PR:** —
