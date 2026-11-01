@@ -308,9 +308,10 @@ describe("the Resumes page", () => {
       "Then run uv run wj tick on your computer",
     );
     expect(screen.getByText("No tailored resumes yet.")).toBeVisible();
-    expect(screen.getByText(/each resume it makes appears here/)).toHaveTextContent(
-      "Run uv run wj tailor <posting-file> --db on your computer",
+    expect(screen.getByText(/each resume you download or make appears here/)).toHaveTextContent(
+      "or run uv run wj tailor <posting-file> --db on your computer",
     );
+    expect(screen.getByRole("link", { name: "Tailor page" })).toHaveAttribute("href", "/tailor");
   });
 
   it("offers to try again when the resumes don't load", async () => {
