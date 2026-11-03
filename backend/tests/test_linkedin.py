@@ -12,6 +12,8 @@ from app.linkedin import (
     DoneSection,
     LinkedInDone,
     LinkedInPack,
+    PackSection,
+    PackWriter,
     WrittenSection,
     mark_done,
     plan_sections,
@@ -227,6 +229,62 @@ def test_style_notes_reach_the_writer_and_rewrite_sections_when_they_change() ->
     assert "<avoid>\n- spearheaded\n</avoid>" in request(fake, 0)
     assert "<preferences>\n- Keep it short\n</preferences>" in request(fake, 0)
     assert pack.sections[0].source != first.sections[0].source
+
+
+def writer(*replies: BetaMessage, **options: Any) -> tuple[PackWriter, FakeMessages]:
+    fake = FakeMessages(*replies)
+    client = LLMClient(Settings(llm_model_standard="standard-model"), fake, MemoryCallLog())
+    return PackWriter(PROFILE, client, **options), fake
+
+
+def test_the_writer_writes_one_section_at_a_time_as_write_pack_does() -> None:
+    whole, _ = write(*passing(*KEYS), profile_version=2)
+    one, fake = writer(*passing(*KEYS), profile_version=2)
+    assert [plan.key for plan in one.plans] == KEYS
+    assert all(one.kept(plan) is None for plan in one.plans), "nothing written before"
+    sections: list[PackSection] = []
+    for plan in one.plans:
+        sections.append(one.write(plan))
+        assert len(fake.requests) == 2 * len(sections), "each section's calls as it's written"
+    assert one.pack(sections) == whole
+
+
+def test_sections_written_before_from_the_same_sources_are_kept_without_a_call() -> None:
+    """Such as by a try that was stopped before it finished: even a flagged one, so that a pack
+    is written once whatever stops it."""
+    kafka = "I build Python services with Kafka."
+    replies = [*passing("headline", "about")]
+    replies += [written(kafka), reply(ADDED_KAFKA), written(kafka), reply(ADDED_KAFKA)]
+    replies += passing("position:contoso")
+    first, _ = write(*replies)
+    earlier = (first.sections[0], first.sections[2])
+    again, fake = writer(*passing("about", "position:contoso"), written=earlier)
+    sections = [again.kept(plan) or again.write(plan) for plan in again.plans]
+    assert len(fake.requests) == 4, "only About and the other position are written"
+    assert sections[0] == first.sections[0]
+    assert sections[2] == first.sections[2] and sections[2].flagged
+
+
+def test_a_section_written_before_from_other_sources_is_written_again() -> None:
+    first, _ = write(*passing(*KEYS))
+    one, _ = writer(written=first.sections, avoid=("spearheaded",))
+    assert all(one.kept(plan) is None for plan in one.plans)
+
+
+def test_the_pack_marked_done_comes_before_sections_written_before() -> None:
+    """A section written before is listed as changed only when it differs from the pack marked
+    done; one that matches it is carried over, as `write_pack` does."""
+    first, _ = write(*passing(*KEYS))
+    done = done_from(first)
+    rewritten = first.sections[1].model_copy(update={"text": "I build services."})
+    one, _ = writer(done=done, written=(rewritten,))
+    sections = [one.kept(plan) for plan in one.plans]
+    assert all(section is not None for section in sections)
+    assert [section.changed for section in sections if section] == [False] * 4
+    assert sections[1] and sections[1].text == TEXTS["about"]
+    unmarked, _ = writer(written=(rewritten,))
+    about = unmarked.kept(unmarked.plans[1])
+    assert about is not None and about.changed and about.text == "I build services."
 
 
 def test_a_word_to_avoid_fails_the_style_check() -> None:
