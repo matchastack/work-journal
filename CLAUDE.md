@@ -154,7 +154,7 @@ The full list is in requirements §8.
 
 - **Never commit personal data.** That means no real resume content, journal text, names, contact details or employers, whether in code, fixtures, docs, commit messages or PR descriptions. Real data lives in the database or in `local/`.
 - **Secrets live only in environment variables.** `.env.example` lists names, never values.
-- **Never log journal or fact text.**
+- **Never log journal or fact text.** Log IDs, counts and error types. The JSON logs (`app/logs.py`) and Sentry's reports (`app/sentry.py`) leave out exception messages, local variables and unknown extra fields; keep them that way.
 - **Store journal and fact text in `EncryptedText` columns** (`app/db/crypto.py`), never plain ones. `wj keys new` and `wj keys rotate` manage the keys.
 - **Pass IDs, never journal or fact text, as job arguments.** Procrastinate stores them as plain JSON and logs them.
 - **Routes that act for the signed-in user take `user: CurrentUser`** (`app/auth/sessions.py`). It also checks the CSRF header on requests that change something.

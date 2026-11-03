@@ -2,6 +2,15 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-11-01 · T-052 Observability · [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+**Changed:** the app, `wj worker` and `wj tick` log JSON lines without journal text and, with `SENTRY_DSN` set, report errors to Sentry with journal text scrubbed; the Settings page shows each month's estimated LLM cost by task and by tier.
+
+**Verify:**
+- CI is green on the PR
+- Vercel's logs show the app's log lines as JSON
+- On Settings, **LLM costs** shows this month's calls after a note and `/done`, and **Month** shows earlier ones
+- With `SENTRY_DSN` set in Vercel, an error appears in Sentry with its type and stack trace, but no message, request body or journal text
+
 ## 2026-10-30 · T-048 Settings page · [#70](https://github.com/matchastack/work-journal/pull/70)
 **Changed:** the web app's Settings page links Telegram with a deep link and a QR code, and edits the reminder schedule, time zone and pause, the portfolio page's settings, the style notes and the confidential terms; it also downloads all your data as JSON and deletes all of it once you type your GitHub username.
 

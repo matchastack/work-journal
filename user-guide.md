@@ -28,7 +28,7 @@ Every generated sentence is checked against your facts, so wording never changes
 | Record what you did | The Telegram bot |
 | Fix a note or a saved fact | The web app, Journal page |
 | Update your profile from new notes | `/refresh` in Telegram, then the web app's Inbox |
-| Link Telegram, change reminders, style notes and other preferences, or export or delete your data | The web app, Settings page |
+| Link Telegram, change reminders, style notes and other preferences, see what the model cost each month, or export or delete your data | The web app, Settings page |
 | Render the master resume, tailor a resume, build the portfolio page, write LinkedIn text | The command-line tool (web pages **Coming**) |
 | See what a GitHub repository's history would give one of your projects, and the facts in it | `wj github digest`, then `wj github extract` (saving the facts for `/refresh` is **Coming**: T-069 to T-072) |
 
@@ -59,6 +59,8 @@ Open `http://localhost:8000/healthz` to check it is up, or `http://localhost:800
 | `APP_URL` | The app's address. `http://localhost:8000` by default; `https://` everywhere but your own computer |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` | The bot's token from @BotFather, and a random secret for the webhook |
 | `ANTHROPIC_API_KEY`, `LLM_MODEL_HEAVY`, `LLM_MODEL_STANDARD`, `LLM_MODEL_LIGHT` | Claude. Any command that writes or reads text with the model needs these |
+| `LLM_PRICE_HEAVY`, `LLM_PRICE_STANDARD`, `LLM_PRICE_LIGHT` | Optional: each tier's price in US dollars per million input and output tokens, such as `[3, 15]`. The LLM costs on the Settings page are estimated from them |
+| `SENTRY_DSN` | Optional: the DSN of a Sentry project, so that errors in the app, `wj worker` and `wj tick` are reported there. Journal text is never sent. Empty means nothing is sent |
 | `ENTRY_TIMEOUT_MINUTES` | Minutes of quiet that close a journal entry (default 30) |
 | `REMINDER_DAYS`, `REMINDER_TIME`, `REMINDER_TIME_ZONE` | When the bot reminds you to journal: days such as `fri` or `mon,thu`, a local time and an IANA time zone (default Fridays at 18:00, Asia/Singapore) |
 
@@ -167,7 +169,7 @@ Open `http://localhost:5173` while developing, or your deployed address. Sign in
 | Tailor | Coming (T-045) | Tailor a resume to a job posting, and see where you applied |
 | Portfolio | Coming (T-046) | Choose what the public page shows, and publish it |
 | LinkedIn | Coming (T-047) | Copy the updated sections into LinkedIn |
-| [Settings](#settings) | Built | Telegram, reminders, the portfolio page, style notes, confidential terms and your data |
+| [Settings](#settings) | Built | Telegram, reminders, the portfolio page, style notes, confidential terms, LLM costs and your data |
 
 A page that is not built yet says which task will add it. Until then, use the command-line equivalents in the next chapter.
 
@@ -209,6 +211,7 @@ Your preferences, one section each. Each section has its own **Save** button and
 - **Portfolio page:** the handle in your page's address, `/p/<handle>` (2 to 40 lowercase letters, digits and single hyphens; it's saved in lowercase, and one another account has is refused), the default visibility (Public, Resume only or Private) for what you haven't given a visibility of its own, **Show that I'm open to work**, and **Let search engines index the page**. They're kept now and take effect when the public portfolio page arrives (**Coming**: T-046).
 - **Style notes:** words to avoid and notes about your style, one per line. The style check flags the words to avoid in everything written for you; the LinkedIn text follows the notes for now. The reasons you give for rejecting a change in the Inbox are added to the notes.
 - **Confidential terms:** names and words that must never appear on your portfolio page, in published PDFs or in LinkedIn text, one per line. They're kept now and blocked once the confidentiality checks arrive (**Coming**: T-049).
+- **LLM costs:** what the model calls made for you cost in a month, estimated, with a table by task (such as fact extraction) and one by tier (heavy, standard and light), showing the calls, the tokens and the estimated cost. **Month** shows an earlier one; months are in UTC. Each call is priced when it's made, at its tier's `LLM_PRICE_*` setting, so a call made while its tier had no price isn't in the estimate: the section says how many there were. These are estimates; your Anthropic bill has the real cost.
 - **Your data:** **Download all my data** saves one JSON file with everything stored for you: your journal (readable, not encrypted), facts, profile versions, proposed changes, applications, resume PDFs, settings and the bot's recent raw messages from your chat. Sign-in sessions and link tokens are left out. **Delete all my data** asks you to type your GitHub username, then deletes your account and everything stored for it, and signs you out everywhere. It can't be undone, so download your data first. Your messages stay in your Telegram chat, and files on your computer, such as `local/`, are not touched. If you sign in again, you start with an empty journal.
 
 ## The command-line tool
@@ -339,6 +342,8 @@ Every sentence written passes the verifier before it is stored or printed.
 
 **The master resume after a refresh.** The hosted app can't run LaTeX. After you apply changes in the Inbox, or when `/refresh` finds nothing new, run `uv run wj tick` on a computer with TeX Live and the settings from `docs/deploy.md` step 6. It renders the master resume and keeps it in the database, and `uv run wj render --db` writes the newest version to `local/resumes/master.pdf` at any time.
 
+**Logs and errors.** The app, `wj worker` and `wj tick` log one JSON object per line on standard error (on Vercel, in the project's logs), at `LOG_LEVEL`. With `SENTRY_DSN` set, their errors, including a background job that fails for the last time, are reported to Sentry. Neither ever holds journal or fact text: an error shows where it happened in the code and its type, but not its message.
+
 **Rotating keys.** Add the new key in front of the old one in `DATA_ENCRYPTION_KEY`, run `wj keys rotate`, and only then remove the old key.
 
 **Evaluations.** Run `wj eval all` before changing a prompt or the model routing. The bar is 0 altered numbers, 0 inflated claims and at least 90% of facts recovered; `backend/evals/README.md` explains the suites.
@@ -355,6 +360,7 @@ Every sentence written passes the verifier before it is stored or printed.
 | A model command says a tier has no model | Set `ANTHROPIC_API_KEY` and the `LLM_MODEL_*` variable for that tier |
 | `wj render` or `wj tailor` can't find LaTeX | Install TeX Live (`backend/templates/README.md`) |
 | The bot says a refresh didn't finish in time | Run `uv run wj propose --db` from your computer |
+| The LLM costs say some calls had no price | Set `LLM_PRICE_HEAVY`, `LLM_PRICE_STANDARD` and `LLM_PRICE_LIGHT` (`backend/.env.example`); calls made after that are priced |
 | Journal text can't be read after changing keys | `DATA_ENCRYPTION_KEY` must still include the key the text was written with |
 | `wj github digest` says the token belongs to another GitHub account | Use a token of your own account: the one your profile's GitHub username names, or the one you sign in with |
 | `wj github digest` says the repository doesn't exist | Give the token access to that repository, with Contents and Pull requests set to read-only |
