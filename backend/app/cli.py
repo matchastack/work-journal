@@ -41,6 +41,7 @@ from app.db.profiles import (
     save_version,
 )
 from app.db.settings import (
+    get_confidential_terms,
     get_linkedin_done,
     get_linkedin_pack,
     get_style_notes,
@@ -87,7 +88,7 @@ from app.reminders import default_schedule
 from app.render.compile import CompileError
 from app.render.fit import FitError
 from app.render.resume import RenderError, render_resume
-from app.review import describe, needs, report_lines
+from app.review import describe, needs, rechecked, report_lines
 from app.schema.changes import AddSwap, ChangeOp, ChangeSet, ChangeSetStatus, OpStatus, ReviewedOp
 from app.schema.export import write_json_schemas
 from app.schema.fact import Fact
@@ -571,14 +572,17 @@ def apply_changes(
     if db and (profile or facts_file):
         raise typer.BadParameter("use either --db or files", param_hint="--profile, --facts-file")
     if db:
-        user_id, version, saved, pool = asyncio.run(_review_inputs(user))
+        user_id, version, saved, pool, terms = asyncio.run(_review_inputs(user))
         if saved is None:
             typer.echo("No proposal waits for review. Make one with `wj propose --db`.")
             return
         base = saved.change_set.base_version
         if base is not None and base != version.number:
             typer.echo(f"Note: it was proposed for version {base}; the newest is {version.number}.")
-        decided, updated = _review(saved.change_set, version.profile, pool, yes=yes)
+        proposal = rechecked(
+            saved.change_set, version.profile, {fact.id: fact for fact in pool}, terms
+        )
+        decided, updated = _review(proposal, version.profile, pool, yes=yes)
         target = f"version {version.number + 1} of your profile"
         if updated is not None and not yes and not typer.confirm(f"Save the changes as {target}?"):
             typer.echo("Nothing was saved.")
@@ -627,6 +631,7 @@ def _refresh(login: str | None) -> None:
                 inputs.sources,
                 base_version=inputs.version.number,
                 avoid=inputs.avoid,
+                confidential=inputs.confidential,
             )
     except BaseException:
         asyncio.run(_fail_refresh(refresh_id))
@@ -645,6 +650,7 @@ def _synthesize(
     *,
     base_version: int | None,
     avoid: Sequence[str] = (),
+    confidential: Sequence[str] = (),
 ) -> Synthesis:
     """Propose changes from the new facts, and print them."""
     if not new:
@@ -653,7 +659,13 @@ def _synthesize(
     typer.echo(f"Planning changes from {_count(len(new), 'new fact')}.")
     try:
         synthesis = synthesize(
-            profile, new, _llm_client(), sources=pool, base_version=base_version, avoid=avoid
+            profile,
+            new,
+            _llm_client(),
+            sources=pool,
+            base_version=base_version,
+            avoid=avoid,
+            confidential=confidential,
         )
     except LLMConfigError as error:
         typer.echo(str(error), err=True)
@@ -789,15 +801,16 @@ async def _fail_refresh(refresh_id: uuid.UUID) -> None:
 
 async def _review_inputs(
     login: str | None,
-) -> tuple[uuid.UUID, Version, SavedChangeSet | None, list[Fact]]:
-    """The user, their newest profile version, the oldest proposal waiting for review, and their
-    facts."""
+) -> tuple[uuid.UUID, Version, SavedChangeSet | None, list[Fact], tuple[str, ...]]:
+    """The user, their newest profile version, the oldest proposal waiting for review, their
+    facts and their confidential terms."""
     async with _database() as session:
         user_id = await _user(session, login)
         version = await _latest(session, user_id)
         waiting = await list_change_sets(session, user_id, status="proposed")
         facts = await list_facts(session, user_id) if waiting else []
-    return user_id, version, waiting[0] if waiting else None, facts
+        terms = (await get_confidential_terms(session, user_id)).terms
+    return user_id, version, waiting[0] if waiting else None, facts, terms
 
 
 async def _save_review(
