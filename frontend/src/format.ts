@@ -94,3 +94,20 @@ export function describeMetric(metric: Metric): string {
   const joined = unit === "%" || unit === "x" ? unit : unit ? ` ${unit}` : "";
   return `${metric.subject}: ${QUALIFIER_WORDS[metric.qualifier]}${numbers}${joined}`;
 }
+
+/** A count with thousands separators, e.g. `12,345`. */
+export function count(value: number): string {
+  return value.toLocaleString("en-US", { maximumFractionDigits: 0 });
+}
+
+/** US dollars to the cent, e.g. `$1,234.50`; an amount under half a cent is `<$0.01`. */
+export function usd(value: number): string {
+  if (value > 0 && value < 0.005) {
+    return "<$0.01";
+  }
+  const cents = value.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return `$${cents}`;
+}
