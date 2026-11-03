@@ -81,9 +81,14 @@ def _job_fields(record: logging.LogRecord) -> dict[str, Any]:
     return fields
 
 
+SERVER_LOGGERS = ("uvicorn", "uvicorn.error")
+"""Uvicorn's own loggers, which print a request's unhandled exception with its message. They're
+sent to the JSON handler instead. Its access log, one line per request, stays as it is."""
+
+
 def setup_logging(settings: Settings) -> None:
     """Send every log record at `LOG_LEVEL` and above to standard error as JSON, in place of the
-    root logger's other handlers."""
+    root logger's other handlers and Uvicorn's."""
     handler = logging.StreamHandler(sys.stderr)
     handler.setFormatter(JsonFormatter())
     root = logging.getLogger()
@@ -91,3 +96,8 @@ def setup_logging(settings: Settings) -> None:
         root.removeHandler(old)
     root.addHandler(handler)
     root.setLevel(settings.log_level)
+    for name in SERVER_LOGGERS:
+        server = logging.getLogger(name)
+        for old in server.handlers[:]:
+            server.removeHandler(old)
+        server.propagate = True

@@ -16,7 +16,7 @@ from app import cli as cli_module
 from app import main
 from app.cli import cli
 from app.config import Settings
-from app.logs import JsonFormatter, exception_text, setup_logging
+from app.logs import SERVER_LOGGERS, JsonFormatter, exception_text, setup_logging
 
 NOTE = "Cut the nightly export from 50 to 12 minutes for Acme Example"
 """A fictional journal note, which no log line may hold."""
@@ -51,12 +51,15 @@ def failing_record() -> logging.LogRecord:
 
 @pytest.fixture
 def root_logging() -> Iterator[logging.Logger]:
-    """The root logger, put back as it was afterwards."""
+    """The root logger, put back as it was afterwards, with Uvicorn's."""
     root = logging.getLogger()
-    handlers, level = root.handlers[:], root.level
+    loggers = [root, *(logging.getLogger(name) for name in SERVER_LOGGERS)]
+    saved = [(logger.handlers[:], logger.level, logger.propagate) for logger in loggers]
     yield root
-    root.handlers[:] = handlers
-    root.setLevel(level)
+    for logger, (handlers, level, propagate) in zip(loggers, saved, strict=True):
+        logger.handlers[:] = handlers
+        logger.setLevel(level)
+        logger.propagate = propagate
 
 
 def test_a_record_is_one_line_of_json() -> None:
@@ -139,6 +142,25 @@ def test_logs_go_to_standard_error_as_json_at_the_set_level(
     lines = captured.err.splitlines()
     assert len(lines) == 1
     assert json.loads(lines[0])["message"] == "shown here"
+
+
+def test_uvicorns_error_log_is_json_too(
+    root_logging: logging.Logger, capsys: pytest.CaptureFixture[str]
+) -> None:
+    server = logging.getLogger("uvicorn.error")
+    server.addHandler(logging.StreamHandler(sys.stderr))
+    server.propagate = False
+    setup_logging(Settings(log_level="INFO"))
+    try:
+        raise ValueError(NOTE)
+    except ValueError:
+        server.exception("Exception in ASGI application")
+    lines = capsys.readouterr().err.splitlines()
+    assert len(lines) == 1
+    entry = json.loads(lines[0])
+    assert (entry["logger"], entry["message"]) == ("uvicorn.error", "Exception in ASGI application")
+    assert entry["exception"].endswith("builtins.ValueError (message left out)")
+    assert NOTE not in lines[0]
 
 
 def test_only_the_served_app_logs_as_json_and_reports_errors(
