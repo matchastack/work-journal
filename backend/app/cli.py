@@ -41,9 +41,11 @@ from app.db.profiles import (
     save_version,
 )
 from app.db.settings import (
+    PackInputs,
     get_linkedin_done,
     get_linkedin_pack,
     get_style_notes,
+    linkedin_pack_inputs,
     save_linkedin_done,
     save_linkedin_pack,
 )
@@ -1407,8 +1409,10 @@ def linkedin(
     if db:
         if profile is not None:
             raise typer.BadParameter("use either --profile or --db", param_hint="--profile")
-        user_id, version, done, latest, avoid, preferences = asyncio.run(_linkedin_inputs(user))
+        user_id, version, inputs = asyncio.run(_linkedin_inputs(user))
         loaded, number = version.profile, version.number
+        done, latest = inputs.done, inputs.latest_application
+        avoid, preferences = inputs.avoid, inputs.preferences
     else:
         loaded, number = _read_profile(profile, db, user), None
         user_id, latest, avoid, preferences = None, None, (), ()
@@ -1500,22 +1504,13 @@ def _echo_section(section: PackSection) -> None:
     typer.echo()
 
 
-async def _linkedin_inputs(
-    login: str | None,
-) -> tuple[
-    uuid.UUID, Version, LinkedInDone | None, Application | None, tuple[str, ...], tuple[str, ...]
-]:
-    """The user, their newest profile version, the pack last marked done, their latest
-    application, and their words to avoid and style preferences."""
+async def _linkedin_inputs(login: str | None) -> tuple[uuid.UUID, Version, PackInputs]:
+    """The user, their newest profile version, and what the pack is written from besides it."""
     async with _database() as session:
         user_id = await _user(session, login)
         version = await _latest(session, user_id)
-        done = await get_linkedin_done(session, user_id)
-        applications = await list_applications(session, user_id)
-        notes = await get_style_notes(session, user_id)
-    preferences = tuple(note.text for note in notes.notes)
-    latest = applications[0] if applications else None
-    return user_id, version, done, latest, notes.avoid, preferences
+        inputs = await linkedin_pack_inputs(session, user_id)
+    return user_id, version, inputs
 
 
 async def _save_linkedin_pack(user_id: uuid.UUID, pack: LinkedInPack) -> None:

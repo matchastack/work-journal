@@ -1,26 +1,44 @@
 """The owner's settings: one JSON value per key and user (`Setting` in `app/db/models.py`).
 
-Besides preferences, two keys keep the LinkedIn pack's state (T-024): the pack last written, and
-the snapshot of the sections last marked done.
+Besides preferences, three keys keep the LinkedIn pack's state (T-024, T-061): the pack last
+written, the snapshot of the sections last marked done, and the sections of a pack a refresh is
+writing, kept as each is written.
 """
 
 import uuid
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Setting
+from app.db.store import list_applications
 from app.linkedin import LinkedInDone, LinkedInPack
 from app.schema.common import Model
+from app.schema.jobs import Application
 from app.schema.settings import StyleNote, StyleNotes
 
 STYLE_NOTES = "style_notes"
 LINKEDIN_PACK = "linkedin_pack"
 LINKEDIN_DONE = "linkedin_done"
+LINKEDIN_DRAFT = "linkedin_draft"
+
+
+@dataclass(frozen=True)
+class PackInputs:
+    """What the LinkedIn pack is written from, besides the profile (`app/linkedin.py`)."""
+
+    done: LinkedInDone | None
+    """The sections last marked done."""
+    latest_application: Application | None
+    avoid: tuple[str, ...]
+    """The owner's words to avoid (FR-WRT-4)."""
+    preferences: tuple[str, ...]
+    """The owner's style notes."""
 
 
 async def get_style_notes(session: AsyncSession, user_id: uuid.UUID) -> StyleNotes:
@@ -74,6 +92,39 @@ async def get_linkedin_done(session: AsyncSession, user_id: uuid.UUID) -> Linked
 
 async def save_linkedin_done(session: AsyncSession, user_id: uuid.UUID, done: LinkedInDone) -> None:
     await _save(session, user_id, LINKEDIN_DONE, done)
+
+
+async def get_linkedin_draft(session: AsyncSession, user_id: uuid.UUID) -> LinkedInPack | None:
+    """The sections of a pack a refresh is writing, as far as it got (`app/jobs.py`); None when
+    none is being written."""
+    value = await _get(session, user_id, LINKEDIN_DRAFT)
+    return None if value is None else LinkedInPack.model_validate(value)
+
+
+async def save_linkedin_draft(
+    session: AsyncSession, user_id: uuid.UUID, draft: LinkedInPack
+) -> None:
+    await _save(session, user_id, LINKEDIN_DRAFT, draft)
+
+
+async def clear_linkedin_draft(session: AsyncSession, user_id: uuid.UUID) -> None:
+    await session.execute(
+        delete(Setting).where(Setting.user_id == user_id, Setting.key == LINKEDIN_DRAFT)
+    )
+
+
+async def linkedin_pack_inputs(session: AsyncSession, user_id: uuid.UUID) -> PackInputs:
+    """What the user's LinkedIn pack is written from: the sections last marked done, their
+    latest application, and their style notes. `wj linkedin --db` and a refresh read the same."""
+    done = await get_linkedin_done(session, user_id)
+    applications = await list_applications(session, user_id)
+    notes = await get_style_notes(session, user_id)
+    return PackInputs(
+        done=done,
+        latest_application=applications[0] if applications else None,
+        avoid=notes.avoid,
+        preferences=tuple(note.text for note in notes.notes),
+    )
 
 
 async def _get(session: AsyncSession, user_id: uuid.UUID, key: str) -> dict[str, object] | None:

@@ -31,15 +31,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.db.engine import create_engine, session_factory, with_query
 from app.db.models import JournalEntry
+from app.linkedin import LinkedInPack, PackSection, PackWriter
 from app.llm.client import LLMClient, LLMConfigError, LLMInvalidOutput, LLMRefusal
 from app.llm.usage import CallLog, DatabaseCallLog
 from app.refresh import (
+    PackJob,
     RefreshInterrupted,
     begin_proposals,
     due_outputs,
+    due_packs,
     fail_refresh,
+    keep_pack_progress,
     outputs_to_update,
+    pack_to_write,
     record_outputs,
+    record_pack,
     record_proposals,
     render_master,
     running_refreshes,
@@ -241,14 +247,22 @@ async def run_extraction(
 async def queue_refresh_jobs(timestamp: int) -> None:
     """Queue the work refreshes wait for: proposing changes, for each running refresh whose job
     isn't queued, such as one the bot couldn't run at once, and updating the outputs that are
-    due (FR-REV-7). Due every minute, so it runs on every tick, and every minute under
-    `wj worker`. Nothing is refreshed unless the owner asked (FR-REV-6)."""
+    due (FR-REV-7): the master resume and the LinkedIn pack, each in a job of its own. Due every
+    minute, so it runs on every tick, and every minute under `wj worker`. Nothing is refreshed
+    unless the owner asked (FR-REV-6)."""
     async with database() as session:
         running = await running_refreshes(session)
         due = await due_outputs(session)
+        packs = await due_packs(session)
     proposing = sum([await queue_refresh(refresh_id) for refresh_id in running])
     updating = sum([await queue_output_update(refresh_id) for refresh_id in due])
-    logger.info("queued %d refreshes and %d output updates", proposing, updating)
+    writing = sum([await queue_pack_update(refresh_id) for refresh_id in packs])
+    logger.info(
+        "queued %d refreshes, %d output updates and %d LinkedIn packs",
+        proposing,
+        updating,
+        writing,
+    )
 
 
 @jobs.task(name="refresh_profile")
@@ -337,8 +351,9 @@ async def _refresh_failed(refresh_id: uuid.UUID, reason: str) -> None:
 
 @jobs.task(name="update_outputs", queue=LATEX_QUEUE, retry=RETRY)
 async def update_outputs(refresh_id: str) -> None:
-    """Update a refresh's outputs from its version (FR-REV-7): render the master resume
-    (FR-RES-5) and keep the PDF. Tailored resumes aren't touched."""
+    """Update a refresh's master resume from its version (FR-REV-7): render it (FR-RES-5) and
+    keep the PDF. The LinkedIn pack has a job of its own (`write_linkedin_pack`), which doesn't
+    wait for LaTeX. Tailored resumes aren't touched."""
     await run_output_update(uuid.UUID(refresh_id))
 
 
@@ -377,6 +392,102 @@ async def run_output_update(refresh_id: uuid.UUID) -> None:
         kept = await record_outputs(session, job, rendered, now=datetime.now(UTC))
     if kept and rendered is not None:
         logger.info("the master resume shows profile version %d now", job.version)
+
+
+@jobs.task(name="write_linkedin_pack", retry=RETRY, pass_context=True)
+async def write_linkedin_pack(context: procrastinate.JobContext, refresh_id: str) -> None:
+    """Write the LinkedIn pack from the version a refresh's outputs are to show (FR-REV-7,
+    FR-LIN-1). It needs no LaTeX, so it runs on the default queue, on Vercel too, whether or not
+    the master resume can render."""
+    job = context.job
+    await run_pack_update(
+        uuid.UUID(refresh_id),
+        last_attempt=lambda error: RETRY.get_retry_decision(exception=error, job=job) is None,
+    )
+
+
+async def queue_pack_update(refresh_id: uuid.UUID) -> bool:
+    """Queue `write_linkedin_pack` for a refresh, unless it's queued already. Returns whether it
+    was queued."""
+    job = write_linkedin_pack.configure(
+        lock=f"linkedin_pack:{refresh_id}", queueing_lock=f"write_linkedin_pack:{refresh_id}"
+    )
+    try:
+        await job.defer_async(refresh_id=str(refresh_id))
+    except AlreadyEnqueued:
+        return False
+    return True
+
+
+async def run_pack_update(
+    refresh_id: uuid.UUID, *, last_attempt: Callable[[BaseException], bool]
+) -> None:
+    """Write the refresh's LinkedIn pack from its version as `wj linkedin --db` does: a section
+    unchanged since the pack last marked done is carried over without a call, and every section
+    written passes the verifier (`app/linkedin.py`). Then save it as the user's pack.
+
+    Each section is kept as soon as it's written, so a try the tick stops at its time limit is
+    retried without writing those again. A refusal, an unusable answer or missing model settings
+    won't change on a retry, so the pack is marked failed at once; anything else is retried, and
+    marks it failed when `last_attempt` says this was the last try. The next refresh tries again,
+    and `wj linkedin --db` writes the pack by hand. The master resume isn't touched. Only the
+    error's type is logged, never text."""
+    async with database() as session:
+        job = await pack_to_write(session, refresh_id)
+    if job is None:
+        return
+    log = DatabaseCallLog(job.user_id)
+    try:
+        pack = await _write_pack(job, _llm_client(log))
+    except (LLMRefusal, LLMInvalidOutput, LLMConfigError) as error:
+        await _pack_failed(job, error)
+        return
+    except (Exception, asyncio.CancelledError) as error:
+        if last_attempt(error):
+            await _pack_failed(job, error)
+        raise
+    finally:
+        async with database() as session:
+            await log.save(session)
+    async with database() as session:
+        kept = await record_pack(session, job, pack, now=datetime.now(UTC))
+    if kept:
+        logger.info("the LinkedIn pack shows profile version %d now", job.version)
+
+
+async def _write_pack(job: PackJob, client: LLMClient) -> LinkedInPack:
+    """Write the pack one section at a time, outside a transaction, keeping each section as it's
+    written."""
+    inputs = job.inputs
+    writer = PackWriter(
+        job.profile,
+        client,
+        done=inputs.done,
+        latest_application=inputs.latest_application,
+        avoid=inputs.avoid,
+        preferences=inputs.preferences,
+        written=job.written,
+        profile_version=job.version,
+    )
+    written = {section.key: section for section in job.written}
+    sections: list[PackSection] = []
+    for plan in writer.plans:
+        section = writer.kept(plan)
+        if section is None:
+            section = await asyncio.to_thread(writer.write, plan)
+            written[section.key] = section
+            async with database() as session:
+                await keep_pack_progress(session, job, tuple(written.values()))
+        sections.append(section)
+    return writer.pack(sections)
+
+
+async def _pack_failed(job: PackJob, error: BaseException) -> None:
+    logger.warning(
+        "couldn't write the LinkedIn pack for refresh %s: %s", job.refresh_id, type(error).__name__
+    )
+    async with database() as session:
+        await record_pack(session, job, None, now=datetime.now(UTC))
 
 
 async def _give_up(entry_id: uuid.UUID, error: BaseException) -> None:

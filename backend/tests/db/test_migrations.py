@@ -27,6 +27,7 @@ from app.db.models import (
     JournalEntry,
     JournalMessage,
     ProfileVersionRow,
+    Refresh,
     User,
 )
 
@@ -189,3 +190,31 @@ async def test_facts_a_change_set_cites_were_covered_before_refreshes(
         select(FactRow.id, FactRow.refreshed_at).where(FactRow.user_id == user).order_by(FactRow.id)
     )
     assert list(rows) == [("e1_1", proposed), ("e1_2", None), ("imp_1", None)]
+
+
+@pytest.mark.anyio
+async def test_outputs_still_due_get_the_linkedin_pack_too(session: AsyncSession) -> None:
+    """Migration 0021: refreshes whose outputs wait to be updated get the pack, from the same
+    version. Outputs updated, failed or superseded before keep no pack status."""
+    user = await session.scalar(insert(User).returning(User.id))
+    due = datetime(2026, 10, 20, 9, 0, tzinfo=UTC)
+    finished = {"status": "nothing_new", "finished_at": due, "user_id": user}
+    ids = [
+        await session.scalar(
+            insert(Refresh)
+            .values(**finished, outputs=outputs, output_version=1, outputs_at=due)
+            .returning(Refresh.id)
+        )
+        for outputs in ("failed", "superseded", "pending")
+    ]
+    await session.execute(text(migration("0021_refresh_linkedin_pack").PENDING_PACKS))
+    rows = await session.execute(
+        select(Refresh.id, Refresh.linkedin_pack, Refresh.linkedin_pack_at).where(
+            Refresh.user_id == user
+        )
+    )
+    assert sorted(rows, key=lambda row: ids.index(row.id)) == [
+        (ids[0], None, None),
+        (ids[1], None, None),
+        (ids[2], "pending", due),
+    ]

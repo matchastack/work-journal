@@ -213,7 +213,8 @@ class Refresh(Base):
     is decided, or at once when there's nothing to propose, its outputs are due (`outputs` is
     `pending`) at the newest profile version, `output_version`. They're `updated` when the master
     resume is rendered from that version, `failed` when it can't be, and `superseded` when a later
-    refresh's outputs fell due first."""
+    refresh's outputs fell due first. The LinkedIn pack falls due with them, and `linkedin_pack`
+    follows its update the same way."""
 
     __tablename__ = "refreshes"
     __table_args__ = (
@@ -227,6 +228,13 @@ class Refresh(Base):
         CheckConstraint("(outputs IS NULL) = (output_version IS NULL)", name="output_version"),
         CheckConstraint(
             "(outputs = 'updated') = (master_pdf_sha256 IS NOT NULL)", name="master_pdf"
+        ),
+        CheckConstraint(
+            "linkedin_pack IN ('pending', 'updated', 'failed', 'superseded')",
+            name="linkedin_pack",
+        ),
+        CheckConstraint(
+            "linkedin_pack IS NULL OR output_version IS NOT NULL", name="linkedin_pack_version"
         ),
         ForeignKeyConstraint(
             ["user_id", "master_pdf_sha256"], ["artifacts.user_id", "artifacts.sha256"]
@@ -269,6 +277,14 @@ class Refresh(Base):
     master_pdf_sha256: Mapped[str | None] = mapped_column(String(64))
     """The master resume rendered from `output_version` (FR-RES-5), in `artifacts`."""
     master_pages: Mapped[int | None]
+    linkedin_pack: Mapped[Literal["pending", "updated", "failed", "superseded"] | None] = (
+        mapped_column(String(16))
+    )
+    """The LinkedIn pack's update (FR-LIN-1): `pending` until it's written from `output_version`
+    and saved as the user's pack (`updated`), `failed` when it couldn't be, or `superseded`.
+    None when the outputs never fell due, or fell due before refreshes wrote the pack."""
+    linkedin_pack_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    """When `linkedin_pack` last changed."""
 
 
 class VariantRow(Base):
