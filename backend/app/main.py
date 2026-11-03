@@ -21,6 +21,7 @@ from app.journal.routes import router as journal_router
 from app.llm.client import LLMClient
 from app.llm.usage import CallLog
 from app.logs import setup_logging
+from app.sentry import start_sentry
 from app.settings.routes import router as settings_router
 from app.telegram.routes import router as telegram_api_router
 from app.telegram.webhook import router as telegram_router
@@ -56,9 +57,9 @@ def create_app(
     requests (GitHub) live as long as the app does. Tests pass a `transport` that stands in
     for the network, and an `llm` that stands in for Claude.
 
-    With `observe`, the app logs as JSON (`app/logs.py`) once it starts. Only the app that's
-    served (`app` below) does, so tests and the command line, which import this module, keep
-    their own logging."""
+    With `observe`, the app logs as JSON (`app/logs.py`) and reports errors to Sentry
+    (`app/sentry.py`) once it starts. Only the app that's served (`app` below) does, so tests and
+    the command line, which import this module, keep their own logging."""
     settings = settings or get_settings()
     app_settings = settings
 
@@ -69,6 +70,7 @@ def create_app(
     async def lifespan(api: FastAPI) -> AsyncGenerator[None]:
         if observe:
             setup_logging(settings)
+            start_sentry(settings, component="api")
         url = settings.database_url
         engine = create_engine(url.get_secret_value()) if url else None
         api.state.engine = engine

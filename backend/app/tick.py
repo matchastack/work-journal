@@ -10,6 +10,7 @@ the same by hand. Each tick does what `wj worker` does without stopping, in boun
 3. It runs queued jobs for up to `budget_s`. A job that has started by then gets `JOB_GRACE_S`
    more to finish; one that still hasn't is aborted and retried by a later tick. Jobs that need
    LaTeX run only where it's installed (`worker_queues`).
+4. It sends the error reports the jobs made to Sentry (`app/sentry.py`) before it ends.
 
 An update that closes a journal entry also runs a tick, right after the bot answers, which first
 queues the entry's extraction (`extract_now`, FR-CAP-5), and so does `/refresh`, for its refresh
@@ -27,6 +28,7 @@ import procrastinate
 from procrastinate.periodic import PeriodicDeferrer, PeriodicRegistry
 
 from app.jobs import jobs, queue_extraction, queue_refresh, worker_queues
+from app.sentry import flush_reports
 
 logger = logging.getLogger(__name__)
 
@@ -55,28 +57,31 @@ async def tick(
     runs in this process: the queue's connection is shared, so one tick uses it at a time."""
     if _running.locked():
         return None
-    async with _running, app.open_async():
-        if first is not None:
-            await first()
-        await _defer_due_tasks(app, time.time() if now is None else now)
-        stalled = list(await app.job_manager.get_stalled_jobs())
-        for job in stalled:
-            await app.job_manager.retry_job(job)
-        with _without_schedule(app):
-            worker = asyncio.create_task(
-                app.run_worker_async(
-                    queues=worker_queues(),
-                    wait=False,
-                    listen_notify=False,
-                    install_signal_handlers=False,
-                    shutdown_graceful_timeout=JOB_GRACE_S,
+    try:
+        async with _running, app.open_async():
+            if first is not None:
+                await first()
+            await _defer_due_tasks(app, time.time() if now is None else now)
+            stalled = list(await app.job_manager.get_stalled_jobs())
+            for job in stalled:
+                await app.job_manager.retry_job(job)
+            with _without_schedule(app):
+                worker = asyncio.create_task(
+                    app.run_worker_async(
+                        queues=worker_queues(),
+                        wait=False,
+                        listen_notify=False,
+                        install_signal_handlers=False,
+                        shutdown_graceful_timeout=JOB_GRACE_S,
+                    )
                 )
-            )
-            done, _ = await asyncio.wait({worker}, timeout=budget_s)
-            if not done:
-                worker.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await worker
+                done, _ = await asyncio.wait({worker}, timeout=budget_s)
+                if not done:
+                    worker.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await worker
+    finally:
+        await flush_reports()
     return len(stalled)
 
 

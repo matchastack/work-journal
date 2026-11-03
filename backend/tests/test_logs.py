@@ -1,4 +1,5 @@
-"""Structured JSON logs (T-052, NFR-OBS-1): one object per line, with no journal text."""
+"""Structured JSON logs (T-052, NFR-OBS-1): one object per line, with no journal text. The
+served app, the worker and the tick set them up, with Sentry."""
 
 import json
 import logging
@@ -140,31 +141,47 @@ def test_logs_go_to_standard_error_as_json_at_the_set_level(
     assert json.loads(lines[0])["message"] == "shown here"
 
 
-def test_the_served_app_logs_as_json_and_others_dont(monkeypatch: pytest.MonkeyPatch) -> None:
-    calls: list[Settings] = []
-    monkeypatch.setattr(main, "setup_logging", calls.append)
+def test_only_the_served_app_logs_as_json_and_reports_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, Settings]] = []
+    monkeypatch.setattr(main, "setup_logging", lambda settings: calls.append(("logs", settings)))
+
+    def start_sentry(settings: Settings, *, component: str) -> bool:
+        calls.append((f"sentry:{component}", settings))
+        return False
+
+    monkeypatch.setattr(main, "start_sentry", start_sentry)
     settings = Settings(database_url=None)
     with TestClient(main.create_app(settings)):
         pass
     assert calls == []
     with TestClient(main.create_app(settings, observe=True)):
         pass
-    assert calls == [settings]
+    assert calls == [("logs", settings), ("sentry:api", settings)]
 
 
 @pytest.mark.parametrize("command", ["worker", "tick"])
-def test_the_worker_and_the_tick_log_as_json(command: str, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_worker_and_the_tick_log_as_json_and_report_errors(
+    command: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     calls: list[str] = []
     settings = Settings(database_url=SecretStr("postgresql://nobody@localhost/nothing"))
     monkeypatch.setattr(cli_module, "get_settings", lambda: settings)
     monkeypatch.setattr(cli_module, "setup_logging", lambda _: calls.append("logs"))
 
+    def start_sentry(started: Settings, *, component: str) -> bool:
+        assert started is settings
+        calls.append(f"sentry:{component}")
+        return False
+
     async def run(*args: object, **kwargs: object) -> int:
         calls.append(command)
         return 0
 
+    monkeypatch.setattr(cli_module, "start_sentry", start_sentry)
     monkeypatch.setattr(cli_module, "run_worker", run)
     monkeypatch.setattr(cli_module, "tick", run)
     result = CliRunner().invoke(cli, [command])
     assert result.exit_code == 0, result.output
-    assert calls == ["logs", command]
+    assert calls == ["logs", f"sentry:{command}", command]

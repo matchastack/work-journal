@@ -17,7 +17,7 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import __version__
-from app.config import get_settings
+from app.config import Settings, get_settings
 from app.db.crypto import (
     DecryptionError,
     EncryptionKeyError,
@@ -95,6 +95,7 @@ from app.schema.jobs import Application, JobPosting
 from app.schema.profile import Profile
 from app.schema.verification import VerifierReport
 from app.selection import MASTER_VARIANT, select
+from app.sentry import start_sentry
 from app.synthesis import Synthesis, new_facts, synthesize
 from app.tailoring.applications import LoggedApplication, ResumeChecks, record
 from app.tailoring.ats import report_lines as ats_lines
@@ -935,7 +936,14 @@ def worker(
         typer.echo("Set DATABASE_URL to the database that holds the jobs.", err=True)
         raise typer.Exit(1)
     setup_logging(settings)
-    asyncio.run(run_worker(concurrency))
+    asyncio.run(_reporting_errors(run_worker(concurrency), settings, "worker"))
+
+
+async def _reporting_errors[T](work: Coroutine[Any, Any, T], settings: Settings, name: str) -> T:
+    """Run `work` with its errors reported to Sentry, if `SENTRY_DSN` is set. Sentry starts
+    inside the event loop, so that it sees the errors of the loop's tasks too."""
+    start_sentry(settings, component=name)
+    return await work
 
 
 @cli.command("tick")
@@ -950,7 +958,7 @@ def tick_once(
         typer.echo("Set DATABASE_URL to the database that holds the jobs.", err=True)
         raise typer.Exit(1)
     setup_logging(settings)
-    retried = asyncio.run(tick(budget_s=budget))
+    retried = asyncio.run(_reporting_errors(tick(budget_s=budget), settings, "tick"))
     typer.echo(f"Tick done; {retried or 0} stalled job(s) retried.")
 
 
