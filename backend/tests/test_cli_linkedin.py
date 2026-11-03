@@ -151,3 +151,25 @@ def test_linkedin_needs_the_llm_settings() -> None:
     result = linkedin()
     assert result.exit_code == 1
     assert "LLM_MODEL_STANDARD" in result.stderr
+
+
+def test_show_prints_the_pack_last_written_without_a_call(monkeypatch: pytest.MonkeyPatch) -> None:
+    use_fake(monkeypatch, *passing(*TEXTS))
+    written = linkedin()
+    assert written.exit_code == 0, written.output
+    fake = use_fake(monkeypatch)
+    shown = runner.invoke(cli, ["linkedin", "show"])
+    assert shown.exit_code == 0, shown.output
+    assert fake.requests == []
+    assert shown.stdout == written.stdout
+    assert runner.invoke(cli, ["linkedin", "done"]).exit_code == 0
+    after = runner.invoke(cli, ["linkedin", "show"])
+    assert after.stdout == "Nothing changed since you last marked the pack done.\n"
+    every = runner.invoke(cli, ["linkedin", "show", "--all"])
+    assert every.stdout.count("== ") == 4
+
+
+def test_show_needs_a_pack() -> None:
+    result = runner.invoke(cli, ["linkedin", "show"])
+    assert result.exit_code == 1
+    assert result.stderr == "There's no pack yet; write one with `wj linkedin`.\n"

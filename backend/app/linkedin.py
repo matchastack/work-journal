@@ -288,6 +288,23 @@ def mark_done(
     return LinkedInDone(sections=tuple(sections), marked_at=now), tuple(flagged)
 
 
+def compared(pack: LinkedInPack, done: LinkedInDone | None) -> LinkedInPack:
+    """The pack against the sections marked done now, which may be later than when it was
+    written: which sections differ from them, and which sections marked done it doesn't have."""
+    earlier = {section.key: section for section in (done.sections if done else ())}
+    sections = tuple(
+        section.model_copy(
+            update={
+                "changed": section.key not in earlier or earlier[section.key].text != section.text
+            }
+        )
+        for section in pack.sections
+    )
+    keys = {section.key for section in pack.sections}
+    removed = tuple(section.label for section in earlier.values() if section.key not in keys)
+    return pack.model_copy(update={"sections": sections, "removed": removed})
+
+
 def plan_sections(profile: Profile, selection: Selection) -> list[SectionPlan]:
     """The sections to write, each with its facts: the headline, About, then one position for
     each role with public bullets, in the profile's order. The headline draws on the current

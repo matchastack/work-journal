@@ -15,6 +15,7 @@ from app.linkedin import (
     PackSection,
     PackWriter,
     WrittenSection,
+    compared,
     mark_done,
     plan_sections,
     write_pack,
@@ -341,6 +342,17 @@ def test_sections_the_profile_no_longer_has_are_listed_as_removed() -> None:
     done = done.model_copy(update={"sections": (*done.sections, gone)})
     pack, _ = write(done=done)
     assert pack.removed == (label,)
+
+
+def test_a_pack_is_compared_with_the_sections_marked_done_since_it_was_written() -> None:
+    pack, _ = write(*passing(*KEYS))
+    label = "Position: Tutor at A School"
+    gone = DoneSection(key="position:old", label=label, text="Tutored.", source="old")
+    done = done_from(pack)
+    later = compared(pack, done.model_copy(update={"sections": (*done.sections, gone)}))
+    assert not later.changed
+    assert later.removed == (label,)
+    assert compared(later, None).changed == pack.sections
 
 
 def application(title: str) -> Application:

@@ -134,6 +134,15 @@ class PackJob:
     """The sections an earlier try wrote from this version, which aren't written again."""
 
 
+@dataclass(frozen=True)
+class PackUpdate:
+    """Where the LinkedIn pack of the newest refresh with one stands."""
+
+    status: Literal["pending", "updated", "failed"]
+    version: int
+    """The profile version it's written from."""
+
+
 async def start_refresh(session: AsyncSession, user_id: uuid.UUID) -> uuid.UUID | Blocked:
     """Start a refresh for the user, and return its ID, or why it can't start."""
     # Lock the user, so that two requests can't both start one.
@@ -427,3 +436,22 @@ async def record_pack(
     await clear_linkedin_draft(session, job.user_id)
     refresh.linkedin_pack = "updated"
     return True
+
+
+async def latest_pack_update(session: AsyncSession, user_id: uuid.UUID) -> PackUpdate | None:
+    """Where the LinkedIn pack of the user's newest refresh with one stands; None before the
+    first. Refreshes run one after another, so only an earlier one's can be superseded."""
+    row = (
+        await session.execute(
+            select(Refresh.linkedin_pack, Refresh.output_version)
+            .where(Refresh.user_id == user_id, Refresh.linkedin_pack.is_not(None))
+            .order_by(Refresh.requested_at.desc())
+            .limit(1)
+        )
+    ).first()
+    if row is None:
+        return None
+    status, version = row
+    if status is None or status == "superseded" or version is None:
+        return None
+    return PackUpdate(status=status, version=version)
