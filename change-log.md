@@ -2,11 +2,11 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-11-01 · T-061 Refresh: the LinkedIn pack · [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+## 2026-11-01 · T-061 Refresh: the LinkedIn pack · [#73](https://github.com/matchastack/work-journal/pull/73)
 **Changed:** once a refresh's changes are applied, or it finds nothing new, a job writes the LinkedIn pack from the new version beside the master resume, without waiting for LaTeX, and `wj linkedin show --db` prints it.
 
 **Verify:**
-- CI is green on #PRNUM
+- CI is green on #73
 - After `uv run alembic upgrade head`, apply a refresh's changes in the Inbox and run `uv run wj tick`: `uv run wj linkedin show --db` prints the sections that changed, written from the new version
 - After `uv run wj linkedin done --db`, `/refresh` with nothing new and a tick leave the pack's sections as they were, without a model call
 - Without `LLM_MODEL_STANDARD`, a tick still renders the master resume, and `wj linkedin show --db` says the refresh couldn't write the pack

@@ -779,7 +779,7 @@ As the owner, I want my profile and master resume updated only when I ask, so th
 - Vercel can't run LaTeX (C6), so the output update waits on a queue that only a worker with TeX Live takes: `wj tick` or `wj worker` on the owner's computer. The PDF is kept with the refresh, for the Resumes page (T-044).
 
 ### T-061 · Refresh: the LinkedIn pack and the portfolio page
-**Status:** ◐ · **Size:** S · **Depends on:** T-024, T-038, T-046 · **Requirements:** FR-REV-7, FR-LIN-1, FR-PRT-3 · **PR:** [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+**Status:** ◐ · **Size:** S · **Depends on:** T-024, T-038, T-046 · **Requirements:** FR-REV-7, FR-LIN-1, FR-PRT-3 · **PR:** [#73](https://github.com/matchastack/work-journal/pull/73)
 
 As the owner, I want a refresh to update my LinkedIn text and portfolio page too, so that every output shows the same new version.
 
