@@ -947,13 +947,13 @@ As the owner, I want one command to run after each deploy, so that I don't have 
 - [x] `docs/deploy.md` and `CLAUDE.md` say to run it after each deploy, and that a change needing a command after its deploy adds it there.
 
 ### T-052 · Observability
-**Status:** ☐ · **Size:** S · **Depends on:** T-051 · **Requirements:** NFR-OBS-1, NFR-COST-2, NFR-PRIV-2 · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-051 · **Requirements:** NFR-OBS-1, NFR-COST-2, NFR-PRIV-2 · **PR:** [#74](https://github.com/matchastack/work-journal/pull/74)
 
 As the owner, I want errors and LLM costs visible, so that problems and spending don't surprise me.
 
-- [ ] Sentry for the API and background jobs, with journal text scrubbed.
-- [ ] Structured JSON logs that never contain journal text.
-- [ ] A monthly LLM cost view in Settings, broken down by task and tier.
+- [x] Sentry for the API and background jobs, with journal text scrubbed.
+- [x] Structured JSON logs that never contain journal text.
+- [x] A monthly LLM cost view in Settings, broken down by task and tier.
 
 **Revisit with a Console organization:** the cost view's figures are estimates from the per-tier prices (`LLM_PRICE_*`). The billed cost comes only from the Usage and Cost Admin API's cost report: US dollars per day, by model and token type. That API needs a Console organization and an Admin API key, and individual accounts can't use it. Once the owner has an organization, compare the estimates with the billed cost, and keep the Admin key off the server (decided in the review of #9).
 

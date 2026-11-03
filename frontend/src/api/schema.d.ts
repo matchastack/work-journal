@@ -468,6 +468,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/settings/llm-costs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Llm Cost View
+         * @description The owner's LLM calls in a month, this month by default, with their tokens and estimated
+         *     cost, by task and by tier (NFR-COST-2). A month that hasn't started yet is refused (422).
+         */
+        get: operations["llm_cost_view_api_settings_llm_costs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/settings/export.json": {
         parameters: {
             query?: never;
@@ -583,6 +604,26 @@ export interface components {
              * @default []
              */
             terms: string[];
+        };
+        /**
+         * CostLine
+         * @description The calls of a month, a task or a tier, with their tokens and estimated cost.
+         */
+        CostLine: {
+            /** Calls */
+            calls: number;
+            /** Inputtokens */
+            inputTokens: number;
+            /** Outputtokens */
+            outputTokens: number;
+            /** Cachereadtokens */
+            cacheReadTokens: number;
+            /** Cachewritetokens */
+            cacheWriteTokens: number;
+            /** Costusd */
+            costUsd: number;
+            /** Unpricedcalls */
+            unpricedCalls: number;
         };
         /** DataDeletion */
         DataDeletion: {
@@ -926,6 +967,21 @@ export interface components {
             /** Edits */
             edits: components["schemas"]["MessageEdit"][];
         };
+        /**
+         * LlmCosts
+         * @description A month's LLM calls and their estimated cost, by task and by tier.
+         */
+        LlmCosts: {
+            /** Month */
+            month: string;
+            /** Months */
+            months: string[];
+            total: components["schemas"]["CostLine"];
+            /** Bytask */
+            byTask: components["schemas"]["TaskCost"][];
+            /** Bytier */
+            byTier: components["schemas"]["TierCost"][];
+        };
         /** Me */
         Me: {
             /**
@@ -1188,6 +1244,27 @@ export interface components {
              */
             notes: string[];
         };
+        /** TaskCost */
+        TaskCost: {
+            /** Calls */
+            calls: number;
+            /** Inputtokens */
+            inputTokens: number;
+            /** Outputtokens */
+            outputTokens: number;
+            /** Cachereadtokens */
+            cacheReadTokens: number;
+            /** Cachewritetokens */
+            cacheWriteTokens: number;
+            /** Costusd */
+            costUsd: number;
+            /** Unpricedcalls */
+            unpricedCalls: number;
+            /** Task */
+            task: string;
+            /** Tier */
+            tier: string;
+        };
         /** TelegramDeepLink */
         TelegramDeepLink: {
             /** Url */
@@ -1214,6 +1291,25 @@ export interface components {
             linked: boolean;
             /** Linkedat */
             linkedAt: string | null;
+        };
+        /** TierCost */
+        TierCost: {
+            /** Calls */
+            calls: number;
+            /** Inputtokens */
+            inputTokens: number;
+            /** Outputtokens */
+            outputTokens: number;
+            /** Cachereadtokens */
+            cacheReadTokens: number;
+            /** Cachewritetokens */
+            cacheWriteTokens: number;
+            /** Costusd */
+            costUsd: number;
+            /** Unpricedcalls */
+            unpricedCalls: number;
+            /** Tier */
+            tier: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -1966,6 +2062,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConfidentialTerms"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    llm_cost_view_api_settings_llm_costs_get: {
+        parameters: {
+            query?: {
+                /** @description `YYYY-MM`, in UTC */
+                month?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LlmCosts"];
                 };
             };
             /** @description Validation Error */

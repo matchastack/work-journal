@@ -82,6 +82,7 @@ both.
    | `CRON_SECRET` | the second random secret; Vercel's cron sends it to the tick |
    | `ANTHROPIC_API_KEY`, `LLM_MODEL_HEAVY`, `LLM_MODEL_STANDARD`, `LLM_MODEL_LIGHT` | your Claude API key and model IDs; `backend/.env.example` describes each, and the optional prices |
    | `REMINDER_DAYS`, `REMINDER_TIME`, `REMINDER_TIME_ZONE` | optional: the reminder schedule, if not Fridays at 18:00, Asia/Singapore (step 5) |
+   | `SENTRY_DSN` | optional: to see errors in [Sentry](https://sentry.io), the DSN of a Python project there, from its **Client Keys (DSN)** settings. Journal text is never sent |
 
 4. Deploy. The build step (`backend/scripts/vercel-build.sh`) builds the web app and then
    migrates the database. If a migration fails, the build fails and nothing changes.
@@ -182,7 +183,13 @@ database, with the refresh. `uv run wj render --db` writes the newest version to
   a minute, the bot replies with the facts it saved. In Neon,
   `SELECT task, outcome FROM llm_calls ORDER BY at DESC LIMIT 2;` shows the calls.
 - Vercel lists the tick among the project's cron jobs, and the logs of each run show it
-  answering 200.
+  answering 200. The app's own log lines are JSON, such as
+  `{"time": "...", "level": "INFO", "logger": "app.jobs", "message": "sent 0 reminders"}`.
+- On the web app's Settings page, **LLM costs** shows this month's calls, such as the
+  extraction above, with an estimated cost when the `LLM_PRICE_*` variables are set.
+- With `SENTRY_DSN` set, an error in the app or a job appears in Sentry, tagged with the
+  `component` that had it (`api`, or `tick` for `wj tick` on your computer), with its type and
+  where it happened, but no message, request body or journal text.
 - Send `/refresh`. Within a few minutes, the bot says how many updates it proposes, with a link
   to the Inbox, or that there's nothing new.
 - Send `/pause`: the bot says your reminders are paused. Send `/resume`: it says they're back

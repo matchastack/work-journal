@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import logging
 import re
 import uuid
 from collections.abc import AsyncGenerator, Callable, Coroutine, Sequence
@@ -18,7 +17,7 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import __version__
-from app.config import get_settings
+from app.config import Settings, get_settings
 from app.db.crypto import (
     DecryptionError,
     EncryptionKeyError,
@@ -69,6 +68,7 @@ from app.jobs import run_worker
 from app.linkedin import LinkedInDone, LinkedInPack, PackSection, mark_done, write_pack
 from app.llm.client import LLMCallError, LLMClient, LLMConfigError
 from app.llm.usage import CallLog, CallLogs, JsonlCallLog, MemoryCallLog
+from app.logs import setup_logging
 from app.main import create_app
 from app.portfolio.build import Download, build_portfolio
 from app.profile_ops import ProfileOpError
@@ -95,6 +95,7 @@ from app.schema.jobs import Application, JobPosting
 from app.schema.profile import Profile
 from app.schema.verification import VerifierReport
 from app.selection import MASTER_VARIANT, select
+from app.sentry import start_sentry
 from app.synthesis import Synthesis, new_facts, synthesize
 from app.tailoring.applications import LoggedApplication, ResumeChecks, record
 from app.tailoring.ats import report_lines as ats_lines
@@ -934,8 +935,15 @@ def worker(
     if settings.database_url is None:
         typer.echo("Set DATABASE_URL to the database that holds the jobs.", err=True)
         raise typer.Exit(1)
-    logging.basicConfig(level=settings.log_level, format="%(levelname)s %(name)s: %(message)s")
-    asyncio.run(run_worker(concurrency))
+    setup_logging(settings)
+    asyncio.run(_reporting_errors(run_worker(concurrency), settings, "worker"))
+
+
+async def _reporting_errors[T](work: Coroutine[Any, Any, T], settings: Settings, name: str) -> T:
+    """Run `work` with its errors reported to Sentry, if `SENTRY_DSN` is set. Sentry starts
+    inside the event loop, so that it sees the errors of the loop's tasks too."""
+    start_sentry(settings, component=name)
+    return await work
 
 
 @cli.command("tick")
@@ -949,8 +957,8 @@ def tick_once(
     if settings.database_url is None:
         typer.echo("Set DATABASE_URL to the database that holds the jobs.", err=True)
         raise typer.Exit(1)
-    logging.basicConfig(level=settings.log_level, format="%(levelname)s %(name)s: %(message)s")
-    retried = asyncio.run(tick(budget_s=budget))
+    setup_logging(settings)
+    retried = asyncio.run(_reporting_errors(tick(budget_s=budget), settings, "tick"))
     typer.echo(f"Tick done; {retried or 0} stalled job(s) retried.")
 
 
