@@ -2,7 +2,7 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-11-01 · T-052 Observability · [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+## 2026-11-01 · T-052 Observability · [#74](https://github.com/matchastack/work-journal/pull/74)
 **Changed:** the app, `wj worker` and `wj tick` log JSON lines without journal text and, with `SENTRY_DSN` set, report errors to Sentry with journal text scrubbed; the Settings page shows each month's estimated LLM cost by task and by tier.
 
 **Verify:**

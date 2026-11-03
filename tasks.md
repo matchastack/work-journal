@@ -947,7 +947,7 @@ As the owner, I want one command to run after each deploy, so that I don't have 
 - [x] `docs/deploy.md` and `CLAUDE.md` say to run it after each deploy, and that a change needing a command after its deploy adds it there.
 
 ### T-052 · Observability
-**Status:** ◐ · **Size:** S · **Depends on:** T-051 · **Requirements:** NFR-OBS-1, NFR-COST-2, NFR-PRIV-2 · **PR:** [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+**Status:** ◐ · **Size:** S · **Depends on:** T-051 · **Requirements:** NFR-OBS-1, NFR-COST-2, NFR-PRIV-2 · **PR:** [#74](https://github.com/matchastack/work-journal/pull/74)
 
 As the owner, I want errors and LLM costs visible, so that problems and spending don't surprise me.
 
