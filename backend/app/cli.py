@@ -41,9 +41,11 @@ from app.db.profiles import (
     save_version,
 )
 from app.db.settings import (
+    PackInputs,
     get_linkedin_done,
     get_linkedin_pack,
     get_style_notes,
+    linkedin_pack_inputs,
     save_linkedin_done,
     save_linkedin_pack,
 )
@@ -66,7 +68,14 @@ from app.github.extraction import RepoTarget, extract_repo_facts
 from app.github.reader import ExpectedOwner, read_history
 from app.importers.master_resume import MasterResumeError, import_master_resume
 from app.jobs import run_worker
-from app.linkedin import LinkedInDone, LinkedInPack, PackSection, mark_done, write_pack
+from app.linkedin import (
+    LinkedInDone,
+    LinkedInPack,
+    PackSection,
+    compared,
+    mark_done,
+    write_pack,
+)
 from app.llm.client import LLMCallError, LLMClient, LLMConfigError
 from app.llm.usage import CallLog, CallLogs, JsonlCallLog, MemoryCallLog
 from app.main import create_app
@@ -75,11 +84,13 @@ from app.profile_ops import ProfileOpError
 from app.profile_ops import apply as apply_operations
 from app.refresh import (
     Blocked,
+    PackUpdate,
     Proposals,
     RefreshInputs,
     begin_proposals,
     change_set_decided,
     fail_refresh,
+    latest_pack_update,
     record_proposals,
     start_refresh,
 )
@@ -1407,8 +1418,10 @@ def linkedin(
     if db:
         if profile is not None:
             raise typer.BadParameter("use either --profile or --db", param_hint="--profile")
-        user_id, version, done, latest, avoid, preferences = asyncio.run(_linkedin_inputs(user))
+        user_id, version, inputs = asyncio.run(_linkedin_inputs(user))
         loaded, number = version.profile, version.number
+        done, latest = inputs.done, inputs.latest_application
+        avoid, preferences = inputs.avoid, inputs.preferences
     else:
         loaded, number = _read_profile(profile, db, user), None
         user_id, latest, avoid, preferences = None, None, (), ()
@@ -1435,6 +1448,55 @@ def linkedin(
     else:
         LINKEDIN_PACK_FILE.parent.mkdir(parents=True, exist_ok=True)
         LINKEDIN_PACK_FILE.write_text(pack.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    _echo_pack(pack, everything=everything, db=db)
+
+
+@linkedin_cli.command("show")
+def linkedin_show(
+    everything: Annotated[
+        bool, typer.Option("--all", help="Print every section, even unchanged ones.")
+    ] = False,
+    db: DbOption = False,
+    user: UserOption = None,
+) -> None:
+    """Print the pack last written, by a refresh or by `wj linkedin`, without writing it again.
+
+    Prints the sections that changed since you last marked the pack done; no model is called.
+    With --db, it also says when a refresh's pack still waits to be written, or couldn't be
+    written. Exits with status 1 when there's no pack, or a section printed is flagged.
+    """
+    update: PackUpdate | None = None
+    if db:
+        pack, done, update = asyncio.run(_stored_linkedin(user))
+    else:
+        if user is not None:
+            raise typer.BadParameter("goes with --db", param_hint="--user")
+        pack = _read_model(LINKEDIN_PACK_FILE, LinkedInPack)
+        done = _read_model(LINKEDIN_DONE_FILE, LinkedInDone)
+    written = None if pack is None else pack.profile_version
+    if update is not None and update.status != "updated" and (written or 0) < update.version:
+        if update.status == "pending":
+            typer.echo(
+                f"A refresh's pack, from version {update.version} of your profile, waits to be "
+                "written: the next tick writes it, or run `wj tick`."
+            )
+        else:
+            typer.echo(
+                f"A refresh couldn't write the pack from version {update.version} of your "
+                "profile. Write it with `wj linkedin --db`, or send /refresh to try again."
+            )
+    if pack is None:
+        command = "wj linkedin --db" if db else "wj linkedin"
+        typer.echo(f"There's no pack yet; write one with `{command}`.", err=True)
+        raise typer.Exit(1)
+    if written is not None:
+        typer.echo(f"Written from version {written} of your profile.")
+    _echo_pack(compared(pack, done), everything=everything, db=db)
+
+
+def _echo_pack(pack: LinkedInPack, *, everything: bool, db: bool) -> None:
+    """The sections that changed since the pack was last marked done, or every one, then what to
+    do next. Exits with status 1 when a section printed is flagged."""
     shown = pack.sections if everything else pack.changed
     for section in shown:
         _echo_section(section)
@@ -1500,22 +1562,26 @@ def _echo_section(section: PackSection) -> None:
     typer.echo()
 
 
-async def _linkedin_inputs(
-    login: str | None,
-) -> tuple[
-    uuid.UUID, Version, LinkedInDone | None, Application | None, tuple[str, ...], tuple[str, ...]
-]:
-    """The user, their newest profile version, the pack last marked done, their latest
-    application, and their words to avoid and style preferences."""
+async def _linkedin_inputs(login: str | None) -> tuple[uuid.UUID, Version, PackInputs]:
+    """The user, their newest profile version, and what the pack is written from besides it."""
     async with _database() as session:
         user_id = await _user(session, login)
         version = await _latest(session, user_id)
+        inputs = await linkedin_pack_inputs(session, user_id)
+    return user_id, version, inputs
+
+
+async def _stored_linkedin(
+    login: str | None,
+) -> tuple[LinkedInPack | None, LinkedInDone | None, PackUpdate | None]:
+    """The user's pack last written, the sections last marked done, and where the pack of their
+    newest refresh stands."""
+    async with _database() as session:
+        user_id = await _user(session, login)
+        pack = await get_linkedin_pack(session, user_id)
         done = await get_linkedin_done(session, user_id)
-        applications = await list_applications(session, user_id)
-        notes = await get_style_notes(session, user_id)
-    preferences = tuple(note.text for note in notes.notes)
-    latest = applications[0] if applications else None
-    return user_id, version, done, latest, notes.avoid, preferences
+        update = await latest_pack_update(session, user_id)
+    return pack, done, update
 
 
 async def _save_linkedin_pack(user_id: uuid.UUID, pack: LinkedInPack) -> None:

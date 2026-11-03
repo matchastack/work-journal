@@ -60,8 +60,8 @@ Run these from `backend/` (uv project, Python 3.12):
 | Run the API locally (auto-reload) | `uv run uvicorn app.main:app --reload`, then open `/healthz` or `/docs` |
 | Start Postgres for local development | `docker compose up -d` (repo root); set `DATABASE_URL` and `TEST_DATABASE_URL` as `compose.yml` says |
 | Apply database migrations | `uv run alembic upgrade head` (after changing `app/db/models.py`: `uv run alembic revision --autogenerate --rev-id <next> -m "<change>"`) |
-| Run the background worker (jobs and scheduled tasks in `app/jobs.py`; with TeX Live, it also renders the master resume after a refresh) | `uv run wj worker` (needs `DATABASE_URL`) |
-| Run one tick of background work, as Vercel's cron does once a day (`app/tick.py`; with TeX Live, it also renders the master resume after a refresh) | `uv run wj tick` (needs `DATABASE_URL`) |
+| Run the background worker (jobs and scheduled tasks in `app/jobs.py`, such as writing the LinkedIn pack after a refresh; with TeX Live, it also renders the master resume) | `uv run wj worker` (needs `DATABASE_URL`) |
+| Run one tick of background work, as Vercel's cron does once a day (`app/tick.py`; it writes the LinkedIn pack after a refresh, and with TeX Live, it also renders the master resume) | `uv run wj tick` (needs `DATABASE_URL`) |
 | Run the command-line tool | `uv run wj --help` |
 | Load the imported profile into the database as version 1 (then `wj lint`, `wj render` and `wj portfolio build` take `--db`) | `uv run wj db load-profile --user <github-login>` |
 | Journal from Telegram on this computer, without the webhook (needs `TELEGRAM_BOT_TOKEN` and `DATABASE_URL`; turns the webhook off) | `uv run wj telegram poll` |
@@ -77,7 +77,7 @@ Run these from `backend/` (uv project, Python 3.12):
 | List the logged applications, newest first | `uv run wj applications` (add `--db` for the database) |
 | Propose profile changes from the journal facts since the last refresh, as `/refresh` does (needs the LLM settings) | `uv run wj propose --db` |
 | Review the proposed changes one by one and save the accepted ones as the next version, then render | `uv run wj apply --db`, then `uv run wj render --db` |
-| Write the LinkedIn pack: the headline, About and position texts that changed since you last marked it done (needs the LLM settings) | `uv run wj linkedin --db`, then, once pasted into LinkedIn, `uv run wj linkedin done --db` |
+| Write the LinkedIn pack by hand, as a refresh's output update does: the headline, About and position texts that changed since you last marked it done (needs the LLM settings; `wj linkedin show --db` prints the pack last written, without a model call) | `uv run wj linkedin --db`, then, once pasted into LinkedIn, `uv run wj linkedin done --db` |
 | Print exactly what the model would read from a GitHub repository's history, and what it leaves out (needs `GITHUB_REPOS_TOKEN`, which must be the owner's; `--since YYYY-MM`) | `uv run wj github digest <owner/repo>` (add `--db` to check the token against the user in the database) |
 | Extract the facts in a GitHub repository's history for one project, checked against the items they cite, and print them as JSON (needs `GITHUB_REPOS_TOKEN` and the LLM settings; `--new-project <name>` for a new project, `--ownership` to cap the owner's part) | `uv run wj github extract <owner/repo> --project <id>` (add `--db` for the profile in the database) |
 | Evaluate the LLM steps on the fictional cases, against the bar (needs `ANTHROPIC_API_KEY` and `LLM_MODEL_STANDARD`; `evals/README.md`) | `uv run wj eval all` (add `--private` for your cases in `local/evals/`) |

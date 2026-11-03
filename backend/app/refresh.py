@@ -17,12 +17,17 @@
    (`outputs_to_update`, `record_outputs`). Rendering needs LaTeX, which Vercel lacks (C6), so the
    job waits for a worker that has it (`LATEX_QUEUE` in `app/jobs.py`). Tailored resumes made
    before are never changed.
+5. The `write_linkedin_pack` job writes the LinkedIn pack from the same version, as
+   `wj linkedin --db` does, and saves it as the user's pack (`pack_to_write`, `record_pack`). It
+   needs no LaTeX, so it runs wherever jobs run, apart from the master resume. Each section is
+   kept as it's written (`keep_pack_progress`), so a try stopped at the tick's time limit leaves
+   them for the next.
 
 Nothing here runs on a schedule or when an entry closes. Fact text is never logged.
 """
 
 import uuid
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Literal
@@ -33,8 +38,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import selection
 from app.db.models import ChangeSetRow, FactRow, ProfileVersionRow, Refresh, User
 from app.db.profiles import Version, get_version, latest_version, propose_change_set
-from app.db.settings import get_style_notes
+from app.db.settings import (
+    PackInputs,
+    clear_linkedin_draft,
+    get_linkedin_draft,
+    get_style_notes,
+    linkedin_pack_inputs,
+    save_linkedin_draft,
+    save_linkedin_pack,
+)
 from app.db.store import store_artifact
+from app.linkedin import LinkedInPack, PackSection
 from app.render.resume import RenderedResume, render_resume
 from app.schema.fact import Fact
 from app.schema.profile import Profile
@@ -105,6 +119,28 @@ class OutputsJob:
     user_id: uuid.UUID
     version: int
     profile: Profile
+
+
+@dataclass(frozen=True)
+class PackJob:
+    """A refresh's LinkedIn pack, to write from one profile version."""
+
+    refresh_id: uuid.UUID
+    user_id: uuid.UUID
+    version: int
+    profile: Profile
+    inputs: PackInputs
+    written: tuple[PackSection, ...]
+    """The sections an earlier try wrote from this version, which aren't written again."""
+
+
+@dataclass(frozen=True)
+class PackUpdate:
+    """Where the LinkedIn pack of the newest refresh with one stands."""
+
+    status: Literal["pending", "updated", "failed"]
+    version: int
+    """The profile version it's written from."""
 
 
 async def start_refresh(session: AsyncSession, user_id: uuid.UUID) -> uuid.UUID | Blocked:
@@ -254,8 +290,8 @@ async def change_set_decided(
 
 
 async def outputs_due(session: AsyncSession, refresh: Refresh, *, now: datetime) -> None:
-    """The refresh's outputs are to show the newest profile version. An earlier refresh's that
-    still wait are superseded."""
+    """The refresh's outputs, the master resume and the LinkedIn pack, are to show the newest
+    profile version. An earlier refresh's that still wait are superseded."""
     newest = await session.scalar(
         select(func.max(ProfileVersionRow.number)).where(
             ProfileVersionRow.user_id == refresh.user_id
@@ -272,11 +308,22 @@ async def outputs_due(session: AsyncSession, refresh: Refresh, *, now: datetime)
         )
         .values(outputs="superseded", outputs_at=now)
     )
+    await session.execute(
+        update(Refresh)
+        .where(
+            Refresh.user_id == refresh.user_id,
+            Refresh.linkedin_pack == "pending",
+            Refresh.id != refresh.id,
+        )
+        .values(linkedin_pack="superseded", linkedin_pack_at=now)
+    )
     refresh.outputs = "pending"
     refresh.output_version = newest
     refresh.outputs_at = now
     refresh.master_pdf_sha256 = None
     refresh.master_pages = None
+    refresh.linkedin_pack = "pending"
+    refresh.linkedin_pack_at = now
 
 
 async def due_outputs(session: AsyncSession) -> list[uuid.UUID]:
@@ -326,3 +373,85 @@ async def record_outputs(
     refresh.master_pages = rendered.pages
     refresh.outputs = "updated"
     return True
+
+
+async def due_packs(session: AsyncSession) -> list[uuid.UUID]:
+    """The refreshes whose LinkedIn pack waits to be written, at most one per user, oldest
+    first."""
+    rows = await session.scalars(
+        select(Refresh.id)
+        .where(Refresh.linkedin_pack == "pending")
+        .order_by(Refresh.linkedin_pack_at)
+    )
+    return list(rows)
+
+
+async def pack_to_write(session: AsyncSession, refresh_id: uuid.UUID) -> PackJob | None:
+    """The refresh's LinkedIn pack and what to write it from, with the sections an earlier try
+    wrote from the same version; None when it doesn't wait to be written."""
+    refresh = await session.get(Refresh, refresh_id)
+    if refresh is None or refresh.linkedin_pack != "pending" or refresh.output_version is None:
+        return None
+    version = await get_version(session, refresh.user_id, refresh.output_version)
+    draft = await get_linkedin_draft(session, refresh.user_id)
+    written = draft.sections if draft and draft.profile_version == version.number else ()
+    return PackJob(
+        refresh_id=refresh.id,
+        user_id=refresh.user_id,
+        version=version.number,
+        profile=version.profile,
+        inputs=await linkedin_pack_inputs(session, refresh.user_id),
+        written=written,
+    )
+
+
+async def keep_pack_progress(
+    session: AsyncSession, job: PackJob, written: Sequence[PackSection]
+) -> None:
+    """Keep the sections written so far from the job's version, for a try that follows a stop."""
+    draft = LinkedInPack(sections=tuple(written), profile_version=job.version)
+    await save_linkedin_draft(session, job.user_id, draft)
+
+
+async def record_pack(
+    session: AsyncSession, job: PackJob, pack: LinkedInPack | None, *, now: datetime
+) -> bool:
+    """Save the pack written for the refresh as the user's pack, or mark it failed when it
+    couldn't be written (None). Returns False, changing nothing, when it doesn't wait for this
+    update any more, such as when a later refresh's outputs fell due."""
+    refresh = await session.scalar(
+        select(Refresh).where(Refresh.id == job.refresh_id).with_for_update()
+    )
+    if (
+        refresh is None
+        or refresh.linkedin_pack != "pending"
+        or refresh.output_version != job.version
+    ):
+        return False
+    refresh.linkedin_pack_at = now
+    if pack is None:
+        refresh.linkedin_pack = "failed"
+        return True
+    await save_linkedin_pack(session, job.user_id, pack)
+    await clear_linkedin_draft(session, job.user_id)
+    refresh.linkedin_pack = "updated"
+    return True
+
+
+async def latest_pack_update(session: AsyncSession, user_id: uuid.UUID) -> PackUpdate | None:
+    """Where the LinkedIn pack of the user's newest refresh with one stands; None before the
+    first. Refreshes run one after another, so only an earlier one's can be superseded."""
+    row = (
+        await session.execute(
+            select(Refresh.linkedin_pack, Refresh.output_version)
+            .where(Refresh.user_id == user_id, Refresh.linkedin_pack.is_not(None))
+            .order_by(Refresh.requested_at.desc())
+            .limit(1)
+        )
+    ).first()
+    if row is None:
+        return None
+    status, version = row
+    if status is None or status == "superseded" or version is None:
+        return None
+    return PackUpdate(status=status, version=version)

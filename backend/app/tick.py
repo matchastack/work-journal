@@ -35,7 +35,8 @@ TICK_BUDGET_S = 20.0
 JOB_GRACE_S = 240.0
 """How long a job that started within the budget may still run: long enough for a refresh's
 synthesis. With the budget, this stays under the function's 300 s limit (`backend/vercel.json`),
-the most Vercel's free plan allows."""
+the most Vercel's free plan allows. A LinkedIn pack that needs longer keeps the sections it
+wrote, and its retry, at a later tick, writes the rest (`run_pack_update` in `app/jobs.py`)."""
 MISSED_SCHEDULE_S = 25 * 3600
 """A scheduled task due within the last 25 hours still runs: the tick comes once a day, at any
 time within its hour, so each daily task runs once a day."""

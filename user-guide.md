@@ -172,7 +172,7 @@ A change the verifier flagged needs your decision; it is never accepted for you.
 
 **Accept all that passed** accepts every waiting change the verifier passed. Once every change is decided, **Apply** makes a new version of your profile from the accepted ones. After each decision, focus moves to the next waiting change, so you can work through the list from the keyboard.
 
-The master resume is then due to be rendered from the new version (see [Running and maintaining the backend](#running-and-maintaining-the-backend)).
+Your outputs then move to the new version: the background work writes the LinkedIn pack (see [LinkedIn text](#linkedin-text)), and renders the master resume on a computer with TeX Live (see [Running and maintaining the backend](#running-and-maintaining-the-backend)).
 
 ### Journal
 
@@ -237,10 +237,21 @@ Writes the static page from the profile's public content to the folder. Offer a 
 
 ### LinkedIn text
 
+A refresh writes your LinkedIn pack for you. Once you apply its changes in the Inbox, or when `/refresh` finds nothing new, the next tick of background work writes the headline, About and position texts from the new version of your profile. Sections whose content hasn't changed since you last marked the pack done are kept as they are. Read and use the pack with:
+
 ```sh
-uv run wj linkedin --db          # the headline, About and position texts that changed since last time
-uv run wj linkedin --db --all    # every section, even unchanged ones
-uv run wj linkedin done --db     # mark the pack done, once you have pasted it into LinkedIn
+uv run wj linkedin show --db         # the sections that changed since you last marked the pack done
+uv run wj linkedin show --db --all   # every section, even unchanged ones
+uv run wj linkedin done --db         # mark the pack done, once you have pasted it into LinkedIn
+```
+
+`wj linkedin show` calls no model. If the refresh's pack still waits to be written, it says so: `uv run wj tick` writes it at once. If the refresh couldn't write it, it says that too.
+
+To write the pack by hand from the newest version of your profile, such as after changing your style notes:
+
+```sh
+uv run wj linkedin --db          # write and print the sections that changed since last time
+uv run wj linkedin --db --all    # write every section again, and print them all
 ```
 
 Paste the text into LinkedIn yourself; Work Journal never posts there.
@@ -314,6 +325,8 @@ Every sentence written passes the verifier before it is stored or printed.
 
 **The master resume after a refresh.** The hosted app can't run LaTeX. After you apply changes in the Inbox, or when `/refresh` finds nothing new, run `uv run wj tick` on a computer with TeX Live and the settings from `docs/deploy.md` step 6. It renders the master resume and keeps it in the database, and `uv run wj render --db` writes the newest version to `local/resumes/master.pdf` at any time.
 
+**The LinkedIn pack after a refresh** needs no LaTeX, so the hosted app writes it at its next tick: the daily one, or the one that runs when the bot answers you, such as after `/done`. `uv run wj tick` or `uv run wj worker` writes it too. A tick stops work after a few minutes; a long pack keeps the sections it wrote and the next tick writes the rest.
+
 **Rotating keys.** Add the new key in front of the old one in `DATA_ENCRYPTION_KEY`, run `wj keys rotate`, and only then remove the old key.
 
 **Evaluations.** Run `wj eval all` before changing a prompt or the model routing. The bar is 0 altered numbers, 0 inflated claims and at least 90% of facts recovered; `backend/evals/README.md` explains the suites.
@@ -330,6 +343,7 @@ Every sentence written passes the verifier before it is stored or printed.
 | A model command says a tier has no model | Set `ANTHROPIC_API_KEY` and the `LLM_MODEL_*` variable for that tier |
 | `wj render` or `wj tailor` can't find LaTeX | Install TeX Live (`backend/templates/README.md`) |
 | The bot says a refresh didn't finish in time | Run `uv run wj propose --db` from your computer |
+| `wj linkedin show --db` says a refresh couldn't write the pack | Check the Claude settings (`ANTHROPIC_API_KEY`, `LLM_MODEL_STANDARD`), then write it with `uv run wj linkedin --db`, or send `/refresh` again |
 | Journal text can't be read after changing keys | `DATA_ENCRYPTION_KEY` must still include the key the text was written with |
 | `wj github digest` says the token belongs to another GitHub account | Use a token of your own account: the one your profile's GitHub username names, or the one you sign in with |
 | `wj github digest` says the repository doesn't exist | Give the token access to that repository, with Contents and Pull requests set to read-only |

@@ -124,7 +124,9 @@ class LinkedInDone(Model):
     marked_at: datetime | None = None
 
 
-class _Plan(Model):
+class SectionPlan(Model):
+    """One section to write, with the facts it's written from."""
+
     key: NonEmptyStr
     kind: LinkedInSection
     label: NonEmptyStr
@@ -153,24 +155,103 @@ def write_pack(
     call, unless `everything` is true. `avoid` and `preferences` are the owner's style notes
     (FR-WRT-4).
     """
-    prompt = prompt or load_prompt(PROMPT_NAME, PROMPT_VERSION)
-    selection = select(profile, LINKEDIN_VARIANT)
-    plans = plan_sections(profile, selection)
-    earlier = {section.key: section for section in (done.sections if done else ())}
-    context = pack_context(profile, selection)
-    title_notes = _title_notes(selection, latest_application)
-    sections: list[PackSection] = []
-    for plan in plans:
-        source = _source(plan, prompt, avoid, preferences)
-        previous = earlier.get(plan.key)
-        notes = title_notes.get(plan.role_id, ()) if plan.role_id else ()
-        report: VerifierReport | None = None
-        if previous is not None and previous.source == source and not everything:
-            text, changed = previous.text, False
-        else:
-            report = _write(plan, profile, client, prompt, context, avoid, preferences)
-            text, changed = report.text, previous is None or previous.text != report.text
-        section = PackSection(
+    writer = PackWriter(
+        profile,
+        client,
+        done=done,
+        latest_application=latest_application,
+        avoid=avoid,
+        preferences=preferences,
+        everything=everything,
+        profile_version=profile_version,
+        prompt=prompt,
+    )
+    return writer.pack([writer.kept(plan) or writer.write(plan) for plan in writer.plans])
+
+
+class PackWriter:
+    """Writes the pack one section at a time, as `write_pack` does, so that a caller can keep
+    each section as soon as it's written, such as a job that may be stopped before it finishes
+    (`app/jobs.py`).
+
+    `written` holds sections written before from the same profile version, such as by a try
+    that was stopped: one written from the same sources is kept as it is, without a call.
+    """
+
+    def __init__(
+        self,
+        profile: Profile,
+        client: LLMClient,
+        *,
+        done: LinkedInDone | None = None,
+        latest_application: Application | None = None,
+        avoid: Sequence[str] = (),
+        preferences: Sequence[str] = (),
+        everything: bool = False,
+        written: Sequence[PackSection] = (),
+        profile_version: int | None = None,
+        prompt: Prompt | None = None,
+    ) -> None:
+        self._profile = profile
+        self._client = client
+        self._prompt = prompt or load_prompt(PROMPT_NAME, PROMPT_VERSION)
+        selection = select(profile, LINKEDIN_VARIANT)
+        self.plans: tuple[SectionPlan, ...] = tuple(plan_sections(profile, selection))
+        """The sections to write, in the pack's order."""
+        self._context = pack_context(profile, selection)
+        self._title_notes = _title_notes(selection, latest_application)
+        self._done = {section.key: section for section in (done.sections if done else ())}
+        self._written = {section.key: section for section in written if section.report is not None}
+        self._avoid = tuple(avoid)
+        self._preferences = tuple(preferences)
+        self._everything = everything
+        self._profile_version = profile_version
+
+    def kept(self, plan: SectionPlan) -> PackSection | None:
+        """The section without a call: carried over from the pack marked done when its sources
+        match, unless every section is to be written again, or one of `written` with the same
+        sources. None when it must be written."""
+        source = self._source(plan)
+        previous = self._done.get(plan.key)
+        if previous is not None and previous.source == source and not self._everything:
+            return self._section(plan, previous.text, source, report=None)
+        earlier = self._written.get(plan.key)
+        if earlier is not None and earlier.source == source:
+            return self._section(plan, earlier.text, source, report=earlier.report)
+        return None
+
+    def write(self, plan: SectionPlan) -> PackSection:
+        """Write the section and check it with the verifier, which calls the model."""
+        report = _write(
+            plan,
+            self._profile,
+            self._client,
+            self._prompt,
+            self._context,
+            self._avoid,
+            self._preferences,
+        )
+        return self._section(plan, report.text, self._source(plan), report=report)
+
+    def pack(self, sections: Sequence[PackSection]) -> LinkedInPack:
+        """The pack of `sections`, one for each of `plans`."""
+        keys = {plan.key for plan in self.plans}
+        return LinkedInPack(
+            sections=tuple(sections),
+            removed=tuple(
+                section.label for section in self._done.values() if section.key not in keys
+            ),
+            profile_version=self._profile_version,
+        )
+
+    def _source(self, plan: SectionPlan) -> str:
+        return _source(plan, self._prompt, self._avoid, self._preferences)
+
+    def _section(
+        self, plan: SectionPlan, text: str, source: str, *, report: VerifierReport | None
+    ) -> PackSection:
+        previous = self._done.get(plan.key)
+        return PackSection(
             key=plan.key,
             kind=plan.kind,
             label=plan.label,
@@ -178,17 +259,10 @@ def write_pack(
             title=plan.title,
             text=text,
             source=source,
-            changed=changed,
+            changed=previous is None or previous.text != text,
             report=report,
-            notes=notes,
+            notes=self._title_notes.get(plan.role_id, ()) if plan.role_id else (),
         )
-        sections.append(section)
-    keys = {plan.key for plan in plans}
-    return LinkedInPack(
-        sections=tuple(sections),
-        removed=tuple(section.label for section in earlier.values() if section.key not in keys),
-        profile_version=profile_version,
-    )
 
 
 def mark_done(
@@ -214,7 +288,24 @@ def mark_done(
     return LinkedInDone(sections=tuple(sections), marked_at=now), tuple(flagged)
 
 
-def plan_sections(profile: Profile, selection: Selection) -> list[_Plan]:
+def compared(pack: LinkedInPack, done: LinkedInDone | None) -> LinkedInPack:
+    """The pack against the sections marked done now, which may be later than when it was
+    written: which sections differ from them, and which sections marked done it doesn't have."""
+    earlier = {section.key: section for section in (done.sections if done else ())}
+    sections = tuple(
+        section.model_copy(
+            update={
+                "changed": section.key not in earlier or earlier[section.key].text != section.text
+            }
+        )
+        for section in pack.sections
+    )
+    keys = {section.key for section in pack.sections}
+    removed = tuple(section.label for section in earlier.values() if section.key not in keys)
+    return pack.model_copy(update={"sections": sections, "removed": removed})
+
+
+def plan_sections(profile: Profile, selection: Selection) -> list[SectionPlan]:
     """The sections to write, each with its facts: the headline, About, then one position for
     each role with public bullets, in the profile's order. The headline draws on the current
     roles, or the latest role when none is current."""
@@ -269,11 +360,13 @@ def plan_sections(profile: Profile, selection: Selection) -> list[_Plan]:
         *([skills] if skills else []),
     ]
     plans = [
-        _Plan(key="headline", kind="headline", label="Headline", item="", facts=tuple(headline)),
-        _Plan(key="about", kind="about", label="About", item="", facts=tuple(about)),
+        SectionPlan(
+            key="headline", kind="headline", label="Headline", item="", facts=tuple(headline)
+        ),
+        SectionPlan(key="about", kind="about", label="About", item="", facts=tuple(about)),
     ]
     plans += [
-        _Plan(
+        SectionPlan(
             key=f"position:{role.id}",
             kind="position",
             label=f"Position: {role.title} at {role.organisation}",
@@ -334,7 +427,7 @@ def pack_context(profile: Profile, selection: Selection) -> str:
 
 
 def _write(
-    plan: _Plan,
+    plan: SectionPlan,
     profile: Profile,
     client: LLMClient,
     prompt: Prompt,
@@ -389,7 +482,9 @@ def _title_notes(
     return notes
 
 
-def _source(plan: _Plan, prompt: Prompt, avoid: Sequence[str], preferences: Sequence[str]) -> str:
+def _source(
+    plan: SectionPlan, prompt: Prompt, avoid: Sequence[str], preferences: Sequence[str]
+) -> str:
     data = {
         "prompt": prompt.id,
         "kind": plan.kind,
