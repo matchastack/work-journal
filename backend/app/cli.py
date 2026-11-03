@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import logging
 import re
 import uuid
 from collections.abc import AsyncGenerator, Callable, Coroutine, Sequence
@@ -69,6 +68,7 @@ from app.jobs import run_worker
 from app.linkedin import LinkedInDone, LinkedInPack, PackSection, mark_done, write_pack
 from app.llm.client import LLMCallError, LLMClient, LLMConfigError
 from app.llm.usage import CallLog, CallLogs, JsonlCallLog, MemoryCallLog
+from app.logs import setup_logging
 from app.main import create_app
 from app.portfolio.build import Download, build_portfolio
 from app.profile_ops import ProfileOpError
@@ -934,7 +934,7 @@ def worker(
     if settings.database_url is None:
         typer.echo("Set DATABASE_URL to the database that holds the jobs.", err=True)
         raise typer.Exit(1)
-    logging.basicConfig(level=settings.log_level, format="%(levelname)s %(name)s: %(message)s")
+    setup_logging(settings)
     asyncio.run(run_worker(concurrency))
 
 
@@ -949,7 +949,7 @@ def tick_once(
     if settings.database_url is None:
         typer.echo("Set DATABASE_URL to the database that holds the jobs.", err=True)
         raise typer.Exit(1)
-    logging.basicConfig(level=settings.log_level, format="%(levelname)s %(name)s: %(message)s")
+    setup_logging(settings)
     retried = asyncio.run(tick(budget_s=budget))
     typer.echo(f"Tick done; {retried or 0} stalled job(s) retried.")
 
