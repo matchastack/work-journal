@@ -2,6 +2,16 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-11-03 · T-049 Confidential terms and sensitive roles · [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+**Changed:** your confidential terms now keep the portfolio page, its resume downloads and LinkedIn sections that name one off the public, each shown as an error naming the term, and text written about a role marked sensitive is flagged in the Inbox when it names a term or has operational detail.
+
+**Verify:**
+- CI is green on the PR
+- Adding a word your published page shows as a confidential term in Settings makes `<app>/p/<handle>` show "Page not found" within about two minutes, and the Portfolio page names the term and where; removing it brings the page back
+- **Publish** stays off while the page names a term, and a resume whose PDF names one can't be ticked
+- After `wj linkedin --db`, adding a term a section uses makes `wj linkedin done --db` leave that section out, naming it
+- In the Inbox, a proposed bullet under a sensitive role with a host name or ticket number, such as `prod-db-01` or `PAY-1234`, is flagged with an R5 error
+
 ## 2026-10-31 · T-046 Public portfolio page and publishing · [#71](https://github.com/matchastack/work-journal/pull/71)
 **Changed:** the web app's Portfolio page previews your public page, chooses the resumes visitors can download, and publishes or unpublishes it; once published, `/p/<handle>` shows the profile version from your latest refresh, with your open-to-work, indexing and visibility settings.
 
