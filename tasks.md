@@ -962,7 +962,7 @@ As the owner, I want errors and LLM costs visible, so that problems and spending
 **Revisit with a Console organization:** the cost view's figures are estimates from the per-tier prices (`LLM_PRICE_*`). The billed cost comes only from the Usage and Cost Admin API's cost report: US dollars per day, by model and token type. That API needs a Console organization and an Admin API key, and individual accounts can't use it. Once the owner has an organization, compare the estimates with the billed cost, and keep the Admin key off the server (decided in the review of #9).
 
 ### T-053 · End-to-end tests and staging checklist
-**Status:** ◐ · **Size:** M · **Depends on:** T-040, T-046, T-051 · **Requirements:** FR-REV-3, FR-PRT-3 · **PR:** [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+**Status:** ◐ · **Size:** M · **Depends on:** T-040, T-046, T-051 · **Requirements:** FR-REV-3, FR-PRT-3 · **PR:** [#75](https://github.com/matchastack/work-journal/pull/75)
 
 As the owner, I want the main journeys tested end to end, so that releases don't break the core loop.
 

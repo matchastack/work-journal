@@ -2,7 +2,7 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-11-03 · T-053 End-to-end tests and staging checklist · [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+## 2026-11-03 · T-053 End-to-end tests and staging checklist · [#75](https://github.com/matchastack/work-journal/pull/75)
 **Changed:** a Playwright test signs in, accepts a change in the Inbox, publishes and checks the public page, against the real app with GitHub and Claude stubbed, in its own CI job; `docs/staging-checklist.md` tries a change on staging with a dev bot.
 
 **Verify:**
