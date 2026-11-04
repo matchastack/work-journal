@@ -2,6 +2,14 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-11-03 · T-053 End-to-end tests and staging checklist · [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+**Changed:** a Playwright test signs in, accepts a change in the Inbox, publishes and checks the public page, against the real app with GitHub and Claude stubbed, in its own CI job; `docs/staging-checklist.md` tries a change on staging with a dev bot.
+
+**Verify:**
+- CI is green on the PR, including the new "End-to-end test" job
+- From `backend/`, with the web app built, Chromium installed and `TEST_DATABASE_URL` set, `uv run pytest -m e2e` passes in a few seconds
+- `docs/staging-checklist.md` reads right against your Vercel, Neon and Telegram setup
+
 ## 2026-10-31 · T-046 Public portfolio page and publishing · [#71](https://github.com/matchastack/work-journal/pull/71)
 **Changed:** the web app's Portfolio page previews your public page, chooses the resumes visitors can download, and publishes or unpublishes it; once published, `/p/<handle>` shows the profile version from your latest refresh, with your open-to-work, indexing and visibility settings.
 
