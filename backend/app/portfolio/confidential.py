@@ -144,6 +144,8 @@ class _PageText(HTMLParser):
         self._in_heading: list[str] = []
         """Attribute values inside the heading, such as its link, kept until it's read."""
         self._script: list[str] | None = None
+        self._canonical: str | None = None
+        """The page's own address, which the search data repeats as its `url`."""
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         values = dict(attrs)
@@ -157,6 +159,8 @@ class _PageText(HTMLParser):
             self._heading = []
         elif tag == "script" and values.get("type") == "application/ld+json":
             self._script = []
+        elif tag == "link" and values.get("rel") == "canonical":
+            self._canonical = values.get("href")
         for name, value in attrs:
             if value and name not in _APP_ATTRIBUTES and not _made_by_app(tag, name, values):
                 if self._heading is not None and tag != "h3":
@@ -179,7 +183,8 @@ class _PageText(HTMLParser):
             self.texts += [(self._where(), text) for text in (heading, *inside) if text]
         elif tag == "script" and self._script is not None:
             content, self._script = "".join(self._script), None
-            self.texts += [(HEAD, text) for text in _json_strings(content)]
+            strings = _json_strings(content)
+            self.texts += [(HEAD, text) for text in strings if text != self._canonical]
 
     def handle_data(self, data: str) -> None:
         if self._script is not None:

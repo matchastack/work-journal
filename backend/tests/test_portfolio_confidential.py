@@ -90,6 +90,7 @@ def test_links_downloads_and_the_handle_are_screened() -> None:
 
 def test_what_the_template_makes_isnt_the_owners_text() -> None:
     html = page()
+    assert page_matches(html, handle=None, terms=["journal"]) == (), "the app's own address"
     terms = ["portfolio", "rounded", "assets", "css", "download", "heading", "resumes", "0123"]
     terms += ["summary", "profile", "device-width", "noindex"]
     assert page_matches(html, handle="casey-example", terms=terms) == ()

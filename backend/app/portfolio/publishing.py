@@ -131,8 +131,6 @@ class Published:
     handle: str
     settings: PortfolioSettings
     publishing: PortfolioPublishing
-    terms: tuple[str, ...]
-    """The owner's confidential terms."""
 
 
 @dataclass(frozen=True)
@@ -197,12 +195,9 @@ async def find_published(session: AsyncSession, handle: str) -> Published | None
     settings = await get_portfolio_settings(session, user_id)
     if not publishing.published or settings.handle != handle:
         return None
-    terms = (await get_confidential_terms(session, user_id)).terms
-    if find_terms(handle, terms):
+    if find_terms(handle, (await get_confidential_terms(session, user_id)).terms):
         return None
-    return Published(
-        user_id=user_id, handle=handle, settings=settings, publishing=publishing, terms=terms
-    )
+    return Published(user_id=user_id, handle=handle, settings=settings, publishing=publishing)
 
 
 async def published_content(session: AsyncSession, published: Published) -> PortfolioContent | None:
