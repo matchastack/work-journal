@@ -12,12 +12,20 @@ resumes it offers, and whose page a handle names.
 - **The page.** `/p/<handle>` (`app/portfolio/routes.py`) shows the published page with the
   owner's settings as they are now, so a change to them shows at once. A handle nobody has, and a
   page that isn't published, aren't found. The owner's preview is the same page.
+- **Confidential terms** never show (NFR-PRIV-4), as the owner's terms are now, each time the page
+  or a resume is asked for (`app/portfolio/confidential.py`). A page that names one, in what it
+  shows or in its handle, can't be published, and while a published page names one, it isn't
+  found, as though it weren't published: it shows again, at once, once the term is gone (taken
+  out of the profile and refreshed, hidden, or no longer a term). A resume whose PDF or button
+  text names one can't be chosen, and one chosen before isn't offered or served. The Portfolio
+  page names each term and where it is, and the owner's preview still shows the page, so they
+  can find it.
 
 The publishing state is a settings key, `portfolio_publishing` (`app/db/settings.py`).
 """
 
 import uuid
-from collections.abc import Collection, Sequence
+from collections.abc import Callable, Collection, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Literal
@@ -29,11 +37,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import ApplicationRow, ProfileVersionRow, Refresh, User
 from app.db.profiles import VersionError, get_version
 from app.db.settings import (
+    get_confidential_terms,
     get_portfolio_publishing,
     get_portfolio_settings,
     portfolio_owner,
     save_portfolio_publishing,
 )
+from app.db.store import get_artifact
+from app.portfolio.build import STATIC_ASSETS, Assets, Link, portfolio_page, render_page
+from app.portfolio.confidential import PDF_TERMS, page_matches
 from app.schema.common import Id, Model
 from app.schema.jobs import Application
 from app.schema.profile import Profile
@@ -45,8 +57,10 @@ from app.schema.settings import (
     ResumeLabel,
 )
 from app.tailoring.applications import ResumeChecks
+from app.validate.confidential import TermMatch, describe, find_terms, quoted
 
 ResumeSource = Literal["master", "application"]
+PDF = "application/pdf"
 
 
 class NotPublishable(Exception):
@@ -62,6 +76,8 @@ class ResumeOption(Model):
     """What it is, for the owner, such as `Master resume (version 4)`."""
     label: ResumeLabel
     """A button text to suggest, such as `Resume`. A tailored resume's leaves out the company."""
+    confidential_terms: tuple[str, ...] = ()
+    """The confidential terms its PDF names: it can't be offered until they're taken out."""
 
 
 class ChosenResume(Model):
@@ -71,7 +87,10 @@ class ChosenResume(Model):
     application_id: Id | None = None
     label: ResumeLabel
     available: bool
-    """Whether the page offers it now: false while there's no PDF that may be sent."""
+    """Whether the page offers it now: false while there's no PDF that may be sent, or while it
+    names a confidential term."""
+    confidential_terms: tuple[str, ...] = ()
+    """The confidential terms its PDF or its button text names, which keep it off the page."""
 
 
 class PortfolioView(Model):
@@ -91,6 +110,9 @@ class PortfolioView(Model):
     resumes: tuple[ChosenResume, ...]
     options: tuple[ResumeOption, ...]
     """Every resume the owner may offer, the master resume first."""
+    confidential: tuple[TermMatch, ...] = ()
+    """The confidential terms the page names, and where (NFR-PRIV-4). While it names any, it
+    can't be published, and if it is, visitors get "Page not found"."""
 
 
 @dataclass(frozen=True)
@@ -109,6 +131,8 @@ class Published:
     handle: str
     settings: PortfolioSettings
     publishing: PortfolioPublishing
+    terms: tuple[str, ...]
+    """The owner's confidential terms."""
 
 
 @dataclass(frozen=True)
@@ -120,6 +144,9 @@ class PortfolioContent:
     version: int
     profile: Profile
     resumes: tuple[Offered, ...]
+    """The resumes it offers: only those that name no confidential term."""
+    terms: tuple[str, ...]
+    """The owner's confidential terms, which the page must never name."""
 
 
 @dataclass(frozen=True)
@@ -162,7 +189,7 @@ def shown_version(publishing: PortfolioPublishing, refreshed: int | None) -> int
 
 async def find_published(session: AsyncSession, handle: str) -> Published | None:
     """The page with the handle `handle`, if it's published; None otherwise, whether or not
-    someone has the handle."""
+    someone has the handle, and also while the handle names a confidential term."""
     user_id = await portfolio_owner(session, handle)
     if user_id is None:
         return None
@@ -170,7 +197,12 @@ async def find_published(session: AsyncSession, handle: str) -> Published | None
     settings = await get_portfolio_settings(session, user_id)
     if not publishing.published or settings.handle != handle:
         return None
-    return Published(user_id=user_id, handle=handle, settings=settings, publishing=publishing)
+    terms = (await get_confidential_terms(session, user_id)).terms
+    if find_terms(handle, terms):
+        return None
+    return Published(
+        user_id=user_id, handle=handle, settings=settings, publishing=publishing, terms=terms
+    )
 
 
 async def published_content(session: AsyncSession, published: Published) -> PortfolioContent | None:
@@ -195,8 +227,9 @@ async def preview_content(session: AsyncSession, user_id: uuid.UUID) -> Portfoli
 async def offered_resumes(
     session: AsyncSession, user_id: uuid.UUID, chosen: Sequence[PublishedResume]
 ) -> tuple[Offered, ...]:
-    """The PDFs of the chosen resumes that may be offered now, in the owner's order. Only these
-    are served."""
+    """The PDFs of the chosen resumes that may be offered now, in the owner's order: those that
+    passed their checks and name no confidential term, in their PDF or their button text. Only
+    these are served."""
     if not chosen:
         return ()
     wanted = {resume.application_id for resume in chosen if resume.application_id is not None}
@@ -206,18 +239,81 @@ async def offered_resumes(
             session, user_id, applications=wanted, master=any(r.source == "master" for r in chosen)
         )
     }
-    return tuple(
-        Offered(label=resume.label, sha256=available[resume.key].sha256)
-        for resume in chosen
-        if resume.key in available
+    terms = (await get_confidential_terms(session, user_id)).terms
+    offered: list[Offered] = []
+    for resume in chosen:
+        option = available.get(resume.key)
+        if option is None or find_terms(resume.label, terms):
+            continue
+        if await pdf_terms(session, user_id, option.sha256, terms) == ():
+            offered.append(Offered(label=resume.label, sha256=option.sha256))
+    return tuple(offered)
+
+
+async def pdf_terms(
+    session: AsyncSession, user_id: uuid.UUID, sha256: str, terms: Sequence[str]
+) -> tuple[str, ...] | None:
+    """The confidential terms the stored PDF names; None when it can't be read, so can't be
+    checked. Nothing to check without terms."""
+    if not terms:
+        return ()
+    if not PDF_TERMS.known(sha256):
+        stored = await get_artifact(session, user_id, sha256)
+        if stored is None or stored[0] != PDF:
+            return None
+        PDF_TERMS.remember(sha256, stored[1])
+    return PDF_TERMS.terms(sha256, terms)
+
+
+def page_html(
+    content: PortfolioContent,
+    *,
+    site_url: str | None = None,
+    resume_href: Callable[[str], str] = lambda _: "#",
+    assets: Assets = STATIC_ASSETS,
+) -> str:
+    """The page, from the version and settings in `content`."""
+    settings = content.settings
+    page = portfolio_page(
+        content.profile,
+        year=date.today().year,
+        site_url=site_url,
+        downloads=[
+            Link(text=resume.label, href=resume_href(resume.sha256)) for resume in content.resumes
+        ],
+        default_visibility=settings.default_visibility,
+        open_to_work=settings.open_to_work,
+        indexing=settings.indexing,
+        assets=assets,
     )
+    return render_page(page)
+
+
+def content_matches(content: PortfolioContent, html: str | None = None) -> tuple[TermMatch, ...]:
+    """The confidential terms the page names, in `html` as served, or as `page_html` renders
+    it, and in its handle."""
+    if not content.terms:
+        return ()
+    shown = page_html(content) if html is None else html
+    return page_matches(shown, handle=content.handle, terms=content.terms)
 
 
 async def portfolio_view(session: AsyncSession, user_id: uuid.UUID) -> PortfolioView:
     settings = await get_portfolio_settings(session, user_id)
     publishing = await get_portfolio_publishing(session, user_id)
-    available = await _available(session, user_id)
+    terms = (await get_confidential_terms(session, user_id)).terms
+    options = await _available(session, user_id)
+    found = {
+        option.key: await pdf_terms(session, user_id, option.sha256, terms) for option in options
+    }
+    available = [option for option in options if found[option.key] is not None]
     keys = {option.key for option in available}
+    content = await preview_content(session, user_id)
+
+    def named(resume: PublishedResume) -> tuple[str, ...]:
+        pdf = found.get(resume.key) or ()
+        return tuple(dict.fromkeys((*pdf, *find_terms(resume.label, terms))))
+
     return PortfolioView(
         handle=settings.handle,
         path=None if settings.handle is None else f"/p/{settings.handle}",
@@ -231,7 +327,8 @@ async def portfolio_view(session: AsyncSession, user_id: uuid.UUID) -> Portfolio
                 source=resume.source,
                 application_id=resume.application_id,
                 label=resume.label,
-                available=resume.key in keys,
+                available=resume.key in keys and not named(resume),
+                confidential_terms=named(resume),
             )
             for resume in publishing.resumes
         ),
@@ -241,25 +338,34 @@ async def portfolio_view(session: AsyncSession, user_id: uuid.UUID) -> Portfolio
                 application_id=option.application_id,
                 name=option.name,
                 label=option.label,
+                confidential_terms=found[option.key] or (),
             )
             for option in available
         ),
+        confidential=() if content is None else content_matches(content),
     )
 
 
 async def publish(session: AsyncSession, user_id: uuid.UUID, *, now: datetime) -> None:
     """Publish the page, which shows at once (FR-PRT-3), from the version the outputs show now.
     Publishing a published page changes nothing. Raises `NotPublishable` without a handle or a
-    profile."""
+    profile, or when the page names a confidential term (NFR-PRIV-4)."""
     await _lock(session, user_id)
     current = await get_portfolio_publishing(session, user_id)
     if current.published:
         return
-    if (await get_portfolio_settings(session, user_id)).handle is None:
+    settings = await get_portfolio_settings(session, user_id)
+    if settings.handle is None:
         raise NotPublishable("Choose the page's handle in Settings first")
     version = await outputs_version(session, user_id)
     if version is None:
         raise NotPublishable("There's no profile to publish yet")
+    content = await _content(session, user_id, settings, current, version)
+    matches = () if content is None else content_matches(content)
+    if matches:
+        raise NotPublishable(
+            f"The page names your confidential terms, so it can't be published: {describe(matches)}"
+        )
     await save_portfolio_publishing(
         session,
         user_id,
@@ -283,13 +389,28 @@ async def choose_resumes(
     offered, such as a tailored resume with an error."""
     await _lock(session, user_id)
     current = await get_portfolio_publishing(session, user_id)
-    available = {option.key for option in await _available(session, user_id)}
+    available = {option.key: option for option in await _available(session, user_id)}
     known = {resume.key for resume in current.resumes}
+    terms = (await get_confidential_terms(session, user_id)).terms
     for resume in resumes:
+        what = "the master resume" if resume.source == "master" else "that tailored resume"
+        if named := find_terms(resume.label, terms):
+            raise NotPublishable(
+                f"The button text for {what} names your confidential term {quoted(named)}"
+            )
         # A resume chosen before stays chosen, even while it isn't available.
-        if resume.key not in available and resume.key not in known:
-            what = "the master resume" if resume.source == "master" else "that tailored resume"
+        if resume.key in known:
+            continue
+        option = available.get(resume.key)
+        if option is None:
             raise NotPublishable(f"The page can't offer {what}: it has no PDF that may be sent")
+        found = await pdf_terms(session, user_id, option.sha256, terms)
+        if found is None:
+            raise NotPublishable(f"The page can't offer {what}: its PDF can't be read to check it")
+        if found:
+            raise NotPublishable(
+                f"The page can't offer {what}: it names your confidential term {quoted(found)}"
+            )
     try:
         changed = PortfolioPublishing.model_validate(
             current.model_dump() | {"resumes": [resume.model_dump() for resume in resumes]}
@@ -326,6 +447,7 @@ async def _content(
         version=version,
         profile=profile,
         resumes=await offered_resumes(session, user_id, publishing.resumes),
+        terms=(await get_confidential_terms(session, user_id)).terms,
     )
 
 
