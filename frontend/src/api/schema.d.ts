@@ -458,7 +458,9 @@ export interface paths {
         get?: never;
         /**
          * Change Confidential Terms
-         * @description Replace the confidential terms (FR-SET-5).
+         * @description Replace the confidential terms (FR-SET-5). They take effect at once: the portfolio page
+         *     and its resumes are checked each time they're shown, and the LinkedIn pack last written is
+         *     screened again now, so a section that names a term is flagged (NFR-PRIV-4).
          */
         put: operations["change_confidential_terms_api_settings_confidential_terms_put"];
         post?: never;
@@ -635,6 +637,11 @@ export interface components {
             label: string;
             /** Available */
             available: boolean;
+            /**
+             * Confidentialterms
+             * @default []
+             */
+            confidentialTerms: string[];
         };
         /**
          * Citation
@@ -673,7 +680,8 @@ export interface components {
          * @description Words and names that must never appear in public outputs: the portfolio page, published
          *     PDFs and the LinkedIn pack (FR-SET-5, NFR-PRIV-4), under `confidential_terms`.
          *
-         *     T-049 blocks them, matching whole words in any case. Until then they're only kept.
+         *     They're matched as whole words or phrases, in any case (`app/validate/confidential.py`), and
+         *     each public output is screened for them as they are when it's shown or marked done (T-049).
          */
         ConfidentialTerms: {
             /**
@@ -1115,6 +1123,11 @@ export interface components {
             resumes: components["schemas"]["ChosenResume"][];
             /** Options */
             options: components["schemas"]["ResumeOption"][];
+            /**
+             * Confidential
+             * @default []
+             */
+            confidential: components["schemas"]["TermMatch"][];
         };
         /** ProjectOption */
         ProjectOption: {
@@ -1244,6 +1257,11 @@ export interface components {
             name: string;
             /** Label */
             label: string;
+            /**
+             * Confidentialterms
+             * @default []
+             */
+            confidentialTerms: string[];
         };
         /**
          * ResumesChange
@@ -1375,6 +1393,16 @@ export interface components {
             linked: boolean;
             /** Linkedat */
             linkedAt: string | null;
+        };
+        /**
+         * TermMatch
+         * @description A confidential term found in an output.
+         */
+        TermMatch: {
+            /** Term */
+            term: string;
+            /** Where */
+            where: string;
         };
         /** ValidationError */
         ValidationError: {
