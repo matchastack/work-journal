@@ -67,7 +67,14 @@ from app.github.extraction import RepoTarget, extract_repo_facts
 from app.github.reader import ExpectedOwner, read_history
 from app.importers.master_resume import MasterResumeError, import_master_resume
 from app.jobs import run_worker
-from app.linkedin import LinkedInDone, LinkedInPack, PackSection, mark_done, write_pack
+from app.linkedin import (
+    LinkedInDone,
+    LinkedInPack,
+    PackSection,
+    mark_done,
+    screen_pack,
+    write_pack,
+)
 from app.llm.client import LLMCallError, LLMClient, LLMConfigError
 from app.llm.usage import CallLog, CallLogs, JsonlCallLog, MemoryCallLog
 from app.main import create_app
@@ -1412,20 +1419,22 @@ def linkedin(
     last marked it done.
 
     Calls the standard-tier model to write each section whose content changed, and to check its
-    claims; the other sections are carried over. With --db, your style notes apply and a current
-    role's title is checked against your latest application. Once you've pasted the sections
-    into LinkedIn, run `wj linkedin done`. Exits with status 1 when a section is flagged.
+    claims; the other sections are carried over. With --db, your style notes apply, a section
+    that names one of your confidential terms is flagged, and a current role's title is checked
+    against your latest application. Once you've pasted the sections into LinkedIn, run
+    `wj linkedin done`. Exits with status 1 when a section is flagged.
     """
     if ctx.invoked_subcommand is not None:
         return
     if db:
         if profile is not None:
             raise typer.BadParameter("use either --profile or --db", param_hint="--profile")
-        user_id, version, done, latest, avoid, preferences = asyncio.run(_linkedin_inputs(user))
+        inputs = asyncio.run(_linkedin_inputs(user))
+        user_id, version, done, latest, avoid, preferences, terms = inputs
         loaded, number = version.profile, version.number
     else:
         loaded, number = _read_profile(profile, db, user), None
-        user_id, latest, avoid, preferences = None, None, (), ()
+        user_id, latest, avoid, preferences, terms = None, None, (), (), ()
         done = _read_model(LINKEDIN_DONE_FILE, LinkedInDone)
     try:
         pack = write_pack(
@@ -1437,6 +1446,7 @@ def linkedin(
             preferences=preferences,
             everything=everything,
             profile_version=number,
+            confidential=terms,
         )
     except LLMConfigError as error:
         typer.echo(str(error), err=True)
@@ -1449,10 +1459,10 @@ def linkedin(
     else:
         LINKEDIN_PACK_FILE.parent.mkdir(parents=True, exist_ok=True)
         LINKEDIN_PACK_FILE.write_text(pack.model_dump_json(indent=2) + "\n", encoding="utf-8")
-    shown = pack.sections if everything else pack.changed
+    shown = [s for s in pack.sections if everything or s.changed or s.confidential_terms]
     for section in shown:
         _echo_section(section)
-    unchanged = len(pack.sections) - len(pack.changed)
+    unchanged = len(pack.sections) - len(shown)
     if not pack.changed:
         typer.echo("Nothing changed since you last marked the pack done.")
     elif unchanged and not everything:
@@ -1507,6 +1517,8 @@ def _echo_section(section: PackSection) -> None:
     typer.echo(section.text)
     for note in section.notes:
         typer.echo(f"Note: {note}")
+    for problem in section.problems:
+        typer.echo(f"Error: {problem}")
     if section.report is None:
         typer.echo("Unchanged since you last marked the pack done.", err=True)
     else:
@@ -1517,19 +1529,26 @@ def _echo_section(section: PackSection) -> None:
 async def _linkedin_inputs(
     login: str | None,
 ) -> tuple[
-    uuid.UUID, Version, LinkedInDone | None, Application | None, tuple[str, ...], tuple[str, ...]
+    uuid.UUID,
+    Version,
+    LinkedInDone | None,
+    Application | None,
+    tuple[str, ...],
+    tuple[str, ...],
+    tuple[str, ...],
 ]:
     """The user, their newest profile version, the pack last marked done, their latest
-    application, and their words to avoid and style preferences."""
+    application, their words to avoid and style preferences, and their confidential terms."""
     async with _database() as session:
         user_id = await _user(session, login)
         version = await _latest(session, user_id)
         done = await get_linkedin_done(session, user_id)
         applications = await list_applications(session, user_id)
         notes = await get_style_notes(session, user_id)
+        terms = (await get_confidential_terms(session, user_id)).terms
     preferences = tuple(note.text for note in notes.notes)
     latest = applications[0] if applications else None
-    return user_id, version, done, latest, notes.avoid, preferences
+    return user_id, version, done, latest, notes.avoid, preferences, terms
 
 
 async def _save_linkedin_pack(user_id: uuid.UUID, pack: LinkedInPack) -> None:
@@ -1541,12 +1560,15 @@ async def _mark_linkedin_done(
     login: str | None,
 ) -> tuple[LinkedInPack, tuple[PackSection, ...], int] | None:
     """Mark the user's last pack done. Returns it, its flagged sections, which stay unmarked,
-    and the number of the newest profile version; None when there's no pack."""
+    and the number of the newest profile version; None when there's no pack. The pack is
+    screened for the confidential terms as they are now, so a section that names one is flagged
+    even if the term was added after the pack was written."""
     async with _database() as session:
         user_id = await _user(session, login)
         pack = await get_linkedin_pack(session, user_id)
         if pack is None:
             return None
+        pack = screen_pack(pack, (await get_confidential_terms(session, user_id)).terms)
         newest = await _latest(session, user_id)
         previous = await get_linkedin_done(session, user_id)
         done, flagged = mark_done(pack, previous, now=datetime.now().astimezone())
