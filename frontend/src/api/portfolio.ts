@@ -8,6 +8,17 @@ export type PortfolioView = components["schemas"]["PortfolioView"];
 export type PublishedResume = components["schemas"]["PublishedResume"];
 export type ResumeOption = components["schemas"]["ResumeOption"];
 export type ChosenResume = components["schemas"]["ChosenResume"];
+export type TermMatch = components["schemas"]["TermMatch"];
+
+/** Terms for a sentence, such as `"Atlas" and "Project Falcon"`. */
+export function quotedTerms(terms: readonly string[]): string {
+  const names = terms.map((term) => `"${term}"`);
+  const last = names.pop();
+  if (last === undefined) {
+    return "";
+  }
+  return names.length === 0 ? last : `${names.join(", ")} and ${last}`;
+}
 
 /** The page as it's published, or as publishing it now would show it, for the owner only. */
 export const PREVIEW_URL = "/api/portfolio/preview";

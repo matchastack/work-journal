@@ -1,13 +1,42 @@
 import { Link } from "react-router";
 
 import { failureMessage } from "../../api/auth";
-import { usePublish, useUnpublish, type PortfolioView } from "../../api/portfolio";
+import { usePublish, useUnpublish, type PortfolioView, type TermMatch } from "../../api/portfolio";
 import { dateAndTime } from "../../format";
 import { SettingsSection } from "../settings/SettingsSection";
 import { BUTTON, FOCUS, PRIMARY_BUTTON } from "../ui";
 
 const LINK = `font-medium text-emerald-800 underline underline-offset-2 hover:text-emerald-700 ${FOCUS}`;
 const VISIBILITY = { public: "Public", resume_only: "Resume only", private: "Private" } as const;
+
+/** Each confidential term the page names, with where it is (NFR-PRIV-4). */
+function ConfidentialMatches({ published, matches }: { published: boolean; matches: TermMatch[] }) {
+  const terms = new Map<string, string[]>();
+  for (const match of matches) {
+    terms.set(match.term, [...(terms.get(match.term) ?? []), match.where]);
+  }
+  return (
+    <div role="alert" className="rounded border border-red-300 bg-red-50 p-3 text-red-900">
+      <p className="font-medium">
+        {published
+          ? "Visitors get \"Page not found\" while your page names a confidential term."
+          : "Your page names a confidential term, so it can't be published."}
+      </p>
+      <ul className="mt-1 list-disc space-y-0.5 pl-5">
+        {[...terms].map(([term, places]) => (
+          <li key={term}>
+            Error: &quot;{term}&quot; in {places.join("; ")}
+          </li>
+        ))}
+      </ul>
+      <p className="mt-1">
+        Take it out of your profile, or make that text Resume only or Private; the page shows the
+        change after your next refresh. Or, if it may be public, remove it from your confidential
+        terms in Settings.
+      </p>
+    </div>
+  );
+}
 
 /** Whether the page is published, at which address and version, and the button that changes it
  * (FR-PRT-1, FR-PRT-3), with the settings it follows (FR-SET-3). */
@@ -45,6 +74,9 @@ export function PublishingSection({ view }: { view: PortfolioView }) {
             ? `Published since ${dateAndTime(view.publishedAt)}.`
             : "Not published."}
         </p>
+        {view.confidential.length > 0 && (
+          <ConfidentialMatches published={view.published} matches={view.confidential} />
+        )}
         {view.version === null ? (
           <p className="text-stone-600">
             There&apos;s no profile to show yet. Load yours with <code>wj db load-profile</code>{" "}
@@ -87,7 +119,12 @@ export function PublishingSection({ view }: { view: PortfolioView }) {
           ) : (
             <button
               type="button"
-              disabled={pending || view.handle === null || view.version === null}
+              disabled={
+                pending ||
+                view.handle === null ||
+                view.version === null ||
+                view.confidential.length > 0
+              }
               onClick={() => {
                 unpublish.reset();
                 publish.mutate(undefined);

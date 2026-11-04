@@ -5,7 +5,8 @@ profile, confirmed)` checks what one sendable resume prints, that is, a resume t
 (OQ-6). An error means the resume mustn't be sent as it is, and a warning doesn't; `wj tailor`
 still writes it, so the work isn't lost, and reports the errors (R2). `require_sendable` raises
 `NotSendable` when there are errors, for callers that must stop. `check_text(text, profile)`
-checks one new text before it joins the profile, for the verifier (T-015).
+checks one new text before it joins the profile, for the verifier (T-015), with the
+confidentiality checks of `check_confidentiality` (T-049).
 
 Only what can be printed is checked, so benched, planned and private items are skipped (R8). Each
 finding has a rule ID, a severity and a location: a path like `work[northwind].highlights[nw_x]`,
@@ -19,6 +20,12 @@ as in `wj` change lists.
 - R3: a skill on the gaps list (error). A skill marked verify-before-shipping needs confirmation
   for each sendable resume (error without it); in the profile, each use is a reminder (warning).
 - R4 (warning): the same metric, value and unit, under two different roles or projects.
+- R5 (error, new text only): text about a role marked sensitive names a confidential term, or has
+  something that looks like operational detail (`app/validate/operational.py`), such as a host
+  name or a ticket number: such a role is described by its architecture and outcomes only.
+- `confidential` (new text only): a confidential term (`app/validate/confidential.py`). An error
+  in text for a public output, such as LinkedIn; otherwise a warning, as a public output that
+  shows it is blocked (NFR-PRIV-4).
 - R9: a title that isn't approved (error), or an approved title that adds seniority (warning).
 - R10 (error): a breach of an education rule. Code reads two kinds of rule: never printing the GPA
   ("never print GPA") and how many courses to list ("keep 4-6 courses", "at most 6 courses").
@@ -35,10 +42,14 @@ from typing import Literal
 from app.schema.common import Model
 from app.schema.profile import Bullet, Education, Profile, Skill, SocialProfile
 from app.selection import SelectedBullet, SelectedEducation, Selection
+from app.validate.confidential import find_terms
+from app.validate.operational import find_operational_detail
 from app.validate.quantities import find_quantities
 
 Severity = Literal["error", "warning"]
-RuleId = Literal["dates", "spelling", "duplicates", "R1", "R2", "R3", "R4", "R9", "R10"]
+RuleId = Literal[
+    "dates", "spelling", "duplicates", "confidential", "R1", "R2", "R3", "R4", "R5", "R9", "R10"
+]
 
 
 class Finding(Model):
@@ -191,7 +202,14 @@ TEXT = "text"
 
 
 def check_text(
-    text: str, profile: Profile, *, entry_id: str | None = None, replaces: str | None = None
+    text: str,
+    profile: Profile,
+    *,
+    entry_id: str | None = None,
+    replaces: str | None = None,
+    sensitive: bool = False,
+    confidential: Sequence[str] = (),
+    public: bool = False,
 ) -> LintReport:
     """The resume rules one text can break, checked before the text joins the profile.
 
@@ -199,7 +217,8 @@ def check_text(
     that isn't a bullet, such as LinkedIn text. `replaces` is the ID of the bullet the text
     replaces, if any. The text is checked as though it came after everything in the profile, so a
     number or bullet it repeats is reported at the text (R4, duplicates). Only findings about the
-    text are kept, each located at `TEXT`.
+    text are kept, each located at `TEXT`. `sensitive`, `confidential` and `public` are as
+    `check_confidentiality` takes them.
     """
     content = _profile_content(profile)
     where = _entry(profile, entry_id) if entry_id else None
@@ -219,7 +238,64 @@ def check_text(
     for entry in profile.education:
         if where == f"education[{entry.id}]" and _read_rules(entry.rules).no_gpa:
             findings.extend(_gpa([checked]))
+    findings += check_confidentiality(text, sensitive=sensitive, terms=confidential, public=public)
     return LintReport(findings=_ordered(f for f in findings if f.location == TEXT))
+
+
+def check_confidentiality(
+    text: str, *, sensitive: bool, terms: Sequence[str], public: bool
+) -> list[Finding]:
+    """What one new text must leave out, located at `TEXT`.
+
+    `sensitive`: the text is about a role marked sensitive, so a confidential term or anything
+    that looks like operational detail is an error (R5). `terms` are the owner's confidential
+    terms. `public`: the text goes into a public output as it is, such as the LinkedIn pack, so
+    a confidential term is an error there too; elsewhere it's a warning, as it would block the
+    public outputs that show it."""
+    findings: list[Finding] = []
+    for term in find_terms(text, terms):
+        if sensitive:
+            findings.append(
+                Finding(
+                    rule="R5",
+                    severity="error",
+                    location=TEXT,
+                    message=f'names the confidential term "{term}", and text about a sensitive '
+                    "role must never name one",
+                )
+            )
+        elif public:
+            findings.append(
+                Finding(
+                    rule="confidential",
+                    severity="error",
+                    location=TEXT,
+                    message=f'names the confidential term "{term}", which must never appear in '
+                    "public text",
+                )
+            )
+        else:
+            findings.append(
+                Finding(
+                    rule="confidential",
+                    severity="warning",
+                    location=TEXT,
+                    message=f'names the confidential term "{term}": the portfolio page, or a '
+                    "published resume, that shows it is blocked until it's taken out",
+                )
+            )
+    if sensitive:
+        findings.extend(
+            Finding(
+                rule="R5",
+                severity="error",
+                location=TEXT,
+                message=f'"{detail.text}" looks like {detail.kind}: describe a sensitive role\'s '
+                "architecture and outcomes only, without operational detail",
+            )
+            for detail in find_operational_detail(text)
+        )
+    return findings
 
 
 def format_report(report: LintReport) -> str:

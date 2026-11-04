@@ -20,13 +20,13 @@ from app.auth.sessions import CSRF_HEADER, SESSION_COOKIE, start_session
 from app.config import Settings
 from app.db.models import ApplicationRow, Refresh, User
 from app.db.profiles import save_version
-from app.db.settings import save_portfolio_settings
+from app.db.settings import save_confidential_terms, save_portfolio_settings
 from app.db.store import store_artifact
 from app.main import create_app
 from app.portfolio.routes import ASSET_VERSIONS, PUBLIC_CACHE
 from app.schema.jobs import Application, JobPosting
 from app.schema.profile import Profile
-from app.schema.settings import PortfolioSettings
+from app.schema.settings import ConfidentialTerms, PortfolioSettings
 from app.tailoring.applications import ResumeChecks
 
 BROWSER = "https://testserver"
@@ -36,6 +36,8 @@ PROFILE = Profile.model_validate_json(
     (Path(__file__).parents[1] / "fixtures" / "profile.json").read_text(encoding="utf-8")
 )
 MASTER_PDF = b"%PDF-1.7 master resume"
+RENDERED = (Path(__file__).parents[1] / "fixtures" / "pdfs" / "backend-resume.pdf").read_bytes()
+"""A real resume of the fictional person, whose text pypdf can read."""
 TAILORED_PDF = b"%PDF-1.7 tailored resume"
 _random = random.SystemRandom()
 
@@ -158,6 +160,12 @@ class Owner:
         async def build(session: AsyncSession) -> None:
             settings = PortfolioSettings(handle=self.handle, **changes)
             await save_portfolio_settings(session, self.id, settings)
+
+        seed(self.database_url, build)
+
+    def confidential(self, *terms: str) -> None:
+        async def build(session: AsyncSession) -> None:
+            await save_confidential_terms(session, self.id, ConfidentialTerms(terms=terms))
 
         seed(self.database_url, build)
 
@@ -510,6 +518,7 @@ def test_without_a_handle_the_page_cant_be_published(database_url: str) -> None:
             },
             "resumes": [],
             "options": [],
+            "confidential": [],
         }
         response = client.post("/api/portfolio/publish", headers=owner.csrf)
         assert response.status_code == 409
@@ -552,3 +561,148 @@ def test_the_preview_shows_the_page_before_it_is_published(
     assert client.get(owner.page).status_code == 404  # still not published
     client.cookies.clear()
     assert client.get(links[0]).status_code == 401
+
+
+# --- Confidential terms (T-049) ------------------------------------------------------------------
+
+NOT_FOUND_TEXT = "There's no page at this address."
+
+
+def test_a_page_that_names_a_confidential_term_cant_be_published(
+    owner: Owner, client: TestClient
+) -> None:
+    owner.version()
+    owner.confidential("northwind", "Orion")
+    response = client.post("/api/portfolio/publish", headers=owner.csrf)
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "The page names your confidential terms, so it can't be published: "
+        '"northwind" (Experience: Software Engineer)'
+    )
+    view = client.get("/api/portfolio").json()
+    assert view["published"] is False
+    assert view["confidential"] == [{"term": "northwind", "where": "Experience: Software Engineer"}]
+    preview = client.get("/api/portfolio/preview")
+    assert preview.status_code == 200 and "Northwind Traders" in preview.text, (
+        "the owner's preview shows where the term is"
+    )
+    assert client.get(owner.page).status_code == 404
+
+
+def test_a_published_page_isnt_found_while_it_names_a_term(
+    owner: Owner, client: TestClient
+) -> None:
+    owner.version()
+    published(client, owner)
+    page = client.get(owner.page)
+    assert page.status_code == 200
+
+    owner.confidential("Northwind Traders")
+    for headers in ({}, {"If-None-Match": page.headers["ETag"]}):
+        hidden = client.get(owner.page, headers=headers)
+        assert hidden.status_code == 404, "not a 304 for the copy browsers kept"
+        assert NOT_FOUND_TEXT in hidden.text and "Northwind" not in hidden.text
+        assert hidden.headers["Cache-Control"] == "no-store"
+    assert client.get("/p/nobody-has-this-one").text == hidden.text, "as though unpublished"
+    view = client.get("/api/portfolio").json()
+    assert view["published"] is True
+    assert [match["term"] for match in view["confidential"]] == ["Northwind Traders"]
+
+    owner.confidential()
+    assert client.get(owner.page).status_code == 200, "it shows again once the term is gone"
+
+
+def test_a_handle_that_names_a_term_hides_the_page_and_its_resumes(
+    owner: Owner, client: TestClient
+) -> None:
+    assert owner.handle is not None
+    term = owner.handle.removeprefix("casey-")
+    owner.version()
+    sha = owner.refresh(1, RENDERED)
+    assert client.put(
+        "/api/portfolio/resumes",
+        json={"resumes": [{"source": "master", "label": "Resume"}]},
+        headers=owner.csrf,
+    ).is_success
+    published(client, owner)
+    pdf = f"{owner.page}/resumes/{sha}.pdf"
+    assert client.get(pdf).status_code == 200
+
+    owner.confidential(term)
+    assert client.get(owner.page).status_code == 404
+    assert client.get(pdf).status_code == 404
+    view = client.get("/api/portfolio").json()
+    assert view["confidential"] == [{"term": term, "where": "Page address"}]
+
+
+def test_a_resume_that_names_a_term_cant_be_offered(owner: Owner, client: TestClient) -> None:
+    owner.version()
+    owner.refresh(1, RENDERED)
+    owner.confidential("Operating Systems")
+    view = client.get("/api/portfolio").json()
+    assert view["options"][0]["confidentialTerms"] == ["Operating Systems"]
+    assert view["confidential"] == [], "only the resume names it"
+    master = {"source": "master", "label": "Resume"}
+    response = client.put("/api/portfolio/resumes", json={"resumes": [master]}, headers=owner.csrf)
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "The page can't offer the master resume: it names your confidential term \"Operating "
+        'Systems"'
+    )
+    owner.confidential()
+    labelled = {"source": "master", "label": "Orion resume"}
+    owner.confidential("orion")
+    response = client.put(
+        "/api/portfolio/resumes", json={"resumes": [labelled]}, headers=owner.csrf
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        'The button text for the master resume names your confidential term "orion"'
+    )
+
+
+def test_a_resume_offered_before_a_term_was_added_isnt_offered_or_served(
+    owner: Owner, client: TestClient
+) -> None:
+    owner.version()
+    sha = owner.refresh(1, RENDERED)
+    master = {"source": "master", "label": "Resume"}
+    assert client.put(
+        "/api/portfolio/resumes", json={"resumes": [master]}, headers=owner.csrf
+    ).is_success
+    published(client, owner)
+    pdf = f"{owner.page}/resumes/{sha}.pdf"
+    assert download_links(client.get(owner.page).text) == [pdf]
+
+    owner.confidential("Relevant coursework")
+    page = client.get(owner.page)
+    assert page.status_code == 200, "the page itself doesn't name it"
+    assert download_links(page.text) == []
+    assert client.get(pdf).status_code == 404
+    assert client.get(pdf, headers={"If-None-Match": f'"{sha}"'}).status_code == 404
+    preview = client.get("/api/portfolio/preview").text
+    assert download_links(preview) == []
+    assert client.get(f"/api/portfolio/preview/resumes/{sha}.pdf").status_code == 404
+    (chosen,) = client.get("/api/portfolio").json()["resumes"]
+    assert (chosen["available"], chosen["confidentialTerms"]) == (False, ["Relevant coursework"])
+    assert client.put(
+        "/api/portfolio/resumes", json={"resumes": [master]}, headers=owner.csrf
+    ).is_success, "it stays chosen, for when the term is gone"
+
+    owner.confidential()
+    assert download_links(client.get(owner.page).text) == [pdf]
+
+
+def test_a_resume_whose_pdf_cant_be_read_isnt_offered_while_there_are_terms(
+    owner: Owner, client: TestClient
+) -> None:
+    owner.version()
+    owner.refresh(1, MASTER_PDF)  # not a PDF pypdf can read
+    master = {"source": "master", "label": "Resume"}
+    owner.confidential("Orion")
+    response = client.put("/api/portfolio/resumes", json={"resumes": [master]}, headers=owner.csrf)
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "The page can't offer the master resume: its PDF can't be read to check it"
+    )
+    assert client.get("/api/portfolio").json()["options"] == []
