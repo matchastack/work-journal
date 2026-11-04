@@ -914,7 +914,7 @@ As the owner, I want all my preferences in one place, so that I can tune the app
 **Built (2026-10-30):** each group is a typed key in the `settings` table, so no migration. The portfolio settings (a handle with no default while OQ-3 is open, unique across users; the default visibility; open to work; indexing, on by default) and the confidential terms are only kept until T-046 and T-049 read them. The page edits the style notes' words to avoid and notes as whole lists; a note kept keeps where it came from. The export holds every row of every table that belongs to the owner, and the raw Telegram updates from their chat, leaving out sign-in sessions and link tokens. Deleting, with the GitHub username typed to confirm, deletes the account and everything that cascades from it, the raw updates from the owner's chat and the jobs queued for their entries and refreshes, and signs them out.
 
 ### T-049 · Confidential terms and sensitive roles
-**Status:** ◐ · **Size:** S · **Depends on:** T-015, T-046 · **Requirements:** FR-SET-5, NFR-PRIV-4, R5 · **PR:** [#PRNUM](https://github.com/matchastack/work-journal/pull/PRNUM)
+**Status:** ◐ · **Size:** S · **Depends on:** T-015, T-046 · **Requirements:** FR-SET-5, NFR-PRIV-4, R5 · **PR:** [#76](https://github.com/matchastack/work-journal/pull/76)
 
 As the owner, I want confidential terms and sensitive-role details kept out of anything public, so that journaling freely can't get me in trouble.
 
