@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import type { OpenQuestion, Profile, Role } from "../../api/profile";
 import {
   courseworkEditOf,
-  lineList,
   presetDrafts,
   presetsEditOf,
   questionDraft,
@@ -320,11 +319,5 @@ describe("lists the forms didn't change", () => {
     expect(presetsEditOf({ presets }, 1)).toEqual({
       edit: { baseVersion: 1, skillPresets: [{ roleType: "backend", lines }] },
     });
-  });
-});
-
-describe("line lists", () => {
-  it("drop blank lines and trim the rest", () => {
-    expect(lineList(" a \n\n b\n")).toEqual(["a", "b"]);
   });
 });

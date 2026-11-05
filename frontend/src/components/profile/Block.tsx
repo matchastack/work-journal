@@ -54,11 +54,19 @@ export function Block({
   );
 }
 
-/** Label: value pairs, leaving out empty values. */
-export function Facts({ label, facts }: { label: string; facts: [string, ReactNode][] }) {
+/** Label: value pairs, leaving out empty values, or `empty` when every value is. */
+export function Facts({
+  label,
+  facts,
+  empty,
+}: {
+  label: string;
+  facts: [string, ReactNode][];
+  empty?: string;
+}) {
   const shown = facts.filter(([, value]) => value !== null && value !== "" && value !== false);
   if (shown.length === 0) {
-    return null;
+    return empty === undefined ? null : <p className="text-stone-500">{empty}</p>;
   }
   return (
     <dl aria-label={label} className="grid gap-x-3 gap-y-1 sm:grid-cols-[auto_1fr]">

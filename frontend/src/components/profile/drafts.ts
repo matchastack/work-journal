@@ -36,6 +36,11 @@ export const LIMITS = {
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 const TAG = /^[a-z0-9][a-z0-9_-]*$/;
 
+/** Whether `text` is a tag, such as a role type's ID: lowercase letters, digits, - or _. */
+export function isTag(text: string): boolean {
+  return TAG.test(text) && text.length <= LIMITS.tag;
+}
+
 export type Result<Edit> = { edit: Edit } | { problem: string };
 
 /** Trimmed text, or null when it's blank. */
@@ -65,18 +70,36 @@ export function commaList(text: string): string[] {
   return parts.map((part) => part.trim()).filter((part) => part !== "");
 }
 
+/** Text with a line each, as a list without blanks. */
+export function lineList(text: string): string[] {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line !== "");
+}
+
+/** How a list is edited as text: how it's shown, and how its entries are read back. */
+export interface ListText {
+  join: (list: readonly string[]) => string;
+  split: (text: string) => string[];
+}
+
+/** Short names, separated by commas, such as a tech stack. */
+export const COMMAS: ListText = { join: (list) => list.join(", "), split: commaList };
+/** Sentences, a line each, such as honesty boundaries. */
+export const LINES: ListText = { join: (list) => list.join("\n"), split: lineList };
+
 /**
- * A list edited as text: `saved` as it was while the text is still `shown`, so an entry the text
- * can't hold, such as one with a comma outside parentheses, survives a save that doesn't touch
- * it. Otherwise, the entries `split` reads from the text.
+ * A list edited as text: `saved` as it was while the text is still as `format` showed it, so an
+ * entry the text can't hold, such as one with a comma outside parentheses, survives a save that
+ * doesn't touch it. Otherwise, the entries `format` reads from the text.
  */
 export function editedList(
   text: string,
   saved: readonly string[],
-  shown: string,
-  split: (text: string) => string[] = commaList,
+  format: ListText = COMMAS,
 ): string[] {
-  return text === shown ? [...saved] : split(text);
+  return text === format.join(saved) ? [...saved] : format.split(text);
 }
 
 /** What's wrong with a start and end date, if anything: each is a month such as 2026-10, and
@@ -106,7 +129,7 @@ export function datesProblem(
 
 /** What's wrong with a list of tags, if anything. */
 export function tagsProblem(tags: readonly string[]): string | null {
-  const wrong = tags.find((tag) => !TAG.test(tag) || tag.length > LIMITS.tag);
+  const wrong = tags.find((tag) => !isTag(tag));
   if (wrong !== undefined) {
     return `The tag "${wrong}" needs to be lowercase letters, digits, - or _, such as backend.`;
   }
@@ -373,7 +396,7 @@ export function projectDraft(project: Project): ProjectDraft {
   return {
     name: project.name,
     description: project.description ?? "",
-    keywords: project.keywords.join(", "),
+    keywords: COMMAS.join(project.keywords),
     savedKeywords: [...project.keywords],
     url: project.url ?? "",
     startDate: project.startDate ?? "",
@@ -396,7 +419,7 @@ export function projectEditOf(draft: ProjectDraft, baseVersion: number): Result<
   if (draft.status === "benched" && reason === null) {
     return { problem: "Say why the project is benched." };
   }
-  const keywords = editedList(draft.keywords, draft.savedKeywords, draft.savedKeywords.join(", "));
+  const keywords = editedList(draft.keywords, draft.savedKeywords);
   if (keywords.length > LIMITS.keywords) {
     return { problem: `The tech stack can list at most ${String(LIMITS.keywords)} entries.` };
   }

@@ -28,29 +28,18 @@ interface FormProps<Item> {
 
 /** Edit a role's organisation, title, location, link, dates and summary. */
 export function RoleForm({ item, baseVersion, onSaved, onDone }: FormProps<Role>) {
-  const save = useSaveRole();
-  const { draft, problem, stale, change, submit } = useEditForm({
+  const { draft, change, form } = useEditForm({
     current: roleDraft(item),
     editOf: roleEditOf,
     subject: "This role",
     baseVersion,
-    save: (edit, onSuccess) => {
-      save.mutate({ id: item.id, edit }, { onSuccess });
-    },
+    mutation: useSaveRole(),
+    input: (edit) => ({ id: item.id, edit }),
     onSaved,
     onDone,
   });
   return (
-    <EditForm
-      label="Edit the role"
-      action="save the role"
-      problem={problem}
-      stale={stale}
-      error={save.error}
-      pending={save.isPending}
-      onSubmit={submit}
-      onCancel={onDone}
-    >
+    <EditForm label="Edit the role" action="save the role" {...form}>
       <div className="grid gap-3 sm:grid-cols-2">
         <TextField
           label="Title"
@@ -119,29 +108,18 @@ export function RoleForm({ item, baseVersion, onSaved, onDone }: FormProps<Role>
 
 /** Edit an education entry's institution, degree, area, honours, location, link and dates. */
 export function EducationForm({ item, baseVersion, onSaved, onDone }: FormProps<Education>) {
-  const save = useSaveEducation();
-  const { draft, problem, stale, change, submit } = useEditForm({
+  const { draft, change, form } = useEditForm({
     current: educationDraft(item),
     editOf: educationEditOf,
     subject: "This education entry",
     baseVersion,
-    save: (edit, onSuccess) => {
-      save.mutate({ id: item.id, edit }, { onSuccess });
-    },
+    mutation: useSaveEducation(),
+    input: (edit) => ({ id: item.id, edit }),
     onSaved,
     onDone,
   });
   return (
-    <EditForm
-      label="Edit the education entry"
-      action="save the education entry"
-      problem={problem}
-      stale={stale}
-      error={save.error}
-      pending={save.isPending}
-      onSubmit={submit}
-      onCancel={onDone}
-    >
+    <EditForm label="Edit the education entry" action="save the education entry" {...form}>
       <div className="grid gap-3 sm:grid-cols-2">
         <TextField
           label="Degree"
@@ -219,29 +197,18 @@ export function EducationForm({ item, baseVersion, onSaved, onDone }: FormProps<
 
 /** Edit a project's name, description, tech stack, link, dates, status and tags. */
 export function ProjectForm({ item, baseVersion, onSaved, onDone }: FormProps<Project>) {
-  const save = useSaveProject();
-  const { draft, problem, stale, change, submit } = useEditForm({
+  const { draft, change, form } = useEditForm({
     current: projectDraft(item),
     editOf: projectEditOf,
     subject: "This project",
     baseVersion,
-    save: (edit, onSuccess) => {
-      save.mutate({ id: item.id, edit }, { onSuccess });
-    },
+    mutation: useSaveProject(),
+    input: (edit) => ({ id: item.id, edit }),
     onSaved,
     onDone,
   });
   return (
-    <EditForm
-      label="Edit the project"
-      action="save the project"
-      problem={problem}
-      stale={stale}
-      error={save.error}
-      pending={save.isPending}
-      onSubmit={submit}
-      onCancel={onDone}
-    >
+    <EditForm label="Edit the project" action="save the project" {...form}>
       <TextField
         label="Name"
         value={draft.name}

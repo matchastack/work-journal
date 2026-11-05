@@ -4,13 +4,14 @@
  * skills and gaps, skills presets, summaries and open questions. As in `drafts.ts`, each
  * `...EditOf` returns the edit the API takes, or what's wrong with the draft.
  *
- * Lists of sentences, such as honesty boundaries or a swap's contexts, are a line each; lists of
- * short names, such as a skill's other spellings, are separated by commas (`commaList`). A list
- * whose text wasn't touched is sent as it was saved (`editedList`), so an entry its text can't
- * hold survives.
+ * Lists of sentences, such as honesty boundaries or a swap's contexts, are a line each (`LINES`);
+ * lists of short names, such as a skill's other spellings, are separated by commas (`COMMAS`). A
+ * list whose text wasn't touched is sent as it was saved (`editedList`), so an entry its text
+ * can't hold survives.
  */
 
 import type {
+  Bullet,
   CourseworkEdit,
   Education,
   OpenQuestion,
@@ -27,7 +28,18 @@ import type {
   Swap,
   SwapsEdit,
 } from "../../api/profile";
-import { commaList, editedList, LIMITS, orNull, tagsProblem, type Result } from "./drafts";
+import {
+  COMMAS,
+  commaList,
+  editedList,
+  isTag,
+  LIMITS,
+  lineList,
+  LINES,
+  orNull,
+  tagsProblem,
+  type Result,
+} from "./drafts";
 
 /** The API's limits for metadata, in entries (`backend/app/profile/edits.py`). */
 export const METADATA_LIMITS = {
@@ -41,14 +53,11 @@ export const METADATA_LIMITS = {
   blocked: 50,
 } as const;
 
-const TAG = /^[a-z0-9][a-z0-9_-]*$/;
-
-/** Text with a line each, as a list without blanks. */
-export function lineList(text: string): string[] {
-  return text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line !== "");
+/** What's wrong with text that's too long, if it is. */
+function lengthProblem(value: string, what: string, length: number): string | null {
+  return value.length > length
+    ? `"${value.slice(0, 40)}..." is too long: ${what} can have at most ${String(length)} characters.`
+    : null;
 }
 
 /** What's wrong with a list, if anything: too many entries, or one too long. */
@@ -61,9 +70,7 @@ function listProblem(
     return `There can be at most ${String(count)} ${what}.`;
   }
   const long = values.find((value) => value.length > length);
-  return long === undefined
-    ? null
-    : `"${long.slice(0, 40)}..." is too long: ${what} can have at most ${String(length)} characters.`;
+  return long === undefined ? null : lengthProblem(long, what, length);
 }
 
 /** The first value listed twice, if any, ignoring case when `fold`. */
@@ -163,7 +170,7 @@ export function swapDrafts(swaps: readonly Swap[]): SwapDraft[] {
     key,
     text: swap.text,
     replaces: swap.replaces ?? "",
-    contexts: swap.contexts.join("\n"),
+    contexts: LINES.join(swap.contexts),
     savedContexts: [...swap.contexts],
     origin: swap.origin,
   }));
@@ -182,14 +189,9 @@ export function swapsEditOf(
     if (text === "") {
       return { problem: `Swap ${String(index + 1)} needs its phrasing.` };
     }
-    const contexts = editedList(
-      swap.contexts,
-      swap.savedContexts,
-      swap.savedContexts.join("\n"),
-      lineList,
-    );
+    const contexts = editedList(swap.contexts, swap.savedContexts, LINES);
     const problem =
-      listProblem([text], "a swap", { count: 1, length: LIMITS.bullet }) ??
+      lengthProblem(text, "a swap", LIMITS.bullet) ??
       listProblem(contexts, "contexts", { count: METADATA_LIMITS.list, length: LIMITS.name });
     if (problem !== null) {
       return { problem };
@@ -286,7 +288,7 @@ export function roleTypesEditOf(
   }
   const roleTypes = draft.roleTypes.map((type) => ({ id: type.id.trim(), name: type.name.trim() }));
   for (const type of roleTypes) {
-    if (!TAG.test(type.id) || type.id.length > LIMITS.tag) {
+    if (!isTag(type.id)) {
       return {
         problem: `The ID "${type.id}" needs to be lowercase letters, digits, - or _, such as backend.`,
       };
@@ -331,7 +333,7 @@ export function skillsDraft(profile: Profile): SkillsDraft {
       category: skill.category,
       tier: skill.tier ?? "",
       verifyBeforeShipping: skill.verifyBeforeShipping,
-      aliases: skill.aliases.join(", "),
+      aliases: COMMAS.join(skill.aliases),
       savedAliases: [...skill.aliases],
     })),
     gaps: profile.skillGaps.join("\n"),
@@ -348,12 +350,11 @@ export function skillsEditOf(draft: SkillsDraft, baseVersion: number): Result<Sk
     if (name === "" || category === "") {
       return { problem: `Skill ${String(index + 1)} needs a name and a category.` };
     }
-    const aliases = editedList(skill.aliases, skill.savedAliases, skill.savedAliases.join(", "));
+    const aliases = editedList(skill.aliases, skill.savedAliases);
     const problem =
-      listProblem([name, category], "a skill's name and category", {
-        count: 2,
-        length: LIMITS.name,
-      }) ?? listProblem(aliases, "aliases", { count: METADATA_LIMITS.list, length: LIMITS.name });
+      lengthProblem(name, "a skill's name", LIMITS.name) ??
+      lengthProblem(category, "a skill's category", LIMITS.name) ??
+      listProblem(aliases, "aliases", { count: METADATA_LIMITS.list, length: LIMITS.name });
     if (problem !== null) {
       return { problem };
     }
@@ -450,7 +451,7 @@ export function presetsEditOf(
         };
       }
       const problem =
-        listProblem([label], "a line's label", { count: 1, length: LIMITS.name }) ??
+        lengthProblem(label, "a line's label", LIMITS.name) ??
         listProblem(skills, "skills on a line", {
           count: METADATA_LIMITS.lineSkills,
           length: LIMITS.name,
@@ -513,18 +514,21 @@ export interface QuestionDraft {
   bulletIds: string[];
 }
 
+/** The bullets an open question blocks, which name it in their `needs`. */
+export function blockedBullets(profile: Profile, questionId: string): Bullet[] {
+  return [...profile.work, ...profile.education, ...profile.projects]
+    .flatMap((item) => item.highlights)
+    .filter((bullet) => bullet.needs.includes(questionId));
+}
+
 export function questionDraft(question: OpenQuestion | null, profile: Profile): QuestionDraft {
   if (question === null) {
     return { question: "", status: "open", bulletIds: [] };
   }
-  const items = [...profile.work, ...profile.education, ...profile.projects];
   return {
     question: question.question,
     status: question.status,
-    bulletIds: items
-      .flatMap((item) => item.highlights)
-      .filter((bullet) => bullet.needs.includes(question.id))
-      .map((bullet) => bullet.id),
+    bulletIds: blockedBullets(profile, question.id).map((bullet) => bullet.id),
   };
 }
 

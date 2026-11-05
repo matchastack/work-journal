@@ -16,6 +16,7 @@ import { LIMITS } from "./drafts";
 import { CheckboxField, EditForm, Rows, SelectField, TextArea, TextField } from "./fields";
 import { entryLabel } from "./labels";
 import {
+  blockedBullets,
   METADATA_LIMITS,
   presetDrafts,
   presetsEditOf,
@@ -57,29 +58,18 @@ function roleTypeName(roleTypes: readonly RoleType[], id: string): string {
 // --- Role types ----------------------------------------------------------------------------------
 
 function RoleTypesForm({ profile, baseVersion, onSaved, onDone }: Part & { onDone: () => void }) {
-  const save = useSaveRoleTypes();
-  const { draft, problem, stale, change, submit } = useEditForm({
+  const { draft, change, form } = useEditForm({
     current: { roleTypes: roleTypeDrafts(profile.roleTypes) },
     editOf: roleTypesEditOf,
     subject: "Your role types",
     baseVersion,
-    save: (edit, onSuccess) => {
-      save.mutate(edit, { onSuccess });
-    },
+    mutation: useSaveRoleTypes(),
+    input: (edit) => edit,
     onSaved,
     onDone,
   });
   return (
-    <EditForm
-      label="Edit your role types"
-      action="save your role types"
-      problem={problem}
-      stale={stale}
-      error={save.error}
-      pending={save.isPending}
-      onSubmit={submit}
-      onCancel={onDone}
-    >
+    <EditForm label="Edit your role types" action="save your role types" {...form}>
       <Rows
         legend="Role types"
         noun="Role type"
@@ -154,29 +144,18 @@ export function RoleTypes(part: Part) {
 // --- Skills and gaps -----------------------------------------------------------------------------
 
 function SkillsForm({ profile, baseVersion, onSaved, onDone }: Part & { onDone: () => void }) {
-  const save = useSaveSkills();
-  const { draft, problem, stale, change, submit } = useEditForm({
+  const { draft, change, form } = useEditForm({
     current: skillsDraft(profile),
     editOf: skillsEditOf,
     subject: "Your skills",
     baseVersion,
-    save: (edit, onSuccess) => {
-      save.mutate(edit, { onSuccess });
-    },
+    mutation: useSaveSkills(),
+    input: (edit) => edit,
     onSaved,
     onDone,
   });
   return (
-    <EditForm
-      label="Edit your skills"
-      action="save your skills"
-      problem={problem}
-      stale={stale}
-      error={save.error}
-      pending={save.isPending}
-      onSubmit={submit}
-      onCancel={onDone}
-    >
+    <EditForm label="Edit your skills" action="save your skills" {...form}>
       <Rows
         legend="Skills"
         noun="Skill"
@@ -303,29 +282,19 @@ export function Skills(part: Part) {
 // --- Skills presets ------------------------------------------------------------------------------
 
 function PresetsForm({ profile, baseVersion, onSaved, onDone }: Part & { onDone: () => void }) {
-  const save = useSaveSkillPresets();
-  const { draft, problem, stale, change, submit } = useEditForm({
+  const { draft, change, form } = useEditForm({
     current: { presets: presetDrafts(profile) },
     editOf: presetsEditOf,
     subject: "Your skills presets",
     baseVersion,
-    save: (edit, onSuccess) => {
-      save.mutate(edit, { onSuccess });
-    },
+    mutation: useSaveSkillPresets(),
+    input: (edit) => edit,
     onSaved,
     onDone,
   });
+  const roleTypeChoices = roleTypeOptions(profile.roleTypes);
   return (
-    <EditForm
-      label="Edit your skills presets"
-      action="save your skills presets"
-      problem={problem}
-      stale={stale}
-      error={save.error}
-      pending={save.isPending}
-      onSubmit={submit}
-      onCancel={onDone}
-    >
+    <EditForm label="Edit your skills presets" action="save your skills presets" {...form}>
       <Rows
         legend="Skills presets"
         noun="Preset"
@@ -342,7 +311,7 @@ function PresetsForm({ profile, baseVersion, onSaved, onDone }: Part & { onDone:
             <SelectField
               label="Role type"
               value={preset.roleType}
-              options={roleTypeOptions(profile.roleTypes)}
+              options={roleTypeChoices}
               onChange={(roleType) => {
                 changePreset({ roleType });
               }}
@@ -377,15 +346,21 @@ export function SkillPresets(part: Part) {
       {skillPresets.length === 0 ? (
         <p className="text-stone-500">No presets yet.</p>
       ) : (
-        skillPresets.map((preset) => (
-          <div key={preset.roleType} className="mt-2 first:mt-0">
-            <p className="font-medium">{roleTypeName(roleTypes, preset.roleType)}</p>
-            <Facts
-              label={`Skills preset for ${roleTypeName(roleTypes, preset.roleType)}`}
-              facts={preset.lines.map((line): [string, string] => [line.label, line.skills.join(", ")])}
-            />
-          </div>
-        ))
+        skillPresets.map((preset) => {
+          const name = roleTypeName(roleTypes, preset.roleType);
+          return (
+            <div key={preset.roleType} className="mt-2 first:mt-0">
+              <p className="font-medium">{name}</p>
+              <Facts
+                label={`Skills preset for ${name}`}
+                facts={preset.lines.map((line): [string, string] => [
+                  line.label,
+                  line.skills.join(", "),
+                ])}
+              />
+            </div>
+          );
+        })
       )}
     </Block>
   );
@@ -394,29 +369,19 @@ export function SkillPresets(part: Part) {
 // --- Summaries -----------------------------------------------------------------------------------
 
 function SummariesForm({ profile, baseVersion, onSaved, onDone }: Part & { onDone: () => void }) {
-  const save = useSaveSummaries();
-  const { draft, problem, stale, change, submit } = useEditForm({
+  const { draft, change, form } = useEditForm({
     current: { summaries: summaryDrafts(profile) },
     editOf: summariesEditOf,
     subject: "Your summaries",
     baseVersion,
-    save: (edit, onSuccess) => {
-      save.mutate(edit, { onSuccess });
-    },
+    mutation: useSaveSummaries(),
+    input: (edit) => edit,
     onSaved,
     onDone,
   });
+  const roleTypeChoices = roleTypeOptions(profile.roleTypes);
   return (
-    <EditForm
-      label="Edit your summaries"
-      action="save your summaries"
-      problem={problem}
-      stale={stale}
-      error={save.error}
-      pending={save.isPending}
-      onSubmit={submit}
-      onCancel={onDone}
-    >
+    <EditForm label="Edit your summaries" action="save your summaries" {...form}>
       <Rows
         legend="Summaries"
         noun="Summary"
@@ -433,7 +398,7 @@ function SummariesForm({ profile, baseVersion, onSaved, onDone }: Part & { onDon
             <SelectField
               label="Role type"
               value={summary.roleType}
-              options={roleTypeOptions(profile.roleTypes)}
+              options={roleTypeChoices}
               onChange={(roleType) => {
                 changeSummary({ roleType });
               }}
@@ -489,15 +454,13 @@ function QuestionForm({
   onSaved,
   onDone,
 }: Part & { question: OpenQuestion | null; onDone: () => void }) {
-  const save = useSaveQuestion();
-  const { draft, problem, stale, change, submit } = useEditForm({
+  const { draft, change, form } = useEditForm({
     current: questionDraft(question, profile),
     editOf: questionEditOf,
     subject: "This question",
     baseVersion,
-    save: (edit, onSuccess) => {
-      save.mutate({ id: question?.id ?? null, edit }, { onSuccess });
-    },
+    mutation: useSaveQuestion(),
+    input: (edit) => ({ id: question?.id ?? null, edit }),
     onSaved,
     onDone,
   });
@@ -510,12 +473,7 @@ function QuestionForm({
     <EditForm
       label={question === null ? "Add an open question" : "Edit the open question"}
       action="save the open question"
-      problem={problem}
-      stale={stale}
-      error={save.error}
-      pending={save.isPending}
-      onSubmit={submit}
-      onCancel={onDone}
+      {...form}
     >
       <TextField
         label="Question"
@@ -567,9 +525,7 @@ function QuestionForm({
 function QuestionItem({ question, ...part }: Part & { question: OpenQuestion }) {
   const { editing, button, open, close } = useEditing();
   const textId = useId();
-  const blocked = [...part.profile.work, ...part.profile.education, ...part.profile.projects]
-    .flatMap((item) => item.highlights)
-    .filter((bullet) => bullet.needs.includes(question.id));
+  const blocked = blockedBullets(part.profile, question.id);
   return (
     <li className="rounded border border-stone-200 bg-stone-50 p-3">
       {editing ? (

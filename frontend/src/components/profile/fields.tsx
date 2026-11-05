@@ -232,32 +232,26 @@ export function CheckboxField({
   label,
   checked,
   onChange,
-  hint,
 }: {
   label: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
-  hint?: string | undefined;
 }) {
   const id = useId();
   return (
-    <div>
-      <div className="flex items-center gap-2">
-        <input
-          id={id}
-          type="checkbox"
-          checked={checked}
-          onChange={(event) => {
-            onChange(event.target.checked);
-          }}
-          aria-describedby={hint === undefined ? undefined : `${id}-hint`}
-          className={`h-4 w-4 rounded border-stone-300 ${FOCUS}`}
-        />
-        <label htmlFor={id} className="text-sm text-stone-800">
-          {label}
-        </label>
-      </div>
-      <Hint id={`${id}-hint`} hint={hint} />
+    <div className="flex items-center gap-2">
+      <input
+        id={id}
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => {
+          onChange(event.target.checked);
+        }}
+        className={`h-4 w-4 rounded border-stone-300 ${FOCUS}`}
+      />
+      <label htmlFor={id} className="text-sm text-stone-800">
+        {label}
+      </label>
     </div>
   );
 }
@@ -283,7 +277,7 @@ export function Rows<Row extends { key: number }>({
   rows: readonly Row[];
   max: number;
   /** Said while there are no rows. */
-  empty: string;
+  empty?: string;
   onChange: (rows: Row[]) => void;
   /** A new, blank row with this key. */
   makeRow: (key: number) => Row;
@@ -294,7 +288,9 @@ export function Rows<Row extends { key: number }>({
   return (
     <fieldset className="space-y-2">
       <legend className={LABEL}>{legend}</legend>
-      {rows.length === 0 && <p className="text-sm text-stone-500">{empty}</p>}
+      {rows.length === 0 && empty !== undefined && (
+        <p className="text-sm text-stone-500">{empty}</p>
+      )}
       {rows.map((row, index) => {
         const name = `${noun} ${String(index + 1)}`;
         return (

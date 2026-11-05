@@ -5,6 +5,7 @@ import type {
   LintFinding,
   Project,
   Role,
+  RoleType,
   Strength,
   Verification,
 } from "../../api/profile";
@@ -60,4 +61,9 @@ export function entryLabel(entry: Entry): string {
     case "projects":
       return entry.item.name;
   }
+}
+
+/** Your role types' IDs, for a hint: `Your role types: backend, data.` */
+export function yourRoleTypes(roleTypes: readonly RoleType[]): string {
+  return `Your role types: ${roleTypes.map((type) => type.id).join(", ")}.`;
 }

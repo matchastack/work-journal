@@ -9,12 +9,12 @@ import {
 } from "../../api/profile";
 import { LABEL } from "../ui";
 import { Block, Facts } from "./Block";
-import { LIMITS } from "./drafts";
+import { LIMITS, lineList } from "./drafts";
 import { CheckboxField, EditForm, Rows, SelectField, TextArea, TextField } from "./fields";
+import { yourRoleTypes } from "./labels";
 import {
   courseworkDraft,
   courseworkEditOf,
-  lineList,
   METADATA_LIMITS,
   roleRulesDraft,
   roleRulesEditOf,
@@ -35,11 +35,11 @@ const SENSITIVITY = {
   sensitive: "Sensitive: architecture and outcomes only",
 } as const;
 
-/** Your role types, for a hint: `Your role types: backend, data.` */
+/** The hint for role types separated by commas. */
 function roleTypesHint(roleTypes: readonly RoleType[]): string {
   return roleTypes.length === 0
     ? "Add role types under Role types first."
-    : `Separated by commas. Your role types: ${roleTypes.map((type) => type.id).join(", ")}.`;
+    : `Separated by commas. ${yourRoleTypes(roleTypes)}`;
 }
 
 function RoleRulesForm({
@@ -49,29 +49,18 @@ function RoleRulesForm({
   onSaved,
   onDone,
 }: Saving & { role: Role; roleTypes: readonly RoleType[]; onDone: () => void }) {
-  const save = useSaveRoleRules();
-  const { draft, problem, stale, change, submit } = useEditForm({
+  const { draft, change, form } = useEditForm({
     current: roleRulesDraft(role),
     editOf: roleRulesEditOf,
     subject: "This role",
     baseVersion,
-    save: (edit, onSuccess) => {
-      save.mutate({ id: role.id, edit }, { onSuccess });
-    },
+    mutation: useSaveRoleRules(),
+    input: (edit) => ({ id: role.id, edit }),
     onSaved,
     onDone,
   });
   return (
-    <EditForm
-      label="Edit the tailoring rules"
-      action="save the tailoring rules"
-      problem={problem}
-      stale={stale}
-      error={save.error}
-      pending={save.isPending}
-      onSubmit={submit}
-      onCancel={onDone}
-    >
+    <EditForm label="Edit the tailoring rules" action="save the tailoring rules" {...form}>
       <TextArea
         label="Approved title variants"
         hint="One per line. A tailored resume may use one instead of the official title."
@@ -158,6 +147,7 @@ export function RoleRules({
     >
       <Facts
         label="Tailoring rules"
+        empty="None yet."
         facts={[
           ["Title variants", role.titleVariants.join(", ")],
           ["Load-bearing", role.loadBearing && "Always shown"],
@@ -177,13 +167,6 @@ export function RoleRules({
           ],
         ]}
       />
-      {role.titleVariants.length === 0 &&
-        !role.loadBearing &&
-        !role.duringEducation &&
-        role.keepFor.length === 0 &&
-        role.cutFor.length === 0 &&
-        role.sensitivity === "normal" &&
-        role.honestyBoundaries.length === 0 && <p className="text-stone-500">None yet.</p>}
     </Block>
   );
 }
@@ -195,29 +178,23 @@ function CourseworkForm({
   onSaved,
   onDone,
 }: Saving & { education: Education; roleTypes: readonly RoleType[]; onDone: () => void }) {
-  const save = useSaveCoursework();
-  const { draft, problem, stale, change, submit } = useEditForm({
+  const { draft, change, form } = useEditForm({
     current: courseworkDraft(education),
     editOf: courseworkEditOf,
     subject: "This education entry",
     baseVersion,
-    save: (edit, onSuccess) => {
-      save.mutate({ id: education.id, edit }, { onSuccess });
-    },
+    mutation: useSaveCoursework(),
+    input: (edit) => ({ id: education.id, edit }),
     onSaved,
     onDone,
   });
   const courses = lineList(draft.courses);
+  const roleTypeChoices = roleTypeOptions(roleTypes);
   return (
     <EditForm
       label="Edit the coursework and rules"
       action="save the coursework and rules"
-      problem={problem}
-      stale={stale}
-      error={save.error}
-      pending={save.isPending}
-      onSubmit={submit}
-      onCancel={onDone}
+      {...form}
     >
       <TextArea
         label="Coursework"
@@ -246,7 +223,7 @@ function CourseworkForm({
             <SelectField
               label="Role type"
               value={subset.roleType}
-              options={roleTypeOptions(roleTypes)}
+              options={roleTypeChoices}
               onChange={(roleType) => {
                 changeSubset({ roleType });
               }}
@@ -313,6 +290,7 @@ export function Coursework({
     >
       <Facts
         label="Coursework and rules"
+        empty="None yet."
         facts={[
           ["Coursework", education.courses.join(", ")],
           ...education.courseworkSubsets.map(
@@ -330,9 +308,6 @@ export function Coursework({
           ],
         ]}
       />
-      {education.courses.length === 0 && education.rules.length === 0 && (
-        <p className="text-stone-500">None yet.</p>
-      )}
     </Block>
   );
 }
@@ -347,29 +322,18 @@ export function SwapsForm({
   onSaved,
   onDone,
 }: Saving & { bullet: Bullet; onDone: () => void }) {
-  const save = useSaveSwaps();
-  const { draft, problem, stale, change, submit } = useEditForm({
+  const { draft, change, form } = useEditForm({
     current: { swaps: swapDrafts(bullet.swaps) },
     editOf: swapsEditOf,
     subject: "This bullet",
     baseVersion,
-    save: (edit, onSuccess) => {
-      save.mutate({ id: bullet.id, edit }, { onSuccess });
-    },
+    mutation: useSaveSwaps(),
+    input: (edit) => ({ id: bullet.id, edit }),
     onSaved,
     onDone,
   });
   return (
-    <EditForm
-      label="Edit the swaps"
-      action="save the swaps"
-      problem={problem}
-      stale={stale}
-      error={save.error}
-      pending={save.isPending}
-      onSubmit={submit}
-      onCancel={onDone}
-    >
+    <EditForm label="Edit the swaps" action="save the swaps" {...form}>
       <p className="text-sm text-stone-700">{bullet.text}</p>
       <Rows<SwapDraft>
         legend="Swaps"

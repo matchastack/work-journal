@@ -1,15 +1,13 @@
 import { useSaveBullet, type Bullet, type RoleType } from "../../api/profile";
 import { bulletDraft, bulletEditOf, LIMITS } from "./drafts";
 import { EditForm, SelectField, TextArea, TextField } from "./fields";
-import { STATUS_LABELS, STRENGTH_LABELS, VERIFICATION_LABELS } from "./labels";
+import { STATUS_LABELS, STRENGTH_LABELS, VERIFICATION_LABELS, yourRoleTypes } from "./labels";
 import { useEditForm } from "./useEditForm";
 
 /** Tags are short labels, often the role types the bullet suits. */
 function tagsHint(roleTypes: readonly RoleType[]): string {
   const hint = "Lowercase, separated by commas.";
-  return roleTypes.length === 0
-    ? hint
-    : `${hint} Your role types: ${roleTypes.map((type) => type.id).join(", ")}.`;
+  return roleTypes.length === 0 ? hint : `${hint} ${yourRoleTypes(roleTypes)}`;
 }
 
 /**
@@ -30,29 +28,18 @@ export function BulletForm({
   onSaved: (message: string) => void;
   onDone: () => void;
 }) {
-  const save = useSaveBullet();
-  const { draft, problem, stale, change, submit } = useEditForm({
+  const { draft, change, form } = useEditForm({
     current: bulletDraft(bullet),
     editOf: bulletEditOf,
     subject: "This bullet",
     baseVersion,
-    save: (edit, onSuccess) => {
-      save.mutate({ id: bullet.id, edit }, { onSuccess });
-    },
+    mutation: useSaveBullet(),
+    input: (edit) => ({ id: bullet.id, edit }),
     onSaved,
     onDone,
   });
   return (
-    <EditForm
-      label="Edit the bullet"
-      action="save the bullet"
-      problem={problem}
-      stale={stale}
-      error={save.error}
-      pending={save.isPending}
-      onSubmit={submit}
-      onCancel={onDone}
-    >
+    <EditForm label="Edit the bullet" action="save the bullet" {...form}>
       <TextArea
         label="Bullet text"
         value={draft.text}
