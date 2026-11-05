@@ -48,6 +48,12 @@ PROFILE_LISTS = frozenset(
 and the basics their own target."""
 
 
+def is_profile_list(op: UpdateField) -> bool:
+    """Whether `op` replaces one of the profile's own lists, rather than a field of an item or
+    bullet."""
+    return op.target_id == PROFILE_TARGET and op.field in PROFILE_LISTS
+
+
 class ProfileOpError(ValueError):
     """An operation couldn't be applied. The profile is left unchanged."""
 
@@ -145,7 +151,7 @@ def _find_question(data: Json, question_id: str) -> Json:
 def _update_field(data: Json, op: UpdateField) -> None:
     target: Json
     model: type[BaseModel]
-    if op.target_id == PROFILE_TARGET and op.field in PROFILE_LISTS:
+    if is_profile_list(op):
         data[op.field] = op.value
         return
     if op.target_id == "basics":

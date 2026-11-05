@@ -13,6 +13,7 @@ skills presets, summaries and open questions. Any other path is shown as it is.
 
 import json
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Literal, cast
 
@@ -114,16 +115,18 @@ def describe_path(path: str, *profiles: Profile) -> str:
 
 def _change(change: profile_ops.Change, before: Profile, after: Profile) -> VersionChange:
     place = _parse(change.path)
-    questions = {q.id: q.question for p in (before, after) for q in p.open_questions}
-    old = _display(change.before, change.path, questions)
-    new = _display(change.after, change.path, questions)
+    profiles = (after, before)
+    old, new = (
+        _display(change.before, change.path, profiles),
+        _display(change.after, change.path, profiles),
+    )
     words = isinstance(change.before, str) and isinstance(change.after, str)
     reworded = words and any(" " in str(text) for text in (change.before, change.after))
     return VersionChange(
         kind=change.kind,
         path=change.path,
-        title=_title(change, place, (after, before)),
-        context=_context(place, (after, before)),
+        title=_title(change, place, profiles),
+        context=_context(place, profiles),
         before=old,
         after=new,
         diff=word_diff(str(change.before), str(change.after)) if reworded else (),
@@ -218,18 +221,30 @@ def _item_label(section: str, item_id: str, profiles: tuple[Profile, ...]) -> st
     return item_id
 
 
+def _question_names(profile: Profile) -> dict[str, str]:
+    return {question.id: question.question for question in profile.open_questions}
+
+
+def _role_type_names(profile: Profile) -> dict[str, str]:
+    return {role_type.id: role_type.name for role_type in profile.role_types}
+
+
+ENTRY_NAMES: dict[str, Callable[[Profile], dict[str, str]]] = {
+    "openQuestions": _question_names,
+    "roleTypes": _role_type_names,
+    **dict.fromkeys(BY_ROLE_TYPE, _role_type_names),
+}
+"""The lists whose keys name something else, and the names of a profile's keys."""
+
+
 def _entry_name(section: str, key: str, profiles: tuple[Profile, ...]) -> str:
     """What names an entry of one of the profile's lists: an open question's wording, a role
     type's name, or the key."""
-    for profile in profiles:
-        if section == "openQuestions":
-            names = {question.id: question.question for question in profile.open_questions}
-        elif section in BY_ROLE_TYPE or section == "roleTypes":
-            names = {role_type.id: role_type.name for role_type in profile.role_types}
-        else:
-            break
-        if key in names:
-            return names[key]
+    names = ENTRY_NAMES.get(section)
+    if names is not None:
+        for profile in profiles:
+            if key in (found := names(profile)):
+                return found[key]
     return key
 
 
@@ -237,14 +252,18 @@ def _capitalised(text: str) -> str:
     return text[:1].upper() + text[1:]
 
 
-def _display(value: Any, path: str, questions: dict[str, str]) -> str | None:
+def _display(value: Any, path: str, profiles: tuple[Profile, ...]) -> str | None:
     """A value as the owner reads it. The open questions a bullet waits on are their wording."""
     if value is None:
         return None
-    if isinstance(value, list) and path.endswith(".needs"):
+    field = path.rsplit(".", 1)[-1]
+    if isinstance(value, list) and field == "needs":
         ids = cast(list[str], value)
-        return "; ".join(questions.get(question_id, question_id) for question_id in ids) or "none"
-    if isinstance(value, list) and path.rsplit(".", 1)[-1] in FACT_LISTS:
+        return (
+            "; ".join(_entry_name("openQuestions", question_id, profiles) for question_id in ids)
+            or "none"
+        )
+    if isinstance(value, list) and field in FACT_LISTS:
         count = len(cast(list[Any], value))
         return f"{count} {'fact' if count == 1 else 'facts'}"
     return _text(value)
