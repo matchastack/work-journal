@@ -7,6 +7,13 @@ import { BasicsCard } from "../components/profile/BasicsCard";
 import { ItemCard } from "../components/profile/ItemCard";
 import { SAVED_BY, type Entry } from "../components/profile/labels";
 import { LintSummary } from "../components/profile/LintSummary";
+import {
+  OpenQuestions,
+  RoleTypes,
+  SkillPresets,
+  Skills,
+  Summaries,
+} from "../components/profile/ProfileLists";
 import { VersionHistory } from "../components/profile/VersionHistory";
 import { BUTTON, FOCUS } from "../components/ui";
 import { dateAndTime } from "../format";
@@ -17,6 +24,11 @@ const SECTIONS = {
   work: { id: "profile-work", title: "Work" },
   education: { id: "profile-education", title: "Education" },
   projects: { id: "profile-projects", title: "Projects" },
+  roleTypes: { id: "profile-role-types", title: "Role types" },
+  skills: { id: "profile-skills", title: "Skills" },
+  presets: { id: "profile-presets", title: "Skills presets" },
+  summaries: { id: "profile-summaries", title: "Summaries" },
+  questions: { id: "profile-questions", title: "Open questions" },
   rules: { id: "profile-rules", title: "Resume rules" },
   history: { id: "profile-history", title: "History" },
 } as const;
@@ -71,7 +83,8 @@ function Items({
 
 /**
  * The master profile's latest version: basics, roles, education, projects and their bullets,
- * each edited in place, with the resume rules' findings. Every save is a change set by you and
+ * each edited in place, with the resume rules' findings, and the metadata that drives tailoring:
+ * role types, skills and gaps, skills presets, summaries and open questions (T-043). Every save is a change set by you and
  * a new version (FR-PRF-11); the resumes, portfolio page and LinkedIn text catch up at the next
  * refresh (FR-REV-7). The history lists every version with what it changed, and restores any of
  * them as a new version (FR-PRF-3).
@@ -171,6 +184,37 @@ export function Profile() {
                 none="No projects yet."
                 profile={data.profile}
                 lint={data.lint}
+                baseVersion={data.version.number}
+                onSaved={setStatus}
+              />
+            </Section>
+            <Section section={SECTIONS.roleTypes}>
+              <RoleTypes
+                profile={data.profile}
+                baseVersion={data.version.number}
+                onSaved={setStatus}
+              />
+            </Section>
+            <Section section={SECTIONS.skills}>
+              <Skills profile={data.profile} baseVersion={data.version.number} onSaved={setStatus} />
+            </Section>
+            <Section section={SECTIONS.presets}>
+              <SkillPresets
+                profile={data.profile}
+                baseVersion={data.version.number}
+                onSaved={setStatus}
+              />
+            </Section>
+            <Section section={SECTIONS.summaries}>
+              <Summaries
+                profile={data.profile}
+                baseVersion={data.version.number}
+                onSaved={setStatus}
+              />
+            </Section>
+            <Section section={SECTIONS.questions}>
+              <OpenQuestions
+                profile={data.profile}
                 baseVersion={data.version.number}
                 onSaved={setStatus}
               />

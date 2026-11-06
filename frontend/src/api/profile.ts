@@ -22,6 +22,19 @@ export type RoleEdit = Schemas["RoleEdit"];
 export type EducationEdit = Schemas["EducationEdit"];
 export type ProjectEdit = Schemas["ProjectEdit"];
 export type BulletEdit = Schemas["BulletEdit"];
+export type RoleRulesEdit = Schemas["RoleRulesEdit"];
+export type CourseworkEdit = Schemas["CourseworkEdit"];
+export type SwapsEdit = Schemas["SwapsEdit"];
+export type RoleTypesEdit = Schemas["RoleTypesEdit"];
+export type SkillsEdit = Schemas["SkillsEdit"];
+export type SkillPresetsEdit = Schemas["SkillPresetsEdit"];
+export type SummariesEdit = Schemas["SummariesEdit"];
+export type OpenQuestionEdit = Schemas["OpenQuestionEdit"];
+export type Swap = Schemas["Swap"];
+export type Skill = Schemas["Skill"];
+export type SkillPreset = Schemas["SkillPreset"];
+export type Summary = Schemas["Summary"];
+export type OpenQuestion = Schemas["OpenQuestion"];
 export type ItemStatus = Bullet["status"];
 export type Strength = Bullet["strength"];
 export type Verification = Bullet["verification"];
@@ -113,6 +126,67 @@ export function useSaveBullet() {
       params: { path: { bullet_id: id } },
       body: edit,
     }),
+  );
+}
+
+export function useSaveRoleRules() {
+  return useProfileChange(({ id, edit }: { id: string; edit: RoleRulesEdit }) =>
+    api.PUT("/api/profile/work/{role_id}/rules", {
+      params: { path: { role_id: id } },
+      body: edit,
+    }),
+  );
+}
+
+export function useSaveCoursework() {
+  return useProfileChange(({ id, edit }: { id: string; edit: CourseworkEdit }) =>
+    api.PUT("/api/profile/education/{education_id}/coursework", {
+      params: { path: { education_id: id } },
+      body: edit,
+    }),
+  );
+}
+
+export function useSaveSwaps() {
+  return useProfileChange(({ id, edit }: { id: string; edit: SwapsEdit }) =>
+    api.PUT("/api/profile/bullets/{bullet_id}/swaps", {
+      params: { path: { bullet_id: id } },
+      body: edit,
+    }),
+  );
+}
+
+export function useSaveRoleTypes() {
+  return useProfileChange((edit: RoleTypesEdit) =>
+    api.PUT("/api/profile/role-types", { body: edit }),
+  );
+}
+
+export function useSaveSkills() {
+  return useProfileChange((edit: SkillsEdit) => api.PUT("/api/profile/skills", { body: edit }));
+}
+
+export function useSaveSkillPresets() {
+  return useProfileChange((edit: SkillPresetsEdit) =>
+    api.PUT("/api/profile/skill-presets", { body: edit }),
+  );
+}
+
+export function useSaveSummaries() {
+  return useProfileChange((edit: SummariesEdit) =>
+    api.PUT("/api/profile/summaries", { body: edit }),
+  );
+}
+
+/** Add an open question (`id` null), or change one. */
+export function useSaveQuestion() {
+  return useProfileChange(({ id, edit }: { id: string | null; edit: OpenQuestionEdit }) =>
+    id === null
+      ? api.POST("/api/profile/open-questions", { body: edit })
+      : api.PUT("/api/profile/open-questions/{question_id}", {
+          params: { path: { question_id: id } },
+          body: edit,
+        }),
   );
 }
 

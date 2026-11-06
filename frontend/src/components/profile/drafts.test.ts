@@ -8,6 +8,7 @@ import {
   bulletEditOf,
   commaList,
   datesProblem,
+  lineList,
   orNull,
   projectDraft,
   projectEditOf,
@@ -55,11 +56,12 @@ const ROLE: Role = {
 };
 
 describe("small helpers", () => {
-  it("clear blank text and split comma lists", () => {
+  it("clear blank text and split comma and line lists", () => {
     expect(orNull("  ")).toBeNull();
     expect(orNull(" Springfield ")).toBe("Springfield");
     expect(commaList(" backend, ,data ,")).toEqual(["backend", "data"]);
     expect(commaList("SQL (Postgres, MySQL), Python")).toEqual(["SQL (Postgres, MySQL)", "Python"]);
+    expect(lineList(" a \n\n b\n")).toEqual(["a", "b"]);
   });
 
   it("check months and their order", () => {
@@ -274,4 +276,3 @@ describe("a project's edit", () => {
     });
   });
 });
-
