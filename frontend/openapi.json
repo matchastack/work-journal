@@ -5503,7 +5503,7 @@
               "$ref": "#/components/schemas/SwapEdit"
             },
             "type": "array",
-            "maxItems": 20,
+            "maxItems": 200,
             "title": "Swaps"
           }
         },

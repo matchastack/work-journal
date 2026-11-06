@@ -339,7 +339,7 @@ export function SwapsForm({
         legend="Swaps"
         noun="Swap"
         rows={draft.swaps}
-        max={METADATA_LIMITS.list}
+        max={METADATA_LIMITS.swaps}
         empty="No swaps yet."
         onChange={(swaps) => {
           change({ swaps });
@@ -376,7 +376,7 @@ export function SwapsForm({
               />
               <TextArea
                 label="Fits (optional)"
-                hint="One per line, such as a role type or the posting it was written for."
+                hint="One per line, such as a role type or the posting it was written for. A swap that fits LinkedIn stays off resumes."
                 value={swap.contexts}
                 onChange={(contexts) => {
                   changeSwap({ contexts });
@@ -399,8 +399,9 @@ export function SwapList({ swaps }: { swaps: Bullet["swaps"] }) {
   }
   return (
     <ul aria-label="Swaps" className="mt-2 space-y-1 text-sm text-stone-700">
-      {swaps.map((swap) => (
-        <li key={`${swap.text}|${swap.replaces ?? ""}`}>
+      {swaps.map((swap, index) => (
+        // By position: the same phrasing can be saved for two postings, and the list keeps no state.
+        <li key={index}>
           <span className="text-stone-500">Swap{swap.replaces ? ` for "${swap.replaces}"` : ""}:</span>{" "}
           {swap.text}
           {swap.contexts.length > 0 && (

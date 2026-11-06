@@ -157,6 +157,22 @@ def test_a_new_swap_is_saved_whole() -> None:
     ]
 
 
+def test_an_imported_swap_you_rewrite_is_yours() -> None:
+    """A blank part replaced means the whole bullet only for an approved swap."""
+    (imported,) = dump(NORTHWIND.highlights[0].swaps)
+    moved = imported | {"contexts": ["platform roles", "backend"]}
+    rewritten = imported | {"text": "event-driven services in Python", "replaces": None}
+    for swap, origin in ((moved, "imported"), (rewritten, "approved")):
+        edited = swaps_changes(PROFILE, "nw_orders", sent(SwapsEdit, swaps=[swap]))
+        assert apply(PROFILE, edited.ops).work[0].highlights[0].swaps[0].origin == origin
+
+
+def test_swaps_add_up_past_the_usual_list_limit() -> None:
+    """Tailoring saves a swap for each posting it rewrites a bullet for."""
+    swap = {"text": "order services", "replaces": None, "contexts": [], "origin": "approved"}
+    assert len(sent(SwapsEdit, swaps=[swap] * 50).swaps) == 50
+
+
 def test_coursework_subsets_come_from_the_full_list() -> None:
     edit = CourseworkEdit.model_validate(
         {
@@ -231,6 +247,16 @@ def test_skills_keep_their_notes_through_a_rename() -> None:
     )
     assert result[-1] == Skill(name="Go", category="Languages", aliases=("Golang",))
     assert edited.summary == "Edited your skills"
+
+
+def test_a_renamed_skill_is_renamed_in_the_presets() -> None:
+    sent = skills().model_dump(mode="json", by_alias=False)["skills"]
+    sent[0]["name"] = "Python 3"
+    profile = apply(PROFILE, skills_changes(PROFILE, skills(skills=sent)).ops)
+    assert [line.skills for line in profile.skill_presets[1].lines] == [
+        ("Python 3", "SQL"),
+        ("Apache Airflow", "PostgreSQL"),
+    ]
 
 
 def test_a_gap_is_never_also_a_skill() -> None:

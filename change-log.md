@@ -10,6 +10,7 @@ One short entry per pull request, newest first: what changed and what to verify.
 - Editing a role's tailoring rules (a title variant, Load-bearing, Keep for) shows "Saved as version N", and History says what changed
 - A gap that's also a skill, or a role type you don't have, is refused with what's wrong
 - Adding a role type, then a summary and a skills preset for it, saves each as a version
+- Renaming a skill under Skills and gaps renames it in the skills presets too
 - Adding an open question that blocks a bullet lists the bullet under it; setting it to Answered keeps it, marked Answered
 
 ## 2026-10-30 · T-042 Profile page: items, bullets and versions · [#66](https://github.com/matchastack/work-journal/pull/66)

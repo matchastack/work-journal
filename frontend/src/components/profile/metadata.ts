@@ -6,8 +6,8 @@
  *
  * Lists of sentences, such as honesty boundaries or a swap's contexts, are a line each (`LINES`);
  * lists of short names, such as a skill's other spellings, are separated by commas (`COMMAS`). A
- * list whose text wasn't touched is sent as it was saved (`editedList`), so an entry its text
- * can't hold survives.
+ * list whose entries may hold its separator, such as a name with a comma, is sent as it was saved
+ * while its text is untouched (`editedList`), so those entries survive.
  */
 
 import type {
@@ -44,6 +44,7 @@ import {
 /** The API's limits for metadata, in entries (`backend/app/profile/edits.py`). */
 export const METADATA_LIMITS = {
   list: 20,
+  swaps: 200,
   courses: 100,
   roleTypes: 30,
   skills: 300,
@@ -180,8 +181,8 @@ export function swapsEditOf(
   draft: { swaps: SwapDraft[] },
   baseVersion: number,
 ): Result<SwapsEdit> {
-  if (draft.swaps.length > METADATA_LIMITS.list) {
-    return { problem: `A bullet can have at most ${String(METADATA_LIMITS.list)} swaps.` };
+  if (draft.swaps.length > METADATA_LIMITS.swaps) {
+    return { problem: `A bullet can have at most ${String(METADATA_LIMITS.swaps)} swaps.` };
   }
   const swaps: SwapsEdit["swaps"] = [];
   for (const [index, swap] of draft.swaps.entries()) {

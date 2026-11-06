@@ -47,6 +47,7 @@ from app.schema.profile import (
     Project,
     Role,
     Skill,
+    SkillLine,
     SocialProfile,
     Strength,
     Verification,
@@ -63,7 +64,10 @@ TAG_COUNT = 20
 KEYWORD_COUNT = 50
 PROFILE_COUNT = 20
 LIST_COUNT = 20
-"""The most title variants, honesty boundaries, rules, swaps or a swap's contexts."""
+"""The most title variants, honesty boundaries, rules or a swap's contexts."""
+SWAP_COUNT = 200
+"""The most swaps on a bullet. Tailoring saves one for each posting it rewrites a bullet for, so
+they add up over a job search."""
 COURSE_COUNT = 100
 ROLE_TYPE_COUNT = 30
 """The most role types, and so presets, summaries or coursework subsets."""
@@ -254,13 +258,14 @@ class SwapEdit(Model):
     contexts: Names
     """Where it fits, e.g. a role type or the posting it was written for."""
     origin: Literal["imported", "approved"]
-    """`imported` from the master resume, or `approved` by you; a new swap is approved."""
+    """`imported` from the master resume, or `approved` by you. A new swap, or an imported one
+    whose phrasing or the part it replaces you changed, counts as approved."""
 
 
 class SwapsEdit(Edit):
     """A bullet's swaps, the approved alternative phrasings (FR-WRT-5)."""
 
-    swaps: Annotated[tuple[SwapEdit, ...], Field(max_length=LIST_COUNT)]
+    swaps: Annotated[tuple[SwapEdit, ...], Field(max_length=SWAP_COUNT)]
 
 
 class CourseworkSubsetEdit(Model):
@@ -424,8 +429,17 @@ def role_rules_changes(profile: Profile, role_id: str, edit: RoleRulesEdit) -> E
 
 
 def swaps_changes(profile: Profile, bullet_id: str, edit: SwapsEdit) -> Edited:
+    """Only an imported swap you left as it was stays imported. Once you've written its phrasing
+    or the part it replaces, it's yours, and a blank part means the whole bullet, as it does for
+    any approved swap; for an imported one, it means the part isn't known."""
     parent, bullet = _find_bullet(profile, bullet_id)
-    ops = _updates(bullet_id, bullet, edit)
+    imported = {(swap.text, swap.replaces) for swap in bullet.swaps if swap.origin == "imported"}
+    swaps: list[JsonValue] = [
+        swap.model_dump(mode="json")
+        | {"origin": swap.origin if (swap.text, swap.replaces) in imported else "approved"}
+        for swap in edit.swaps
+    ]
+    ops = _updates(bullet_id, bullet, edit, swaps=swaps)
     return Edited(ops, f"Edited the swaps of a bullet under {item_label(parent)}")
 
 
@@ -459,6 +473,8 @@ def role_types_changes(profile: Profile, edit: RoleTypesEdit) -> Edited:
 
 
 def skills_changes(profile: Profile, edit: SkillsEdit) -> Edited:
+    """A renamed skill keeps its notes, and takes its new name into the skills presets, which
+    resumes print as they are."""
     _check_unique("the skill", [skill.name for skill in edit.skills], fold=True)
     _check_unique("the gap", edit.skill_gaps, fold=True)
     names = {skill.name.casefold() for skill in edit.skills}
@@ -477,7 +493,14 @@ def skills_changes(profile: Profile, edit: SkillsEdit) -> Edited:
         ).model_dump(mode="json")
         for skill in edit.skills
     ]
-    return Edited(_updates(PROFILE_TARGET, profile, edit, skills=skills), "Edited your skills")
+    renamed = {
+        skill.previous_name.casefold(): skill.name
+        for skill in edit.skills
+        if skill.previous_name is not None and skill.previous_name != skill.name
+    }
+    presets = _renamed_presets(profile, renamed)
+    ops = _updates(PROFILE_TARGET, profile, edit, skills=skills, skillPresets=presets)
+    return Edited(ops, "Edited your skills")
 
 
 def skill_presets_changes(profile: Profile, edit: SkillPresetsEdit) -> Edited:
@@ -525,6 +548,21 @@ def question_changes(profile: Profile, question_id: str, edit: OpenQuestionEdit)
             "closed": "Closed an open question",
         }[edit.status]
     return Edited(ops, summary)
+
+
+def _renamed_presets(profile: Profile, renamed: Mapping[str, str]) -> list[JsonValue]:
+    """The skills presets, with each skill `renamed` names, ignoring case, under its new name."""
+
+    def rename(line: SkillLine) -> SkillLine:
+        names = tuple(renamed.get(name.casefold(), name) for name in line.skills)
+        return line.model_copy(update={"skills": names})
+
+    return [
+        preset.model_copy(update={"lines": tuple(map(rename, preset.lines))}).model_dump(
+            mode="json"
+        )
+        for preset in profile.skill_presets
+    ]
 
 
 def _question_ops(
