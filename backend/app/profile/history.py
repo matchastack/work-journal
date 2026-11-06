@@ -41,6 +41,9 @@ FIELD_LABELS = {
     "highlights": "bullets",
     "countryCode": "country code",
     "needs": "open questions",
+    "keepFor": "kept-for role types",
+    "cutFor": "cut-for role types",
+    "duringEducation": "held-while-studying flag",
 }
 """Labels for the fields whose JSON name, split into words, doesn't say what they hold."""
 
@@ -110,7 +113,7 @@ def describe_path(path: str, *profiles: Profile) -> str:
     target, joiner = _target(place, profiles)
     if not place.fields:
         return _capitalised(target)
-    return _capitalised(f"{_fields(place)} {joiner} {target}")
+    return _capitalised(f"{_fields(place, profiles)} {joiner} {target}")
 
 
 def _change(change: profile_ops.Change, before: Profile, after: Profile) -> VersionChange:
@@ -197,18 +200,21 @@ def _target(place: _Place, profiles: tuple[Profile, ...]) -> tuple[str, str]:
     return (label if place.bullet_id is None else f"a bullet under {label}"), "of"
 
 
-def _fields(place: _Place) -> str:
+def _fields(place: _Place, profiles: tuple[Profile, ...]) -> str:
     """The fields a place points into, innermost first, e.g. `city of location`."""
-    return " of ".join(_field(name, key, place) for name, key in reversed(place.fields))
+    fields = reversed(place.fields)
+    return " of ".join(_field(name, key, place, profiles) for name, key in fields)
 
 
-def _field(name: str, key: str | None, place: _Place) -> str:
+def _field(name: str, key: str | None, place: _Place, profiles: tuple[Profile, ...]) -> str:
     if place.section == "work" and place.bullet_id is None and name == "name":
         label = "organisation"
     else:
         label = FIELD_LABELS.get(name) or re.sub(r"(?<!^)(?=[A-Z])", " ", name).lower()
     if key is None:
         return label
+    if name == "courseworkSubsets":
+        key = _entry_name("roleTypes", key, profiles)
     return KEYED_LABELS[name].format(key=key) if name in KEYED_LABELS else f"{label} ({key})"
 
 
@@ -287,7 +293,8 @@ def _text(value: Any) -> str:
 
 def _entry(value: dict[str, Any]) -> str:
     """A list entry or nested object by what names it: a bullet's text, a role's title and
-    organisation, an education entry's label, a profile's network, or a name or question."""
+    organisation, an education entry's label, a profile's network, a skills preset's lines, a
+    role type's courses, or a name or question."""
     if isinstance(value.get("text"), str):
         return value["text"]
     if isinstance(value.get("position"), str) and isinstance(value.get("name"), str):
@@ -297,6 +304,12 @@ def _entry(value: dict[str, Any]) -> str:
     if isinstance(value.get("network"), str):
         link = value.get("url") or value.get("username")
         return value["network"] if not link else f"{value['network']}: {link}"
+    if isinstance(value.get("label"), str) and isinstance(value.get("skills"), list):
+        return f"{value['label']}: {', '.join(map(str, value['skills']))}"
+    if isinstance(value.get("lines"), list):
+        return "; ".join(_entry(line) for line in value["lines"])
+    if isinstance(value.get("courses"), list):
+        return ", ".join(map(str, value["courses"]))
     for key in ("name", "question"):
         if isinstance(value.get(key), str):
             return value[key]

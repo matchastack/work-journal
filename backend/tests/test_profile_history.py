@@ -151,7 +151,7 @@ def test_paths_read_as_the_owner_would_say_them() -> None:
         "Country code of location in your basics"
     )
     assert describe_path("education[springfield_state].courseworkSubsets[backend]", PROFILE) == (
-        "Backend coursework of Bachelor of Science in Computer Science, "
+        "Backend / full stack coursework of Bachelor of Science in Computer Science, "
         "Springfield State University"
     )
     assert describe_path("work[gone].highlights[x].text", PROFILE) == "Text of a bullet under gone"
@@ -243,4 +243,48 @@ def test_the_questions_a_bullet_waits_on_are_their_wording() -> None:
         f"Open questions of a bullet under {NORTHWIND}",
         "none",
         "How many order events a day do the services handle?",
+    )
+
+
+def test_presets_lines_and_coursework_read_as_the_forms_show_them() -> None:
+    data = PROFILE.model_dump(mode="json")
+    backend, data_preset = data["skillPresets"]
+    backend["lines"].append({"label": "Cloud", "skills": ["AWS", "GCP"]})
+    springfield = data["education"][0]
+    ops = [
+        UpdateField(target_id="profile", field="skillPresets", value=[backend]),
+        UpdateField(
+            target_id="springfield_state",
+            field="courseworkSubsets",
+            value=springfield["courseworkSubsets"][:1],
+        ),
+    ]
+    changes = version_changes(PROFILE, apply(PROFILE, ops))
+    assert [(change.title, change.before, change.after) for change in changes] == [
+        (
+            "Removed: Data engineering coursework of Bachelor of Science in Computer Science, "
+            "Springfield State University",
+            "Databases, Statistics, Algorithms",
+            None,
+        ),
+        (
+            "Added: Cloud line of the skills preset for Backend / full stack",
+            None,
+            "Cloud: AWS, GCP",
+        ),
+        (
+            "Skills preset removed: Data engineering",
+            "Languages: Python, SQL; Data: Apache Airflow, PostgreSQL",
+            None,
+        ),
+    ]
+    assert data_preset["roleType"] == "data"
+
+
+def test_a_roles_tailoring_rules_are_named_as_the_form_names_them() -> None:
+    assert describe_path("work[northwind].keepFor", PROFILE) == (
+        f"Kept-for role types of {NORTHWIND}"
+    )
+    assert describe_path("work[northwind].duringEducation", PROFILE) == (
+        f"Held-while-studying flag of {NORTHWIND}"
     )
