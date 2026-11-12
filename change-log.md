@@ -11,6 +11,27 @@ One short entry per pull request, newest first: what changed and what to verify.
 - The next reminder ends with a question whose bullet is strong in your master resume; "Answer the question" and a one-message answer bring back the facts saved from it, with a line saying your next /refresh can use them
 - `/refresh` then proposes a new version of that bullet and "Answer an open question"; once both are accepted and applied, the next reminder asks a different question
 
+## 2026-10-30 · T-043 Profile page: tailoring metadata · [#67](https://github.com/matchastack/work-journal/pull/67)
+**Changed:** the Profile page edits what drives tailoring: each role's tailoring rules, each education entry's coursework and rules, each bullet's swaps, and your role types, skills and gaps, skills presets, summaries and open questions. Each save is a change set by you and a new version, and History names what changed.
+
+**Verify:**
+- CI is green on the PR
+- Editing a role's tailoring rules (a title variant, Load-bearing, Keep for) shows "Saved as version N", and History says what changed
+- A gap that's also a skill, or a role type you don't have, is refused with what's wrong
+- Adding a role type, then a summary and a skills preset for it, saves each as a version
+- Renaming a skill under Skills and gaps renames it in the skills presets too
+- Adding an open question that blocks a bullet lists the bullet under it; setting it to Answered keeps it, marked Answered
+
+## 2026-10-30 · T-042 Profile page: items, bullets and versions · [#66](https://github.com/matchastack/work-journal/pull/66)
+**Changed:** the web app's Profile page shows your basics, roles, education, projects and bullets, with the resume-rule findings, and lets you edit them in place. Each save is a change set by you and a new version. The history shows what each version changed and restores any of them as a new version.
+
+**Verify:**
+- CI is green on the PR
+- With your profile loaded (`uv run wj db load-profile`), editing a bullet's text, benching it with a reason and changing its tags shows "Saved as version N", and History lists that version as yours with the word diff
+- Saving without changes makes no version; editing in two tabs, the second save says your profile changed and reloads
+- Restore on an older version asks first, then makes a new version that matches it, and the versions in between stay in the history
+- A placeholder such as TODO in a bullet shows under Resume rules and on the bullet, but still saves
+
 ## 2026-10-31 · T-045 Tailor page and application history · [#72](https://github.com/matchastack/work-journal/pull/72)
 **Changed:** the web app's Tailor page tailors a resume to a pasted posting through background jobs (migration 0017), lets you choose each bullet's words, approve new phrasings as swaps and confirm or drop skills marked verify-before-shipping, and logs the application when you download the PDF; the page lists every application.
 
