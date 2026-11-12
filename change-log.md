@@ -10,6 +10,7 @@ One short entry per pull request, newest first: what changed and what to verify.
 - After `uv run alembic upgrade head`, apply a refresh's changes in the Inbox and run `uv run wj tick`: `uv run wj linkedin show --db` prints the sections that changed, written from the new version
 - After `uv run wj linkedin done --db`, `/refresh` with nothing new and a tick leave the pack's sections as they were, without a model call
 - Without `LLM_MODEL_STANDARD`, a tick still renders the master resume, and `wj linkedin show --db` says the refresh couldn't write the pack
+- With a confidential term in Settings that a section would name, the refresh's pack writes it without the term, or flags it, as `wj linkedin --db` does
 
 ## 2026-11-03 · T-049 Confidential terms and sensitive roles · [#76](https://github.com/matchastack/work-journal/pull/76)
 **Changed:** your confidential terms now keep the portfolio page, its resume downloads and LinkedIn sections that name one off the public, each shown as an error naming the term, and text written about a role marked sensitive is flagged in the Inbox when it names a term or has operational detail.

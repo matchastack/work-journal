@@ -273,6 +273,13 @@ def test_a_section_written_before_from_other_sources_is_written_again() -> None:
     assert all(one.kept(plan) is None for plan in one.plans)
 
 
+def test_a_section_written_before_that_names_a_confidential_term_is_written_again() -> None:
+    """Such as by a try that stopped before the owner added the term: kept, it would be flagged."""
+    first, _ = write(*passing(*KEYS))
+    one, _ = writer(written=first.sections, confidential=("Northwind",))
+    assert [one.kept(plan) is not None for plan in one.plans] == [True, False, True, True]
+
+
 def test_the_pack_marked_done_comes_before_sections_written_before() -> None:
     """A section written before is listed as changed only when it differs from the pack marked
     done; one that matches it is carried over, as `write_pack` does."""

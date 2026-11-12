@@ -770,6 +770,31 @@ async def test_the_pack_job_writes_the_pack_from_the_refresh_version(
     assert len(fake.requests) == 8, "once"
 
 
+async def test_the_pack_job_writes_a_section_again_without_a_confidential_term(
+    committed: Committed, claude: Callable[..., FakeMessages]
+) -> None:
+    """T-049: the owner's confidential terms reach the pack a refresh writes, as they do
+    `wj linkedin --db`'s."""
+    user_id, refresh_id = await due_committed(committed)
+    async with database() as session:
+        await save_confidential_terms(session, user_id, ConfidentialTerms(terms=("sensor logs",)))
+    clean = "I built a Python tool that labelled logs."
+    fake = claude(
+        *pack_replies("headline", "about", "position:northwind"),
+        reply(WrittenSection(text=PACK["position:contoso"])),
+        reply(SUPPORTED),
+        reply(WrittenSection(text=clean)),
+        reply(SUPPORTED),
+    )
+    await run_pack_update(refresh_id, last_attempt=never_last)
+    assert len(fake.requests) == 10
+    pack, _ = await stored(user_id)
+    assert pack is not None
+    contoso = pack.sections[3]
+    assert (contoso.text, contoso.flagged) == (clean, False)
+    assert contoso.report is not None and contoso.report.attempts == 2
+
+
 async def test_a_refresh_with_nothing_new_brings_the_pack_to_the_newest_version(
     committed: Committed, claude: Callable[..., FakeMessages]
 ) -> None:
