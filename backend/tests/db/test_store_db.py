@@ -1,10 +1,12 @@
-"""Facts, variants, job postings, applications, artifacts and LLM calls in the database."""
+"""Facts, variants, job postings, applications, artifacts, renders and LLM calls in the
+database."""
 
 import hashlib
 import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 from sqlalchemy import text
@@ -14,7 +16,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.crypto import KeyRing, new_key, use_key_ring
 from app.db.models import User
 from app.db.store import (
+    RenderInfo,
     delete_variant,
+    find_render,
     get_artifact,
     get_fact,
     get_job_posting,
@@ -24,16 +28,22 @@ from app.db.store import (
     list_variants,
     llm_cost_usd,
     record_llm_call,
+    renders_of,
     save_application,
     save_facts,
     save_job_posting,
+    save_render,
     save_variant,
     store_artifact,
 )
 from app.llm.usage import CallRecord, DatabaseCallLog
+from app.render.fit import Cut
+from app.render.resume import RenderedResume, StoredRender
 from app.schema.fact import ChangeValue, Fact, Metric
 from app.schema.jobs import Application, JobPosting
+from app.schema.profile import Profile
 from app.schema.variant import Variant
+from app.selection import MASTER_VARIANT, select
 
 pytestmark = pytest.mark.anyio
 
@@ -53,6 +63,9 @@ SENSORS = Fact(
     origin="import",
 )
 POSTING = JobPosting(title="Backend Engineer", company="Fabrikam", must_have=("Python",))
+PROFILE = Profile.model_validate_json(
+    (Path(__file__).parents[1] / "fixtures" / "profile.json").read_text(encoding="utf-8")
+)
 
 
 @pytest.fixture
@@ -132,6 +145,69 @@ async def test_an_artifact_is_stored_once_under_its_hash(
     assert await store_artifact(session, user, pdf, "application/pdf") == sha256
     assert await get_artifact(session, user, sha256) == ("application/pdf", pdf)
     assert await get_artifact(session, user, "0" * 64) is None
+
+
+def rendered(pdf: bytes, key: str, *cuts: Cut, reused: bool = False) -> RenderedResume:
+    """A render of the fixture profile's master document, as LaTeX would make it."""
+    return RenderedResume(
+        pdf=pdf,
+        tex="\\documentclass{article}",
+        pages=2,
+        text="Casey Morgan",
+        cuts=cuts,
+        warnings=("Some text uses a bitmap font.",),
+        selection=select(PROFILE, MASTER_VARIANT),
+        key=key,
+        reused=reused,
+    )
+
+
+async def test_a_render_is_kept_under_its_key(session: AsyncSession, user: uuid.UUID) -> None:
+    """T-044: renders are cached by content hash. What was cut is kept with the PDF, so it can be
+    rebuilt without compiling, and listed."""
+    key = "a" * 64
+    assert await find_render(session, user, key) is None
+    cuts = (
+        Cut(kind="bullet", id="ct_datasets", text="Labelled the datasets."),
+        Cut(kind="bullet", id="ct_sensors", text="Built the sensor tool."),
+        Cut(kind="role", id="contoso", text="Contoso Research"),
+    )
+    pdf = b"%PDF-1.5 the master document"
+    sha256 = await save_render(session, user, rendered(pdf, key, *cuts))
+    assert sha256 == hashlib.sha256(pdf).hexdigest()
+    assert await get_artifact(session, user, sha256) == ("application/pdf", pdf)
+    assert await find_render(session, user, key) == StoredRender(pdf=pdf, bullet_cuts=2)
+    assert await renders_of(session, user, [sha256, "b" * 64]) == {
+        sha256: RenderInfo(pages=2, cuts=cuts, warnings=("Some text uses a bitmap font.",))
+    }
+    assert await renders_of(session, user, []) == {}
+
+
+async def test_a_render_is_kept_once(session: AsyncSession, user: uuid.UUID) -> None:
+    key = "c" * 64
+    first = await save_render(session, user, rendered(b"%PDF-1.5 first", key))
+    second = await save_render(session, user, rendered(b"%PDF-1.5 second", key))
+    assert second == hashlib.sha256(b"%PDF-1.5 second").hexdigest()
+    stored = await find_render(session, user, key)
+    assert stored == StoredRender(pdf=b"%PDF-1.5 first", bullet_cuts=0)
+    assert list(await renders_of(session, user, [first, second])) == [first]
+
+
+async def test_a_reused_render_stores_nothing_new(session: AsyncSession, user: uuid.UUID) -> None:
+    pdf = b"%PDF-1.5 reused"
+    sha256 = await save_render(session, user, rendered(pdf, "d" * 64, reused=True))
+    assert sha256 == hashlib.sha256(pdf).hexdigest()
+    assert await get_artifact(session, user, sha256) is None
+    assert await find_render(session, user, "d" * 64) is None
+
+
+async def test_renders_belong_to_their_user(session: AsyncSession, user: uuid.UUID) -> None:
+    other = User()
+    session.add(other)
+    await session.flush()
+    sha256 = await save_render(session, other.id, rendered(b"%PDF-1.5 theirs", "e" * 64))
+    assert await find_render(session, user, "e" * 64) is None
+    assert await renders_of(session, user, [sha256]) == {}
 
 
 def application(pdf_sha256: str | None) -> Application:
