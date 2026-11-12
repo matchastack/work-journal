@@ -191,6 +191,13 @@ database, with the refresh. `uv run wj render --db` writes the newest version to
   hour, with "Nothing this week" and "Remind me tomorrow" buttons. While your profile has open
   questions, it also asks one, with an "Answer the question" button.
 
+## Try a change on staging first
+
+Before you merge a change to the core loop, or to the hosting, try it on staging: a second copy
+of the app with a dev bot, a Neon branch and a sign-in of its own.
+[staging-checklist.md](staging-checklist.md) sets it up once, and lists what to try and check on
+each run, from a message to the dev bot to the published page, its PDFs and a tailored resume.
+
 ## When something goes wrong
 
 | Symptom | Fix |
