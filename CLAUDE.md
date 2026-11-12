@@ -60,8 +60,8 @@ Run these from `backend/` (uv project, Python 3.12):
 | Run the API locally (auto-reload) | `uv run uvicorn app.main:app --reload`, then open `/healthz` or `/docs` |
 | Start Postgres for local development | `docker compose up -d` (repo root); set `DATABASE_URL` and `TEST_DATABASE_URL` as `compose.yml` says |
 | Apply database migrations | `uv run alembic upgrade head` (after changing `app/db/models.py`: `uv run alembic revision --autogenerate --rev-id <next> -m "<change>"`) |
-| Run the background worker (jobs and scheduled tasks in `app/jobs.py`; with TeX Live, it also renders the master resume after a refresh) | `uv run wj worker` (needs `DATABASE_URL`) |
-| Run one tick of background work, as Vercel's cron does once a day (`app/tick.py`; with TeX Live, it also renders the master resume after a refresh) | `uv run wj tick` (needs `DATABASE_URL`) |
+| Run the background worker (jobs and scheduled tasks in `app/jobs.py`; with TeX Live, it also renders the master resume after a refresh and the Tailor page's drafts) | `uv run wj worker` (needs `DATABASE_URL`) |
+| Run one tick of background work, as Vercel's cron does once a day (`app/tick.py`; with TeX Live, it also renders the master resume after a refresh and the Tailor page's drafts) | `uv run wj tick` (needs `DATABASE_URL`) |
 | Run the command-line tool | `uv run wj --help` |
 | Load the imported profile into the database as version 1 (then `wj lint`, `wj render` and `wj portfolio build` take `--db`) | `uv run wj db load-profile --user <github-login>` |
 | Journal from Telegram on this computer, without the webhook (needs `TELEGRAM_BOT_TOKEN` and `DATABASE_URL`; turns the webhook off) | `uv run wj telegram poll` |
@@ -70,7 +70,7 @@ Run these from `backend/` (uv project, Python 3.12):
 | Print a one-time link (15 minutes) that links your Telegram chat to your journal (needs `TELEGRAM_BOT_TOKEN` and `DATABASE_URL`) | `uv run wj telegram link --user <github-login>` |
 | Check the profile against the resume rules | `uv run wj lint` |
 | Build the portfolio page (after editing its template, run `scripts/build-portfolio-css.sh`) | `uv run wj portfolio build --out /tmp/site` |
-| Render the master resume as a PDF, with its LaTeX source beside it as `.tex` (needs TeX Live: `backend/templates/README.md`) | `uv run wj render` |
+| Render the master resume as a PDF, with its LaTeX source beside it as `.tex` (needs TeX Live: `backend/templates/README.md`; with `--db`, a render of the same LaTeX source kept in the database is written without compiling, and a new one is kept) | `uv run wj render` |
 | Extract the facts in a journal note (needs the LLM settings) | `uv run wj extract <file>` |
 | Write facts as a resume bullet, LinkedIn text (`--style linkedin`) or a bullet in a posting's words (`--style posting --posting <file>`), checked by the verifier (needs the LLM settings; `--edit <bullet>` writes a new version of one, `--swap <n>` works in one of its swaps, `--save-swap` saves the result as a swap) | `uv run wj write --facts <ids>` (add `--db` for facts in the database) |
 | Tailor a one-page resume to a job posting, as text or `wj posting parse` JSON, write it as a PDF and its `.tex` source, print its keyword coverage and the ATS check of its PDF, and log the application (needs the LLM settings and TeX Live; `--tex-only` or `--pdf-only` writes just one; `--confirm <skill>` for a skill marked verify-before-shipping, `--yes` to use every new phrasing that passed) | `uv run wj tailor <posting-file>` (add `--db` for your profile and facts in the database) |

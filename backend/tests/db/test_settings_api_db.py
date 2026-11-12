@@ -36,6 +36,8 @@ from app.db.models import (
     JournalMessageEdit,
     LlmCallRow,
     Refresh,
+    RenderRow,
+    TailorDraftRow,
     TelegramLink,
     TelegramUpdate,
     User,
@@ -717,6 +719,7 @@ class Filled:
     entry_id: uuid.UUID
     refresh_id: uuid.UUID
     catch_up_id: uuid.UUID
+    draft_id: uuid.UUID
     updates: tuple[int, ...]
     """Raw updates from the owner's chat."""
     other_update: int
@@ -786,6 +789,9 @@ def fill_every_table(database_url: str, owner: Owner) -> Filled:
         sha = hashlib.sha256(PDF).hexdigest()
         session.add(Artifact(user_id=owner.id, sha256=sha, media_type="application/pdf", data=PDF))
         await session.flush()
+        session.add(
+            RenderRow(user_id=owner.id, key="a" * 64, pdf_sha256=sha, pages=1, cuts=[], warnings=[])
+        )
         refresh = Refresh(
             user_id=owner.id,
             status="proposed",
@@ -799,8 +805,9 @@ def fill_every_table(database_url: str, owner: Owner) -> Filled:
         )
         posting = JobPostingRow(user_id=owner.id, text="Backend engineer", posting={})
         catch_up = CatchUp(user_id=owner.id, status="paused", transcript="[]")
+        draft = TailorDraftRow(user_id=owner.id, posting_text="Backend engineer", choices={})
         session.add_all(
-            [refresh, posting, catch_up, VariantRow(user_id=owner.id, id="master", data={})]
+            [refresh, posting, catch_up, draft, VariantRow(user_id=owner.id, id="master", data={})]
         )
         await session.flush()
         session.add(
@@ -840,7 +847,7 @@ def fill_every_table(database_url: str, owner: Owner) -> Filled:
             [TelegramUpdate(update_id=i, payload=p) for i, p in zip(ids, payloads, strict=True)]
         )
         await session.flush()
-        return Filled(entry.id, refresh.id, catch_up.id, ids[:2], ids[2])
+        return Filled(entry.id, refresh.id, catch_up.id, draft.id, ids[:2], ids[2])
 
     return seed(database_url, build)
 
@@ -996,6 +1003,7 @@ def test_deleting_all_data_leaves_nothing_of_the_owners(
         "catch-up": add_job(
             database_url, "catch_up_question", "todo", catch_up_id=str(filled.catch_up_id)
         ),
+        "draft": add_job(database_url, "tailor_draft", "todo", draft_id=str(filled.draft_id)),
         "other": add_job(
             database_url, "extract_entry", "todo", entry_id=str(other_filled.entry_id)
         ),

@@ -26,11 +26,16 @@ checked by the verifier against the bullet's own facts. A swap that passes is us
 phrasing that passes is offered for approval, and `use_phrasings` puts the approved ones in the
 resume; `swap_op` saves each as a swap (FR-WRT-5). Text that fails keeps the bullet's own words.
 
+`tailor` runs the steps in turn: `plan_resume` (the heavy-tier call), `choose` (code's checks, a
+pure function) and `reword` (the standard-tier calls). The Tailor page keeps the plan and the
+wording, so confirming a skill or choosing a bullet's words chooses again without a call
+(`app/tailoring/drafts.py`).
+
 Notes name items by ID and never quote fact text.
 """
 
 import json
-from collections.abc import Collection, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal
 
@@ -107,17 +112,39 @@ class TailoringPlan(Model):
     skills_first: bool = False
 
 
-@dataclass(frozen=True)
-class Phrasing:
+class Phrasing(Model):
     """New words for one bullet of the resume, and what the verifier found in them."""
 
-    bullet_id: str
-    original: str
+    bullet_id: NonEmptyStr
+    original: NonEmptyStr
+    """The bullet's own words."""
     report: VerifierReport
 
     @property
     def text(self) -> str:
         return self.report.text
+
+
+@dataclass(frozen=True)
+class Chosen:
+    """Code's checked choices from a plan, before any wording (`choose`)."""
+
+    selection: Selection
+    role_type: Tag | None
+    planned: Mapping[str, PlannedBullet]
+    """The planned bullets the selection shows, by ID."""
+    notes: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class Reworded:
+    """The wording of a resume's bullets (`reword`)."""
+
+    swaps: tuple[Phrasing, ...] = ()
+    """Approved swaps worked into bullets, all of which passed the verifier."""
+    proposals: tuple[Phrasing, ...] = ()
+    """New phrasings that passed the verifier, waiting for the owner's approval."""
+    notes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -154,6 +181,24 @@ def tailor(
     checked against its bullet's own. `confirmed` lists the skills marked verify-before-shipping
     that the owner confirmed for this resume, and `avoid` the owner's words to avoid.
     """
+    plan = plan_resume(profile, posting, client, prompt=prompt)
+    chosen = choose(profile, posting, plan, confirmed=confirmed)
+    reworded = reword(profile, posting, client, chosen, facts=facts, avoid=avoid)
+    selection = with_texts(chosen.selection, {swap.bullet_id: swap.text for swap in reworded.swaps})
+    return Tailored(
+        posting=posting,
+        selection=selection,
+        role_type=chosen.role_type,
+        swaps=reworded.swaps,
+        proposals=reworded.proposals,
+        notes=(*chosen.notes, *reworded.notes),
+    )
+
+
+def plan_resume(
+    profile: Profile, posting: JobPosting, client: LLMClient, *, prompt: Prompt | None = None
+) -> TailoringPlan:
+    """The heavy-tier model's choices for `posting` from `profile`, before code checks them."""
     prompt = prompt or load_prompt(PROMPT_NAME, PROMPT_VERSION)
     result = client.call(
         "tailoring_selection",
@@ -162,24 +207,57 @@ def tailor(
         variables={"posting": posting_json(posting)},
         context=tailoring_context(profile),
     )
+    return result.output
+
+
+def choose(
+    profile: Profile,
+    posting: JobPosting,
+    plan: TailoringPlan,
+    *,
+    confirmed: Collection[str] = (),
+    dropped: Collection[str] = (),
+) -> Chosen:
+    """The plan, checked against the profile as the module's docstring says. A pure function: the
+    same plan gives the same choices. `confirmed` lists the skills marked verify-before-shipping
+    that may be listed, and `dropped` skills the owner left out of this resume, which aren't
+    listed and aren't noted."""
     notes: list[str] = []
-    selection, role_type, chosen = _select(profile, posting, result.output, confirmed, notes)
-    swaps, proposals = _reword(profile, posting, client, selection, chosen, facts, avoid, notes)
-    selection = _with_texts(selection, {swap.bullet_id: swap.text for swap in swaps})
-    return Tailored(
-        posting=posting,
-        selection=selection,
-        role_type=role_type,
-        swaps=tuple(swaps),
-        proposals=tuple(proposals),
-        notes=tuple(notes),
+    selection, role_type, planned = _select(
+        profile, posting, plan, confirmed, notes, dropped=dropped
     )
+    return Chosen(selection=selection, role_type=role_type, planned=planned, notes=tuple(notes))
+
+
+def reword(
+    profile: Profile,
+    posting: JobPosting,
+    client: LLMClient,
+    chosen: Chosen,
+    *,
+    facts: Sequence[Fact] = (),
+    avoid: Sequence[str] = (),
+) -> Reworded:
+    """Work in the chosen swaps, and write the new phrasings the plan asked for, with the
+    standard-tier model, each checked by the verifier against the bullet's own facts. Which
+    skills are listed doesn't matter here: only the bullets are reworded."""
+    notes: list[str] = []
+    swaps, proposals = _reword(
+        profile, posting, client, chosen.selection, chosen.planned, facts, avoid, notes
+    )
+    return Reworded(swaps=tuple(swaps), proposals=tuple(proposals), notes=tuple(notes))
 
 
 def use_phrasings(tailored: Tailored, accepted: Collection[str]) -> Selection:
     """The resume with the new phrasings of the bullets in `accepted`, which the owner approved."""
     texts = {p.bullet_id: p.text for p in tailored.proposals if p.bullet_id in accepted}
-    return _with_texts(tailored.selection, texts)
+    return with_texts(tailored.selection, texts)
+
+
+def used_phrasings(tailored: Tailored, accepted: Collection[str]) -> tuple[Phrasing, ...]:
+    """The new words a resume uses: its swaps, and the new phrasings of the bullets in
+    `accepted`, which the owner approved."""
+    return (*tailored.swaps, *(p for p in tailored.proposals if p.bullet_id in accepted))
 
 
 def posting_spellings(posting: JobPosting) -> tuple[str, ...]:
@@ -295,6 +373,8 @@ def _select(
     plan: TailoringPlan,
     confirmed: Collection[str],
     notes: list[str],
+    *,
+    dropped: Collection[str] = (),
 ) -> tuple[Selection, Tag | None, dict[str, PlannedBullet]]:
     """The checked selection, the role type, and the planned bullets it shows, by ID."""
     role_type: Tag | None = plan.role_type
@@ -352,7 +432,7 @@ def _select(
         )
         for selected in base.education
     )
-    skills = _skills(profile, posting, plan.skills, base.skills, confirmed, notes)
+    skills = _skills(profile, posting, plan.skills, base.skills, confirmed, notes, dropped)
     selection = base.model_copy(
         update={
             "work": work,
@@ -466,9 +546,10 @@ def _skills(
     preset: Sequence[SkillLine],
     confirmed: Collection[str],
     notes: list[str],
+    dropped: Collection[str] = (),
 ) -> tuple[SkillLine, ...]:
     """The planned skills lines, or the role type's preset if the plan has none, keeping only
-    catalogue skills, each once, in the posting's spelling."""
+    catalogue skills, each once, in the posting's spelling, without the `dropped` ones."""
     catalogue = {
         spelling.casefold(): skill
         for skill in profile.skills
@@ -482,6 +563,7 @@ def _skills(
     for term in posting_spellings(posting):
         spellings.setdefault(term.casefold(), term)
     done = {name.casefold() for name in confirmed}
+    left_out = {name.casefold() for name in dropped}
     lines = planned or [PlannedSkillLine(label=line.label, skills=line.skills) for line in preset]
     listed: set[str] = set()
     grouped: dict[str, list[str]] = {}
@@ -494,7 +576,7 @@ def _skills(
             if skill is None:
                 notes.append(f"{name} isn't in your skills catalogue, so it's left out")
                 continue
-            if skill.name in listed:
+            if skill.name in listed or skill.name.casefold() in left_out:
                 continue
             if skill.verify_before_shipping and skill.name.casefold() not in done:
                 notes.append(
@@ -524,7 +606,7 @@ def _reword(
     posting: JobPosting,
     client: LLMClient,
     selection: Selection,
-    chosen: dict[str, PlannedBullet],
+    chosen: Mapping[str, PlannedBullet],
     facts: Sequence[Fact],
     avoid: Sequence[str],
     notes: list[str],
@@ -595,7 +677,7 @@ def _reword(
     return swaps, proposals
 
 
-def _with_texts(selection: Selection, texts: dict[str, str]) -> Selection:
+def with_texts(selection: Selection, texts: Mapping[str, str]) -> Selection:
     """The selection with the bullets in `texts` reworded."""
     if not texts:
         return selection

@@ -364,6 +364,225 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/resumes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resumes
+         * @description The master resume from the latest refresh (FR-RES-5, FR-RES-6), and every tailored
+         *     resume, newest first, with each PDF's page count, cut report and rule findings.
+         */
+        get: operations["resumes_api_resumes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resumes/pdf/{sha256}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Pdf
+         * @description A resume's PDF, to preview in the page (inline) or, with `download=true`, to save. 404
+         *     when no resume of the owner's has it.
+         */
+        get: operations["pdf_api_resumes_pdf__sha256__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tailor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tailor Page
+         * @description The drafts not yet downloaded, newest first, and the application history (FR-TLR-8).
+         */
+        get: operations["tailor_page_api_tailor_get"];
+        put?: never;
+        /**
+         * New Draft
+         * @description Tailor a resume to a pasted posting. Jobs parse the posting, then tailor the resume, and
+         *     the draft says how far they've got.
+         */
+        post: operations["new_draft_api_tailor_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tailor/{draft_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Draft
+         * @description A draft: the parsed posting, then the tailored resume with its coverage report, the
+         *     verifier's and the resume rules' findings, its render and the ATS check.
+         */
+        get: operations["draft_api_tailor__draft_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Discard
+         * @description Discard a draft not yet downloaded. A swap saved from it stays in the profile.
+         */
+        delete: operations["discard_api_tailor__draft_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tailor/{draft_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry
+         * @description Try a failed draft again, or render its resume again if that failed.
+         */
+        post: operations["retry_api_tailor__draft_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tailor/{draft_id}/bullets/{bullet_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Choose
+         * @description Choose a reworded bullet's words (FR-TLR-3). A render of the new choices kept before is
+         *     used at once; otherwise the resume is rendered again.
+         */
+        put: operations["choose_api_tailor__draft_id__bullets__bullet_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tailor/{draft_id}/bullets/{bullet_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve
+         * @description Approve a bullet's new phrasing, which passed the verifier: it's saved as a swap on the
+         *     bullet, in your profile's next version, and the draft uses it (FR-WRT-5).
+         */
+        post: operations["approve_api_tailor__draft_id__bullets__bullet_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tailor/{draft_id}/skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Decide Skill
+         * @description Confirm a skill marked verify-before-shipping for this resume, drop it, or take the
+         *     decision back (R3).
+         */
+        put: operations["decide_skill_api_tailor__draft_id__skills_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tailor/{draft_id}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Pdf
+         * @description The PDF of the draft's resume as your choices make it, to preview. 404 until it's
+         *     rendered. Downloading it logs the application, so that's `POST .../application` instead.
+         */
+        get: operations["pdf_api_tailor__draft_id__pdf_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tailor/{draft_id}/application": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Download
+         * @description Log the draft as an application, once (FR-TLR-8), so its PDF can be downloaded from
+         *     `/api/resumes/pdf/{sha256}`. 409 while a skill marked verify-before-shipping waits for a
+         *     decision (R3) or the PDF isn't rendered. A resume that breaks a rule is logged with its
+         *     errors, and marked not to send (R2).
+         */
+        post: operations["download_api_tailor__draft_id__application_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/settings": {
         parameters: {
             query?: never;
@@ -622,6 +841,34 @@ export interface components {
             /** Version */
             version: number | null;
         };
+        /** AtsFinding */
+        AtsFinding: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "unreadable" | "no_text" | "term_missing" | "term_hyphenated" | "section_missing" | "section_order" | "ligature" | "garbled";
+            /** Message */
+            message: string;
+        };
+        /** AtsReport */
+        AtsReport: {
+            /**
+             * Findings
+             * @default []
+             */
+            findings: components["schemas"]["AtsFinding"][];
+            /**
+             * Terms
+             * @default 0
+             */
+            terms: number;
+            /**
+             * Sections
+             * @default []
+             */
+            sections: string[];
+        };
         /** BulletText */
         BulletText: {
             /** Text */
@@ -731,6 +978,19 @@ export interface components {
             /** Unpricedcalls */
             unpricedCalls: number;
         };
+        /** CoverageReport */
+        CoverageReport: {
+            /**
+             * Covered
+             * @default []
+             */
+            covered: components["schemas"]["TermCoverage"][];
+            /**
+             * Missing
+             * @default []
+             */
+            missing: components["schemas"]["TermCoverage"][];
+        };
         /** DataDeletion */
         DataDeletion: {
             /** Confirm */
@@ -769,6 +1029,126 @@ export interface components {
             kind: "same" | "removed" | "added";
             /** Text */
             text: string;
+        };
+        /** Download */
+        Download: {
+            /** Appliedon */
+            appliedOn?: string | null;
+        };
+        /**
+         * DraftApplication
+         * @description The application a downloaded draft was logged as (FR-TLR-8).
+         */
+        DraftApplication: {
+            /** Id */
+            id: string;
+            /**
+             * Appliedon
+             * Format: date
+             */
+            appliedOn: string;
+            /** Pdfsha256 */
+            pdfSha256: string;
+            /** Sendable */
+            sendable: boolean;
+        };
+        /**
+         * DraftOutline
+         * @description What the draft shows before it's fitted to one page.
+         */
+        DraftOutline: {
+            /** Summary */
+            summary?: string | null;
+            /**
+             * Work
+             * @default []
+             */
+            work: components["schemas"]["OutlineItem"][];
+            /**
+             * Projects
+             * @default []
+             */
+            projects: components["schemas"]["OutlineItem"][];
+            /**
+             * Skills
+             * @default []
+             */
+            skills: components["schemas"]["SkillLine"][];
+        };
+        /**
+         * DraftRender
+         * @description The render of the resume the owner's choices make.
+         */
+        DraftRender: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "waiting" | "rendered" | "failed";
+            pdf?: components["schemas"]["ResumePdf"] | null;
+            ats?: components["schemas"]["AtsReport"] | null;
+            /** Error */
+            error?: string | null;
+        };
+        /**
+         * DraftSkill
+         * @description A skill marked verify-before-shipping that the draft lists or names (R3).
+         */
+        DraftSkill: {
+            /** Name */
+            name: string;
+            /** Decision */
+            decision: ("confirmed" | "dropped") | null;
+            /** Locations */
+            locations: string[];
+        };
+        /**
+         * DraftSummary
+         * @description A draft in the list of drafts not yet downloaded.
+         */
+        DraftSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "parsing" | "tailoring" | "ready" | "failed";
+            /** Title */
+            title: string | null;
+            /** Company */
+            company: string | null;
+            /** Renderstatus */
+            renderStatus: ("waiting" | "rendered" | "failed") | null;
+        };
+        /**
+         * DraftWords
+         * @description A bullet with new words to choose from (FR-TLR-3).
+         */
+        DraftWords: {
+            /** Id */
+            id: string;
+            /** Under */
+            under: string;
+            /** Original */
+            original: string;
+            /**
+             * Use
+             * @enum {string}
+             */
+            use: "own" | "swap" | "phrasing";
+            swap: components["schemas"]["VerifierReport"] | null;
+            phrasing: components["schemas"]["VerifierReport"] | null;
+            /** Approved */
+            approved: boolean;
         };
         /**
          * Fact
@@ -856,6 +1236,23 @@ export interface components {
             /** Proposedrole */
             proposedRole: string | null;
         };
+        /** Finding */
+        Finding: {
+            /**
+             * Rule
+             * @enum {string}
+             */
+            rule: "dates" | "spelling" | "duplicates" | "confidential" | "R1" | "R2" | "R3" | "R4" | "R5" | "R9" | "R10";
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "error" | "warning";
+            /** Location */
+            location: string;
+            /** Message */
+            message: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -940,6 +1337,40 @@ export interface components {
             editable: boolean;
             /** Needs */
             needs: number | null;
+        };
+        /**
+         * JobPosting
+         * @description A job posting broken into the parts tailoring matches against. Spellings are kept exact.
+         */
+        JobPosting: {
+            /** Title */
+            title: string;
+            /** Company */
+            company?: string | null;
+            /** Seniority */
+            seniority?: string | null;
+            /**
+             * Musthave
+             * @default []
+             */
+            mustHave: string[];
+            /**
+             * Nicetohave
+             * @default []
+             */
+            niceToHave: string[];
+            /**
+             * Responsibilities
+             * @default []
+             */
+            responsibilities: string[];
+            /**
+             * Keyterms
+             * @default []
+             */
+            keyTerms: string[];
+            /** Url */
+            url?: string | null;
         };
         /** Journal */
         Journal: {
@@ -1075,6 +1506,19 @@ export interface components {
             /** Edits */
             edits: components["schemas"]["MessageEdit"][];
         };
+        /** LintReport */
+        LintReport: {
+            /**
+             * Findings
+             * @default []
+             */
+            findings: components["schemas"]["Finding"][];
+            /**
+             * Notes
+             * @default []
+             */
+            notes: string[];
+        };
         /**
          * LlmCosts
          * @description A month's LLM calls and their estimated cost, by task and by tier.
@@ -1089,6 +1533,26 @@ export interface components {
             byTask: components["schemas"]["TaskCost"][];
             /** Bytier */
             byTier: components["schemas"]["TierCost"][];
+        };
+        /**
+         * MasterResume
+         * @description The full master document (FR-RES-6) of one refresh (FR-RES-5).
+         */
+        MasterResume: {
+            /** Version */
+            version: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "updated" | "failed";
+            /**
+             * Changedat
+             * Format: date-time
+             */
+            changedAt: string;
+            pdf: components["schemas"]["ResumePdf"] | null;
+            lint: components["schemas"]["LintReport"] | null;
         };
         /** Me */
         Me: {
@@ -1132,6 +1596,35 @@ export interface components {
              * @enum {string}
              */
             qualifier: "exact" | "approximately" | "at_least" | "more_than" | "at_most" | "less_than";
+        };
+        /** NewDraft */
+        NewDraft: {
+            /** Text */
+            text: string;
+        };
+        /** OutlineBullet */
+        OutlineBullet: {
+            /** Id */
+            id: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * OutlineItem
+         * @description A role or project the draft shows.
+         */
+        OutlineItem: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Title */
+            title?: string | null;
+            /**
+             * Bullets
+             * @default []
+             */
+            bullets: components["schemas"]["OutlineBullet"][];
         };
         /**
          * PortfolioSettings
@@ -1300,6 +1793,21 @@ export interface components {
             items: components["schemas"]["RepoItem"][];
         };
         /**
+         * ResumeCut
+         * @description Content cut to fit the page limit (FR-RES-7).
+         */
+        ResumeCut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "bullet" | "role" | "project";
+            /** Id */
+            id: string;
+            /** Text */
+            text: string;
+        };
+        /**
          * ResumeOption
          * @description A resume the owner may offer on the page.
          */
@@ -1320,6 +1828,29 @@ export interface components {
              * @default []
              */
             confidentialTerms: string[];
+        };
+        /** ResumePdf */
+        ResumePdf: {
+            /** Sha256 */
+            sha256: string;
+            /** Pages */
+            pages: number | null;
+            /** Cuts */
+            cuts: components["schemas"]["ResumeCut"][] | null;
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: string[];
+        };
+        /** Resumes */
+        Resumes: {
+            /** Profileversion */
+            profileVersion: number | null;
+            master: components["schemas"]["MasterResume"] | null;
+            lastRendered: components["schemas"]["MasterResume"] | null;
+            /** Tailored */
+            tailored: components["schemas"]["TailoredResume"][];
         };
         /**
          * ResumesChange
@@ -1359,6 +1890,23 @@ export interface components {
             kind: "single";
             /** Value */
             value: number;
+        };
+        /** SkillChoice */
+        SkillChoice: {
+            /** Skill */
+            skill: string;
+            /** Decision */
+            decision: ("confirmed" | "dropped") | null;
+        };
+        /**
+         * SkillLine
+         * @description One line of a skills section, e.g. `Languages: Python, SQL`.
+         */
+        SkillLine: {
+            /** Label */
+            label: string;
+            /** Skills */
+            skills: string[];
         };
         /**
          * SourceFact
@@ -1425,6 +1973,102 @@ export interface components {
              */
             notes: string[];
         };
+        /**
+         * TailorDraft
+         * @description A resume being tailored to a job posting.
+         */
+        TailorDraft: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "parsing" | "tailoring" | "ready" | "failed";
+            /** Error */
+            error: string | null;
+            posting: components["schemas"]["JobPosting"] | null;
+            /**
+             * Droppedterms
+             * @default []
+             */
+            droppedTerms: string[];
+            /** Profileversion */
+            profileVersion?: number | null;
+            /** Roletype */
+            roleType?: string | null;
+            /**
+             * Notes
+             * @default []
+             */
+            notes: string[];
+            /**
+             * Bullets
+             * @default []
+             */
+            bullets: components["schemas"]["DraftWords"][];
+            /**
+             * Skills
+             * @default []
+             */
+            skills: components["schemas"]["DraftSkill"][];
+            outline?: components["schemas"]["DraftOutline"] | null;
+            rules?: components["schemas"]["LintReport"] | null;
+            coverage?: components["schemas"]["CoverageReport"] | null;
+            /**
+             * Coveragefitted
+             * @default false
+             */
+            coverageFitted: boolean;
+            render?: components["schemas"]["DraftRender"] | null;
+            /**
+             * Blocked
+             * @default []
+             */
+            blocked: string[];
+            application?: components["schemas"]["DraftApplication"] | null;
+        };
+        /** TailorPage */
+        TailorPage: {
+            /** Drafts */
+            drafts: components["schemas"]["DraftSummary"][];
+            /** Applications */
+            applications: components["schemas"]["TailoredResume"][];
+        };
+        /**
+         * TailoredResume
+         * @description A resume tailored to a job posting, as its application logged it (FR-TLR-8).
+         */
+        TailoredResume: {
+            /** Id */
+            id: string;
+            /** Company */
+            company: string;
+            /** Position */
+            position: string;
+            /**
+             * Appliedon
+             * Format: date
+             */
+            appliedOn: string;
+            /**
+             * Loggedat
+             * Format: date-time
+             */
+            loggedAt: string;
+            pdf: components["schemas"]["ResumePdf"] | null;
+            rules: components["schemas"]["LintReport"] | null;
+            /** Sendable */
+            sendable: boolean;
+        };
         /** TaskCost */
         TaskCost: {
             /** Calls */
@@ -1472,6 +2116,21 @@ export interface components {
             linked: boolean;
             /** Linkedat */
             linkedAt: string | null;
+        };
+        /** TermCoverage */
+        TermCoverage: {
+            /** Term */
+            term: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "must_have" | "nice_to_have" | "key_term";
+            /**
+             * Locations
+             * @default []
+             */
+            locations: string[];
         };
         /**
          * TermMatch
@@ -1569,6 +2228,14 @@ export interface components {
             derivations: components["schemas"]["Derivation"][];
             /** Claimprompt */
             claimPrompt?: string | null;
+        };
+        /** Words */
+        Words: {
+            /**
+             * Use
+             * @enum {string}
+             */
+            use: "own" | "swap" | "phrasing";
         };
     };
     responses: never;
@@ -2101,6 +2768,372 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Applied"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resumes_api_resumes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Resumes"];
+                };
+            };
+        };
+    };
+    pdf_api_resumes_pdf__sha256__get: {
+        parameters: {
+            query?: {
+                download?: boolean;
+            };
+            header?: never;
+            path: {
+                sha256: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    tailor_page_api_tailor_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TailorPage"];
+                };
+            };
+        };
+    };
+    new_draft_api_tailor_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewDraft"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TailorDraft"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    draft_api_tailor__draft_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TailorDraft"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discard_api_tailor__draft_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_api_tailor__draft_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TailorDraft"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    choose_api_tailor__draft_id__bullets__bullet_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+                bullet_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Words"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TailorDraft"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_api_tailor__draft_id__bullets__bullet_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+                bullet_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TailorDraft"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decide_skill_api_tailor__draft_id__skills_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillChoice"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TailorDraft"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pdf_api_tailor__draft_id__pdf_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_api_tailor__draft_id__application_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Download"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TailorDraft"];
                 };
             };
             /** @description Validation Error */

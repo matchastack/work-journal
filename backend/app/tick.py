@@ -14,9 +14,10 @@ the same by hand. Each tick does what `wj worker` does without stopping, in boun
 
 An update that closes a journal entry also runs a tick, right after the bot answers, which first
 queues the entry's extraction (`extract_now`, FR-CAP-5), and so does `/refresh`, for its refresh
-(`refresh_now`, FR-REV-6), and an update that moves the catch-up interview on, for its next
-question and the entry of the answer, if there is one (`catch_up_now`, FR-REM-4). The interview
-waits for a tick already running, rather than leave its next question to a later one.
+(`refresh_now`, FR-REV-6), each change on the Tailor page, for the draft's next job
+(`draft_now`, T-045), and an update that moves the catch-up interview on, for its next question
+and the entry of the answer, if there is one (`catch_up_now`, FR-REM-4). The interview waits for
+a tick already running, rather than leave its next question to a later one.
 """
 
 import asyncio
@@ -30,7 +31,14 @@ import procrastinate
 from procrastinate.jobs import Status
 from procrastinate.periodic import PeriodicDeferrer, PeriodicRegistry
 
-from app.jobs import jobs, queue_catch_up, queue_extraction, queue_refresh, worker_queues
+from app.jobs import (
+    jobs,
+    queue_catch_up,
+    queue_draft,
+    queue_extraction,
+    queue_refresh,
+    worker_queues,
+)
 from app.sentry import flush_reports
 
 logger = logging.getLogger(__name__)
@@ -125,6 +133,18 @@ async def refresh_now(refresh_id: uuid.UUID) -> None:
         await queue_refresh(refresh_id)
 
     await _run_now(queue, f"refresh {refresh_id}")
+
+
+async def draft_now(draft_id: uuid.UUID) -> None:
+    """Queue the job a Tailor page draft waits for and run a tick, so parsing and tailoring don't
+    wait for the scheduler (T-045). The page's requests do this right after answering. A render
+    waits for a worker with LaTeX, unless this one has it. If a tick is already running in this
+    process, or this one fails, the next tick queues the job instead (`queue_tailor_jobs`)."""
+
+    async def queue() -> None:
+        await queue_draft(draft_id)
+
+    await _run_now(queue, f"tailoring draft {draft_id}")
 
 
 async def catch_up_now(catch_up_id: uuid.UUID, entry_id: uuid.UUID | None = None) -> None:
