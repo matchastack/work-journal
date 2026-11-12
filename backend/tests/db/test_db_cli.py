@@ -504,3 +504,41 @@ def test_linkedin_show_prints_the_pack_a_refresh_wrote_or_why_there_is_none(
         "Written from version 1 of your profile.\n"
         "Nothing changed since you last marked the pack done.\n"
     )
+
+
+def test_linkedin_done_leaves_out_sections_that_name_a_confidential_term(
+    database_url: str, owner: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A term added after the pack was written still keeps its section from being marked done."""
+    loaded = invoke("db", "load-profile", str(FIXTURES / "profile.json"), "--user", owner)
+    assert loaded.exit_code == 0, loaded.output
+    judged = JudgedClaim(claim="Python", reason="As stated.", verdict="supported")
+    texts = [
+        "Software Engineer | Python",
+        "I build Python services.",
+        "I build services.",
+        "I built tools.",
+    ]
+    replies = [
+        m
+        for t in texts
+        for m in (reply(WrittenSection(text=t)), reply(ClaimReply(claims=(judged,))))
+    ]
+    llm = LLMClient(
+        Settings(llm_model_standard="standard-model"), FakeMessages(*replies), MemoryCallLog()
+    )
+    monkeypatch.setattr(cli_module, "_llm_client", lambda: llm)
+    assert invoke("linkedin", "--db", "--user", owner).exit_code == 0
+
+    user = select(User.id).where(User.github_login == owner).scalar_subquery()
+    terms = {"terms": ["tools"]}
+    scalars(
+        database_url, insert(Setting).values(user_id=user, key="confidential_terms", value=terms)
+    )
+    done = invoke("linkedin", "done", "--db", "--user", owner)
+    assert done.exit_code == 0, done.output
+    assert done.stdout == (
+        "Marked 3 sections done.\n"
+        "Not marked, as the checks flagged them: Position: Research Intern at Contoso Research. "
+        "They're written again.\n"
+    )

@@ -42,6 +42,7 @@ from app.db.profiles import (
 )
 from app.db.settings import (
     PackInputs,
+    get_confidential_terms,
     get_linkedin_done,
     get_linkedin_pack,
     get_style_notes,
@@ -74,6 +75,7 @@ from app.linkedin import (
     PackSection,
     compared,
     mark_done,
+    screen_pack,
     write_pack,
 )
 from app.llm.client import LLMCallError, LLMClient, LLMConfigError
@@ -94,10 +96,11 @@ from app.refresh import (
     record_proposals,
     start_refresh,
 )
+from app.reminders import default_schedule
 from app.render.compile import CompileError
 from app.render.fit import FitError
 from app.render.resume import RenderError, render_resume
-from app.review import describe, needs, report_lines
+from app.review import describe, needs, rechecked, report_lines
 from app.schema.changes import AddSwap, ChangeOp, ChangeSet, ChangeSetStatus, OpStatus, ReviewedOp
 from app.schema.export import write_json_schemas
 from app.schema.fact import Fact
@@ -581,14 +584,17 @@ def apply_changes(
     if db and (profile or facts_file):
         raise typer.BadParameter("use either --db or files", param_hint="--profile, --facts-file")
     if db:
-        user_id, version, saved, pool = asyncio.run(_review_inputs(user))
+        user_id, version, saved, pool, terms = asyncio.run(_review_inputs(user))
         if saved is None:
             typer.echo("No proposal waits for review. Make one with `wj propose --db`.")
             return
         base = saved.change_set.base_version
         if base is not None and base != version.number:
             typer.echo(f"Note: it was proposed for version {base}; the newest is {version.number}.")
-        decided, updated = _review(saved.change_set, version.profile, pool, yes=yes)
+        proposal = rechecked(
+            saved.change_set, version.profile, {fact.id: fact for fact in pool}, terms
+        )
+        decided, updated = _review(proposal, version.profile, pool, yes=yes)
         target = f"version {version.number + 1} of your profile"
         if updated is not None and not yes and not typer.confirm(f"Save the changes as {target}?"):
             typer.echo("Nothing was saved.")
@@ -637,6 +643,7 @@ def _refresh(login: str | None) -> None:
                 inputs.sources,
                 base_version=inputs.version.number,
                 avoid=inputs.avoid,
+                confidential=inputs.confidential,
             )
     except BaseException:
         asyncio.run(_fail_refresh(refresh_id))
@@ -655,6 +662,7 @@ def _synthesize(
     *,
     base_version: int | None,
     avoid: Sequence[str] = (),
+    confidential: Sequence[str] = (),
 ) -> Synthesis:
     """Propose changes from the new facts, and print them."""
     if not new:
@@ -663,7 +671,13 @@ def _synthesize(
     typer.echo(f"Planning changes from {_count(len(new), 'new fact')}.")
     try:
         synthesis = synthesize(
-            profile, new, _llm_client(), sources=pool, base_version=base_version, avoid=avoid
+            profile,
+            new,
+            _llm_client(),
+            sources=pool,
+            base_version=base_version,
+            avoid=avoid,
+            confidential=confidential,
         )
     except LLMConfigError as error:
         typer.echo(str(error), err=True)
@@ -799,15 +813,16 @@ async def _fail_refresh(refresh_id: uuid.UUID) -> None:
 
 async def _review_inputs(
     login: str | None,
-) -> tuple[uuid.UUID, Version, SavedChangeSet | None, list[Fact]]:
-    """The user, their newest profile version, the oldest proposal waiting for review, and their
-    facts."""
+) -> tuple[uuid.UUID, Version, SavedChangeSet | None, list[Fact], tuple[str, ...]]:
+    """The user, their newest profile version, the oldest proposal waiting for review, their
+    facts and their confidential terms."""
     async with _database() as session:
         user_id = await _user(session, login)
         version = await _latest(session, user_id)
         waiting = await list_change_sets(session, user_id, status="proposed")
         facts = await list_facts(session, user_id) if waiting else []
-    return user_id, version, waiting[0] if waiting else None, facts
+        terms = (await get_confidential_terms(session, user_id)).terms
+    return user_id, version, waiting[0] if waiting else None, facts, terms
 
 
 async def _save_review(
@@ -1409,9 +1424,10 @@ def linkedin(
     last marked it done.
 
     Calls the standard-tier model to write each section whose content changed, and to check its
-    claims; the other sections are carried over. With --db, your style notes apply and a current
-    role's title is checked against your latest application. Once you've pasted the sections
-    into LinkedIn, run `wj linkedin done`. Exits with status 1 when a section is flagged.
+    claims; the other sections are carried over. With --db, your style notes apply, a section
+    that names one of your confidential terms is flagged, and a current role's title is checked
+    against your latest application. Once you've pasted the sections into LinkedIn, run
+    `wj linkedin done`. Exits with status 1 when a section is flagged.
     """
     if ctx.invoked_subcommand is not None:
         return
@@ -1422,9 +1438,10 @@ def linkedin(
         loaded, number = version.profile, version.number
         done, latest = inputs.done, inputs.latest_application
         avoid, preferences = inputs.avoid, inputs.preferences
+        terms = inputs.confidential
     else:
         loaded, number = _read_profile(profile, db, user), None
-        user_id, latest, avoid, preferences = None, None, (), ()
+        user_id, latest, avoid, preferences, terms = None, None, (), (), ()
         done = _read_model(LINKEDIN_DONE_FILE, LinkedInDone)
     try:
         pack = write_pack(
@@ -1436,6 +1453,7 @@ def linkedin(
             preferences=preferences,
             everything=everything,
             profile_version=number,
+            confidential=terms,
         )
     except LLMConfigError as error:
         typer.echo(str(error), err=True)
@@ -1497,10 +1515,10 @@ def linkedin_show(
 def _echo_pack(pack: LinkedInPack, *, everything: bool, db: bool) -> None:
     """The sections that changed since the pack was last marked done, or every one, then what to
     do next. Exits with status 1 when a section printed is flagged."""
-    shown = pack.sections if everything else pack.changed
+    shown = [s for s in pack.sections if everything or s.changed or s.confidential_terms]
     for section in shown:
         _echo_section(section)
-    unchanged = len(pack.sections) - len(pack.changed)
+    unchanged = len(pack.sections) - len(shown)
     if not pack.changed:
         typer.echo("Nothing changed since you last marked the pack done.")
     elif unchanged and not everything:
@@ -1555,6 +1573,8 @@ def _echo_section(section: PackSection) -> None:
     typer.echo(section.text)
     for note in section.notes:
         typer.echo(f"Note: {note}")
+    for problem in section.problems:
+        typer.echo(f"Error: {problem}")
     if section.report is None:
         typer.echo("Unchanged since you last marked the pack done.", err=True)
     else:
@@ -1581,6 +1601,8 @@ async def _stored_linkedin(
         pack = await get_linkedin_pack(session, user_id)
         done = await get_linkedin_done(session, user_id)
         update = await latest_pack_update(session, user_id)
+        if pack is not None:
+            pack = screen_pack(pack, (await get_confidential_terms(session, user_id)).terms)
     return pack, done, update
 
 
@@ -1593,12 +1615,15 @@ async def _mark_linkedin_done(
     login: str | None,
 ) -> tuple[LinkedInPack, tuple[PackSection, ...], int] | None:
     """Mark the user's last pack done. Returns it, its flagged sections, which stay unmarked,
-    and the number of the newest profile version; None when there's no pack."""
+    and the number of the newest profile version; None when there's no pack. The pack is
+    screened for the confidential terms as they are now, so a section that names one is flagged
+    even if the term was added after the pack was written."""
     async with _database() as session:
         user_id = await _user(session, login)
         pack = await get_linkedin_pack(session, user_id)
         if pack is None:
             return None
+        pack = screen_pack(pack, (await get_confidential_terms(session, user_id)).terms)
         newest = await _latest(session, user_id)
         previous = await get_linkedin_done(session, user_id)
         done, flagged = mark_done(pack, previous, now=datetime.now().astimezone())
@@ -1846,6 +1871,7 @@ async def _poll(database_url: str) -> int:
                 session_factory(engine),
                 entry_timeout=timedelta(minutes=settings.entry_timeout_minutes),
                 app_url=settings.app_url,
+                reminders=default_schedule(settings),
                 run_jobs=extract_now,
                 run_refresh=refresh_now,
                 run_catch_up=catch_up_now,

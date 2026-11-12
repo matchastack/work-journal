@@ -18,6 +18,7 @@ from app.linkedin import (
     compared,
     mark_done,
     plan_sections,
+    screen_pack,
     write_pack,
 )
 from app.llm.client import LLMClient
@@ -386,3 +387,58 @@ def test_a_matching_title_needs_no_note() -> None:
 def test_the_pack_round_trips_through_json() -> None:
     pack, _ = write(*passing(*KEYS), profile_version=3)
     assert LinkedInPack.model_validate_json(pack.model_dump_json()) == pack
+
+
+# --- Confidential terms (T-049) ------------------------------------------------------------------
+
+
+def test_a_section_that_names_a_confidential_term_is_written_again_without_it() -> None:
+    named = "I build Python services for Falcon at Northwind Traders."
+    replies = [*passing("headline"), written(named), reply(SUPPORTED)]
+    replies += [*passing("about", "position:northwind", "position:contoso")]
+    pack, fake = write(*replies, confidential=("falcon",))
+    about = pack.sections[1]
+    assert (about.text, about.report and about.report.attempts) == (TEXTS["about"], 2)
+    assert '- names the confidential term "falcon"' in request(fake, 4)
+    assert not any(section.flagged for section in pack.sections)
+
+
+def test_a_section_that_still_names_a_term_is_flagged_and_not_marked_done() -> None:
+    named = "I built Python tools for Falcon."
+    replies = [*passing("headline", "about", "position:northwind")]
+    replies += [written(named), reply(SUPPORTED), written(named), reply(SUPPORTED)]
+    pack, _ = write(*replies, confidential=("Falcon", "Orion"))
+    contoso = pack.sections[3]
+    assert contoso.flagged
+    assert contoso.confidential_terms == ("Falcon",)
+    assert contoso.problems == (
+        'Names the confidential term "Falcon": take it out before you paste this section.',
+    )
+    _, flagged = mark_done(pack, None, now=NOW)
+    assert [section.key for section in flagged] == ["position:contoso"]
+    assert LinkedInPack.model_validate_json(pack.model_dump_json()) == pack
+
+
+def test_a_carried_over_section_that_names_a_term_added_since_is_written_again() -> None:
+    first, _ = write(*passing(*KEYS))
+    clean = "I build Python services.\n\nBefore, I built research tools."
+    again, fake = write(
+        written(clean), reply(SUPPORTED), done=done_from(first), confidential=("Northwind",)
+    )
+    assert len(fake.requests) == 2, "only About named Northwind"
+    about = again.sections[1]
+    assert (about.text, about.changed, about.flagged) == (clean, True, False)
+    assert [section.report is None for section in again.sections] == [True, False, True, True]
+
+
+def test_screening_finds_terms_in_the_text_and_title_as_they_are_now() -> None:
+    pack, _ = write(*passing(*KEYS))
+    screened = screen_pack(pack, ["services", "software engineer", "Kafka"])
+    assert [section.confidential_terms for section in screened.sections] == [
+        ("services", "software engineer"),
+        ("services",),
+        ("services", "software engineer"),
+        (),
+    ], "the Northwind position's title is Software Engineer"
+    assert [section.flagged for section in screened.sections] == [True, True, True, False]
+    assert screen_pack(screened, []) == pack

@@ -41,6 +41,7 @@ from app.db.profiles import Version, get_version, latest_version, propose_change
 from app.db.settings import (
     PackInputs,
     clear_linkedin_draft,
+    get_confidential_terms,
     get_linkedin_draft,
     get_style_notes,
     linkedin_pack_inputs,
@@ -98,6 +99,8 @@ class RefreshInputs:
     """Every fact, for the bullets that new versions are proposed for."""
     avoid: tuple[str, ...]
     """The owner's words to avoid (FR-WRT-4)."""
+    confidential: tuple[str, ...] = ()
+    """The owner's confidential terms (FR-SET-5), which the verifier checks each bullet for."""
 
 
 @dataclass(frozen=True)
@@ -215,6 +218,7 @@ async def begin_proposals(
             new.append(fact)
             read[fact.id] = updated_at
     avoid = (await get_style_notes(session, refresh.user_id)).avoid
+    confidential = (await get_confidential_terms(session, refresh.user_id)).terms
     return RefreshInputs(
         refresh_id=refresh.id,
         user_id=refresh.user_id,
@@ -223,6 +227,7 @@ async def begin_proposals(
         read=read,
         sources=tuple(sources),
         avoid=avoid,
+        confidential=confidential,
     )
 
 

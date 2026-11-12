@@ -1,8 +1,9 @@
-"""The owner's settings in the database: style notes (FR-WRT-4, FR-REV-4) and the LinkedIn
-pack's state (FR-LIN-2)."""
+"""The owner's settings in the database: style notes (FR-WRT-4, FR-REV-4), the LinkedIn pack's
+state (FR-LIN-2), the reminder setting and record (FR-REM-1, FR-SET-2), and the portfolio and
+confidential-terms settings (FR-SET-3, FR-SET-5)."""
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, time
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,17 +12,33 @@ from app.db.models import User
 from app.db.settings import (
     add_style_notes,
     clear_linkedin_draft,
+    get_confidential_terms,
     get_linkedin_done,
     get_linkedin_draft,
     get_linkedin_pack,
+    get_portfolio_settings,
+    get_reminder_settings,
+    get_reminder_state,
     get_style_notes,
+    handle_taken,
+    save_confidential_terms,
     save_linkedin_done,
     save_linkedin_draft,
     save_linkedin_pack,
+    save_portfolio_settings,
+    save_reminder_settings,
+    save_reminder_state,
     save_style_notes,
 )
 from app.linkedin import DoneSection, LinkedInDone, LinkedInPack, PackSection
-from app.schema.settings import StyleNote, StyleNotes
+from app.schema.settings import (
+    ConfidentialTerms,
+    PortfolioSettings,
+    ReminderSettings,
+    ReminderState,
+    StyleNote,
+    StyleNotes,
+)
 
 pytestmark = pytest.mark.anyio
 
@@ -104,3 +121,57 @@ async def test_the_draft_of_a_pack_being_written_is_kept_apart_until_cleared(
     await clear_linkedin_draft(session, user)
     assert await get_linkedin_draft(session, user) is None
     assert await get_linkedin_pack(session, user) == pack
+
+
+async def test_reminders_follow_the_defaults_until_the_owner_sets_them(
+    session: AsyncSession,
+) -> None:
+    user = await new_user(session)
+    assert await get_reminder_settings(session, user) == ReminderSettings()
+    assert await get_reminder_state(session, user) == ReminderState()
+
+
+async def test_the_reminder_setting_and_record_are_kept(session: AsyncSession) -> None:
+    user = await new_user(session)
+    await save_reminder_settings(session, user, ReminderSettings(paused=True))
+    assert await get_reminder_settings(session, user) == ReminderSettings(paused=True)
+    schedule = ReminderSettings(days=("mon", "thu"), time=time(7, 30), time_zone="Europe/London")
+    await save_reminder_settings(session, user, schedule)
+    assert await get_reminder_settings(session, user) == schedule
+
+    state = ReminderState(
+        last_slot=datetime(2026, 10, 16, 10, 0, tzinfo=UTC),
+        message_id=42,
+        nothing_weeks=(date(2026, 10, 12),),
+    )
+    await save_reminder_state(session, user, state)
+    assert await get_reminder_state(session, user) == state
+    assert await get_reminder_settings(session, user) == schedule, "a key of its own"
+
+
+async def test_the_portfolio_settings_are_kept(session: AsyncSession) -> None:
+    user = await new_user(session)
+    assert await get_portfolio_settings(session, user) == PortfolioSettings()
+    portfolio = PortfolioSettings(
+        handle="casey-example", default_visibility="private", open_to_work=True, indexing=False
+    )
+    await save_portfolio_settings(session, user, portfolio)
+    assert await get_portfolio_settings(session, user) == portfolio
+
+
+async def test_a_handle_is_taken_only_by_another_user(session: AsyncSession) -> None:
+    casey, other = await new_user(session), await new_user(session)
+    handle = f"casey-{uuid.uuid4().hex[:8]}"
+    assert not await handle_taken(session, casey, handle)
+    await save_portfolio_settings(session, casey, PortfolioSettings(handle=handle))
+    assert not await handle_taken(session, casey, handle), "their own"
+    assert await handle_taken(session, other, handle)
+    assert not await handle_taken(session, other, f"{handle}-2")
+
+
+async def test_the_confidential_terms_are_kept(session: AsyncSession) -> None:
+    user = await new_user(session)
+    assert await get_confidential_terms(session, user) == ConfidentialTerms()
+    terms = ConfidentialTerms(terms=("Project Falcon", "Acme Labs"))
+    await save_confidential_terms(session, user, terms)
+    assert await get_confidential_terms(session, user) == terms
