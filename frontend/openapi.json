@@ -2795,6 +2795,17 @@
             ],
             "title": "Newrole"
           },
+          "question": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question"
+          },
           "messages": {
             "items": {
               "$ref": "#/components/schemas/JournalMessageView"
@@ -2820,6 +2831,7 @@
           "triage",
           "roleId",
           "newRole",
+          "question",
           "messages",
           "facts"
         ],
