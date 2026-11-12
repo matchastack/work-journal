@@ -762,7 +762,8 @@ async def test_the_answer_comes_before_the_catch_up_interviews(owner: Owner, cha
     assert (answer_entry.open_question_id, answer_entry.question) == ("q_nw_volume", None)
     assert answer_texts == [ANSWER]
     async with database() as session:
-        assert await session.scalar(select(CatchUp.status)) == "asking"
+        status = await session.scalar(select(CatchUp.status).where(CatchUp.user_id == user_id))
+        assert status == "asking"
 
 
 ROLE_QUESTION = 650
