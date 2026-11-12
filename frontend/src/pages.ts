@@ -29,7 +29,7 @@ export const PAGES: readonly Page[] = [
   {
     path: "resumes",
     title: "Resumes",
-    summary: "Preview and download your resume variants.",
+    summary: "Preview and download your master resume and your tailored resumes.",
     task: "T-044",
   },
   {

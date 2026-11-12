@@ -32,6 +32,7 @@ from app.catch_up import next_question
 from app.config import get_settings
 from app.db.engine import create_engine, session_factory, with_query
 from app.db.models import CatchUp, JournalEntry, TelegramLink
+from app.db.store import find_render
 from app.llm.client import LLMClient, LLMConfigError, LLMInvalidOutput, LLMRefusal
 from app.llm.usage import CallLog, DatabaseCallLog
 from app.refresh import (
@@ -39,17 +40,32 @@ from app.refresh import (
     begin_proposals,
     due_outputs,
     fail_refresh,
+    master_selection,
     outputs_to_update,
     record_outputs,
     record_proposals,
-    render_master,
     running_refreshes,
 )
 from app.reminders import default_schedule
 from app.render.compile import CompileError
 from app.render.fit import FitError
-from app.render.resume import RenderError
+from app.render.resume import RenderError, render_key, render_resume
 from app.synthesis import Synthesis, synthesize
+from app.tailor.drafts import (
+    TailoringInterrupted,
+    begin_tailoring,
+    draft_to_render,
+    fail_draft,
+    next_step,
+    posting_to_parse,
+    record_parsed,
+    record_render,
+    record_tailoring,
+    render_failure,
+    waiting_drafts,
+)
+from app.tailoring.drafts import draft_tailoring
+from app.tailoring.posting import parse_posting
 from app.telegram import catch_up
 from app.telegram.api import BotApi, BotCall, TelegramError
 from app.telegram.entries import close_quiet_entries
@@ -501,15 +517,20 @@ async def queue_output_update(refresh_id: uuid.UUID) -> bool:
 
 async def run_output_update(refresh_id: uuid.UUID) -> None:
     """Render the master resume from the version the refresh's outputs are to show, outside a
-    transaction, and keep it. A resume that can't be rendered won't render on a retry, so the
-    outputs are marked failed; the next refresh tries again. Only the error's type is logged: a
-    LaTeX error can quote the resume."""
+    transaction, and keep it. A render of the same LaTeX source kept before is used again
+    without compiling. A resume that can't be rendered won't render on a retry, so the outputs
+    are marked failed; the next refresh tries again. Only the error's type is logged: a LaTeX
+    error can quote the resume."""
     async with database() as session:
         job = await outputs_to_update(session, refresh_id)
     if job is None:
         return
+    chosen = master_selection(job.profile)
     try:
-        rendered = await asyncio.to_thread(render_master, job.profile)
+        key = render_key(chosen)
+        async with database() as session:
+            stored = await find_render(session, job.user_id, key)
+        rendered = await asyncio.to_thread(render_resume, chosen, stored=stored)
     except (CompileError, RenderError, FitError) as error:
         logger.warning(
             "couldn't render the master resume for refresh %s: %s",
@@ -520,7 +541,194 @@ async def run_output_update(refresh_id: uuid.UUID) -> None:
     async with database() as session:
         kept = await record_outputs(session, job, rendered, now=datetime.now(UTC))
     if kept and rendered is not None:
-        logger.info("the master resume shows profile version %d now", job.version)
+        how = "kept from an earlier render" if rendered.reused else "rendered"
+        logger.info("the master resume shows profile version %d now, %s", job.version, how)
+
+
+@jobs.periodic(cron="* * * * *")
+@jobs.task(name="queue_tailor_jobs", retry=RETRY)
+async def queue_tailor_jobs(timestamp: int) -> None:
+    """Queue the jobs the Tailor page's drafts wait for (T-045), in case the request that made
+    one couldn't run it at once: parsing a posting, tailoring a draft, and rendering a draft's
+    resume, on the queue for workers with LaTeX. Due every minute, so it runs on every tick, and
+    every minute under `wj worker`."""
+    async with database() as session:
+        waiting = await waiting_drafts(session)
+    parsing = sum([await queue_posting_parse(draft_id) for draft_id in waiting.parsing])
+    tailoring = sum([await queue_tailoring(draft_id) for draft_id in waiting.tailoring])
+    rendering = sum([await queue_draft_render(draft_id) for draft_id in waiting.rendering])
+    logger.info(
+        "queued %d postings to parse, %d drafts to tailor and %d to render",
+        parsing,
+        tailoring,
+        rendering,
+    )
+
+
+async def queue_draft(draft_id: uuid.UUID) -> bool:
+    """Queue the job a Tailor page draft waits for, if any, unless it's queued already. Returns
+    whether one was queued."""
+    async with database() as session:
+        step = await next_step(session, draft_id)
+    if step == "parse":
+        return await queue_posting_parse(draft_id)
+    if step == "tailor":
+        return await queue_tailoring(draft_id)
+    if step == "render":
+        return await queue_draft_render(draft_id)
+    return False
+
+
+@jobs.task(name="parse_draft_posting", retry=RETRY, pass_context=True)
+async def parse_draft_posting(context: procrastinate.JobContext, draft_id: str) -> None:
+    """Parse a draft's posting with the light-tier model (FR-TLR-1), then queue its tailoring.
+    The draft fails when the parse finally does."""
+    job = context.job
+    await run_posting_parse(
+        uuid.UUID(draft_id),
+        last_attempt=lambda error: RETRY.get_retry_decision(exception=error, job=job) is None,
+    )
+
+
+async def queue_posting_parse(draft_id: uuid.UUID) -> bool:
+    job = parse_draft_posting.configure(
+        lock=f"draft:{draft_id}", queueing_lock=f"parse_draft_posting:{draft_id}"
+    )
+    try:
+        await job.defer_async(draft_id=str(draft_id))
+    except AlreadyEnqueued:
+        return False
+    return True
+
+
+async def run_posting_parse(
+    draft_id: uuid.UUID, *, last_attempt: Callable[[BaseException], bool]
+) -> None:
+    """Parse the draft's posting, outside a transaction, and keep it. A refusal or an unusable
+    answer won't change on a retry, so the draft fails at once; anything else is retried."""
+    async with database() as session:
+        job = await posting_to_parse(session, draft_id)
+    if job is None:
+        return
+    log = DatabaseCallLog(job.user_id)
+    try:
+        parsed = await asyncio.to_thread(parse_posting, job.text, _llm_client(log))
+        async with database() as session:
+            kept = await record_parsed(session, draft_id, parsed)
+    except (LLMRefusal, LLMInvalidOutput, LLMConfigError) as error:
+        await _draft_failed(draft_id, f"The posting couldn't be read because {_reason(error)}.")
+        return
+    except Exception as error:
+        if last_attempt(error):
+            reason = _reason(error)
+            await _draft_failed(draft_id, f"The posting couldn't be read because {reason}.")
+        raise
+    finally:
+        async with database() as session:
+            await log.save(session)
+    if kept:
+        await queue_tailoring(draft_id)
+
+
+@jobs.task(name="tailor_draft")
+async def tailor_draft(draft_id: str) -> None:
+    """Tailor a draft's resume: the heavy-tier model chooses, the standard-tier model words, and
+    the verifier checks each new text (FR-TLR-2 to FR-TLR-4). It's never retried, since each try
+    calls the heavy-tier model; the owner can try again from the Tailor page."""
+    await run_tailoring(uuid.UUID(draft_id))
+
+
+async def queue_tailoring(draft_id: uuid.UUID) -> bool:
+    job = tailor_draft.configure(lock=f"draft:{draft_id}", queueing_lock=f"tailor_draft:{draft_id}")
+    try:
+        await job.defer_async(draft_id=str(draft_id))
+    except AlreadyEnqueued:
+        return False
+    return True
+
+
+async def run_tailoring(draft_id: uuid.UUID) -> None:
+    """Tailor the draft, outside a transaction, then keep the result and queue its render. A
+    failure fails the draft, and so does running out of time, when the tick stops the job, or
+    finding that an earlier try never finished."""
+    try:
+        async with database() as session:
+            inputs = await begin_tailoring(session, draft_id, now=datetime.now(UTC))
+    except TailoringInterrupted:
+        await _draft_failed(draft_id, "The resume couldn't be tailored: it didn't finish in time.")
+        return
+    if inputs is None:
+        return
+    log = DatabaseCallLog(inputs.user_id)
+    try:
+        tailoring = await asyncio.to_thread(
+            draft_tailoring,
+            inputs.version.profile,
+            inputs.posting,
+            _llm_client(log),
+            facts=inputs.facts,
+            avoid=inputs.avoid,
+        )
+        async with database() as session:
+            render = await record_tailoring(session, draft_id, inputs.version.number, tailoring)
+    except (LLMRefusal, LLMInvalidOutput, LLMConfigError) as error:
+        await _draft_failed(draft_id, f"The resume couldn't be tailored because {_reason(error)}.")
+        return
+    except asyncio.CancelledError:
+        await _draft_failed(draft_id, "The resume couldn't be tailored: it didn't finish in time.")
+        raise
+    except Exception as error:
+        reason = _reason(error, otherwise="of an error")
+        await _draft_failed(draft_id, f"The resume couldn't be tailored because {reason}.")
+        raise
+    finally:
+        async with database() as session:
+            await log.save(session)
+    if render:
+        await queue_draft_render(draft_id)
+
+
+@jobs.task(name="render_draft", queue=LATEX_QUEUE, retry=RETRY)
+async def render_draft(draft_id: str) -> None:
+    """Render the resume a draft's choices make, fitted to one page, and keep the PDF for the
+    Tailor page (FR-TLR-7, FR-TLR-9)."""
+    await run_draft_render(uuid.UUID(draft_id))
+
+
+async def queue_draft_render(draft_id: uuid.UUID) -> bool:
+    job = render_draft.configure(
+        lock=f"draft_render:{draft_id}", queueing_lock=f"render_draft:{draft_id}"
+    )
+    try:
+        await job.defer_async(draft_id=str(draft_id))
+    except AlreadyEnqueued:
+        return False
+    return True
+
+
+async def run_draft_render(draft_id: uuid.UUID) -> None:
+    """Render the draft's resume outside a transaction, and keep it. A render of the same LaTeX
+    source kept before is used again without compiling. A resume that can't be rendered won't
+    render on a retry, so the draft's render is marked failed, with the reason for the owner;
+    only the error's type is logged, since a LaTeX error can quote the resume."""
+    async with database() as session:
+        job = await draft_to_render(session, draft_id)
+    if job is None:
+        return
+    try:
+        rendered = await asyncio.to_thread(render_resume, job.selection, stored=job.stored)
+        error = None
+    except (CompileError, RenderError, FitError) as failure:
+        logger.warning("couldn't render tailoring draft %s: %s", draft_id, type(failure).__name__)
+        rendered, error = None, render_failure(failure)
+    async with database() as session:
+        await record_render(session, job, rendered, error=error)
+
+
+async def _draft_failed(draft_id: uuid.UUID, reason: str) -> None:
+    logger.warning("tailoring draft %s failed", draft_id)
+    async with database() as session:
+        await fail_draft(session, draft_id, reason)
 
 
 async def _give_up(entry_id: uuid.UUID, error: BaseException) -> None:

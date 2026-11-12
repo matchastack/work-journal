@@ -9,8 +9,10 @@ import { NotFound } from "./pages/NotFound";
 import { PlaceholderPage } from "./pages/PlaceholderPage";
 import { Portfolio } from "./pages/Portfolio";
 import { Profile } from "./pages/Profile";
+import { Resumes } from "./pages/Resumes";
 import { Settings } from "./pages/Settings";
 import { SignIn } from "./pages/SignIn";
+import { Tailor } from "./pages/Tailor";
 
 /** A page built so far, or what its task will add. */
 function pageElement(page: Page): ReactNode {
@@ -21,6 +23,10 @@ function pageElement(page: Page): ReactNode {
       return <Journal />;
     case "profile":
       return <Profile />;
+    case "resumes":
+      return <Resumes />;
+    case "tailor":
+      return <Tailor />;
     case "portfolio":
       return <Portfolio />;
     case "settings":

@@ -10,9 +10,9 @@ both go through every such table, and a table added later is covered without a c
   they're read, and are kept for 7 days (FR-JRN-2).
 - **Deleting** the user's row deletes every row of theirs, since each `user_id` cascades. That
   includes their sessions, so they're signed out everywhere. The raw updates from their chat go
-  too, and so do the jobs queued for their journal entries, refreshes and catch-up interviews,
-  which would otherwise run for nothing. A job already running finds what it was for gone, and
-  stops.
+  too, and so do the jobs queued for their journal entries, refreshes, catch-up interviews and
+  Tailor page drafts, which would otherwise run for nothing. A job already running finds what it
+  was for gone, and stops.
 
 Neither logs any content.
 """
@@ -47,6 +47,7 @@ from app.db.models import (
     CatchUp,
     JournalEntry,
     Refresh,
+    TailorDraftRow,
     TelegramLink,
     TelegramUpdate,
     User,
@@ -70,13 +71,18 @@ DELETE_JOBS = text(
             args->>'entry_id' = ANY(:entries)
             OR args->>'refresh_id' = ANY(:refreshes)
             OR args->>'catch_up_id' = ANY(:catch_ups)
+            OR args->>'draft_id' = ANY(:drafts)
         )
     """
 ).bindparams(
-    *(bindparam(name, type_=ARRAY(String)) for name in ("entries", "refreshes", "catch_ups"))
+    *(
+        bindparam(name, type_=ARRAY(String))
+        for name in ("entries", "refreshes", "catch_ups", "drafts")
+    )
 )
-"""Jobs for the given journal entries, refreshes and catch-up interviews, except any running now,
-which Procrastinate still has to finish. Their arguments are IDs (`app/jobs.py`)."""
+"""Jobs for the given journal entries, refreshes, catch-up interviews and Tailor page drafts,
+except any running now, which Procrastinate still has to finish. Their arguments are IDs
+(`app/jobs.py`)."""
 
 
 def _order(table: Table) -> list[ColumnElement[Any]]:
@@ -119,7 +125,10 @@ async def delete_all_data(session: AsyncSession, user_id: uuid.UUID) -> None:
     entries = await session.scalars(select(JournalEntry.id).where(JournalEntry.user_id == user_id))
     refreshes = await session.scalars(select(Refresh.id).where(Refresh.user_id == user_id))
     catch_ups = await session.scalars(select(CatchUp.id).where(CatchUp.user_id == user_id))
-    ids = {"entries": entries, "refreshes": refreshes, "catch_ups": catch_ups}
+    drafts = await session.scalars(
+        select(TailorDraftRow.id).where(TailorDraftRow.user_id == user_id)
+    )
+    ids = {"entries": entries, "refreshes": refreshes, "catch_ups": catch_ups, "drafts": drafts}
     await session.execute(
         DELETE_JOBS, {name: [str(row) for row in rows] for name, rows in ids.items()}
     )
