@@ -17,7 +17,15 @@ from pydantic import SecretStr
 from app.config import Settings
 from app.jobs import echo, jobs
 from app.main import create_app
-from app.tick import _running, extract_now, tick
+from app.tick import (
+    JOB_GRACE_S,
+    TICK_BUDGET_S,
+    WAIT_FOR_TICK_S,
+    _running,
+    catch_up_now,
+    extract_now,
+    tick,
+)
 
 SECRET = "tick-secret"
 
@@ -129,6 +137,58 @@ async def test_a_job_whose_worker_stopped_is_run_again(
 
 
 @pytest.mark.anyio
+async def test_a_stalled_job_that_cant_be_retried_doesnt_stop_the_tick(
+    app: procrastinate.App, queue: InMemoryConnector, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Such as one whose copy is queued already. The other jobs still run."""
+    ran: list[int] = []
+
+    @app.task(name="note")
+    async def note(number: int) -> None:
+        ran.append(number)
+
+    stuck = await note.defer_async(number=7)
+    queue.jobs[stuck].update(status="doing", worker_id=999)
+    await note.defer_async(number=8)
+
+    async def clash(job: object) -> None:
+        raise RuntimeError("duplicate key value violates unique constraint")
+
+    monkeypatch.setattr(app.job_manager, "retry_job", clash)
+    assert await tick(app) == 1
+    assert ran == [8]
+    assert queue.jobs[stuck]["status"] == "failed"
+
+
+@pytest.mark.anyio
+async def test_a_stalled_job_that_cant_be_retried_frees_its_lock_for_its_copy(
+    app: procrastinate.App, queue: InMemoryConnector, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The copy queued while it ran then runs, rather than wait behind it for good."""
+    ran: list[int] = []
+
+    @app.task(name="note")
+    async def note(number: int) -> None:
+        ran.append(number)
+
+    stuck = await note.configure(lock="entry:1").defer_async(number=7)
+    queue.jobs[stuck].update(status="doing", worker_id=999)
+    await note.configure(lock="entry:1").defer_async(number=8)
+
+    async def clash(job: object) -> None:
+        raise RuntimeError("duplicate key value violates unique constraint")
+
+    monkeypatch.setattr(app.job_manager, "retry_job", clash)
+    await tick(app)
+    assert ran == [8]
+
+
+def test_waiting_for_a_tick_and_running_one_fits_in_a_function_call() -> None:
+    """Vercel stops the function after 300 s (`backend/vercel.json`)."""
+    assert WAIT_FOR_TICK_S + TICK_BUDGET_S + JOB_GRACE_S < 300
+
+
+@pytest.mark.anyio
 async def test_a_ticks_first_step_queues_jobs_it_then_runs(app: procrastinate.App) -> None:
     """`first` runs with the queue open, before anything else, so its jobs run in the same tick."""
     ran: list[str] = []
@@ -155,6 +215,32 @@ async def test_while_a_tick_runs_another_does_nothing(app: procrastinate.App) ->
     async with _running:
         assert await tick(app, first=first) is None
     assert started == []
+
+
+@pytest.mark.anyio
+async def test_the_next_catch_up_question_waits_for_a_running_tick(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Rather than leave the question to a later tick, which on Vercel may be a day away."""
+    queued: list[uuid.UUID] = []
+
+    async def queue(catch_up_id: uuid.UUID) -> bool:
+        queued.append(catch_up_id)
+        return True
+
+    monkeypatch.setattr("app.tick.queue_catch_up", queue)
+    interview = uuid.uuid4()
+
+    async def busy() -> None:
+        async with _running:
+            await asyncio.sleep(0.2)
+
+    with jobs.replace_connector(InMemoryConnector()):
+        running = asyncio.create_task(busy())
+        await asyncio.sleep(0)
+        await catch_up_now(interview)
+        await running
+    assert queued == [interview]
 
 
 @pytest.mark.anyio
