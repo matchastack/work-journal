@@ -12,9 +12,14 @@ from app.llm.usage import MemoryCallLog
 from app.schema.fact import Fact
 from app.schema.jobs import JobPosting
 from app.schema.profile import Profile
-from app.schema.verification import VerifierReport
+from app.schema.verification import VerifierFinding, VerifierReport
 from app.validate.claims import ClaimReply, JudgedClaim
-from app.validate.verifier import Verifier
+from app.validate.verifier import (
+    Verifier,
+    about_sensitive_role,
+    confidentiality_findings,
+    with_findings,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures"
 PROFILE = Profile.model_validate_json((FIXTURES / "profile.json").read_text(encoding="utf-8"))
@@ -222,3 +227,84 @@ def test_errors_a_rewrite_cant_fix_are_flagged_without_one() -> None:
     assert (report.passed, report.attempts) == (False, 1)
     assert found(report) == [("claims", "error", "claims_unchecked")]
     assert writer.feedback == [None]
+
+
+# --- What text must leave out (T-049) ---------------------------------------------------------
+
+OPERATIONAL = "Cut the nightly export job on prod-db-01 from 50 to 12 minutes by batching writes."
+
+
+def test_text_about_a_sensitive_role_is_checked_for_operational_detail() -> None:
+    verifier, _ = make(SUPPORTED)  # Northwind is marked sensitive
+    report = verifier.check(OPERATIONAL)
+    assert not report.passed
+    assert found(report) == [("rules", "error", "R5")]
+    assert '"prod-db-01" looks like a server name' in report.findings[0].message
+
+    normal = PROFILE.model_copy(
+        update={
+            "work": tuple(
+                role.model_copy(update={"sensitivity": "normal"}) for role in PROFILE.work
+            )
+        }
+    )
+    fake = FakeMessages(reply(SUPPORTED))
+    client = LLMClient(Settings(llm_model_standard="standard-model"), fake, MemoryCallLog())
+    verifier = Verifier(client=client, profile=normal, facts=(EXPORT,), entry_id="northwind")
+    assert verifier.check(OPERATIONAL).passed, "nothing is sensitive"
+
+
+def test_text_drawing_on_a_sensitive_roles_facts_is_about_it() -> None:
+    assert about_sensitive_role(PROFILE, "northwind", ())
+    assert about_sensitive_role(PROFILE, "recipe_box", (EXPORT,)), "a fact filed under Northwind"
+    assert about_sensitive_role(PROFILE, None, (QUEUE,))
+    assert not about_sensitive_role(PROFILE, "recipe_box", (RECIPES,))
+    assert not about_sensitive_role(PROFILE, "contoso", ())
+    about, _ = make(SUPPORTED, kind="linkedin_about", entry_id=None)
+    assert found(about.check("I run order services on prod-db-01.")) == [("rules", "error", "R5")]
+
+
+def test_a_confidential_term_in_linkedin_text_is_an_error() -> None:
+    verifier, _ = make(
+        SUPPORTED,
+        kind="linkedin_headline",
+        entry_id=None,
+        facts=(RECIPES,),
+        confidential=("Recipe Box",),
+    )
+    report = verifier.check("Software engineer who built Recipe Box")
+    assert found(report) == [("rules", "error", "confidential")]
+    assert report.findings[0].message == (
+        'names the confidential term "Recipe Box", which must never appear in public text'
+    )
+
+
+def test_a_confidential_term_is_left_out_on_the_rewrite() -> None:
+    verifier, _ = make(SUPPORTED, SUPPORTED, confidential=("Northwind",))
+    writer = Writer(
+        "Cut Northwind's nightly export job from 50 to 12 minutes by batching database writes.",
+        GOOD,
+    )
+    report = verifier.write(writer)
+    assert (report.passed, report.attempts, report.text) == (True, 2, GOOD)
+    assert writer.feedback[1] == (
+        '- names the confidential term "Northwind", and text about a sensitive role must never '
+        "name one"
+    )
+
+
+def test_a_report_can_gain_the_findings_it_lacks() -> None:
+    verifier, _ = make(SUPPORTED)
+    report = verifier.check(GOOD)
+    warning = confidentiality_findings(GOOD, sensitive=False, terms=["PostgreSQL"])
+    assert [(f.code, f.severity) for f in warning] == [("confidential", "warning")]
+    warned = with_findings(report, warning)
+    assert warned.passed and warned.findings == tuple(warning)
+    assert with_findings(warned, warning) is warned, "nothing to add"
+
+    error = confidentiality_findings(GOOD, sensitive=True, terms=["PostgreSQL"])
+    flagged = with_findings(warned, error)
+    assert not flagged.passed
+    assert flagged.findings == (*error, *warning), "errors first"
+    assert VerifierReport.model_validate(flagged.model_dump(mode="json")) == flagged
+    assert isinstance(flagged.findings[0], VerifierFinding)

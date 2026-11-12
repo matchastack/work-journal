@@ -1,9 +1,14 @@
-"""Build the portfolio page as static files (FR-PRT-2, FR-PRT-4, FR-PRT-6, FR-PRT-8).
+"""The portfolio page's HTML (FR-PRT-2, FR-PRT-4, FR-PRT-5, FR-PRT-6, FR-PRT-8), and its build as
+static files.
 
 The page shows the profile's web selection: active items only (R8), and only fields visible on
-the web, so the phone number stays hidden by default (FR-PRT-4). Projects can be filtered by role
-type: each role type that some project is kept for gets a tab. Projects without keep-for tags
-show under "All projects" only.
+the web, so the phone number stays hidden by default (FR-PRT-4). The website and the online
+profiles, which have no visibility of their own, follow the owner's default visibility. Projects
+can be filtered by role type: each role type that some project is kept for gets a tab. Projects
+without keep-for tags show under "All projects" only.
+
+The app serves the same page at `/p/<handle>` (`app/portfolio/routes.py`), with the owner's
+settings: open to work, and indexing. `wj portfolio build` writes it as files.
 
 `backend/templates/portfolio/` holds the Jinja template, the JavaScript for the menu and the tabs,
 and the CSS, which Tailwind's standalone CLI builds (`scripts/build-portfolio-css.sh`).
@@ -13,6 +18,7 @@ import json
 import shutil
 from collections.abc import Sequence
 from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -20,7 +26,7 @@ from jinja2 import FileSystemLoader, StrictUndefined, select_autoescape
 from jinja2.sandbox import SandboxedEnvironment
 from markupsafe import Markup
 
-from app.schema.common import YearMonth
+from app.schema.common import Visibility, YearMonth
 from app.schema.profile import Profile, Project
 from app.schema.variant import Variant
 from app.selection import Selection, select
@@ -34,6 +40,8 @@ WEB_VARIANT = Variant(
     section_order=("education", "work", "projects", "skills"),
     max_pages=None,
 )
+NO_DEFAULT_VISIBILITY = ("url", "profiles")
+"""The contact details without a visibility of their own, which follow the default visibility."""
 _SAFE_SCHEMES = frozenset({"http", "https", "mailto"})
 _MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 _SCRIPT_ESCAPES = {char: "\\" + f"u{ord(char):04x}" for char in "<>&"}
@@ -52,6 +60,18 @@ class Download:
 
     label: str
     source: Path
+
+
+@dataclass(frozen=True)
+class Assets:
+    """Where the page loads its CSS and JavaScript from."""
+
+    stylesheet: str
+    script: str
+
+
+STATIC_ASSETS = Assets(stylesheet="portfolio.css", script="portfolio.js")
+"""Beside the page, as `build_portfolio` writes them."""
 
 
 @dataclass(frozen=True)
@@ -79,6 +99,11 @@ class Page:
     year: int
     description: str
     json_ld: Markup
+    open_to_work: bool
+    """Whether the page says the owner is open to work (FR-PRT-5)."""
+    indexing: bool
+    """Whether search engines may index the page. Off, it asks them not to (FR-PRT-5)."""
+    assets: Assets
 
 
 def build_portfolio(
@@ -88,6 +113,8 @@ def build_portfolio(
     year: int,
     site_url: str | None = None,
     downloads: Sequence[Download] = (),
+    open_to_work: bool = False,
+    indexing: bool = True,
 ) -> Path:
     """Write `index.html`, its CSS and JavaScript, and the resume downloads to `out`."""
     out.mkdir(parents=True, exist_ok=True)
@@ -97,7 +124,14 @@ def build_portfolio(
         target.parent.mkdir(exist_ok=True)
         shutil.copyfile(download.source, target)
         links.append(Link(text=download.label, href=f"resumes/{download.source.name}"))
-    page = portfolio_page(profile, year=year, site_url=site_url, downloads=links)
+    page = portfolio_page(
+        profile,
+        year=year,
+        site_url=site_url,
+        downloads=links,
+        open_to_work=open_to_work,
+        indexing=indexing,
+    )
     for asset in ASSETS:
         shutil.copyfile(TEMPLATE_DIR / "static" / asset, out / asset)
     index = out / "index.html"
@@ -106,9 +140,17 @@ def build_portfolio(
 
 
 def portfolio_page(
-    profile: Profile, *, year: int, site_url: str | None = None, downloads: Sequence[Link] = ()
+    profile: Profile,
+    *,
+    year: int,
+    site_url: str | None = None,
+    downloads: Sequence[Link] = (),
+    default_visibility: Visibility = "public",
+    open_to_work: bool = False,
+    indexing: bool = True,
+    assets: Assets = STATIC_ASSETS,
 ) -> Page:
-    selection = select(profile, WEB_VARIANT)
+    selection = select(profile, web_variant(default_visibility))
     role_types = [role_type.id for role_type in profile.role_types]
     projects = {project.id: project for project in profile.projects}
     categories = {
@@ -146,7 +188,18 @@ def portfolio_page(
         year=year,
         description=about or label or contact.name,
         json_ld=_script_json(person_json_ld(selection, label, about, site_url)),
+        open_to_work=open_to_work,
+        indexing=indexing,
+        assets=assets,
     )
+
+
+def web_variant(default_visibility: Visibility) -> Variant:
+    """The page's variant. Only public fields show on the web, so unless the default visibility
+    is public, the contact details without a visibility of their own are hidden."""
+    if default_visibility == "public":
+        return WEB_VARIANT
+    return WEB_VARIANT.model_copy(update={"hidden": NO_DEFAULT_VISIBILITY})
 
 
 def project_categories(project: Project, role_types: Sequence[str]) -> tuple[str, ...]:
@@ -155,6 +208,13 @@ def project_categories(project: Project, role_types: Sequence[str]) -> tuple[str
 
 
 def render_page(page: Page) -> str:
+    return _environment().get_template("index.html").render(page=page)
+
+
+@cache
+def _environment() -> SandboxedEnvironment:
+    """Made once, so the template is compiled once per process, not for each request. It's still
+    compiled again when the file changes."""
     environment = SandboxedEnvironment(
         loader=FileSystemLoader(TEMPLATE_DIR),
         autoescape=select_autoescape(["html"]),
@@ -164,7 +224,7 @@ def render_page(page: Page) -> str:
         keep_trailing_newline=True,
     )
     environment.filters.update(url=_url_or_hash, dates=date_range)  # pyright: ignore[reportUnknownMemberType]
-    return environment.get_template("index.html").render(page=page)
+    return environment
 
 
 def person_json_ld(

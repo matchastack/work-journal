@@ -7,7 +7,10 @@
 - claims (FR-FID-4..6): the standard-tier judge finds claims the facts don't support
   (`app/validate/claims.py`);
 - style (FR-WRT-1, 2 and 4): the wording rules for a resume bullet or LinkedIn text (T-013);
-- rules (§8): the resume rules a single text can break, such as the gaps list (T-009).
+- rules (§8): the resume rules a single text can break, such as the gaps list (T-009), and what
+  it must leave out (T-049): for text about a role marked sensitive, confidential terms and
+  operational detail (R5); for LinkedIn text, which is public, confidential terms. Elsewhere a
+  confidential term is a warning, since it blocks the public outputs that would show it.
 
 `Verifier.write(writer)` gets text from a writer and checks it. Text that fails is written once
 more, with the errors as feedback; when no error is one a rewrite can fix, such as claims the
@@ -26,7 +29,7 @@ from app.schema.profile import Profile
 from app.schema.verification import VerifierFinding, VerifierReport
 from app.text import plain
 from app.validate.claims import check_claims
-from app.validate.lint import allowed_terms, check_text
+from app.validate.lint import allowed_terms, check_confidentiality, check_text
 from app.validate.numbers import check_numbers
 from app.validate.style import LinkedInSection, StyleCheck, check_linkedin, check_resume_bullet
 
@@ -58,6 +61,8 @@ class Verifier:
     """The job posting the text is tailored to, if any (FR-FID-6)."""
     avoid: Sequence[str] = ()
     """The owner's words to avoid (FR-WRT-4)."""
+    confidential: Sequence[str] = ()
+    """The owner's confidential terms (FR-SET-5)."""
 
     def __post_init__(self) -> None:
         entries = {
@@ -103,6 +108,9 @@ class Verifier:
             self.profile,
             entry_id=self.entry_id if bullet else None,
             replaces=self.replaces if bullet else None,
+            sensitive=about_sensitive_role(self.profile, self.entry_id, self.facts),
+            confidential=self.confidential,
+            public=not bullet,
         )
         # LinkedIn text sums up many facts, so leaving most of their numbers out is by design.
         number_findings = [
@@ -157,6 +165,38 @@ class Verifier:
         if self.kind == "resume_bullet":
             return check_resume_bullet(text, avoid=self.avoid)
         return check_linkedin(text, _LINKEDIN[self.kind], avoid=self.avoid)
+
+
+def about_sensitive_role(profile: Profile, entry_id: str | None, facts: Sequence[Fact]) -> bool:
+    """Whether text is about a role marked sensitive (R5): it goes under one, or draws on facts
+    filed under one."""
+    roles = {entry_id, *(fact.role_id for fact in facts)}
+    return any(role.sensitivity == "sensitive" and role.id in roles for role in profile.work)
+
+
+def confidentiality_findings(
+    text: str, *, sensitive: bool, terms: Sequence[str], public: bool = False
+) -> list[VerifierFinding]:
+    """What `check_confidentiality` finds in `text`, as the verifier reports it."""
+    return [
+        VerifierFinding(check="rules", severity=f.severity, code=f.rule, message=f.message)
+        for f in check_confidentiality(text, sensitive=sensitive, terms=terms, public=public)
+    ]
+
+
+def with_findings(report: VerifierReport, findings: Sequence[VerifierFinding]) -> VerifierReport:
+    """`report` with the `findings` it lacks, such as a confidential term added since it was
+    made. It passes only if it still has no error."""
+    added = [finding for finding in findings if finding not in report.findings]
+    if not added:
+        return report
+    every = sorted([*report.findings, *added], key=lambda finding: finding.severity != "error")
+    return report.model_copy(
+        update={
+            "findings": tuple(every),
+            "passed": not any(finding.severity == "error" for finding in every),
+        }
+    )
 
 
 def _errors(findings: Sequence[VerifierFinding]) -> list[str]:

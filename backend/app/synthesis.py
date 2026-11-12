@@ -147,13 +147,15 @@ def synthesize(
     sources: Sequence[Fact] = (),
     base_version: int | None = None,
     avoid: Sequence[str] = (),
+    confidential: Sequence[str] = (),
     prompt: Prompt | None = None,
 ) -> Synthesis:
     """Propose changes to `profile` from `facts`, the new facts, with the heavy-tier model.
 
     `sources` are other facts, such as those existing bullets were written from: a new version
     of a bullet is checked against its own facts too. `base_version` is the number of the
-    profile's version, and `avoid` the owner's words to avoid.
+    profile's version, `avoid` the owner's words to avoid and `confidential` their confidential
+    terms, which the verifier checks each bullet for (T-049).
     """
     if not facts:
         return Synthesis(change_set=None)
@@ -165,7 +167,7 @@ def synthesize(
         variables={"facts": planning_facts_json(facts)},
         context=synthesis_context(profile),
     )
-    builder = _Builder(profile, facts, sources, client, avoid)
+    builder = _Builder(profile, facts, sources, client, avoid, confidential)
     return builder.build(result.output, base_version)
 
 
@@ -261,6 +263,7 @@ class _Builder:
     sources: Sequence[Fact]
     client: LLMClient
     avoid: Sequence[str]
+    confidential: Sequence[str]
     notes: list[str] = field(default_factory=list[str])
     keys: dict[str, str] = field(default_factory=dict[str, str])
     """The IDs given to the plan's new roles and projects, by their keys."""
@@ -529,6 +532,7 @@ class _Builder:
             entry_id=entry_id,
             edit=planned.edit,
             avoid=self.avoid,
+            confidential=self.confidential,
         )
         op: ChangeOp
         if planned.edit is not None:

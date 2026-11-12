@@ -13,6 +13,11 @@ The owner decides on each operation (FR-REV-2):
 - accept, at once, every operation still waiting whose verifier report passed. Flagged ones are
   left for the owner to decide one by one.
 
+Each new or reworded bullet is checked again for what it must leave out each time it's shown or
+bulk accepted (`rechecked` in `app/review.py`): the owner's confidential terms as they are now,
+and operational detail under a role marked sensitive (R5). What's found joins its verifier
+report, so an error flags it (T-049).
+
 Some operations need another in the same change set: a bullet under a new role or project, or a
 change to one, can't be applied without it (`needs` in `app/review.py`, as `wj apply` uses it).
 Rejecting an operation rejects the ones that need it too, and those can't be accepted while it
@@ -47,12 +52,12 @@ from app.db.profiles import (
     lock_profile,
     save_version,
 )
-from app.db.settings import add_style_notes, get_style_notes
+from app.db.settings import add_style_notes, get_confidential_terms, get_style_notes
 from app.inbox.describe import DiffPart, Output, describe, word_diff
 from app.llm.client import LLMClient
 from app.profile_ops import ProfileOpError, apply
 from app.refresh import change_set_decided
-from app.review import needs
+from app.review import needs, rechecked
 from app.schema.changes import AddBullet, Author, ChangeOp, EditBullet, OpStatus, ReviewedOp
 from app.schema.common import Model
 from app.schema.fact import Fact
@@ -139,8 +144,9 @@ async def load_inbox(session: AsyncSession, user_id: uuid.UUID) -> Inbox:
     saved = await list_change_sets(session, user_id, "proposed")
     cited = [fact_id for item in saved for op in item.change_set.ops for fact_id in op.op.fact_ids]
     facts = await _facts(session, user_id, cited)
+    terms = (await get_confidential_terms(session, user_id)).terms
     return Inbox(
-        change_sets=tuple(_view(item, profile, facts) for item in saved),
+        change_sets=tuple(_view(item, profile, facts, terms) for item in saved),
         profile_version=version.number if version else None,
     )
 
@@ -152,7 +158,8 @@ async def load_change_set(
     version = await latest_version(session, user_id)
     cited = [fact_id for op in saved.change_set.ops for fact_id in op.op.fact_ids]
     facts = await _facts(session, user_id, cited)
-    return _view(saved, version.profile if version else NO_PROFILE, facts)
+    terms = (await get_confidential_terms(session, user_id)).terms
+    return _view(saved, version.profile if version else NO_PROFILE, facts, terms)
 
 
 async def decide(
@@ -221,6 +228,7 @@ async def edit_text(
         entry_id=parent if parent in entries else None,
         replaces=replaces,
         avoid=avoid,
+        confidential=(await get_confidential_terms(session, user_id)).terms,
     )
     report = await asyncio.to_thread(verifier.check, text)
     await decide_op(
@@ -237,10 +245,19 @@ async def edit_text(
 
 async def accept_passed(session: AsyncSession, user_id: uuid.UUID, change_set_id: uuid.UUID) -> int:
     """Accept every operation still waiting whose text passed the verifier, or that has no text
-    to verify (bulk accept). Returns how many were accepted; flagged ones keep waiting."""
+    to verify (bulk accept). Returns how many were accepted; flagged ones keep waiting, including
+    those flagged only when checked again for what they must leave out."""
     saved = await _open(session, user_id, change_set_id)
+    version = await latest_version(session, user_id)
+    cited = [fact_id for op in saved.change_set.ops for fact_id in op.op.fact_ids]
+    change_set = rechecked(
+        saved.change_set,
+        version.profile if version else NO_PROFILE,
+        await _facts(session, user_id, cited),
+        (await get_confidential_terms(session, user_id)).terms,
+    )
     accepted = 0
-    for position, reviewed in enumerate(saved.change_set.ops):
+    for position, reviewed in enumerate(change_set.ops):
         report = _report(reviewed.verifier_report)
         flagged = report is not None and not report.passed
         if reviewed.status == "proposed" and not flagged and not _unreadable(reviewed):
@@ -282,8 +299,10 @@ async def apply_change_set(
     return number
 
 
-def _view(saved: SavedChangeSet, profile: Profile, facts: Mapping[str, Fact]) -> InboxChangeSet:
-    change_set = saved.change_set
+def _view(
+    saved: SavedChangeSet, profile: Profile, facts: Mapping[str, Fact], terms: Sequence[str]
+) -> InboxChangeSet:
+    change_set = rechecked(saved.change_set, profile, facts, terms)
     ops = [reviewed.op for reviewed in change_set.ops]
     return InboxChangeSet(
         id=saved.id,
