@@ -729,14 +729,16 @@ As the owner, I want at most one short follow-up question when my note is missin
 **Built (2026-10-13):** the bot asks when the entry closes, before the role question, and only within the entry timeout of the close with no other entry open, since without an always-on worker it can't wait for a pause while the entry is open. The model writes the question about the note; code asks a fixed one instead if it has a number or isn't one short question. `/skip` does what the Skip button does, and a question with no answer within the entry timeout lapses.
 
 ### T-035 · Reminders
-**Status:** ☐ · **Size:** M · **Depends on:** T-028, T-031 · **Requirements:** FR-REM-1, FR-REM-2, FR-REM-3, FR-SET-2 · **Needs:** OQ-4 (answered) · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-028, T-031 · **Requirements:** FR-REM-1, FR-REM-2, FR-REM-3, FR-SET-2 · **Needs:** OQ-4 (answered) · **PR:** [#52](https://github.com/matchastack/work-journal/pull/52)
 
 As the owner, I want a gentle reminder on my schedule, so that journaling becomes a habit.
 
-- [ ] Each user has their own schedule and time zone, with a default from settings.
-- [ ] The reminder is skipped if the owner journaled in the last 3 days.
-- [ ] Buttons: "Nothing this week" (which is logged) and "Remind me tomorrow". `/pause` and `/resume`.
-- [ ] Tests with a frozen clock.
+- [x] Each user has their own schedule and time zone, with a default from settings.
+- [x] The reminder is skipped if the owner journaled in the last 3 days.
+- [x] Buttons: "Nothing this week" (which is logged) and "Remind me tomorrow". `/pause` and `/resume`.
+- [x] Tests with a frozen clock.
+
+**Built (2026-10-16):** a reminder goes out at the first tick at or after its time, once, up to 4 hours late and never after local midnight; otherwise it's skipped. Only the latest one is considered, so a pause or a stopped worker never sends a burst of old reminders. Vercel's daily tick moves to 10:00 UTC, 18:00 in Singapore, so it sends the default reminder; with another reminder time, the owner moves the cron hour too. Each user's days, time and time zone are stored in the `settings` table, with defaults from `REMINDER_DAYS`, `REMINDER_TIME` and `REMINDER_TIME_ZONE`; T-048's page will edit them. "Nothing this week" is logged in the bot's reminder record as the Monday of the reminder's week, even when pressed after the weekend, and skips the rest of that week. The reminder's text is fixed, with no model call.
 
 ### T-036 · Open-question prompts
 **Status:** ☐ · **Size:** S · **Depends on:** T-035, T-027 · **Requirements:** FR-REM-5, FR-EXT-4, FR-PRF-10 · **PR:** —
@@ -784,6 +786,8 @@ As the owner, I want my profile and master resume updated only when I ask, so th
 As the owner, I want a refresh to update my LinkedIn text and portfolio page too, so that every output shows the same new version.
 
 - [ ] The output-update job (T-038) also regenerates the LinkedIn pack, and moves the portfolio page to the new version if it's published.
+
+**Note (T-046):** a published portfolio page already moves to a refresh's version as soon as its outputs fall due, including after a refresh with no new facts (`shown_version` in `app/portfolio/publishing.py`), so this task is left with the LinkedIn pack.
 - [ ] A refresh with no new facts still brings both up to date with the latest version.
 - [ ] Tests use the fake LLM client.
 
@@ -876,14 +880,16 @@ As the owner, I want to paste a posting and get a tailored resume I can adjust, 
 - [ ] Tests.
 
 ### T-046 · Public portfolio page and publishing
-**Status:** ☐ · **Size:** M · **Depends on:** T-023, T-027, T-039 · **Requirements:** FR-PRT-1, FR-PRT-3, FR-PRT-4, FR-PRT-5, FR-PRT-7, FR-SET-3, NFR-PERF-2 · **Needs:** OQ-3 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-023, T-027, T-039 · **Requirements:** FR-PRT-1, FR-PRT-3, FR-PRT-4, FR-PRT-5, FR-PRT-7, FR-SET-3, NFR-PERF-2 · **Needs:** OQ-3 · **PR:** [#71](https://github.com/matchastack/work-journal/pull/71)
 
 As the owner, I want my portfolio page served by the app and updated when I refresh, so that my public profile is current whenever I need it.
 
-- [ ] `/p/<handle>` renders the published version with the built-in template. An unknown handle returns 404.
-- [ ] Publish and unpublish from the web app, with a preview first. While it's published, the page shows the version from the latest refresh (T-038).
-- [ ] Visibility, open-to-work and noindex settings are respected. The resumes I choose can be downloaded.
-- [ ] The page is cached. Tests: only the published version is shown, and hidden fields are absent.
+- [x] `/p/<handle>` renders the published version with the built-in template. An unknown handle returns 404.
+- [x] Publish and unpublish from the web app, with a preview first. While it's published, the page shows the version from the latest refresh (T-038).
+- [x] Visibility, open-to-work and noindex settings are respected. The resumes I choose can be downloaded.
+- [x] The page is cached. Tests: only the published version is shown, and hidden fields are absent.
+
+**Built (2026-10-31):** stacked on T-048 (#70), whose portfolio settings it reads; OQ-3's handle stays open, so there's no default handle and the page can't be published until the owner chooses one in Settings. Whether the page is published, the version it was published with and the resumes it offers are a settings key (`portfolio_publishing`), so no migration. Publishing pins the version the outputs show (the latest refresh's, or the newest before the first refresh), and a later refresh's replaces it as soon as that refresh's outputs fall due, without waiting for the master resume's render; so versions made since a refresh never show, and the move T-061 lists for the portfolio page is done. The default visibility covers the website and online profiles, the only contact details without a visibility of their own. The owner may offer the master resume the latest refresh rendered and tailored resumes that passed their checks, each with its own button text; only those PDFs are served. The page and its PDFs are cached by shared caches for 60 s plus 60 s stale, and browsers check them each time, so unpublishing shows within about two minutes; a 404 is never cached. T-049 keeps confidential terms off the page and its PDFs.
 
 ### T-047 · LinkedIn page
 **Status:** ☐ · **Size:** S · **Depends on:** T-024, T-039 · **Requirements:** FR-LIN-2, FR-LIN-3 · **PR:** —
@@ -895,27 +901,31 @@ As the owner, I want a checklist of LinkedIn sections to paste, so that LinkedIn
 - [ ] Tests.
 
 ### T-048 · Settings page
-**Status:** ☐ · **Size:** M · **Depends on:** T-031, T-035, T-039 · **Requirements:** FR-SET-1, FR-SET-2, FR-SET-3, FR-SET-4, FR-SET-5, FR-SET-6, NFR-PRIV-3 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-031, T-035, T-039 · **Requirements:** FR-SET-1, FR-SET-2, FR-SET-3, FR-SET-4, FR-SET-5, FR-SET-6, NFR-PRIV-3 · **PR:** [#70](https://github.com/matchastack/work-journal/pull/70)
 
 As the owner, I want all my preferences in one place, so that I can tune the app without code changes.
 
-- [ ] Settings:
+- [x] Settings:
   - Telegram link, with a deep link and QR code
   - reminder schedule and time zone
   - portfolio handle, visibility, open to work and indexing
   - style notes and confidential terms
-- [ ] Export all data, and "delete all my data" with confirmation.
-- [ ] Tests.
+- [x] Export all data, and "delete all my data" with confirmation.
+- [x] Tests.
+
+**Built (2026-10-30):** each group is a typed key in the `settings` table, so no migration. The portfolio settings (a handle with no default while OQ-3 is open, unique across users; the default visibility; open to work; indexing, on by default) and the confidential terms are only kept until T-046 and T-049 read them. The page edits the style notes' words to avoid and notes as whole lists; a note kept keeps where it came from. The export holds every row of every table that belongs to the owner, and the raw Telegram updates from their chat, leaving out sign-in sessions and link tokens. Deleting, with the GitHub username typed to confirm, deletes the account and everything that cascades from it, the raw updates from the owner's chat and the jobs queued for their entries and refreshes, and signs them out.
 
 ### T-049 · Confidential terms and sensitive roles
-**Status:** ☐ · **Size:** S · **Depends on:** T-015, T-046 · **Requirements:** FR-SET-5, NFR-PRIV-4, R5 · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-015, T-046 · **Requirements:** FR-SET-5, NFR-PRIV-4, R5 · **PR:** [#76](https://github.com/matchastack/work-journal/pull/76)
 
 As the owner, I want confidential terms and sensitive-role details kept out of anything public, so that journaling freely can't get me in trouble.
 
-- [ ] Confidential terms (case-insensitive, whole words) are blocked from public outputs: the portfolio page, published PDFs and the LinkedIn pack.
-- [ ] For roles marked sensitive, generated text is checked for operational detail and flagged in the Inbox.
-- [ ] Violations show as errors, naming the matched term.
-- [ ] Tests.
+- [x] Confidential terms (case-insensitive, whole words) are blocked from public outputs: the portfolio page, published PDFs and the LinkedIn pack.
+- [x] For roles marked sensitive, generated text is checked for operational detail and flagged in the Inbox.
+- [x] Violations show as errors, naming the matched term.
+- [x] Tests.
+
+**Built (2026-11-03):** stacked on T-046 (#71). One matcher (`app/validate/confidential.py`): a term matches as whole words in any case, so `Atlas` isn't found in `Atlassian`, and a phrase's words match across spaces, line breaks and hyphens. Outputs are screened as they're served, with the terms as they are then, so no migration. The portfolio page's HTML and its handle are screened: a page that names a term can't be published, and while a published one does, it gets the same 404 as an unpublished page and shows again once the term is gone; the owner's preview still shows it. A resume's PDF text (read with pypdf, kept by hash for the last few PDFs), links and document information, and its button text, are screened: one that names a term can't be chosen, and one chosen before isn't offered or served. The LinkedIn verifier fails a section that names a term, so it's written once more; a section that still names one is flagged and not marked done, and the saved pack is screened again when the terms change and when it's marked done. R5 is deterministic, with no model call: text about a role marked sensitive (under it, or from its facts) that names a confidential term, or has something that looks like operational detail (`app/validate/operational.py`: addresses, host and server names, ports, paths, configuration names, commands, ticket and CVE numbers, credentials, times of day), is a verifier error, so the writer gets one rewrite; elsewhere a confidential term in a bullet is a warning. The Inbox and `wj apply --db` check each bullet again with the terms as they are now. The LLM detector stays in M3. The web LinkedIn page (T-047) should show `confidentialTerms` with each section.
 
 ### T-050 · Docker image
 **Status:** ✖ · **Size:** M · **Depends on:** T-011, T-039 · **Requirements:** NFR-SEC-3 · **PR:** —

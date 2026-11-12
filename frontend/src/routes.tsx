@@ -7,6 +7,8 @@ import { Inbox } from "./pages/Inbox";
 import { Journal } from "./pages/Journal";
 import { NotFound } from "./pages/NotFound";
 import { PlaceholderPage } from "./pages/PlaceholderPage";
+import { Portfolio } from "./pages/Portfolio";
+import { Settings } from "./pages/Settings";
 import { SignIn } from "./pages/SignIn";
 
 /** A page built so far, or what its task will add. */
@@ -16,6 +18,10 @@ function pageElement(page: Page): ReactNode {
       return <Inbox />;
     case "journal":
       return <Journal />;
+    case "portfolio":
+      return <Portfolio />;
+    case "settings":
+      return <Settings />;
     default:
       return <PlaceholderPage page={page} />;
   }

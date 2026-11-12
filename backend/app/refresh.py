@@ -34,7 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import selection
 from app.db.models import ChangeSetRow, FactRow, ProfileVersionRow, Refresh, User
 from app.db.profiles import Version, get_version, latest_version, propose_change_set
-from app.db.settings import get_style_notes
+from app.db.settings import get_confidential_terms, get_style_notes
 from app.db.store import store_artifact
 from app.render.resume import RenderedResume, render_resume
 from app.schema.fact import Fact
@@ -85,6 +85,8 @@ class RefreshInputs:
     """Every fact, for the bullets that new versions are proposed for."""
     avoid: tuple[str, ...]
     """The owner's words to avoid (FR-WRT-4)."""
+    confidential: tuple[str, ...] = ()
+    """The owner's confidential terms (FR-SET-5), which the verifier checks each bullet for."""
 
 
 @dataclass(frozen=True)
@@ -180,6 +182,7 @@ async def begin_proposals(
             new.append(fact)
             read[fact.id] = updated_at
     avoid = (await get_style_notes(session, refresh.user_id)).avoid
+    confidential = (await get_confidential_terms(session, refresh.user_id)).terms
     return RefreshInputs(
         refresh_id=refresh.id,
         user_id=refresh.user_id,
@@ -188,6 +191,7 @@ async def begin_proposals(
         read=read,
         sources=tuple(sources),
         avoid=avoid,
+        confidential=confidential,
     )
 
 

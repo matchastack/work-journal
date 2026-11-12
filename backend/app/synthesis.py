@@ -154,6 +154,7 @@ def synthesize(
     sources: Sequence[Fact] = (),
     base_version: int | None = None,
     avoid: Sequence[str] = (),
+    confidential: Sequence[str] = (),
     prompt: Prompt | None = None,
     concurrency: int = 1,
 ) -> Synthesis:
@@ -161,7 +162,8 @@ def synthesize(
 
     `sources` are other facts, such as those existing bullets were written from: a new version
     of a bullet is checked against its own facts too. `base_version` is the number of the
-    profile's version, and `avoid` the owner's words to avoid. `concurrency` is how many bullets
+    profile's version, `avoid` the owner's words to avoid and `confidential` their confidential
+    terms, which the verifier checks each bullet for (T-049). `concurrency` is how many bullets
     are written and checked at once; 1 writes them one after another.
     """
     if concurrency < 1:
@@ -176,7 +178,7 @@ def synthesize(
         variables={"facts": planning_facts_json(facts)},
         context=synthesis_context(profile),
     )
-    builder = _Builder(profile, facts, sources, client, avoid, concurrency)
+    builder = _Builder(profile, facts, sources, client, avoid, confidential, concurrency)
     return builder.build(result.output, base_version)
 
 
@@ -287,6 +289,7 @@ class _Builder:
     sources: Sequence[Fact]
     client: LLMClient
     avoid: Sequence[str]
+    confidential: Sequence[str]
     concurrency: int = 1
     """How many bullets are written and checked at once."""
     notes: list[str] = field(default_factory=list[str])
@@ -566,6 +569,7 @@ class _Builder:
             entry_id=draft.entry_id,
             edit=draft.planned.edit,
             avoid=self.avoid,
+            confidential=self.confidential,
         )
 
     def _reviewed(self, draft: _Draft, report: VerifierReport) -> ReviewedOp:

@@ -81,6 +81,7 @@ both.
    | `TELEGRAM_WEBHOOK_SECRET` | the first random secret |
    | `CRON_SECRET` | the second random secret; Vercel's cron sends it to the tick |
    | `ANTHROPIC_API_KEY`, `LLM_MODEL_HEAVY`, `LLM_MODEL_STANDARD`, `LLM_MODEL_LIGHT` | your Claude API key and model IDs; `backend/.env.example` describes each, and the optional prices |
+   | `REMINDER_DAYS`, `REMINDER_TIME`, `REMINDER_TIME_ZONE` | optional: the reminder schedule, if not Fridays at 18:00, Asia/Singapore (step 5) |
 
 4. Deploy. The build step (`backend/scripts/vercel-build.sh`) builds the web app and then
    migrates the database. If a migration fails, the build fails and nothing changes.
@@ -104,10 +105,15 @@ Vercel (step 3), then redeploy.
 ## 5. The daily tick
 
 There's nothing to set up: `backend/vercel.json` schedules it. Vercel's cron calls
-`/internal/tick` once a day, at some time between 19:00 and 20:00 UTC; once a day is the most its
-free plan allows. Vercel sends `CRON_SECRET` with each call, and the tick refuses any other
-caller. To run it at another time, change the hour in `vercel.json` (it's in UTC), for example to
-a few hours after you usually journal.
+`/internal/tick` once a day, at some time between 10:00 and 11:00 UTC (18:00 to 19:00 in
+Singapore); once a day is the most its free plan allows. Vercel sends `CRON_SECRET` with each
+call, and the tick refuses any other caller.
+
+The tick also sends the bot's reminder, which by default goes out on Fridays at 18:00,
+Asia/Singapore, so the tick runs at that hour. A reminder goes out at the first tick up to 4
+hours after its time, the same day, or not at all. For another reminder time or time zone, set
+`REMINDER_DAYS`, `REMINDER_TIME` and `REMINDER_TIME_ZONE` in Vercel (step 3), and change the hour
+in `vercel.json` (it's in UTC) to the reminder's hour in UTC.
 
 Each run answers `{"retried": 0}` or similar.
 
@@ -179,6 +185,10 @@ database, with the refresh. `uv run wj render --db` writes the newest version to
   answering 200.
 - Send `/refresh`. Within a few minutes, the bot says how many updates it proposes, with a link
   to the Inbox, or that there's nothing new.
+- Send `/pause`: the bot says your reminders are paused. Send `/resume`: it says they're back
+  on, and when they go out, such as "Fridays at 18:00 (Asia/Singapore)".
+- On a reminder day after 3 days without journaling, the reminder arrives within the tick's
+  hour, with "Nothing this week" and "Remind me tomorrow" buttons.
 
 ## When something goes wrong
 
