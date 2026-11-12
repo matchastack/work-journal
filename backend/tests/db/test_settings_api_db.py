@@ -45,15 +45,18 @@ from app.db.profiles import save_version
 from app.db.settings import (
     add_style_notes,
     get_confidential_terms,
+    get_linkedin_pack,
     get_portfolio_settings,
     get_reminder_settings,
     get_reminder_state,
     get_style_notes,
+    save_linkedin_pack,
     save_portfolio_settings,
     save_reminder_settings,
     save_reminder_state,
 )
 from app.db.store import save_facts
+from app.linkedin import LinkedInPack, PackSection
 from app.main import create_app
 from app.schema.fact import Fact
 from app.schema.profile import Profile
@@ -494,6 +497,35 @@ def test_the_owner_sets_their_confidential_terms(
     too_many = {"terms": [f"term {n}" for n in range(201)]}
     refused = client.put("/api/settings/confidential-terms", json=too_many, headers=owner.csrf)
     assert refused.status_code == 422
+
+
+def test_new_confidential_terms_flag_the_linkedin_pack_at_once(
+    database_url: str, owner: Owner, client: TestClient
+) -> None:
+    section = PackSection(
+        key="headline",
+        kind="headline",
+        label="Headline",
+        text="Engineer behind Project Falcon",
+        source="abc",
+        changed=True,
+    )
+
+    async def save_pack(session: AsyncSession) -> None:
+        await save_linkedin_pack(session, owner.id, LinkedInPack(sections=(section,)))
+
+    async def pack(session: AsyncSession) -> LinkedInPack | None:
+        return await get_linkedin_pack(session, owner.id)
+
+    seed(database_url, save_pack)
+    body = {"terms": ["project falcon"]}
+    assert client.put("/api/settings/confidential-terms", json=body, headers=owner.csrf).is_success
+    screened = seed(database_url, pack)
+    assert screened is not None and screened.sections[0].confidential_terms == ("project falcon",)
+    assert screened.sections[0].flagged
+    assert client.put("/api/settings/confidential-terms", json={}, headers=owner.csrf).is_success
+    cleared = seed(database_url, pack)
+    assert cleared is not None and not cleared.sections[0].flagged
 
 
 def test_a_rejection_reason_added_later_joins_the_notes(

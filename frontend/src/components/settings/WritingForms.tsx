@@ -135,7 +135,7 @@ export function ConfidentialTermsForm({ terms }: { terms: ConfidentialTerms }) {
   return (
     <SettingsSection
       title="Confidential terms"
-      description="Names and words that must never appear in anything public: your portfolio page, published PDFs and LinkedIn text. They're kept now and blocked once the confidentiality checks are built."
+      description="Names and words that must never appear in anything public: your portfolio page, its resume downloads and your LinkedIn text. Each is matched as a whole word or phrase, in any case, and a page, resume or LinkedIn section that names one is held back until it's taken out."
     >
       <form
         aria-label="Confidential terms"

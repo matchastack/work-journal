@@ -234,7 +234,11 @@ describe("the settings page", () => {
     expect(portfolio.getByLabelText("Default visibility")).toHaveValue("public");
     expect(portfolio.getByRole("checkbox", { name: "Show that I'm open to work" })).not.toBeChecked();
     expect(portfolio.getByRole("checkbox", { name: /search engines/ })).toBeChecked();
-    expect(portfolio.getByText(/take effect when the public portfolio page is built/)).toBeVisible();
+    expect(portfolio.getByText(/Changes show on it at once/)).toBeVisible();
+    expect(portfolio.getByRole("link", { name: /Portfolio page/ })).toHaveAttribute(
+      "href",
+      "/portfolio",
+    );
 
     const notes = await section("Style notes");
     expect(notes.getByLabelText("Words to avoid")).toHaveValue("spearheaded");

@@ -2,6 +2,7 @@ import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query
 
 import { ApiError, detailOf, meQuery } from "./auth";
 import { api } from "./client";
+import { portfolioQuery } from "./portfolio";
 import type { components } from "./schema";
 
 export type SettingsView = components["schemas"]["SettingsView"];
@@ -58,10 +59,14 @@ interface Answer<T> {
   response: Response;
 }
 
-/** Saving one group of settings. The API answers with the group as saved, which replaces it. */
+/**
+ * Saving one group of settings. The API answers with the group as saved, which replaces it.
+ * `alsoChanges` names other data that shows the group, which is fetched again.
+ */
 function useSaveGroup<Key extends keyof SettingsView, Input>(
   key: Key,
   send: (input: Input) => Promise<Answer<SettingsView[Key]>>,
+  alsoChanges?: readonly string[],
 ) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -76,6 +81,9 @@ function useSaveGroup<Key extends keyof SettingsView, Input>(
       queryClient.setQueryData(settingsQuery.queryKey, (settings) =>
         settings === undefined ? settings : { ...settings, [key]: saved },
       );
+      if (alsoChanges !== undefined) {
+        void queryClient.invalidateQueries({ queryKey: alsoChanges });
+      }
     },
   });
 }
@@ -87,8 +95,10 @@ export function useSaveReminders() {
 }
 
 export function useSavePortfolio() {
-  return useSaveGroup("portfolio", (body: PortfolioSettings) =>
-    api.PUT("/api/settings/portfolio", { body }),
+  return useSaveGroup(
+    "portfolio",
+    (body: PortfolioSettings) => api.PUT("/api/settings/portfolio", { body }),
+    portfolioQuery.queryKey,
   );
 }
 

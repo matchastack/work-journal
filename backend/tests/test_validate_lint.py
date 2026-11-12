@@ -11,6 +11,7 @@ from app.validate.lint import (
     TEXT,
     LintReport,
     NotSendable,
+    check_confidentiality,
     check_sendable,
     check_text,
     format_report,
@@ -420,3 +421,50 @@ def test_format_report_lists_findings_notes_and_a_count() -> None:
         "0 errors, 1 warning.",
     ]
     assert format_report(LintReport()) == "No problems found."
+
+
+# --- What a new text must leave out (T-049) ----------------------------------------------------
+
+
+def test_text_about_a_sensitive_role_must_leave_out_operational_detail() -> None:
+    text = "Moved order events off prod-db-01 to a queue at 10.0.4.12."
+    report = check_text(text, PROFILE, entry_id="northwind", sensitive=True)
+    assert found(report) == [("R5", "error", TEXT), ("R5", "error", TEXT)]
+    assert report.findings[0].message == (
+        '"prod-db-01" looks like a server name: describe a sensitive role\'s architecture and '
+        "outcomes only, without operational detail"
+    )
+    assert "10.0.4.12" in report.findings[1].message
+    assert check_text(text, PROFILE, entry_id="contoso").findings == (), "a role that isn't"
+
+
+def test_a_confidential_term_is_an_error_for_a_sensitive_role_or_public_text() -> None:
+    text = "Moved Project Falcon's order events to a message queue."
+    terms = ["project falcon", "Orion"]
+    sensitive = check_text(text, PROFILE, entry_id="northwind", sensitive=True, confidential=terms)
+    assert found(sensitive) == [("R5", "error", TEXT)]
+    assert sensitive.findings[0].message == (
+        'names the confidential term "project falcon", and text about a sensitive role must '
+        "never name one"
+    )
+    public = check_text(text, PROFILE, confidential=terms, public=True)
+    assert found(public) == [("confidential", "error", TEXT)]
+    assert public.findings[0].message == (
+        'names the confidential term "project falcon", which must never appear in public text'
+    )
+
+
+def test_a_confidential_term_elsewhere_is_a_warning() -> None:
+    text = "Moved Project Falcon's order events to a message queue."
+    report = check_text(text, PROFILE, entry_id="contoso", confidential=["Project Falcon"])
+    assert found(report) == [("confidential", "warning", TEXT)]
+    assert "the portfolio page, or a published resume, that shows it is blocked" in (
+        report.findings[0].message
+    )
+    assert check_text(text, PROFILE, entry_id="contoso").findings == (), "without terms"
+
+
+def test_confidentiality_needs_whole_words() -> None:
+    text = "Moved the Atlassian boards to Falconry."
+    terms = ["Atlas", "Falcon"]
+    assert check_confidentiality(text, sensitive=True, terms=terms, public=True) == []

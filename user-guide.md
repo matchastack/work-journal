@@ -29,7 +29,8 @@ Every generated sentence is checked against your facts, so wording never changes
 | Fix a note or a saved fact | The web app, Journal page |
 | Update your profile from new notes | `/refresh` in Telegram, then the web app's Inbox |
 | Link Telegram, change reminders, style notes and other preferences, see what the model cost each month, or export or delete your data | The web app, Settings page |
-| Render the master resume, tailor a resume, build the portfolio page, write LinkedIn text | The command-line tool (web pages **Coming**) |
+| Publish your portfolio page, and choose the resumes it offers | The web app, Portfolio page |
+| Render the master resume, tailor a resume, write LinkedIn text | The command-line tool (web pages **Coming**) |
 | See what a GitHub repository's history would give one of your projects, and the facts in it | `wj github digest`, then `wj github extract` (saving the facts for `/refresh` is **Coming**: T-069 to T-072) |
 
 ## Set up on your computer
@@ -178,7 +179,7 @@ Open `http://localhost:5173` while developing, or your deployed address. Sign in
 | Profile | Coming (T-042, T-043) | Your roles, projects and skills, with every earlier version |
 | Resumes | Coming (T-044) | Preview and download resume variants |
 | Tailor | Coming (T-045) | Tailor a resume to a job posting, and see where you applied |
-| Portfolio | Coming (T-046) | Choose what the public page shows, and publish it |
+| [Portfolio](#portfolio) | Built | Preview your public page, choose its resumes, and publish it |
 | LinkedIn | Coming (T-047) | Copy the updated sections into LinkedIn |
 | [Settings](#settings) | Built | Telegram, reminders, the portfolio page, style notes, confidential terms, LLM costs and your data |
 
@@ -197,6 +198,11 @@ For each change you see the text before and after (removed words struck through,
 
 A change the verifier flagged needs your decision; it is never accepted for you. A change that depends on another, such as a bullet under a new role, is rejected along with it and waits until that rejection is undone.
 
+Each bullet is also checked for what it must leave out, with your [confidential terms](#settings) as they are each time the Inbox opens:
+
+- **A role marked sensitive** is described by its architecture and outcomes only. A bullet about one (under it, or written from its facts) that names a confidential term, or has something that looks like operational detail, such as an IP address, a host or server name (`prod-db-01`), a port, a file path, a ticket or incident number (`PAY-1234`), a credential or a time of day, is flagged with an **R5** error that names what matched.
+- **Any other bullet** that names a confidential term gets a warning: you can accept it, but a portfolio page or resume that shows it is then held back until you take it out.
+
 **Accept all that passed** accepts every waiting change the verifier passed. Once every change is decided, **Apply** makes a new version of your profile from the accepted ones. After each decision, focus moves to the next waiting change, so you can work through the list from the keyboard.
 
 The master resume is then due to be rendered from the new version (see [Running and maintaining the backend](#running-and-maintaining-the-backend)).
@@ -213,15 +219,27 @@ You can correct anything in place:
 
 **Download Markdown** and **Download JSON** at the top save the whole journal.
 
+### Portfolio
+
+Your public page, at `/p/<handle>` on the app's address. Nobody sees it until you publish it.
+
+- **First, a handle.** Choose the page's handle in [Settings](#settings). There's no default: until you choose one, the page says so and **Publish** is off.
+- **Preview.** The page as visitors will see it, in a frame. The frame runs no scripts, so the menu and the project tabs work only in **Open the preview in a new tab**.
+- **Publish** puts the page up at once, at the address shown, and **Unpublish** takes it down. Browsers and caches can show the page as it was for up to two minutes after a change, including after you unpublish it.
+- **Which version.** The page shows the profile version from your latest refresh: changes you apply in the Inbox reach it as soon as you apply them, and anything newer waits for your next `/refresh`, which the page says. Before your first refresh, publishing shows your newest version.
+- **What shows.** Only what's public. Your phone number (Resume only unless you change it), anything marked Resume only or Private, and benched and planned items never show; nor do notes, swaps, open questions or what a role must never claim. Your website and online profiles follow the default visibility in Settings. With open to work on, the page shows an "Open to work" badge; with indexing off, it asks search engines not to index it. Settings changes show on the page at once.
+- **Resume downloads.** Tick the resumes visitors may download, give each button its text, and **Save resume downloads**. You can offer the master resume your latest refresh rendered (it changes with each refresh) and tailored resumes that passed their checks. A resume shows what you marked Resume only, such as your phone number, so check it before you offer it. Visitors see the button text, not the company a tailored resume was for.
+- **Confidential terms.** The page and its resumes never show one of your [confidential terms](#settings), checked each time they're asked for. If the page names one (in what it shows or in its handle), **Publish** is off, and the Publishing section shows an error naming each term and where it is, such as `Experience: Software Engineer`. If a published page comes to name one, for example after you add a term or a refresh brings a new version, visitors get "Page not found" (within about two minutes, as caches catch up) until it's gone; the preview still shows the page, so you can find it. To fix it, take the term out of your profile, or make that text Resume only or Private, and refresh; or remove the term in Settings if it may be public. A resume whose PDF or button text names a term can't be ticked, and one you chose before stays chosen but isn't offered or downloadable; each says which term.
+
 ### Settings
 
 Your preferences, one section each. Each section has its own **Save** button and says "Saved." when it is.
 
 - **Telegram:** whether your chat is linked, and since when. **Link Telegram** (or **Relink**) shows a one-time link to the bot as a QR code and an **Open in Telegram** button, good for 15 minutes. Once you press **Start** in Telegram, the page says your chat is linked. See [Link your chat](#link-your-chat).
 - **Reminders:** the days, the time and the time zone (an IANA name such as `Asia/Singapore`; **Use this device's** fills in your browser's), and **Pause reminders**. The section shows the schedule now in force. After you choose your own, **Use the default schedule** goes back to the app's default. On the hosted app, reminders go out with the daily tick at 18:00 Singapore time, so for another time move the tick's hour too ([Reminders](#reminders)).
-- **Portfolio page:** the handle in your page's address, `/p/<handle>` (2 to 40 lowercase letters, digits and single hyphens; it's saved in lowercase, and one another account has is refused), the default visibility (Public, Resume only or Private) for what you haven't given a visibility of its own, **Show that I'm open to work**, and **Let search engines index the page**. They're kept now and take effect when the public portfolio page arrives (**Coming**: T-046).
+- **Portfolio page:** the handle in your page's address, `/p/<handle>` (2 to 40 lowercase letters, digits and single hyphens; it's saved in lowercase, and one another account has is refused), the default visibility (Public, Resume only or Private) for what you haven't given a visibility of its own (your website and online profiles; only Public shows on the page), **Show that I'm open to work**, and **Let search engines index the page**. They take effect on the page at once. Publish it from the [Portfolio](#portfolio) page.
 - **Style notes:** words to avoid and notes about your style, one per line. The style check flags the words to avoid in everything written for you; the LinkedIn text follows the notes for now. The reasons you give for rejecting a change in the Inbox are added to the notes.
-- **Confidential terms:** names and words that must never appear on your portfolio page, in published PDFs or in LinkedIn text, one per line. They're kept now and blocked once the confidentiality checks arrive (**Coming**: T-049).
+- **Confidential terms:** names and words that must never appear on your portfolio page, in its resume downloads or in LinkedIn text, one per line, such as a client's or an internal project's name. Each matches as a whole word or phrase, in any case: `Atlas` matches `ATLAS` and `Atlas's` but not `Atlassian`, and `Project Falcon` matches across a line break or a hyphen. Saving them takes effect at once on the [Portfolio](#portfolio) page and the LinkedIn text, and in the [Inbox](#inbox).
 - **LLM costs:** what the model calls made for you cost in a month, estimated, with a table by task (such as fact extraction) and one by tier (heavy, standard and light), showing the calls, the tokens and the estimated cost. **Month** shows an earlier one; months are in UTC. Each call is priced when it's made, at its tier's `LLM_PRICE_*` setting, so a call made while its tier had no price isn't in the estimate: the section says how many there were. These are estimates; your Anthropic bill has the real cost.
 - **Your data:** **Download all my data** saves one JSON file with everything stored for you: your journal (readable, not encrypted), facts, profile versions, proposed changes, applications, resume PDFs, settings and the bot's recent raw messages from your chat. Sign-in sessions and link tokens are left out. **Delete all my data** asks you to type your GitHub username, then deletes your account and everything stored for it, and signs you out everywhere. It can't be undone, so download your data first. Your messages stay in your Telegram chat, and files on your computer, such as `local/`, are not touched. If you sign in again, you start with an empty journal.
 
@@ -272,7 +290,7 @@ It picks the most relevant content from your profile, words it in the posting's 
 uv run wj portfolio build --out /tmp/site
 ```
 
-Writes the static page from the profile's public content to the folder. Offer a resume on it with `--resume "Label=path/to/resume.pdf"` (repeat for more), and set `--site-url` for link previews. After you edit its template, run `backend/scripts/build-portfolio-css.sh`.
+Writes the static page from the profile's public content to the folder, for hosting elsewhere; the app serves the same page itself once you publish it ([Portfolio](#portfolio)). Offer a resume on it with `--resume "Label=path/to/resume.pdf"` (repeat for more), and set `--site-url` for link previews. After you edit its template, run `backend/scripts/build-portfolio-css.sh`.
 
 ### LinkedIn text
 
@@ -283,6 +301,8 @@ uv run wj linkedin done --db     # mark the pack done, once you have pasted it i
 ```
 
 Paste the text into LinkedIn yourself; Work Journal never posts there.
+
+With `--db`, a section that names one of your confidential terms is written once more without it. One that still names it is printed with `Error: Names the confidential term "..."`, the command exits with status 1, and `wj linkedin done --db` leaves it out, naming it, so don't paste it. Adding a term later flags the sections already written that name it.
 
 ### Projects from GitHub
 

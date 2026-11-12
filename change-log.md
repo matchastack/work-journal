@@ -11,6 +11,26 @@ One short entry per pull request, newest first: what changed and what to verify.
 - On Settings, **LLM costs** shows this month's calls after a note and `/done`, and **Month** shows earlier ones
 - With `SENTRY_DSN` set in Vercel, an error appears in Sentry with its type and stack trace, but no message, request body or journal text
 
+## 2026-11-03 · T-049 Confidential terms and sensitive roles · [#76](https://github.com/matchastack/work-journal/pull/76)
+**Changed:** your confidential terms now keep the portfolio page, its resume downloads and LinkedIn sections that name one off the public, each shown as an error naming the term, and text written about a role marked sensitive is flagged in the Inbox when it names a term or has operational detail.
+
+**Verify:**
+- CI is green on the PR
+- Adding a word your published page shows as a confidential term in Settings makes `<app>/p/<handle>` show "Page not found" within about two minutes, and the Portfolio page names the term and where; removing it brings the page back
+- **Publish** stays off while the page names a term, and a resume whose PDF names one can't be ticked
+- After `wj linkedin --db`, adding a term a section uses makes `wj linkedin done --db` leave that section out, naming it
+- In the Inbox, a proposed bullet under a sensitive role with a host name or ticket number, such as `prod-db-01` or `PAY-1234`, is flagged with an R5 error
+
+## 2026-10-31 · T-046 Public portfolio page and publishing · [#71](https://github.com/matchastack/work-journal/pull/71)
+**Changed:** the web app's Portfolio page previews your public page, chooses the resumes visitors can download, and publishes or unpublishes it; once published, `/p/<handle>` shows the profile version from your latest refresh, with your open-to-work, indexing and visibility settings.
+
+**Verify:**
+- CI is green on the PR
+- With a handle chosen in Settings, **Publish** makes `<app>/p/<handle>` show your page in a private window, and a handle nobody has shows "Page not found"
+- With open to work on and indexing off, the page shows the badge and its source has `<meta name="robots" content="noindex">`
+- A resume you chose downloads from the page, and **Unpublish** makes the page show "Page not found" within about two minutes
+- After a `/refresh` whose changes you apply in the Inbox, the page shows the new version
+
 ## 2026-10-30 · T-048 Settings page · [#70](https://github.com/matchastack/work-journal/pull/70)
 **Changed:** the web app's Settings page links Telegram with a deep link and a QR code, and edits the reminder schedule, time zone and pause, the portfolio page's settings, the style notes and the confidential terms; it also downloads all your data as JSON and deletes all of it once you type your GitHub username.
 

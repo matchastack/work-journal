@@ -11,13 +11,16 @@ from fastapi.responses import JSONResponse
 from app.auth.routes import NO_STORE
 from app.auth.sessions import CurrentUser, clear_session_cookies
 from app.db.settings import (
+    get_linkedin_pack,
     get_style_notes,
     handle_taken,
     save_confidential_terms,
+    save_linkedin_pack,
     save_portfolio_settings,
     save_style_notes,
 )
 from app.deps import AppSettings, Db
+from app.linkedin import screen_pack
 from app.reminders import default_schedule
 from app.schema.common import Model
 from app.schema.settings import ConfidentialTerms, PortfolioSettings, ReminderSettings, StyleNotes
@@ -97,9 +100,14 @@ async def change_style_notes(
 async def change_confidential_terms(
     body: ConfidentialTerms, user: CurrentUser, db: Db, response: Response
 ) -> ConfidentialTerms:
-    """Replace the confidential terms (FR-SET-5)."""
+    """Replace the confidential terms (FR-SET-5). They take effect at once: the portfolio page
+    and its resumes are checked each time they're shown, and the LinkedIn pack last written is
+    screened again now, so a section that names a term is flagged (NFR-PRIV-4)."""
     response.headers.update(NO_STORE)
     await save_confidential_terms(db, user.id, body)
+    pack = await get_linkedin_pack(db, user.id)
+    if pack is not None:
+        await save_linkedin_pack(db, user.id, screen_pack(pack, body.terms))
     await db.commit()
     return body
 
