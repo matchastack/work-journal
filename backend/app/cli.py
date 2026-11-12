@@ -49,12 +49,13 @@ from app.db.settings import (
     save_linkedin_pack,
 )
 from app.db.store import (
+    find_render,
     list_applications,
     list_facts,
     save_application,
     save_facts,
     save_job_posting,
-    store_artifact,
+    save_render,
 )
 from app.db.users import UnknownUserError, only_user, user_for_login
 from app.evals.dataset import FICTIONAL_DIR, SUITES, Dataset, DatasetError, load_dataset
@@ -94,7 +95,13 @@ from app.refresh import (
 from app.reminders import default_schedule
 from app.render.compile import CompileError
 from app.render.fit import FitError
-from app.render.resume import RenderError, render_resume
+from app.render.resume import (
+    RenderedResume,
+    RenderError,
+    StoredRender,
+    render_key,
+    render_resume,
+)
 from app.review import describe, needs, rechecked, report_lines
 from app.schema.changes import AddSwap, ChangeOp, ChangeSet, ChangeSetStatus, OpStatus, ReviewedOp
 from app.schema.export import write_json_schemas
@@ -102,13 +109,13 @@ from app.schema.fact import Fact
 from app.schema.jobs import Application, JobPosting
 from app.schema.profile import Profile
 from app.schema.verification import VerifierReport
-from app.selection import MASTER_VARIANT, select
+from app.selection import MASTER_VARIANT, Selection, select
 from app.synthesis import Synthesis, new_facts, synthesize
 from app.tailoring.applications import LoggedApplication, ResumeChecks, record
 from app.tailoring.ats import report_lines as ats_lines
 from app.tailoring.coverage import report_lines as coverage_lines
 from app.tailoring.posting import parse_posting
-from app.tailoring.tailor import posting_spellings, tailor, use_phrasings
+from app.tailoring.tailor import posting_spellings, tailor, use_phrasings, used_phrasings
 from app.telegram.api import BotApi, TelegramError
 from app.telegram.journal import COMMANDS
 from app.telegram.linking import deep_link, new_link_token
@@ -1027,11 +1034,16 @@ def render(
     user: UserOption = None,
 ) -> None:
     """Render the profile's full master document as a PDF, with the LaTeX source it was compiled
-    from. One-page resumes are tailored to a posting instead (OQ-6)."""
+    from. One-page resumes are tailored to a posting instead (OQ-6).
+
+    With --db, the render is kept in the database, so the next refresh's master resume needn't
+    compile it again, and a render of the same LaTeX source kept before is written without
+    compiling.
+    """
     selection = select(_read_profile(profile, db, user), MASTER_VARIANT)
     out.parent.mkdir(parents=True, exist_ok=True)
     try:
-        rendered = render_resume(selection)
+        rendered = _render(selection, db=db, user=user)
     except CompileError as error:
         log = out.with_suffix(".log")
         log.write_text(error.log, encoding="utf-8")
@@ -1040,11 +1052,15 @@ def render(
     except (RenderError, FitError) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(1) from None
+    if db:
+        asyncio.run(_keep_render(user, rendered))
     tex = out.with_suffix(".tex")
     out.write_bytes(rendered.pdf)
     tex.write_text(rendered.tex, encoding="utf-8")
     pages = f"{rendered.pages} page{'' if rendered.pages == 1 else 's'}"
     typer.echo(f"Wrote {out} ({pages}) and its source, {tex}.")
+    if rendered.reused:
+        typer.echo("The same LaTeX source was rendered before, so it wasn't compiled again.")
     for note in selection.notes:
         typer.echo(f"Note: {note}")
     for warning in rendered.warnings:
@@ -1169,7 +1185,7 @@ def tailor_resume(
     out = out or LOCAL_DIR / "resumes" / f"{_slug(parsed)}.pdf"
     out.parent.mkdir(parents=True, exist_ok=True)
     try:
-        rendered = render_resume(selection)
+        rendered = _render(selection, db=db, user=user)
     except CompileError as error:
         log = out.with_suffix(".log")
         log.write_text(error.log, encoding="utf-8")
@@ -1194,9 +1210,9 @@ def tailor_resume(
     for warning in rendered.warnings:
         typer.echo(f"Warning: {warning}", err=True)
     application, checks = record(
-        tailored,
+        parsed,
         rendered.selection,
-        accepted=accepted,
+        used=used_phrasings(tailored, accepted),
         rules=report,
         posting_text=posting_text,
         pdf=rendered.pdf,
@@ -1210,7 +1226,7 @@ def tailor_resume(
         for line in ats_lines(checks.ats):
             typer.echo(line)
     if db:
-        asyncio.run(_log_application(user, application, checks, rendered.pdf))
+        asyncio.run(_log_application(user, application, checks, rendered))
     else:
         logged = LoggedApplication(
             application=application,
@@ -1268,16 +1284,37 @@ def _today() -> date:
     return date.today()
 
 
+def _render(selection: Selection, *, db: bool, user: str | None) -> RenderedResume:
+    """Render `selection`. With --db, a render of the same LaTeX source kept in the database is
+    rebuilt without compiling. Raises what `render_resume` raises."""
+    stored = asyncio.run(_stored_render(user, selection)) if db else None
+    return render_resume(selection, stored=stored)
+
+
+async def _stored_render(login: str | None, selection: Selection) -> StoredRender | None:
+    key = render_key(selection)
+    async with _database() as session:
+        user_id = await _user(session, login)
+        return await find_render(session, user_id, key)
+
+
+async def _keep_render(login: str | None, rendered: RenderedResume) -> None:
+    async with _database() as session:
+        user_id = await _user(session, login)
+        await save_render(session, user_id, rendered)
+
+
 async def _log_application(
-    login: str | None, application: Application, checks: ResumeChecks, pdf: bytes
+    login: str | None, application: Application, checks: ResumeChecks, rendered: RenderedResume
 ) -> None:
-    """Store the application, with its posting, its PDF and its checks (FR-TLR-8, FR-FID-8)."""
+    """Store the application, with its posting, its checks and its PDF, which is kept with its
+    render, for the Resumes page (FR-TLR-8, FR-FID-8)."""
     async with _database() as session:
         user_id = await _user(session, login)
         posting_id = await save_job_posting(
             session, user_id, application.posting_text, application.posting
         )
-        await store_artifact(session, user_id, pdf, "application/pdf")
+        await save_render(session, user_id, rendered)
         await save_application(
             session,
             user_id,
