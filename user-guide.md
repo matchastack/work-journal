@@ -383,6 +383,8 @@ Every sentence written passes the verifier before it is stored or printed.
 
 **The LinkedIn pack after a refresh** needs no LaTeX, so the hosted app writes it at its next tick: the daily one, or the one that runs when the bot answers you, such as after `/done`. `uv run wj tick` or `uv run wj worker` writes it too. A tick stops work after a few minutes; a long pack keeps the sections it wrote and the next tick writes the rest.
 
+**Staging.** Before you merge a change to the core loop, try it on a staging copy of the app, with a dev bot and a database of its own: [docs/staging-checklist.md](docs/staging-checklist.md) sets it up and lists what to check, from a message to the dev bot to the published page, its PDFs and a tailored resume.
+
 **Rotating keys.** Add the new key in front of the old one in `DATA_ENCRYPTION_KEY`, run `wj keys rotate`, and only then remove the old key.
 
 **Evaluations.** Run `wj eval all` before changing a prompt or the model routing. The bar is 0 altered numbers, 0 inflated claims and at least 90% of facts recovered; `backend/evals/README.md` explains the suites.
