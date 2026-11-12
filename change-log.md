@@ -12,6 +12,25 @@ One short entry per pull request, newest first: what changed and what to verify.
 - Without `LLM_MODEL_STANDARD`, a tick still renders the master resume, and `wj linkedin show --db` says the refresh couldn't write the pack
 - With a confidential term in Settings that a section would name, the refresh's pack writes it without the term, or flags it, as `wj linkedin --db` does
 
+## 2026-10-31 · T-045 Tailor page and application history · [#72](https://github.com/matchastack/work-journal/pull/72)
+**Changed:** the web app's Tailor page tailors a resume to a pasted posting through background jobs (migration 0017), lets you choose each bullet's words, approve new phrasings as swaps and confirm or drop skills marked verify-before-shipping, and logs the application when you download the PDF; the page lists every application.
+
+**Verify:**
+- CI is green on #72
+- After `scripts/post-deploy.sh`, pasting a posting on the Tailor page shows its requirements within a minute, then the draft
+- While `uv run wj worker` runs on your computer, the draft's PDF appears and each change renders again; without it, the page says to run it
+- Approving a phrasing adds it as a swap in a new profile version
+- Download PDF saves the file and adds the application to the history and the Resumes page
+
+## 2026-10-30 · T-044 Resumes page · [#69](https://github.com/matchastack/work-journal/pull/69)
+**Changed:** the web app's Resumes page previews and downloads the master resume from the latest refresh and every tailored resume, with each one's page count, cut report and rule findings; renders are kept by the hash of their LaTeX source (migration 0016), so the same source isn't compiled twice.
+
+**Verify:**
+- CI is green on #69
+- After `scripts/post-deploy.sh`, the Resumes page shows your master resume once `uv run wj tick` has rendered it, and says to run it while it waits
+- A resume from `uv run wj tailor <posting-file> --db` appears at the top of Tailored resumes; its preview opens and Download PDF saves it
+- Running `uv run wj render --db` twice says the second time that it wasn't compiled again
+
 ## 2026-11-03 · T-053 End-to-end tests and staging checklist · [#75](https://github.com/matchastack/work-journal/pull/75)
 **Changed:** a Playwright test signs in, accepts a change in the Inbox, publishes and checks the public page, against the real app with GitHub and Claude stubbed, in its own CI job; `docs/staging-checklist.md` tries a change on staging with a dev bot.
 

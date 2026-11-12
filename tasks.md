@@ -862,25 +862,37 @@ As the owner, I want to manage the metadata that drives tailoring, so that my ma
 - [ ] Tests.
 
 ### T-044 · Resumes page
-**Status:** ☐ · **Size:** M · **Depends on:** T-010, T-011, T-027, T-039 · **Requirements:** FR-RES-5, FR-RES-6 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-010, T-011, T-027, T-039 · **Requirements:** FR-RES-5, FR-RES-6 · **PR:** [#69](https://github.com/matchastack/work-journal/pull/69)
 
 As the owner, I want to preview and download my master resume and my tailored resumes, so that I always have a current version ready.
 
-- [ ] Lists the master document from the latest refresh and every tailored resume, with a PDF preview and a download for each.
-- [ ] Shows a PDF preview, a page-count badge, the cut report and lint findings, with a download button.
-- [ ] Renders are cached by content hash.
-- [ ] Tests.
+- [x] Lists the master document from the latest refresh and every tailored resume, with a PDF preview and a download for each.
+- [x] Shows a PDF preview, a page-count badge, the cut report and lint findings, with a download button.
+- [x] Renders are cached by content hash.
+- [x] Tests.
+
+**Built (2026-10-30):**
+- The API never runs LaTeX (C6): the page shows the PDFs rendered on the owner's computer, by `wj tick` or `wj worker` after a refresh and by `wj tailor --db`, and says which command renders a master resume that waits. While it waits, the last one rendered is listed too.
+- A render is kept under the SHA-256 of what it's made from: the LaTeX source of the whole selection, the template's other files and, with a page limit, the order fitting cuts in. A render whose key is kept isn't compiled again, by the output update, `wj render --db` or `wj tailor --db`. Its page count, cut report and warnings are kept with it (`renders`, migration 0016).
+- The master's lint findings are the profile check (`wj lint`) of the version it shows; a tailored resume's are the resume rules' findings kept with its application.
 
 ### T-045 · Tailor page and application history
-**Status:** ☐ · **Size:** M · **Depends on:** T-021, T-022, T-039 · **Requirements:** FR-TLR-1, FR-TLR-2, FR-TLR-3, FR-TLR-4, FR-TLR-6, FR-TLR-7, FR-TLR-8, FR-TLR-9 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-021, T-022, T-039 · **Requirements:** FR-TLR-1, FR-TLR-2, FR-TLR-3, FR-TLR-4, FR-TLR-6, FR-TLR-7, FR-TLR-8, FR-TLR-9 · **PR:** [#72](https://github.com/matchastack/work-journal/pull/72)
 
 As the owner, I want to paste a posting and get a tailored resume I can adjust, so that applying takes minutes.
 
-- [ ] Paste a posting to see the parsed requirements, then a tailored draft with the coverage report, verifier findings, rule findings and ATS check.
-- [ ] Approve new phrasings (they're saved as swaps), adjust swap choices and re-render.
-- [ ] Confirm each skill marked verify-before-shipping that the draft lists, or drop it (R3).
-- [ ] Download the PDF. The application is logged, and the history list shows the posting, date and PDF.
-- [ ] Tests.
+- [x] Paste a posting to see the parsed requirements, then a tailored draft with the coverage report, verifier findings, rule findings and ATS check.
+- [x] Approve new phrasings (they're saved as swaps), adjust swap choices and re-render.
+- [x] Confirm each skill marked verify-before-shipping that the draft lists, or drop it (R3).
+- [x] Download the PDF. The application is logged, and the history list shows the posting, date and PDF.
+- [x] Tests.
+
+**Built (2026-10-31):**
+- The API runs no model call or LaTeX inside a request (C6, NFR-PERF-1). Pasting a posting stores a draft (`tailor_drafts`, migration 0017), and jobs whose only argument is its ID take it from there: the light-tier parse, then the heavy-tier plan with the standard-tier wording and the verifier (never retried, since each try calls the heavy tier; a try that never finished fails the draft), then the render, on the queue only a computer with TeX Live takes (`wj worker` or `wj tick` there). The page says when a PDF waits for one. A request runs the draft's next job right after answering, and a sweep every minute queues any that was missed.
+- `wj tailor`'s engine is split into steps (`plan_resume`, `choose`, `reword`). The draft keeps the plan and the verified wording, so the owner's choices (each reworded bullet's words, approvals, and a decision on each skill marked verify-before-shipping) choose again without a model call. A change points the draft at the render of its new resume by T-044's render key: a render kept under it is read back from its PDF at once, without LaTeX.
+- Approving a phrasing saves it as a swap on the bullet through a change set by the owner, applied as the next profile version. Only phrasings that passed the verifier are offered.
+- A skill marked verify-before-shipping that the draft lists or names is listed until the owner confirms or drops it, and the PDF can't be downloaded until then. Text that names a dropped skill still breaks R3.
+- Downloading logs the application once, with the posting, the bullets and swaps used, the title, the checks and the PDF, and locks the draft. A resume that breaks a rule is logged with its errors and marked not to send (R2). The history on the page, like the Resumes page, lists each application with its date and PDF.
 
 ### T-046 · Public portfolio page and publishing
 **Status:** ◐ · **Size:** M · **Depends on:** T-023, T-027, T-039 · **Requirements:** FR-PRT-1, FR-PRT-3, FR-PRT-4, FR-PRT-5, FR-PRT-7, FR-SET-3, NFR-PERF-2 · **Needs:** OQ-3 · **PR:** [#71](https://github.com/matchastack/work-journal/pull/71)

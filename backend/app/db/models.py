@@ -330,6 +330,33 @@ class Artifact(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class RenderRow(Base):
+    """A resume rendered from LaTeX, kept under its key (`render_key` in `app/render/resume.py`):
+    the SHA-256 of the LaTeX source it was compiled from, with the template's other files and the
+    order fitting cuts in. A render whose key is kept isn't compiled again (T-044): its PDF, in
+    `artifacts`, is used as it is. The master resume of a refresh and a tailored resume find
+    theirs by the PDF's hash."""
+
+    __tablename__ = "renders"
+    __table_args__ = (
+        ForeignKeyConstraint(["user_id", "pdf_sha256"], ["artifacts.user_id", "artifacts.sha256"]),
+        Index(None, "user_id", "pdf_sha256"),
+        CheckConstraint("pages > 0", name="pages"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    pdf_sha256: Mapped[str] = mapped_column(String(64))
+    pages: Mapped[int]
+    cuts: Mapped[list[dict[str, Any]]] = mapped_column(JSONB)
+    """What was cut to fit the page limit, in the order it was cut: each one's kind (`bullet`,
+    `role` or `project`), ID and text."""
+    warnings: Mapped[list[str]] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class ApplicationRow(Base):
     """A tailored resume made for one job posting (FR-TLR-8), with its verifier report
     (FR-FID-8) and its PDF."""
@@ -352,6 +379,73 @@ class ApplicationRow(Base):
     pdf_sha256: Mapped[str | None] = mapped_column(String(64))
     verifier_report: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+DraftStatus = Literal["parsing", "tailoring", "ready", "failed"]
+RenderStatus = Literal["waiting", "rendered", "failed"]
+
+
+class TailorDraftRow(Base):
+    """A resume being tailored to a pasted job posting on the Tailor page (T-045).
+
+    Jobs make it, outside requests (`app/tailor/drafts.py`): it's `parsing` while the light-tier
+    model parses the posting, `tailoring` while the heavy-tier model chooses and the standard-tier
+    model words it, then `ready` for the owner's choices, or `failed`. Once ready, its resume is
+    rendered for the choices it has: `render_key` is the render key of the resume they make, and
+    `render_status` says whether that render waits for a computer with TeX Live, is `rendered`
+    (its PDF in `artifacts`, its checks in `render`), or `failed`. Downloading it logs it as an
+    application, after which it doesn't change.
+
+    The posting is kept as pasted, as `job_postings` keeps it. The plan, the wording and the
+    verifier reports hold resume text, never journal or fact text.
+    """
+
+    __tablename__ = "tailor_drafts"
+    __table_args__ = (
+        CheckConstraint("status IN ('parsing', 'tailoring', 'ready', 'failed')", name="status"),
+        CheckConstraint("(status = 'ready') = (tailoring IS NOT NULL)", name="tailoring"),
+        CheckConstraint("(status = 'failed') = (error IS NOT NULL)", name="error"),
+        CheckConstraint("render_status IN ('waiting', 'rendered', 'failed')", name="render_status"),
+        CheckConstraint("render_status <> 'rendered' OR render_key IS NOT NULL", name="render_key"),
+        CheckConstraint("(render_status = 'rendered') = (pdf_sha256 IS NOT NULL)", name="pdf"),
+        CheckConstraint("application_id IS NULL OR render_status = 'rendered'", name="logged"),
+        ForeignKeyConstraint(["user_id", "pdf_sha256"], ["artifacts.user_id", "artifacts.sha256"]),
+        ForeignKeyConstraint(
+            ["user_id", "application_id"], ["applications.user_id", "applications.id"]
+        ),
+        Index(None, "user_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, server_default=func.gen_random_uuid())
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    status: Mapped[DraftStatus] = mapped_column(String(16), server_default="parsing")
+    error: Mapped[str | None] = mapped_column(Text)
+    """Why it failed, in words code wrote."""
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    """When a job started tailoring it. A job that finds it set long ago knows an earlier try
+    didn't finish, and fails the draft rather than call the heavy-tier model again."""
+    posting_text: Mapped[str] = mapped_column(Text)
+    """The posting as pasted."""
+    posting: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    """The parsed posting, and the terms the model returned that the posting doesn't contain."""
+    profile_version: Mapped[int | None]
+    """The profile version it was tailored from."""
+    tailoring: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    """What the jobs chose and wrote (`Tailoring` in `app/tailoring/drafts.py`)."""
+    choices: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    """The owner's choices (`DraftChoices`)."""
+    render_status: Mapped[RenderStatus | None] = mapped_column(String(16))
+    render_key: Mapped[str | None] = mapped_column(String(64))
+    pdf_sha256: Mapped[str | None] = mapped_column(String(64))
+    render: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    """What the render found: its pages, cuts and warnings, the keyword coverage of what the PDF
+    shows, and the ATS check of its text."""
+    render_error: Mapped[str | None] = mapped_column(Text)
+    """Why the render failed. LaTeX's log can quote the resume, so it's shown only to the
+    owner, never logged."""
+    application_id: Mapped[str | None] = mapped_column(String(64))
+    """The application it was logged as, once downloaded (FR-TLR-8)."""
 
 
 class LlmCallRow(Base):

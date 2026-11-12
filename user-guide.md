@@ -28,9 +28,11 @@ Every generated sentence is checked against your facts, so wording never changes
 | Record what you did | The Telegram bot |
 | Fix a note or a saved fact | The web app, Journal page |
 | Update your profile from new notes | `/refresh` in Telegram, then the web app's Inbox |
+| Preview and download your master resume and tailored resumes | The web app, Resumes page |
+| Tailor a resume to a job posting, and see where you applied | The web app, Tailor page (its PDFs render on your computer: `uv run wj worker`) |
 | Link Telegram, change reminders, style notes and other preferences, or export or delete your data | The web app, Settings page |
 | Publish your portfolio page, and choose the resumes it offers | The web app, Portfolio page |
-| Render the master resume, tailor a resume, write LinkedIn text | The command-line tool (web pages **Coming**) |
+| Render the master resume, write LinkedIn text | The command-line tool (web pages **Coming**) |
 | See what a GitHub repository's history would give one of your projects, and the facts in it | `wj github digest`, then `wj github extract` (saving the facts for `/refresh` is **Coming**: T-069 to T-072) |
 
 ## Set up on your computer
@@ -175,8 +177,8 @@ Open `http://localhost:5173` while developing, or your deployed address. Sign in
 | [Inbox](#inbox) | Built | Review the changes proposed from your journal |
 | [Journal](#journal) | Built | Everything you sent the bot, with the facts saved from it |
 | Profile | Coming (T-042, T-043) | Your roles, projects and skills, with every earlier version |
-| Resumes | Coming (T-044) | Preview and download resume variants |
-| Tailor | Coming (T-045) | Tailor a resume to a job posting, and see where you applied |
+| [Resumes](#resumes) | Built | Preview and download your master resume and tailored resumes |
+| [Tailor](#tailor) | Built | Tailor a resume to a job posting, and see where you applied |
 | [Portfolio](#portfolio) | Built | Preview your public page, choose its resumes, and publish it |
 | LinkedIn | Coming (T-047) | Copy the updated sections into LinkedIn |
 | [Settings](#settings) | Built | Telegram, reminders, the portfolio page, style notes, confidential terms and your data |
@@ -217,6 +219,32 @@ You can correct anything in place:
 
 **Download Markdown** and **Download JSON** at the top save the whole journal.
 
+### Resumes
+
+Your master resume from the latest refresh comes first, then every resume you tailored to a job posting, newest first. Each one has a preview of its PDF (if your browser shows none, use **Open the PDF in a new tab**) and a **Download PDF** button.
+
+- **Master resume:** your whole profile, on as many pages as it takes, with the profile version it shows and its page count. The hosted app can't run LaTeX, so after you apply a refresh's changes the page says the new version waits to be rendered: run `uv run wj tick` on your computer, where TeX Live is installed, and reload the page. Until then, the last master resume rendered is shown below it. If your profile has changed since the latest refresh, the page says so; send `/refresh` to bring the resume up to date.
+- **Tailored resumes:** each shows the role and company, the date you made it and its application ID. **Show preview** opens its PDF. Its page count is red if it isn't one page. A resume that breaks a resume rule is marked **Don't send**, with the errors under Resume rules; fix them and tailor it again before you send anything.
+- **Cut report:** what was left out to fit one page, lowest value first. The master resume is never cut.
+- **Checks:** for the master resume, the profile check (`wj lint`) of its version; for a tailored resume, the resume rules' findings from when it was made.
+
+Resumes made with `wj tailor` without `--db` stay in `local/resumes/` and don't appear here.
+
+### Tailor
+
+Tailor a one-page resume to a job posting, adjust it, and download it.
+
+1. **Paste the posting** under New tailored resume and choose **Tailor a resume**. The draft opens below. Within a minute it shows the posting's requirements as Work Journal read them: seniority, must-have and nice-to-have skills, key terms and responsibilities, spelled as the posting spells them. Terms the posting doesn't contain are left out, and the page lists them.
+2. **Wait for the draft.** Choosing what your resume shows and wording it in the posting's language takes a minute or two; the page updates by itself. If it fails, the page says why; **Try again** starts it again.
+3. **Choose the wording.** Each bullet that has new words shows its own words, a saved swap worked in for this posting, or a new phrasing in the posting's words, each with the verifier's result. A new phrasing is used only once you choose **Approve and save as a swap**, which also adds it to your profile as a swap on that bullet (a new profile version), so later resumes can use it.
+4. **Confirm or drop skills.** Each skill you marked verify-before-shipping that the draft lists or names waits for your decision: **I can defend it** keeps it on this resume, **Drop it** leaves it out of the skills lines. **Undo** takes the decision back. A bullet whose words name a dropped skill still breaks the rule; choose other words for it.
+5. **Check it.** Resume rules shows what the rules found, Keyword coverage which of the posting's terms the resume shows and the gaps (never added for you), and PDF the page count, a preview, what was cut to fit one page and the ATS check (how an applicant-tracking system reads the PDF). **What the draft shows** lists every bullet before it's fitted to the page.
+6. **Download PDF and log the application.** The download needs every skill decided and the PDF rendered; the page lists what's missing. It logs the application with the posting, today's date and the PDF, and the draft can't change after that. A resume that breaks a resume rule can still be downloaded, but it's marked **Don't send**: fix the errors and tailor it again before you send anything.
+
+**The PDF renders on your computer.** The hosted app can't run LaTeX, so a draft's PDF waits until a computer with TeX Live renders it, and the page says so. Run `uv run wj worker` there while you tailor: it renders each change as you make it. `uv run wj tick` renders what waits once. Words you have rendered before are shown again at once, without waiting. If the PDF can't be rendered, the page says why; **Render it again** tries again, for instance after LaTeX ran out of time.
+
+**Drafts** lists the drafts you haven't downloaded, newest first; **Discard draft** deletes one (a swap you approved stays in your profile). **Applications** lists every resume you downloaded here or made with `wj tailor --db`, newest first, with its date and a **Download PDF** button. The Resumes page lists them too.
+
 ### Portfolio
 
 Your public page, at `/p/<handle>` on the app's address. Nobody sees it until you publish it.
@@ -253,6 +281,8 @@ The `wj` tool runs from `backend/` as `uv run wj <command>`. Add `--help` to any
 
 Rendering needs TeX Live; install it as `backend/templates/README.md` says. Linting flags problems such as a placeholder, a skill from the gaps list or a suspicious number shared across roles. Fix them in the profile before sending anything.
 
+With `--db`, Work Journal keeps each render in the database. When nothing in the resume has changed since a render it kept, `wj render --db`, `wj tailor --db` and the refresh's master resume use that render again instead of compiling, and `wj render --db` says so.
+
 ### Update the profile from your journal
 
 `/refresh` in Telegram and the Inbox do this for the deployed app. On your computer, the same steps run from the command line:
@@ -267,7 +297,7 @@ uv run wj render --db         # render the newest version
 
 ### Tailor a resume to a job posting
 
-Save the posting's text in a file, then:
+The web app's [Tailor](#tailor) page does this too. On your computer, save the posting's text in a file, then:
 
 ```sh
 uv run wj tailor posting.txt --db
@@ -379,7 +409,9 @@ Every sentence written passes the verifier before it is stored or printed.
 | After each deploy of `main`: wait for the app, migrate, point Telegram at the webhook | `scripts/post-deploy.sh` |
 | Score the LLM steps on the fictional cases | `uv run wj eval all` (`--private` for your own cases in `local/evals/`) |
 
-**The master resume after a refresh.** The hosted app can't run LaTeX. After you apply changes in the Inbox, or when `/refresh` finds nothing new, run `uv run wj tick` on a computer with TeX Live and the settings from `docs/deploy.md` step 6. It renders the master resume and keeps it in the database, and `uv run wj render --db` writes the newest version to `local/resumes/master.pdf` at any time.
+**The master resume after a refresh.** The hosted app can't run LaTeX. After you apply changes in the Inbox, or when `/refresh` finds nothing new, run `uv run wj tick` on a computer with TeX Live and the settings from `docs/deploy.md` step 6. It renders the master resume and keeps it in the database, where the web app's [Resumes](#resumes) page shows it, and `uv run wj render --db` writes the newest version to `local/resumes/master.pdf` at any time.
+
+**Tailored resumes from the web app.** The same goes for the [Tailor](#tailor) page's PDFs: run `uv run wj worker` on that computer while you tailor, and it renders each draft as you change it (`uv run wj tick` renders what waits, once).
 
 **The LinkedIn pack after a refresh** needs no LaTeX, so the hosted app writes it at its next tick: the daily one, or the one that runs when the bot answers you, such as after `/done`. `uv run wj tick` or `uv run wj worker` writes it too. A tick stops work after a few minutes; a long pack keeps the sections it wrote and the next tick writes the rest.
 
@@ -401,6 +433,8 @@ Every sentence written passes the verifier before it is stored or printed.
 | A model command says a tier has no model | Set `ANTHROPIC_API_KEY` and the `LLM_MODEL_*` variable for that tier |
 | `wj render` or `wj tailor` can't find LaTeX | Install TeX Live (`backend/templates/README.md`) |
 | The bot says a refresh didn't finish in time | Run `uv run wj propose --db` from your computer |
+| A Tailor page draft keeps waiting for its PDF | Run `uv run wj worker` (or `uv run wj tick`) on a computer with TeX Live and the settings from `docs/deploy.md` step 6 |
+| A Tailor page draft says the model settings are missing | Set `ANTHROPIC_API_KEY` and the `LLM_MODEL_*` variables where the app runs, then **Try again** |
 | `wj linkedin show --db` says a refresh couldn't write the pack | Check the Claude settings (`ANTHROPIC_API_KEY`, `LLM_MODEL_STANDARD`), then write it with `uv run wj linkedin --db`, or send `/refresh` again |
 | Journal text can't be read after changing keys | `DATA_ENCRYPTION_KEY` must still include the key the text was written with |
 | `wj github digest` says the token belongs to another GitHub account | Use a token of your own account: the one your profile's GitHub username names, or the one you sign in with |
