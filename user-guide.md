@@ -375,6 +375,8 @@ Every sentence written passes the verifier before it is stored or printed.
 
 **Logs and errors.** The app, `wj worker` and `wj tick` log one JSON object per line on standard error (on Vercel, in the project's logs), at `LOG_LEVEL`. With `SENTRY_DSN` set, their errors, including a background job that fails for the last time, are reported to Sentry. Neither ever holds journal or fact text: an error shows where it happened in the code and its type, but not its message.
 
+**Staging.** Before you merge a change to the core loop, try it on a staging copy of the app, with a dev bot and a database of its own: [docs/staging-checklist.md](docs/staging-checklist.md) sets it up and lists what to check, from a message to the dev bot to the published page, its PDFs and a tailored resume.
+
 **Rotating keys.** Add the new key in front of the old one in `DATA_ENCRYPTION_KEY`, run `wj keys rotate`, and only then remove the old key.
 
 **Evaluations.** Run `wj eval all` before changing a prompt or the model routing. The bar is 0 altered numbers, 0 inflated claims and at least 90% of facts recovered; `backend/evals/README.md` explains the suites.

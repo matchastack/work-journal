@@ -60,6 +60,7 @@ markers = [
     "llm: calls the real Claude API; opt in with `pytest -m llm`",
     "latex: compiles with latexmk and pdfLaTeX; skipped where TeX isn't installed, except in CI",
     "reminders: a database test that may send reminders; others' ticks send none",
+    "e2e: end to end in Chromium, against the app and its web app's build; skipped without them, except in CI",
 ]
 
 [dependency-groups]
