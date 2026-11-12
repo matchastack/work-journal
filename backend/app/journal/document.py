@@ -67,6 +67,9 @@ class JournalEntryView(Model):
     """The role in the profile that the owner chose for the entry."""
     new_role: str | None
     """The name of a new role that the owner gave the entry instead."""
+    question: str | None
+    """For an answer in the catch-up interview, the bot's question it answers (FR-REM-4). It's
+    never evidence for the entry's facts."""
     messages: tuple[JournalMessageView, ...]
     facts: tuple[JournalFact, ...]
 
@@ -183,6 +186,7 @@ async def load_journal(session: AsyncSession, user_id: uuid.UUID) -> Journal:
                 triage=entry.triage,
                 role_id=entry.role_id,
                 new_role=entry.new_role,
+                question=entry.question,
                 messages=tuple(messages[entry.id]),
                 facts=tuple(facts[str(entry.id)]),
             )

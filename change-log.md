@@ -41,6 +41,16 @@ One short entry per pull request, newest first: what changed and what to verify.
 - `/pause` pauses reminders, and `/resume` answers "Reminders are back on: Fridays at 18:00 (Asia/Singapore)."
 - On a Friday after 3 days without journaling, the reminder arrives between 18:00 and 19:00; "Remind me tomorrow" brings it back on Saturday evening, and "Nothing this week" is noted
 
+## 2026-10-30 · T-037 Catch-up interview · [#51](https://github.com/matchastack/work-journal/pull/51)
+**Changed:** the bot runs a catch-up interview of up to 10 questions on your first link and on `/catchup`. Each answer becomes an entry of its own and gets its role and facts like any other, from your words alone. Skip moves on, Stop for now or `/done` pauses, and `/catchup` carries on. At the end the bot offers `/refresh`.
+
+**Verify:**
+- CI is green on the PR
+- With your key, `uv run pytest -m llm tests/test_catch_up_live.py` passes
+- After the deploy, "/" in the chat lists `/catchup`, and `/catchup` asks a first question with Skip and Stop for now
+- An answer gets the role question, then the next question follows; after the last question, `/refresh` proposes changes from your answers
+- The Journal page shows each answer with its question above it
+
 ## 2026-10-28 · T-074 Read only what can count · [#62](https://github.com/matchastack/work-journal/pull/62)
 **Changed:** the digest reads only pull requests merged into the default branch, leaves out a pull request reverted from the command line, keeps your own commits in another person's pull request, and handles GitHub's secondary rate limit and empty repositories.
 
