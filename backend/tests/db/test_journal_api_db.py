@@ -255,6 +255,7 @@ def test_the_journal_is_one_document_oldest_first_with_facts_inline(
         "triage": None,
         "roleId": None,
         "newRole": None,
+        "question": None,
         "messages": None,
         "facts": [],
     }
