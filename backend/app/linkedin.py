@@ -21,6 +21,14 @@ as the new snapshot.
 
 **Titles.** A current role whose LinkedIn title differs from the title on the most recent
 application is flagged, so the owner can make them match (FR-LIN-4).
+
+**Confidential terms.** The pack is public, so it must never name one of the owner's
+confidential terms (NFR-PRIV-4). The verifier makes a section that names one fail, so it's
+written once more without it (FR-FID-7); a section carried over that names one, such as a term
+added since, is written again. Every section's text and title are then screened
+(`screen_pack`), and a section that names a term is flagged with the terms: it isn't marked done,
+and mustn't be pasted until they're taken out. A pack already written is screened again when the
+terms change, and when it's marked done.
 """
 
 import hashlib
@@ -38,6 +46,7 @@ from app.schema.variant import Variant
 from app.schema.verification import VerifierReport
 from app.selection import SelectedBullet, SelectedRole, Selection, select
 from app.validate.claims import facts_json
+from app.validate.confidential import find_terms
 from app.validate.lint import allowed_terms
 from app.validate.quantities import extract_metrics
 from app.validate.style import LINKEDIN_LIMITS, LinkedInSection, linkedin_length
@@ -81,6 +90,9 @@ class PackSection(Model):
     whose text the owner already used."""
     notes: tuple[str, ...] = ()
     """Things to check, such as a title that differs from the latest application's."""
+    confidential_terms: tuple[str, ...] = ()
+    """The owner's confidential terms the text or title names (NFR-PRIV-4): the section mustn't
+    be pasted until they're taken out."""
 
     @property
     def limit(self) -> int:
@@ -93,8 +105,18 @@ class PackSection(Model):
 
     @property
     def flagged(self) -> bool:
-        """True when the text failed the verifier: the owner must not use it as it is."""
-        return self.report is not None and not self.report.passed
+        """True when the text failed the verifier or names a confidential term: the owner must
+        not use it as it is."""
+        failed = self.report is not None and not self.report.passed
+        return failed or bool(self.confidential_terms)
+
+    @property
+    def problems(self) -> tuple[str, ...]:
+        """Why the section is flagged for a confidential term, one line for each term."""
+        return tuple(
+            f'Names the confidential term "{term}": take it out before you paste this section.'
+            for term in self.confidential_terms
+        )
 
 
 class LinkedInPack(Model):
@@ -145,13 +167,14 @@ def write_pack(
     preferences: Sequence[str] = (),
     everything: bool = False,
     profile_version: int | None = None,
+    confidential: Sequence[str] = (),
     prompt: Prompt | None = None,
 ) -> LinkedInPack:
     """Write the LinkedIn pack for `profile`.
 
     Sections whose sources match `done`, the last pack marked done, are carried over without a
-    call, unless `everything` is true. `avoid` and `preferences` are the owner's style notes
-    (FR-WRT-4).
+    call, unless `everything` is true or their text names one of the `confidential` terms.
+    `avoid` and `preferences` are the owner's style notes (FR-WRT-4).
     """
     prompt = prompt or load_prompt(PROMPT_NAME, PROMPT_VERSION)
     selection = select(profile, LINKEDIN_VARIANT)
@@ -165,10 +188,13 @@ def write_pack(
         previous = earlier.get(plan.key)
         notes = title_notes.get(plan.role_id, ()) if plan.role_id else ()
         report: VerifierReport | None = None
-        if previous is not None and previous.source == source and not everything:
+        clean = previous is not None and not find_terms(previous.text, confidential)
+        if previous is not None and previous.source == source and clean and not everything:
             text, changed = previous.text, False
         else:
-            report = _write(plan, profile, client, prompt, context, avoid, preferences)
+            report = _write(
+                plan, profile, client, prompt, context, avoid, preferences, confidential
+            )
             text, changed = report.text, previous is None or previous.text != report.text
         section = PackSection(
             key=plan.key,
@@ -184,11 +210,28 @@ def write_pack(
         )
         sections.append(section)
     keys = {plan.key for plan in plans}
-    return LinkedInPack(
+    pack = LinkedInPack(
         sections=tuple(sections),
         removed=tuple(section.label for section in earlier.values() if section.key not in keys),
         profile_version=profile_version,
     )
+    return screen_pack(pack, confidential)
+
+
+def screen_pack(pack: LinkedInPack, terms: Sequence[str]) -> LinkedInPack:
+    """`pack` with each section's confidential terms found again, in its text and its title,
+    as `terms` are now (NFR-PRIV-4)."""
+    sections = tuple(
+        section.model_copy(
+            update={
+                "confidential_terms": find_terms(
+                    "\n".join([section.text, section.title or ""]), terms
+                )
+            }
+        )
+        for section in pack.sections
+    )
+    return pack.model_copy(update={"sections": sections})
 
 
 def mark_done(
@@ -341,6 +384,7 @@ def _write(
     context: str,
     avoid: Sequence[str],
     preferences: Sequence[str],
+    confidential: Sequence[str],
 ) -> VerifierReport:
     verifier = Verifier(
         client=client,
@@ -349,6 +393,7 @@ def _write(
         kind=_KINDS[plan.kind],
         entry_id=plan.role_id,
         avoid=avoid,
+        confidential=confidential,
     )
     attempts: list[str] = []
 

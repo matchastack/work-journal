@@ -48,6 +48,21 @@ def database_url() -> Iterator[str]:
     asyncio.run(_execute(admin, f'DROP DATABASE "{name}" WITH (FORCE)'))
 
 
+@pytest.fixture(autouse=True)
+def no_reminders_from_ticks(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A tick runs the reminder job too, on the real clock, so a test that runs one would send a
+    linked owner the default reminder on Friday evenings in Singapore (FR-REM-1) and fail then.
+    Only tests marked `reminders` are reminded."""
+    if request.node.get_closest_marker("reminders") is None:
+        monkeypatch.setattr("app.jobs.reminder_due", _no_reminder)
+
+
+async def _no_reminder(*args: object, **kwargs: object) -> None:
+    return None
+
+
 @pytest.fixture(scope="session")
 def alembic(database_url: str) -> Config:
     """Alembic, set up to migrate the test database."""

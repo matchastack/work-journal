@@ -550,6 +550,234 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Settings Page
+         * @description Every preference: the Telegram link, the reminders, the portfolio page, the style notes
+         *     and the confidential terms.
+         */
+        get: operations["settings_page_api_settings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change Reminder Settings
+         * @description Replace the reminder schedule (FR-SET-2), and the pause unless `paused` is null. A day,
+         *     time or time zone left null follows the app's default.
+         */
+        put: operations["change_reminder_settings_api_settings_reminders_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/portfolio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change Portfolio
+         * @description Replace the portfolio page's settings (FR-SET-3). A handle another user has is refused
+         *     (409).
+         */
+        put: operations["change_portfolio_api_settings_portfolio_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/style-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change Style Notes
+         * @description Replace the words to avoid and the style notes (FR-SET-4). A note kept from before keeps
+         *     where it came from.
+         */
+        put: operations["change_style_notes_api_settings_style_notes_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/confidential-terms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change Confidential Terms
+         * @description Replace the confidential terms (FR-SET-5). They take effect at once: the portfolio page
+         *     and its resumes are checked each time they're shown, and the LinkedIn pack last written is
+         *     screened again now, so a section that names a term is flagged (NFR-PRIV-4).
+         */
+        put: operations["change_confidential_terms_api_settings_confidential_terms_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/export.json": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export All
+         * @description Everything stored for the owner, as a JSON file (FR-SET-6, NFR-PRIV-3).
+         */
+        get: operations["export_all_api_settings_export_json_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Data
+         * @description Delete the owner's account and everything stored for them, and sign them out everywhere
+         *     (FR-SET-6, NFR-PRIV-3). `confirm` must be their GitHub username (422 otherwise).
+         */
+        delete: operations["delete_data_api_settings_data_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/portfolio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Portfolio
+         * @description Whether the page is published, the version it shows, its settings and its resumes.
+         */
+        get: operations["portfolio_api_portfolio_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/portfolio/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish Page
+         * @description Publish the page, at once (FR-PRT-3). Refused (409) without a handle or a profile.
+         */
+        post: operations["publish_page_api_portfolio_publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/portfolio/unpublish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unpublish Page
+         * @description Take the page down. Caches may show it for up to about two minutes more.
+         */
+        post: operations["unpublish_page_api_portfolio_unpublish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/portfolio/resumes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change Resumes
+         * @description Replace the resumes visitors may download (FR-PRT-7). One that can't be offered, such as
+         *     a tailored resume with an error, is refused (409).
+         */
+        put: operations["change_resumes_api_portfolio_resumes_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -740,6 +968,28 @@ export interface components {
             after: number;
         };
         /**
+         * ChosenResume
+         * @description A resume the owner chose to offer.
+         */
+        ChosenResume: {
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "master" | "application";
+            /** Applicationid */
+            applicationId?: string | null;
+            /** Label */
+            label: string;
+            /** Available */
+            available: boolean;
+            /**
+             * Confidentialterms
+             * @default []
+             */
+            confidentialTerms: string[];
+        };
+        /**
          * Citation
          * @description A bullet in the latest profile version that cites a fact.
          */
@@ -772,6 +1022,21 @@ export interface components {
             factIds: string[];
         };
         /**
+         * ConfidentialTerms
+         * @description Words and names that must never appear in public outputs: the portfolio page, published
+         *     PDFs and the LinkedIn pack (FR-SET-5, NFR-PRIV-4), under `confidential_terms`.
+         *
+         *     They're matched as whole words or phrases, in any case (`app/validate/confidential.py`), and
+         *     each public output is screened for them as they are when it's shown or marked done (T-049).
+         */
+        ConfidentialTerms: {
+            /**
+             * Terms
+             * @default []
+             */
+            terms: string[];
+        };
+        /**
          * CourseworkSubset
          * @description The courses to list for one role type.
          */
@@ -780,6 +1045,11 @@ export interface components {
             roleType: string;
             /** Courses */
             courses: string[];
+        };
+        /** DataDeletion */
+        DataDeletion: {
+            /** Confirm */
+            confirm: string;
         };
         /** Decision */
         Decision: {
@@ -1191,7 +1461,7 @@ export interface components {
              * Rule
              * @enum {string}
              */
-            rule: "dates" | "spelling" | "duplicates" | "R1" | "R2" | "R3" | "R4" | "R9" | "R10";
+            rule: "dates" | "spelling" | "duplicates" | "confidential" | "R1" | "R2" | "R3" | "R4" | "R5" | "R9" | "R10";
             /**
              * Severity
              * @enum {string}
@@ -1297,6 +1567,60 @@ export interface components {
              * @default []
              */
             answerFactIds: string[];
+        };
+        /**
+         * PortfolioSettings
+         * @description The public portfolio page's settings (FR-SET-3, FR-PRT-4, FR-PRT-5), under `portfolio`.
+         *
+         *     The page (`app/portfolio/`) reads them each time it's shown, so a change shows at once.
+         */
+        PortfolioSettings: {
+            /** Handle */
+            handle?: string | null;
+            /**
+             * Defaultvisibility
+             * @default public
+             * @enum {string}
+             */
+            defaultVisibility: "public" | "resume_only" | "private";
+            /**
+             * Opentowork
+             * @default false
+             */
+            openToWork: boolean;
+            /**
+             * Indexing
+             * @default true
+             */
+            indexing: boolean;
+        };
+        /**
+         * PortfolioView
+         * @description What the Portfolio page shows.
+         */
+        PortfolioView: {
+            /** Handle */
+            handle: string | null;
+            /** Path */
+            path: string | null;
+            /** Published */
+            published: boolean;
+            /** Publishedat */
+            publishedAt: string | null;
+            /** Version */
+            version: number | null;
+            /** Newestversion */
+            newestVersion: number | null;
+            settings: components["schemas"]["PortfolioSettings"];
+            /** Resumes */
+            resumes: components["schemas"]["ChosenResume"][];
+            /** Options */
+            options: components["schemas"]["ResumeOption"][];
+            /**
+             * Confidential
+             * @default []
+             */
+            confidential: components["schemas"]["TermMatch"][];
         };
         /**
          * Profile
@@ -1454,6 +1778,22 @@ export interface components {
             name: string;
         };
         /**
+         * PublishedResume
+         * @description A resume visitors may download from the portfolio page (FR-PRT-7): the master resume or a
+         *     tailored one, with the text of its button.
+         */
+        PublishedResume: {
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "master" | "application";
+            /** Applicationid */
+            applicationId?: string | null;
+            /** Label */
+            label: string;
+        };
+        /**
          * RangeValue
          * @description A range, e.g. `2-3` (hours a week).
          */
@@ -1467,6 +1807,48 @@ export interface components {
             low: number;
             /** High */
             high: number;
+        };
+        /**
+         * ReminderChange
+         * @description The reminder schedule the Settings page saves (FR-SET-2). A day, time or time zone left
+         *     null follows the app's default.
+         */
+        ReminderChange: {
+            /** Days */
+            days?: ("mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun")[] | null;
+            /** Time */
+            time?: string | null;
+            /** Timezone */
+            timeZone?: string | null;
+            /** Paused */
+            paused?: boolean | null;
+        };
+        /**
+         * ReminderSchedule
+         * @description When reminders go out: on `days`, at `time` (`HH:MM`) in `time_zone`.
+         */
+        ReminderSchedule: {
+            /** Days */
+            days: ("mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun")[];
+            /** Time */
+            time: string;
+            /** Timezone */
+            timeZone: string;
+        };
+        /**
+         * ReminderView
+         * @description The owner's reminders (FR-SET-2): the schedule they follow, which is the app's default
+         *     for what they haven't chosen, and whether they're paused.
+         */
+        ReminderView: {
+            schedule: components["schemas"]["ReminderSchedule"];
+            default: components["schemas"]["ReminderSchedule"];
+            /** Chosen */
+            chosen: boolean;
+            /** Paused */
+            paused: boolean;
+            /** Summary */
+            summary: string;
         };
         /**
          * RepoItem
@@ -1504,6 +1886,36 @@ export interface components {
         Restore: {
             /** Baseversion */
             baseVersion: number;
+        };
+        /**
+         * ResumeOption
+         * @description A resume the owner may offer on the page.
+         */
+        ResumeOption: {
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "master" | "application";
+            /** Applicationid */
+            applicationId?: string | null;
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+            /**
+             * Confidentialterms
+             * @default []
+             */
+            confidentialTerms: string[];
+        };
+        /**
+         * ResumesChange
+         * @description The resumes the page offers, in order (FR-PRT-7).
+         */
+        ResumesChange: {
+            /** Resumes */
+            resumes: components["schemas"]["PublishedResume"][];
         };
         /**
          * Role
@@ -1615,6 +2027,17 @@ export interface components {
             name: string;
         };
         /**
+         * SettingsView
+         * @description Everything the Settings page shows.
+         */
+        SettingsView: {
+            telegram: components["schemas"]["TelegramView"];
+            reminders: components["schemas"]["ReminderView"];
+            portfolio: components["schemas"]["PortfolioSettings"];
+            styleNotes: components["schemas"]["StyleNotes"];
+            confidentialTerms: components["schemas"]["ConfidentialTerms"];
+        };
+        /**
          * SingleValue
          * @description One number, e.g. `93` (% accuracy).
          */
@@ -1709,6 +2132,59 @@ export interface components {
             strength: "high" | "medium" | "low";
         };
         /**
+         * StyleNote
+         * @description A preference about wording. A reason the owner gave for rejecting a proposed change
+         *     becomes one (FR-REV-4).
+         */
+        StyleNote: {
+            /** Text */
+            text: string;
+            /**
+             * Source
+             * @default owner
+             * @enum {string}
+             */
+            source: "owner" | "rejection";
+            /**
+             * Addedat
+             * Format: date-time
+             */
+            addedAt: string;
+        };
+        /**
+         * StyleNotes
+         * @description The owner's style notes, which apply to every writing style (FR-WRT-4, FR-SET-4).
+         */
+        StyleNotes: {
+            /**
+             * Avoid
+             * @default []
+             */
+            avoid: string[];
+            /**
+             * Notes
+             * @default []
+             */
+            notes: components["schemas"]["StyleNote"][];
+        };
+        /**
+         * StyleNotesChange
+         * @description The owner's style notes as the page saves them (FR-SET-4): every word to avoid and every
+         *     note, each once whatever its case.
+         */
+        StyleNotesChange: {
+            /**
+             * Avoid
+             * @default []
+             */
+            avoid: string[];
+            /**
+             * Notes
+             * @default []
+             */
+            notes: string[];
+        };
+        /**
          * Summary
          * @description A summary paragraph for one role type. Off by default.
          */
@@ -1755,6 +2231,26 @@ export interface components {
             linked: boolean;
             /** Linkedat */
             linkedAt: string | null;
+        };
+        /**
+         * TelegramView
+         * @description Whether the owner's Telegram chat is linked, and since when (FR-SET-1).
+         */
+        TelegramView: {
+            /** Linked */
+            linked: boolean;
+            /** Linkedat */
+            linkedAt: string | null;
+        };
+        /**
+         * TermMatch
+         * @description A confidential term found in an output.
+         */
+        TermMatch: {
+            /** Term */
+            term: string;
+            /** Where */
+            where: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -2689,6 +3185,302 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    settings_page_api_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsView"];
+                };
+            };
+        };
+    };
+    change_reminder_settings_api_settings_reminders_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReminderChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReminderView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_portfolio_api_settings_portfolio_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PortfolioSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortfolioSettings"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_style_notes_api_settings_style_notes_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StyleNotesChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StyleNotes"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_confidential_terms_api_settings_confidential_terms_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfidentialTerms"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfidentialTerms"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_all_api_settings_export_json_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    delete_data_api_settings_data_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DataDeletion"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    portfolio_api_portfolio_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortfolioView"];
+                };
+            };
+        };
+    };
+    publish_page_api_portfolio_publish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortfolioView"];
+                };
+            };
+        };
+    };
+    unpublish_page_api_portfolio_unpublish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortfolioView"];
+                };
+            };
+        };
+    };
+    change_resumes_api_portfolio_resumes_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResumesChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortfolioView"];
                 };
             };
             /** @description Validation Error */

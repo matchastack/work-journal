@@ -29,7 +29,9 @@ Every generated sentence is checked against your facts, so wording never changes
 | Fix a note or a saved fact | The web app, Journal page |
 | Fix your profile by hand, or go back to an earlier version | The web app, Profile page |
 | Update your profile from new notes | `/refresh` in Telegram, then the web app's Inbox |
-| Render the master resume, tailor a resume, build the portfolio page, write LinkedIn text | The command-line tool (web pages **Coming**) |
+| Link Telegram, change reminders, style notes and other preferences, or export or delete your data | The web app, Settings page |
+| Publish your portfolio page, and choose the resumes it offers | The web app, Portfolio page |
+| Render the master resume, tailor a resume, write LinkedIn text | The command-line tool (web pages **Coming**) |
 | See what a GitHub repository's history would give one of your projects, and the facts in it | `wj github digest`, then `wj github extract` (saving the facts for `/refresh` is **Coming**: T-069 to T-072) |
 
 ## Set up on your computer
@@ -60,6 +62,7 @@ Open `http://localhost:8000/healthz` to check it is up, or `http://localhost:800
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` | The bot's token from @BotFather, and a random secret for the webhook |
 | `ANTHROPIC_API_KEY`, `LLM_MODEL_HEAVY`, `LLM_MODEL_STANDARD`, `LLM_MODEL_LIGHT` | Claude. Any command that writes or reads text with the model needs these |
 | `ENTRY_TIMEOUT_MINUTES` | Minutes of quiet that close a journal entry (default 30) |
+| `REMINDER_DAYS`, `REMINDER_TIME`, `REMINDER_TIME_ZONE` | When the bot reminds you to journal: days such as `fri` or `mon,thu`, a local time and an IANA time zone (default Fridays at 18:00, Asia/Singapore) |
 
 ### Local database
 
@@ -101,13 +104,13 @@ uv run wj db load-profile --user <github-login>    # loads them into the databas
 
 ### Link your chat
 
-The bot journals only for a chat linked to your account. From `backend/`:
+The bot journals only for a chat linked to your account. In the web app, open [Settings](#settings) and press **Link Telegram**: scan the QR code with your phone's camera, or press **Open in Telegram**, then press **Start** in Telegram. Or, from `backend/`:
 
 ```sh
 uv run wj telegram link --user <github-login>
 ```
 
-It prints a one-time link, good for 15 minutes. Open it in Telegram; the bot answers "Linked." A message from any other chat gets a note on how to link. The first time you link a chat, the bot starts the catch-up interview (below).
+It prints the same kind of link. A link works once, for 15 minutes; the bot answers "Linked." Linking another chat moves the link there. A message from any other chat gets a note on how to link. The first time you link a chat, the bot starts the catch-up interview (below).
 
 ### Connect the bot
 
@@ -128,6 +131,16 @@ When an entry closes, the bot may then:
 2. **Ask which role the entry is about.** Tap a role, or **New role** and send its title and organisation as your next message.
 3. **Reply with the facts it saved.** The reply links to the entry in the web app's Journal page.
 
+### Reminders
+
+The bot reminds you to journal on your schedule: by default on Fridays at 18:00, Asia/Singapore. Choose your own days, time and time zone on the [Settings](#settings) page. Until you do, you get the app's default, which `REMINDER_DAYS`, `REMINDER_TIME` and `REMINDER_TIME_ZONE` change. There's no reminder if you journaled in the last 3 days.
+
+- **Nothing this week** notes that there was nothing to journal and skips the rest of the week's reminders.
+- **Remind me tomorrow** brings the reminder back the next day at the same time.
+- `/pause` stops reminders and `/resume` restarts them; `/resume` says when they go out. **Pause reminders** on the Settings page does the same.
+
+On the hosted app, the reminder goes out with the daily tick, which runs at 18:00 Singapore time, so it arrives between 18:00 and 19:00. A reminder that can't go out within 4 hours of its time, the same day, is skipped. For another reminder time, move the tick's hour too (`docs/deploy.md`, step 5). With `uv run wj worker` running, reminders go out on the minute.
+
 ### Catch-up interview
 
 To capture the months since your resume was last updated, the bot interviews you: once when you first link your chat, and whenever you send `/catchup`. It asks up to 10 questions, one at a time, about new roles, projects, results and skills.
@@ -146,11 +159,13 @@ After the last question, send `/refresh` to turn your answers into proposed chan
 | `/skip` | Skip the bot's question: the follow-up question about the last entry, or the interview's |
 | `/refresh` | Propose profile changes from your new facts. The bot says how many it proposes with a link to the Inbox, or that there is nothing new. While a refresh runs, `/refresh` says so. If proposals are still waiting, decide on them before sending it again |
 | `/catchup` | Start the catch-up interview, or carry on where it paused |
+| `/pause` | Stop reminders |
+| `/resume` | Restart reminders, and say when they go out |
 | `/help` | List the commands |
 
 Commands are never journaled. Message text is stored encrypted and is never logged.
 
-**Coming:** reminders to journal (T-035) and prompts for open questions (T-036).
+**Coming:** prompts for open questions (T-036).
 
 ## The web app
 
@@ -163,9 +178,9 @@ Open `http://localhost:5173` while developing, or your deployed address. Sign in
 | [Profile](#profile) | Built (more Coming in T-043) | Your basics, roles, education, projects and bullets, with every earlier version |
 | Resumes | Coming (T-044) | Preview and download resume variants |
 | Tailor | Coming (T-045) | Tailor a resume to a job posting, and see where you applied |
-| Portfolio | Coming (T-046) | Choose what the public page shows, and publish it |
+| [Portfolio](#portfolio) | Built | Preview your public page, choose its resumes, and publish it |
 | LinkedIn | Coming (T-047) | Copy the updated sections into LinkedIn |
-| Settings | Coming (T-048) | Telegram, reminders and style notes |
+| [Settings](#settings) | Built | Telegram, reminders, the portfolio page, style notes, confidential terms and your data |
 
 A page that is not built yet says which task will add it. Until then, use the command-line equivalents in the next chapter.
 
@@ -181,6 +196,11 @@ For each change you see the text before and after (removed words struck through,
 - **Undo** a decision, until you apply the set.
 
 A change the verifier flagged needs your decision; it is never accepted for you. A change that depends on another, such as a bullet under a new role, is rejected along with it and waits until that rejection is undone.
+
+Each bullet is also checked for what it must leave out, with your [confidential terms](#settings) as they are each time the Inbox opens:
+
+- **A role marked sensitive** is described by its architecture and outcomes only. A bullet about one (under it, or written from its facts) that names a confidential term, or has something that looks like operational detail, such as an IP address, a host or server name (`prod-db-01`), a port, a file path, a ticket or incident number (`PAY-1234`), a credential or a time of day, is flagged with an **R5** error that names what matched.
+- **Any other bullet** that names a confidential term gets a warning: you can accept it, but a portfolio page or resume that shows it is then held back until you take it out.
 
 **Accept all that passed** accepts every waiting change the verifier passed. Once every change is decided, **Apply** makes a new version of your profile from the accepted ones. After each decision, focus moves to the next waiting change, so you can work through the list from the keyboard.
 
@@ -221,6 +241,29 @@ If the profile changed after the page loaded (an Inbox apply in another tab, say
 **Resume rules** lists the resume rules' findings, as `wj lint` reports them, and each card shows its own. They don't stop a save, but fix the errors before you send a resume.
 
 **History** lists every version, newest first: when it was saved, whether you saved it or it came from your journal, and what it did. **Show changes** lists what it changed against the version before, with reworded text a word at a time. **Restore version N** asks first, then saves a copy of that version as a new version; the versions in between stay. Restoring can drop bullets, and the outputs change at your next `/refresh`.
+
+### Portfolio
+
+Your public page, at `/p/<handle>` on the app's address. Nobody sees it until you publish it.
+
+- **First, a handle.** Choose the page's handle in [Settings](#settings). There's no default: until you choose one, the page says so and **Publish** is off.
+- **Preview.** The page as visitors will see it, in a frame. The frame runs no scripts, so the menu and the project tabs work only in **Open the preview in a new tab**.
+- **Publish** puts the page up at once, at the address shown, and **Unpublish** takes it down. Browsers and caches can show the page as it was for up to two minutes after a change, including after you unpublish it.
+- **Which version.** The page shows the profile version from your latest refresh: changes you apply in the Inbox reach it as soon as you apply them, and anything newer waits for your next `/refresh`, which the page says. Before your first refresh, publishing shows your newest version.
+- **What shows.** Only what's public. Your phone number (Resume only unless you change it), anything marked Resume only or Private, and benched and planned items never show; nor do notes, swaps, open questions or what a role must never claim. Your website and online profiles follow the default visibility in Settings. With open to work on, the page shows an "Open to work" badge; with indexing off, it asks search engines not to index it. Settings changes show on the page at once.
+- **Resume downloads.** Tick the resumes visitors may download, give each button its text, and **Save resume downloads**. You can offer the master resume your latest refresh rendered (it changes with each refresh) and tailored resumes that passed their checks. A resume shows what you marked Resume only, such as your phone number, so check it before you offer it. Visitors see the button text, not the company a tailored resume was for.
+- **Confidential terms.** The page and its resumes never show one of your [confidential terms](#settings), checked each time they're asked for. If the page names one (in what it shows or in its handle), **Publish** is off, and the Publishing section shows an error naming each term and where it is, such as `Experience: Software Engineer`. If a published page comes to name one, for example after you add a term or a refresh brings a new version, visitors get "Page not found" (within about two minutes, as caches catch up) until it's gone; the preview still shows the page, so you can find it. To fix it, take the term out of your profile, or make that text Resume only or Private, and refresh; or remove the term in Settings if it may be public. A resume whose PDF or button text names a term can't be ticked, and one you chose before stays chosen but isn't offered or downloadable; each says which term.
+
+### Settings
+
+Your preferences, one section each. Each section has its own **Save** button and says "Saved." when it is.
+
+- **Telegram:** whether your chat is linked, and since when. **Link Telegram** (or **Relink**) shows a one-time link to the bot as a QR code and an **Open in Telegram** button, good for 15 minutes. Once you press **Start** in Telegram, the page says your chat is linked. See [Link your chat](#link-your-chat).
+- **Reminders:** the days, the time and the time zone (an IANA name such as `Asia/Singapore`; **Use this device's** fills in your browser's), and **Pause reminders**. The section shows the schedule now in force. After you choose your own, **Use the default schedule** goes back to the app's default. On the hosted app, reminders go out with the daily tick at 18:00 Singapore time, so for another time move the tick's hour too ([Reminders](#reminders)).
+- **Portfolio page:** the handle in your page's address, `/p/<handle>` (2 to 40 lowercase letters, digits and single hyphens; it's saved in lowercase, and one another account has is refused), the default visibility (Public, Resume only or Private) for what you haven't given a visibility of its own (your website and online profiles; only Public shows on the page), **Show that I'm open to work**, and **Let search engines index the page**. They take effect on the page at once. Publish it from the [Portfolio](#portfolio) page.
+- **Style notes:** words to avoid and notes about your style, one per line. The style check flags the words to avoid in everything written for you; the LinkedIn text follows the notes for now. The reasons you give for rejecting a change in the Inbox are added to the notes.
+- **Confidential terms:** names and words that must never appear on your portfolio page, in its resume downloads or in LinkedIn text, one per line, such as a client's or an internal project's name. Each matches as a whole word or phrase, in any case: `Atlas` matches `ATLAS` and `Atlas's` but not `Atlassian`, and `Project Falcon` matches across a line break or a hyphen. Saving them takes effect at once on the [Portfolio](#portfolio) page and the LinkedIn text, and in the [Inbox](#inbox).
+- **Your data:** **Download all my data** saves one JSON file with everything stored for you: your journal (readable, not encrypted), facts, profile versions, proposed changes, applications, resume PDFs, settings and the bot's recent raw messages from your chat. Sign-in sessions and link tokens are left out. **Delete all my data** asks you to type your GitHub username, then deletes your account and everything stored for it, and signs you out everywhere. It can't be undone, so download your data first. Your messages stay in your Telegram chat, and files on your computer, such as `local/`, are not touched. If you sign in again, you start with an empty journal.
 
 ## The command-line tool
 
@@ -269,7 +312,7 @@ It picks the most relevant content from your profile, words it in the posting's 
 uv run wj portfolio build --out /tmp/site
 ```
 
-Writes the static page from the profile's public content to the folder. Offer a resume on it with `--resume "Label=path/to/resume.pdf"` (repeat for more), and set `--site-url` for link previews. After you edit its template, run `backend/scripts/build-portfolio-css.sh`.
+Writes the static page from the profile's public content to the folder, for hosting elsewhere; the app serves the same page itself once you publish it ([Portfolio](#portfolio)). Offer a resume on it with `--resume "Label=path/to/resume.pdf"` (repeat for more), and set `--site-url` for link previews. After you edit its template, run `backend/scripts/build-portfolio-css.sh`.
 
 ### LinkedIn text
 
@@ -280,6 +323,8 @@ uv run wj linkedin done --db     # mark the pack done, once you have pasted it i
 ```
 
 Paste the text into LinkedIn yourself; Work Journal never posts there.
+
+With `--db`, a section that names one of your confidential terms is written once more without it. One that still names it is printed with `Error: Names the confidential term "..."`, the command exits with status 1, and `wj linkedin done --db` leaves it out, naming it, so don't paste it. Adding a term later flags the sections already written that name it.
 
 ### Projects from GitHub
 
@@ -341,7 +386,7 @@ Every sentence written passes the verifier before it is stored or printed.
 | Task | Command |
 |---|---|
 | Run the background worker (queued jobs and scheduled tasks) until Ctrl-C | `uv run wj worker` |
-| Run one tick of background work, as the hosted app's daily cron does | `uv run wj tick` |
+| Run one tick of background work, as the hosted app's daily cron does (at 18:00 Singapore time) | `uv run wj tick` |
 | Apply database migrations | `uv run alembic upgrade head` |
 | Make a new encryption key | `uv run wj keys new` |
 | Re-encrypt stored text with the first key in `DATA_ENCRYPTION_KEY` | `uv run wj keys rotate` |
@@ -361,7 +406,7 @@ Every sentence written passes the verifier before it is stored or printed.
 | A command says `relation "..." does not exist` | The database is missing tables: `uv run alembic upgrade head` |
 | GitHub sends you back to the wrong address after signing in | `APP_URL` and the GitHub OAuth app's callback URL must match: `<APP_URL>/auth/callback` |
 | Sign-in is refused | Your GitHub username (in lowercase) must be in `ALLOWED_GITHUB_LOGINS` |
-| The bot ignores your messages | The chat isn't linked: `uv run wj telegram link --user <github-login>`. If you used `wj telegram poll`, run `wj telegram set-webhook` to go back to the webhook |
+| The bot ignores your messages | The chat isn't linked: link it from the Settings page, or with `uv run wj telegram link --user <github-login>`. If you used `wj telegram poll`, run `wj telegram set-webhook` to go back to the webhook |
 | Tapping a role under the bot's question does nothing | Run `wj telegram set-webhook` again so Telegram sends button presses |
 | A model command says a tier has no model | Set `ANTHROPIC_API_KEY` and the `LLM_MODEL_*` variable for that tier |
 | `wj render` or `wj tailor` can't find LaTeX | Install TeX Live (`backend/templates/README.md`) |
