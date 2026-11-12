@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from app.portfolio.build import (
+    Assets,
     Download,
     build_portfolio,
     date_range,
@@ -14,6 +15,7 @@ from app.portfolio.build import (
     render_page,
     safe_url,
 )
+from app.schema.common import Visibility
 from app.schema.profile import Bullet, Profile, Project, SocialProfile
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -62,6 +64,47 @@ def test_only_public_active_content_shows() -> None:
     assert "555 0100" not in html  # the phone is for resumes only
     assert "issue tracker" not in html  # a benched bullet
     assert "Bird Call Classifier" not in html  # a planned project
+
+
+def test_open_to_work_shows_on_the_page() -> None:
+    assert "Open to work" not in html_for()
+    html = render_page(portfolio_page(PROFILE, year=2026, open_to_work=True))
+    assert ">Open to work</span>" in html
+
+
+def test_without_indexing_the_page_asks_search_engines_not_to_index_it() -> None:
+    assert 'name="robots"' not in html_for()
+    html = render_page(portfolio_page(PROFILE, year=2026, indexing=False))
+    assert '<meta name="robots" content="noindex">' in html
+
+
+@pytest.mark.parametrize("default", ["resume_only", "private"])
+def test_the_default_visibility_covers_the_contact_details_without_their_own(
+    default: Visibility,
+) -> None:
+    html = render_page(portfolio_page(PROFILE, year=2026, default_visibility=default))
+    assert 'href="https://example.com"' not in html  # the website
+    assert 'href="https://github.com/casey-example"' not in html  # an online profile
+    assert "sameAs" not in json_ld(html)
+    assert "casey@example.com" in html  # the email has a visibility of its own: public
+    public = html_for()
+    assert 'href="https://example.com"' in public
+    assert 'href="https://github.com/casey-example"' in public
+
+
+def test_hidden_contact_details_stay_hidden_whatever_the_default() -> None:
+    profile = with_basics(email_visibility="resume_only", location_visibility="private")
+    html = render_page(portfolio_page(profile, year=2026, default_visibility="public"))
+    assert "casey@example.com" not in html and "Springfield, US" not in html
+    assert "Springfield, US" in html_for()
+    assert "555 0100" not in html
+
+
+def test_the_page_loads_its_assets_from_where_it_is_told() -> None:
+    assets = Assets(stylesheet="/p/_assets/portfolio.css?v=1", script="/p/_assets/portfolio.js?v=1")
+    html = render_page(portfolio_page(PROFILE, year=2026, assets=assets))
+    assert '<link rel="stylesheet" href="/p/_assets/portfolio.css?v=1">' in html
+    assert '<script src="/p/_assets/portfolio.js?v=1" defer></script>' in html
 
 
 def test_link_previews_and_search_engine_data() -> None:

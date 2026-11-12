@@ -58,6 +58,7 @@ addopts = "--import-mode=importlib -m 'not llm'"
 markers = [
     "llm: calls the real Claude API; opt in with `pytest -m llm`",
     "latex: compiles with latexmk and pdfLaTeX; skipped where TeX isn't installed, except in CI",
+    "reminders: a database test that may send reminders; others' ticks send none",
 ]
 
 [dependency-groups]

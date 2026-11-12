@@ -11,6 +11,45 @@ One short entry per pull request, newest first: what changed and what to verify.
 - Mark done stays off until every section that passed is ticked; after it, the page lists only flagged sections, and with none flagged, `uv run wj linkedin --db` says nothing changed
 - With the page open, running `wj linkedin --db` after a profile change and then pressing Mark done says the pack was written again, and marks nothing
 
+## 2026-11-03 · T-049 Confidential terms and sensitive roles · [#76](https://github.com/matchastack/work-journal/pull/76)
+**Changed:** your confidential terms now keep the portfolio page, its resume downloads and LinkedIn sections that name one off the public, each shown as an error naming the term, and text written about a role marked sensitive is flagged in the Inbox when it names a term or has operational detail.
+
+**Verify:**
+- CI is green on the PR
+- Adding a word your published page shows as a confidential term in Settings makes `<app>/p/<handle>` show "Page not found" within about two minutes, and the Portfolio page names the term and where; removing it brings the page back
+- **Publish** stays off while the page names a term, and a resume whose PDF names one can't be ticked
+- After `wj linkedin --db`, adding a term a section uses makes `wj linkedin done --db` leave that section out, naming it
+- In the Inbox, a proposed bullet under a sensitive role with a host name or ticket number, such as `prod-db-01` or `PAY-1234`, is flagged with an R5 error
+
+## 2026-10-31 · T-046 Public portfolio page and publishing · [#71](https://github.com/matchastack/work-journal/pull/71)
+**Changed:** the web app's Portfolio page previews your public page, chooses the resumes visitors can download, and publishes or unpublishes it; once published, `/p/<handle>` shows the profile version from your latest refresh, with your open-to-work, indexing and visibility settings.
+
+**Verify:**
+- CI is green on the PR
+- With a handle chosen in Settings, **Publish** makes `<app>/p/<handle>` show your page in a private window, and a handle nobody has shows "Page not found"
+- With open to work on and indexing off, the page shows the badge and its source has `<meta name="robots" content="noindex">`
+- A resume you chose downloads from the page, and **Unpublish** makes the page show "Page not found" within about two minutes
+- After a `/refresh` whose changes you apply in the Inbox, the page shows the new version
+
+## 2026-10-30 · T-048 Settings page · [#70](https://github.com/matchastack/work-journal/pull/70)
+**Changed:** the web app's Settings page links Telegram with a deep link and a QR code, and edits the reminder schedule, time zone and pause, the portfolio page's settings, the style notes and the confidential terms; it also downloads all your data as JSON and deletes all of it once you type your GitHub username.
+
+**Verify:**
+- CI is green on the PR
+- On Settings, **Link Telegram** shows a QR code; scanning it and pressing Start links the chat, and the page then says it's linked
+- Changing the reminder time and saving makes `/resume` (after `/pause`) name the new time
+- **Download all my data** saves a JSON file with your journal text readable in it
+- Try **Delete all my data** only on a test account: it asks for the username, then signs you out, and signing in again starts with an empty journal
+
+## 2026-10-30 · T-035 Reminders · [#52](https://github.com/matchastack/work-journal/pull/52)
+**Changed:** The bot sends a gentle reminder on your schedule (Fridays at 18:00, Asia/Singapore, by default), skipped if you journaled in the last 3 days, with "Nothing this week" and "Remind me tomorrow" buttons. `/pause` and `/resume` stop and restart it, and Vercel's daily tick now runs at 18:00 Singapore time to send it.
+
+**Verify:**
+- CI is green on the PR
+- After the deploy, run `scripts/post-deploy.sh`; typing "/" in the chat lists /pause and /resume, and Vercel shows the tick's cron at 10:00 UTC
+- `/pause` pauses reminders, and `/resume` answers "Reminders are back on: Fridays at 18:00 (Asia/Singapore)."
+- On a Friday after 3 days without journaling, the reminder arrives between 18:00 and 19:00; "Remind me tomorrow" brings it back on Saturday evening, and "Nothing this week" is noted
+
 ## 2026-10-30 · T-037 Catch-up interview · [#51](https://github.com/matchastack/work-journal/pull/51)
 **Changed:** the bot runs a catch-up interview of up to 10 questions on your first link and on `/catchup`. Each answer becomes an entry of its own and gets its role and facts like any other, from your words alone. Skip moves on, Stop for now or `/done` pauses, and `/catchup` carries on. At the end the bot offers `/refresh`.
 

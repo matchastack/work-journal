@@ -445,3 +445,21 @@ def test_new_facts_are_journal_facts_nothing_cites_yet() -> None:
         }
     )
     assert "e2_1" not in [fact.id for fact in new_facts(answered, [VOLUME])]
+
+
+def test_a_bullet_for_a_sensitive_role_is_checked_for_confidential_terms() -> None:
+    """R5: Northwind is marked sensitive, so its bullets must never name a confidential term."""
+    bullet = PlannedBullet(under="northwind", fact_ids=("e1_1",))
+    named = "Added an alert that pages Falcon on-call when the nightly export job fails."
+    synthesis, fake = run(
+        plan(bullets=[bullet]),
+        written(named),
+        SUPPORTED,
+        written(ALERT_TEXT),
+        SUPPORTED,
+        confidential=("Falcon",),
+    )
+    [reviewed] = proposed(synthesis).ops
+    assert isinstance(reviewed.op, AddBullet)
+    assert reviewed.op.bullet.text == ALERT_TEXT, "written again without the term"
+    assert 'the confidential term "Falcon"' in message(fake, 3)
