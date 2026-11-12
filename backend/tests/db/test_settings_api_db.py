@@ -36,6 +36,7 @@ from app.db.models import (
     JournalMessageEdit,
     LlmCallRow,
     Refresh,
+    RenderRow,
     TelegramLink,
     TelegramUpdate,
     User,
@@ -624,6 +625,9 @@ def fill_every_table(database_url: str, owner: Owner) -> Filled:
         sha = hashlib.sha256(PDF).hexdigest()
         session.add(Artifact(user_id=owner.id, sha256=sha, media_type="application/pdf", data=PDF))
         await session.flush()
+        session.add(
+            RenderRow(user_id=owner.id, key="a" * 64, pdf_sha256=sha, pages=1, cuts=[], warnings=[])
+        )
         refresh = Refresh(
             user_id=owner.id,
             status="proposed",
