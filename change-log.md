@@ -23,6 +23,14 @@ One short entry per pull request, newest first: what changed and what to verify.
 - Restore on an older version asks first, then makes a new version that matches it, and the versions in between stay in the history
 - A placeholder such as TODO in a bullet shows under Resume rules and on the bullet, but still saves
 
+## 2026-11-03 · T-053 End-to-end tests and staging checklist · [#75](https://github.com/matchastack/work-journal/pull/75)
+**Changed:** a Playwright test signs in, accepts a change in the Inbox, publishes and checks the public page, against the real app with GitHub and Claude stubbed, in its own CI job; `docs/staging-checklist.md` tries a change on staging with a dev bot.
+
+**Verify:**
+- CI is green on the PR, including the new "End-to-end test" job
+- From `backend/`, with the web app built, Chromium installed and `TEST_DATABASE_URL` set, `uv run pytest -m e2e` passes in a few seconds
+- `docs/staging-checklist.md` reads right against your Vercel, Neon and Telegram setup
+
 ## 2026-11-03 · T-049 Confidential terms and sensitive roles · [#76](https://github.com/matchastack/work-journal/pull/76)
 **Changed:** your confidential terms now keep the portfolio page, its resume downloads and LinkedIn sections that name one off the public, each shown as an error naming the term, and text written about a role marked sensitive is flagged in the Inbox when it names a term or has operational detail.
 
