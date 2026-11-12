@@ -1,7 +1,7 @@
 """Entry open questions
 
 Revision ID: 0015
-Revises: 0013
+Revises: 0017
 Create Date: 2026-10-17 08:22:01
 """
 
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0015"
-down_revision: str | None = "0013"
+down_revision: str | None = "0017"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
