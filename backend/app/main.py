@@ -20,7 +20,10 @@ from app.internal import router as internal_router
 from app.journal.routes import router as journal_router
 from app.llm.client import LLMClient
 from app.llm.usage import CallLog
+from app.portfolio.routes import public_router as portfolio_page_router
+from app.portfolio.routes import router as portfolio_router
 from app.resumes.routes import router as resumes_router
+from app.settings.routes import router as settings_router
 from app.telegram.routes import router as telegram_api_router
 from app.telegram.webhook import router as telegram_router
 from app.web import add_web_app
@@ -83,6 +86,9 @@ def create_app(
     api.include_router(journal_router)
     api.include_router(inbox_router)
     api.include_router(resumes_router)
+    api.include_router(settings_router)
+    api.include_router(portfolio_router)
+    api.include_router(portfolio_page_router)
     api.include_router(internal_router)
     add_web_app(api, settings.web_dist_dir)
     return api

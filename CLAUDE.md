@@ -120,7 +120,7 @@ Add a dependency with `npm install <package>` (or `npm install --save-dev <packa
 - **Schemas:** the Pydantic v2 models in `app/schema/` are the only definition of the core objects. Field names follow JSON Resume where one exists.
 - **Profile operations** are pure functions; I/O stays at the edges.
 - **TypeScript:** strict mode. API types are generated from OpenAPI, never written by hand.
-- **Routes:** the web app's JSON routes go under `/api/`; sign-in stays under `/auth/`. The Vite dev server passes only the paths in `API_PATHS` (`frontend/vite.config.ts`) on to the API.
+- **Routes:** the web app's JSON routes go under `/api/`; sign-in stays under `/auth/`, and the public portfolio pages under `/p/`. The Vite dev server passes only the paths in `API_PATHS` (`frontend/vite.config.ts`) on to the API.
 - **Tests** sit next to the behaviour they cover. Fixtures use a fictional person (`backend/tests/fixtures/`).
 
 ## LLM rules
