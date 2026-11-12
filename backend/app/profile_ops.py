@@ -38,6 +38,21 @@ ITEM_SECTIONS: dict[str, type[BaseModel]] = {
 PROTECTED_FIELDS = frozenset({"id", "highlights"})
 """Fields UpdateField may not touch: identity, and bullets (use the bullet operations)."""
 
+PROFILE_TARGET = "profile"
+"""The UpdateField target for the profile's own lists, as `basics` is for the basics. Only those
+lists' fields are read as the profile's, so an item whose ID is `profile` can still be changed."""
+PROFILE_LISTS = frozenset(
+    {"roleTypes", "skills", "skillGaps", "skillPresets", "summaries", "openQuestions"}
+)
+"""The lists UpdateField may replace on the profile itself. Its items have their own operations,
+and the basics their own target."""
+
+
+def is_profile_list(op: UpdateField) -> bool:
+    """Whether `op` replaces one of the profile's own lists, rather than a field of an item or
+    bullet."""
+    return op.target_id == PROFILE_TARGET and op.field in PROFILE_LISTS
+
 
 class ProfileOpError(ValueError):
     """An operation couldn't be applied. The profile is left unchanged."""
@@ -136,6 +151,9 @@ def _find_question(data: Json, question_id: str) -> Json:
 def _update_field(data: Json, op: UpdateField) -> None:
     target: Json
     model: type[BaseModel]
+    if is_profile_list(op):
+        data[op.field] = op.value
+        return
     if op.target_id == "basics":
         target, model = data["basics"], Basics
     else:
@@ -145,6 +163,8 @@ def _update_field(data: Json, op: UpdateField) -> None:
             try:
                 target, model = _find_bullet(data, op.target_id), Bullet
             except ProfileOpError:
+                if op.target_id == PROFILE_TARGET:
+                    raise ProfileOpError(f"the profile has no editable list {op.field!r}") from None
                 raise ProfileOpError(f"nothing in the profile has ID {op.target_id!r}") from None
     editable = {field.alias or name for name, field in model.model_fields.items()}
     if op.field not in editable - PROTECTED_FIELDS:
