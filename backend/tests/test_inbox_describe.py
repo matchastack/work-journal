@@ -173,6 +173,12 @@ def test_a_swap_is_only_for_tailored_resumes() -> None:
             EVERY,
         ),
         (
+            UpdateField(target_id="profile", field="skillGaps", value=["Rust"]),
+            "Change skillGaps of your profile",
+            '["Rust"]',
+            EVERY,
+        ),
+        (
             UpdateField(target_id="nw_export", field="tags", value=["backend", "data"]),
             f"Change tags of a bullet under {NORTHWIND}",
             '["backend", "data"]',

@@ -364,6 +364,376 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Profile
+         * @description The latest version of the profile, with its resume-rule findings. Everything is null
+         *     before a profile is loaded.
+         */
+        get: operations["profile_api_profile_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/basics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Basics
+         * @description Change the basics. The fields that changed are saved as a change set by you and a new
+         *     version (FR-PRF-11); nothing changed saves nothing. 409 when the profile is no longer at
+         *     `baseVersion`.
+         */
+        put: operations["edit_basics_api_profile_basics_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/work/{role_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Role
+         * @description Change a role, as `PUT /api/profile/basics` does the basics.
+         */
+        put: operations["edit_role_api_profile_work__role_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/education/{education_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Education
+         * @description Change an education entry, as `PUT /api/profile/basics` does the basics.
+         */
+        put: operations["edit_education_api_profile_education__education_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/projects/{project_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Project
+         * @description Change a project, as `PUT /api/profile/basics` does the basics.
+         */
+        put: operations["edit_project_api_profile_projects__project_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/bullets/{bullet_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Bullet
+         * @description Change a bullet: its text, status (benching needs a reason, FR-PRF-4), strength,
+         *     verification and tags, as `PUT /api/profile/basics` does the basics. Your own words aren't
+         *     checked by the verifier, but the resume rules' findings show on the page.
+         */
+        put: operations["edit_bullet_api_profile_bullets__bullet_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/work/{role_id}/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Role Rules
+         * @description Change a role's tailoring rules (FR-PRF-5): its approved title variants, whether it's
+         *     load-bearing or held during education, the role types it's kept or cut for, its
+         *     sensitivity and its honesty boundaries.
+         */
+        put: operations["edit_role_rules_api_profile_work__role_id__rules_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/education/{education_id}/coursework": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Coursework
+         * @description Change an education entry's full coursework list, its coursework for each role type and
+         *     its rules (FR-PRF-7).
+         */
+        put: operations["edit_coursework_api_profile_education__education_id__coursework_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/bullets/{bullet_id}/swaps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Swaps
+         * @description Change a bullet's swaps, the approved phrasings tailored resumes can use (FR-WRT-5).
+         */
+        put: operations["edit_swaps_api_profile_bullets__bullet_id__swaps_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/role-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Role Types
+         * @description Change the role types. One still in use can't be removed.
+         */
+        put: operations["edit_role_types_api_profile_role_types_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Skills
+         * @description Change the skills and the gaps list (FR-PRF-6).
+         */
+        put: operations["edit_skills_api_profile_skills_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/skill-presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Skill Presets
+         * @description Change the skills presets, one per role type (FR-PRF-9).
+         */
+        put: operations["edit_skill_presets_api_profile_skill_presets_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/summaries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Summaries
+         * @description Change the summary variants, one per role type (FR-PRF-8).
+         */
+        put: operations["edit_summaries_api_profile_summaries_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/open-questions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Open Question
+         * @description Add an open question, blocking the bullets it names (FR-PRF-10).
+         */
+        post: operations["add_open_question_api_profile_open_questions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/open-questions/{question_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Open Question
+         * @description Change an open question: its wording, its status (open, answered or closed) and the
+         *     bullets it blocks.
+         */
+        put: operations["edit_open_question_api_profile_open_questions__question_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Versions
+         * @description Every version, newest first, with what each one's change set did.
+         */
+        get: operations["versions_api_profile_versions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/versions/{number}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Version
+         * @description A version, with what it changed against its parent.
+         */
+        get: operations["version_api_profile_versions__number__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profile/versions/{number}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Version
+         * @description Save a copy of version `number` as the newest version (FR-PRF-3); the versions in between
+         *     stay. 409 when the profile is no longer at `baseVersion`, or already matches that version.
+         */
+        post: operations["restore_version_api_profile_versions__number__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/resumes": {
         parameters: {
             query?: never;
@@ -869,6 +1239,166 @@ export interface components {
              */
             sections: string[];
         };
+        /** Basics */
+        Basics: {
+            /** Name */
+            name: string;
+            /** Label */
+            label?: string | null;
+            /** Email */
+            email?: string | null;
+            /**
+             * Emailvisibility
+             * @default public
+             * @enum {string}
+             */
+            emailVisibility: "public" | "resume_only" | "private";
+            /** Phone */
+            phone?: string | null;
+            /**
+             * Phonevisibility
+             * @default resume_only
+             * @enum {string}
+             */
+            phoneVisibility: "public" | "resume_only" | "private";
+            /** Url */
+            url?: string | null;
+            /** Summary */
+            summary?: string | null;
+            location?: components["schemas"]["Location"] | null;
+            /**
+             * Locationvisibility
+             * @default public
+             * @enum {string}
+             */
+            locationVisibility: "public" | "resume_only" | "private";
+            /**
+             * Profiles
+             * @default []
+             */
+            profiles: components["schemas"]["SocialProfile"][];
+        };
+        /** BasicsEdit */
+        BasicsEdit: {
+            /** Baseversion */
+            baseVersion: number;
+            /** Name */
+            name: string;
+            /** Label */
+            label: string | null;
+            /** Email */
+            email: string | null;
+            /** Phone */
+            phone: string | null;
+            /** Url */
+            url: string | null;
+            /** Summary */
+            summary: string | null;
+            location: components["schemas"]["Location"] | null;
+            /** Profiles */
+            profiles: components["schemas"]["SocialProfile"][];
+        };
+        /**
+         * Bullet
+         * @description One highlight line under a role, education entry or project.
+         */
+        Bullet: {
+            /** Id */
+            id: string;
+            /** Text */
+            text: string;
+            /**
+             * Strength
+             * @default medium
+             * @enum {string}
+             */
+            strength: "high" | "medium" | "low";
+            /**
+             * Strengthoverrides
+             * @default []
+             */
+            strengthOverrides: components["schemas"]["StrengthOverride"][];
+            /**
+             * Verification
+             * @default no
+             * @enum {string}
+             */
+            verification: "yes" | "partial" | "no";
+            /** Verificationnote */
+            verificationNote?: string | null;
+            /**
+             * Swaps
+             * @default []
+             */
+            swaps: components["schemas"]["Swap"][];
+            /**
+             * Needs
+             * @default []
+             */
+            needs: string[];
+            /**
+             * Notes
+             * @default []
+             */
+            notes: components["schemas"]["Note"][];
+            /**
+             * Status
+             * @default active
+             * @enum {string}
+             */
+            status: "active" | "benched" | "planned";
+            /** Statusreason */
+            statusReason?: string | null;
+            /**
+             * Tags
+             * @default []
+             */
+            tags: string[];
+            /**
+             * Priority
+             * @default 2
+             */
+            priority: number;
+            /**
+             * Visibility
+             * @default public
+             * @enum {string}
+             */
+            visibility: "public" | "resume_only" | "private";
+            /**
+             * Sources
+             * @default []
+             */
+            sources: string[];
+        };
+        /** BulletEdit */
+        BulletEdit: {
+            /** Baseversion */
+            baseVersion: number;
+            /** Text */
+            text: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "benched" | "planned";
+            /** Statusreason */
+            statusReason: string | null;
+            /**
+             * Strength
+             * @enum {string}
+             */
+            strength: "high" | "medium" | "low";
+            /**
+             * Verification
+             * @enum {string}
+             */
+            verification: "yes" | "partial" | "no";
+            /** Verificationnote */
+            verificationNote: string | null;
+            /** Tags */
+            tags: string[];
+        };
         /** BulletText */
         BulletText: {
             /** Text */
@@ -977,6 +1507,37 @@ export interface components {
             costUsd: number;
             /** Unpricedcalls */
             unpricedCalls: number;
+        };
+        /**
+         * CourseworkEdit
+         * @description An education entry's coursework and rules (FR-PRF-7).
+         */
+        CourseworkEdit: {
+            /** Baseversion */
+            baseVersion: number;
+            /** Courses */
+            courses: string[];
+            /** Courseworksubsets */
+            courseworkSubsets: components["schemas"]["CourseworkSubsetEdit"][];
+            /** Rules */
+            rules: string[];
+        };
+        /**
+         * CourseworkSubset
+         * @description The courses to list for one role type.
+         */
+        CourseworkSubset: {
+            /** Roletype */
+            roleType: string;
+            /** Courses */
+            courses: string[];
+        };
+        /** CourseworkSubsetEdit */
+        CourseworkSubsetEdit: {
+            /** Roletype */
+            roleType: string;
+            /** Courses */
+            courses: string[];
         };
         /** CoverageReport */
         CoverageReport: {
@@ -1149,6 +1710,71 @@ export interface components {
             phrasing: components["schemas"]["VerifierReport"] | null;
             /** Approved */
             approved: boolean;
+        };
+        /**
+         * Education
+         * @description A degree or qualification (JSON Resume `education` entry).
+         */
+        Education: {
+            /** Id */
+            id: string;
+            /** Institution */
+            institution: string;
+            /** Studytype */
+            studyType: string;
+            /** Area */
+            area: string;
+            /** Honours */
+            honours?: string | null;
+            /** Location */
+            location?: string | null;
+            /** Url */
+            url?: string | null;
+            /** Startdate */
+            startDate: string;
+            /** Enddate */
+            endDate?: string | null;
+            /**
+             * Courses
+             * @default []
+             */
+            courses: string[];
+            /**
+             * Courseworksubsets
+             * @default []
+             */
+            courseworkSubsets: components["schemas"]["CourseworkSubset"][];
+            /**
+             * Highlights
+             * @default []
+             */
+            highlights: components["schemas"]["Bullet"][];
+            /**
+             * Rules
+             * @default []
+             */
+            rules: string[];
+        };
+        /** EducationEdit */
+        EducationEdit: {
+            /** Baseversion */
+            baseVersion: number;
+            /** Institution */
+            institution: string;
+            /** Studytype */
+            studyType: string;
+            /** Area */
+            area: string;
+            /** Honours */
+            honours: string | null;
+            /** Location */
+            location: string | null;
+            /** Url */
+            url: string | null;
+            /** Startdate */
+            startDate: string;
+            /** Enddate */
+            endDate: string | null;
         };
         /**
          * Fact
@@ -1506,6 +2132,25 @@ export interface components {
             /** Edits */
             edits: components["schemas"]["MessageEdit"][];
         };
+        /** LintFinding */
+        LintFinding: {
+            /**
+             * Rule
+             * @enum {string}
+             */
+            rule: "dates" | "spelling" | "duplicates" | "confidential" | "R1" | "R2" | "R3" | "R4" | "R5" | "R9" | "R10";
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "error" | "warning";
+            /** Location */
+            location: string;
+            /** Message */
+            message: string;
+            /** Where */
+            where: string;
+        };
         /** LintReport */
         LintReport: {
             /**
@@ -1517,6 +2162,13 @@ export interface components {
              * Notes
              * @default []
              */
+            notes: string[];
+        };
+        /** LintView */
+        LintView: {
+            /** Findings */
+            findings: components["schemas"]["LintFinding"][];
+            /** Notes */
             notes: string[];
         };
         /**
@@ -1533,6 +2185,15 @@ export interface components {
             byTask: components["schemas"]["TaskCost"][];
             /** Bytier */
             byTier: components["schemas"]["TierCost"][];
+        };
+        /** Location */
+        Location: {
+            /** City */
+            city?: string | null;
+            /** Region */
+            region?: string | null;
+            /** Countrycode */
+            countryCode?: string | null;
         };
         /**
          * MasterResume
@@ -1601,6 +2262,58 @@ export interface components {
         NewDraft: {
             /** Text */
             text: string;
+        };
+        /**
+         * Note
+         * @description A remark attached to an item, e.g. a warning about what must not be claimed.
+         */
+        Note: {
+            /**
+             * Kind
+             * @default note
+             * @enum {string}
+             */
+            kind: "note" | "warning" | "upgrade";
+            /** Text */
+            text: string;
+        };
+        /**
+         * OpenQuestion
+         * @description A missing detail that blocks a stronger bullet.
+         */
+        OpenQuestion: {
+            /** Id */
+            id: string;
+            /** Question */
+            question: string;
+            /**
+             * Status
+             * @default open
+             * @enum {string}
+             */
+            status: "open" | "answered" | "closed";
+            /**
+             * Answerfactids
+             * @default []
+             */
+            answerFactIds: string[];
+        };
+        /**
+         * OpenQuestionEdit
+         * @description An open question: what it asks, its status, and the bullets it blocks (FR-PRF-10).
+         */
+        OpenQuestionEdit: {
+            /** Baseversion */
+            baseVersion: number;
+            /** Question */
+            question: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "answered" | "closed";
+            /** Bulletids */
+            bulletIds: string[];
         };
         /** OutlineBullet */
         OutlineBullet: {
@@ -1679,6 +2392,154 @@ export interface components {
              * @default []
              */
             confidential: components["schemas"]["TermMatch"][];
+        };
+        /**
+         * Profile
+         * @description The master profile: the superset every resume, page and LinkedIn text is drawn from.
+         */
+        Profile: {
+            basics: components["schemas"]["Basics"];
+            /**
+             * Roletypes
+             * @default []
+             */
+            roleTypes: components["schemas"]["RoleType"][];
+            /**
+             * Work
+             * @default []
+             */
+            work: components["schemas"]["Role"][];
+            /**
+             * Education
+             * @default []
+             */
+            education: components["schemas"]["Education"][];
+            /**
+             * Projects
+             * @default []
+             */
+            projects: components["schemas"]["Project"][];
+            /**
+             * Skills
+             * @default []
+             */
+            skills: components["schemas"]["Skill"][];
+            /**
+             * Skillgaps
+             * @default []
+             */
+            skillGaps: string[];
+            /**
+             * Skillpresets
+             * @default []
+             */
+            skillPresets: components["schemas"]["SkillPreset"][];
+            /**
+             * Summaries
+             * @default []
+             */
+            summaries: components["schemas"]["Summary"][];
+            /**
+             * Openquestions
+             * @default []
+             */
+            openQuestions: components["schemas"]["OpenQuestion"][];
+        };
+        /**
+         * ProfilePage
+         * @description The latest version, or nulls before a profile is loaded.
+         */
+        ProfilePage: {
+            version: components["schemas"]["VersionSummary"] | null;
+            profile: components["schemas"]["Profile"] | null;
+            lint: components["schemas"]["LintView"] | null;
+        };
+        /**
+         * Project
+         * @description A personal or academic project (JSON Resume `projects` entry).
+         */
+        Project: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            /**
+             * Keywords
+             * @default []
+             */
+            keywords: string[];
+            /** Url */
+            url?: string | null;
+            /** Startdate */
+            startDate?: string | null;
+            /** Enddate */
+            endDate?: string | null;
+            /**
+             * Highlights
+             * @default []
+             */
+            highlights: components["schemas"]["Bullet"][];
+            /**
+             * Status
+             * @default active
+             * @enum {string}
+             */
+            status: "active" | "benched" | "planned";
+            /** Statusreason */
+            statusReason?: string | null;
+            /**
+             * Keepfor
+             * @default []
+             */
+            keepFor: string[];
+            /**
+             * Cutfor
+             * @default []
+             */
+            cutFor: string[];
+            /**
+             * Tags
+             * @default []
+             */
+            tags: string[];
+            /**
+             * Priority
+             * @default 2
+             */
+            priority: number;
+            /**
+             * Notes
+             * @default []
+             */
+            notes: components["schemas"]["Note"][];
+        };
+        /** ProjectEdit */
+        ProjectEdit: {
+            /** Baseversion */
+            baseVersion: number;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string | null;
+            /** Keywords */
+            keywords: string[];
+            /** Url */
+            url: string | null;
+            /** Startdate */
+            startDate: string | null;
+            /** Enddate */
+            endDate: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "benched" | "planned";
+            /** Statusreason */
+            statusReason: string | null;
+            /** Tags */
+            tags: string[];
         };
         /** ProjectOption */
         ProjectOption: {
@@ -1792,6 +2653,11 @@ export interface components {
             /** Items */
             items: components["schemas"]["RepoItem"][];
         };
+        /** Restore */
+        Restore: {
+            /** Baseversion */
+            baseVersion: number;
+        };
         /**
          * ResumeCut
          * @description Content cut to fit the page limit (FR-RES-7).
@@ -1860,12 +2726,156 @@ export interface components {
             /** Resumes */
             resumes: components["schemas"]["PublishedResume"][];
         };
+        /**
+         * Role
+         * @description A job (JSON Resume `work` entry).
+         */
+        Role: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Position */
+            position: string;
+            /**
+             * Titlevariants
+             * @default []
+             */
+            titleVariants: string[];
+            /** Location */
+            location?: string | null;
+            /** Url */
+            url?: string | null;
+            /** Startdate */
+            startDate: string;
+            /** Enddate */
+            endDate?: string | null;
+            /** Summary */
+            summary?: string | null;
+            /**
+             * Highlights
+             * @default []
+             */
+            highlights: components["schemas"]["Bullet"][];
+            /**
+             * Loadbearing
+             * @default false
+             */
+            loadBearing: boolean;
+            /**
+             * Duringeducation
+             * @default false
+             */
+            duringEducation: boolean;
+            /**
+             * Keepfor
+             * @default []
+             */
+            keepFor: string[];
+            /**
+             * Cutfor
+             * @default []
+             */
+            cutFor: string[];
+            /**
+             * Sensitivity
+             * @default normal
+             * @enum {string}
+             */
+            sensitivity: "normal" | "sensitive";
+            /**
+             * Honestyboundaries
+             * @default []
+             */
+            honestyBoundaries: string[];
+            /**
+             * Priority
+             * @default 2
+             */
+            priority: number;
+            /**
+             * Notes
+             * @default []
+             */
+            notes: components["schemas"]["Note"][];
+        };
+        /** RoleEdit */
+        RoleEdit: {
+            /** Baseversion */
+            baseVersion: number;
+            /** Name */
+            name: string;
+            /** Position */
+            position: string;
+            /** Location */
+            location: string | null;
+            /** Url */
+            url: string | null;
+            /** Startdate */
+            startDate: string;
+            /** Enddate */
+            endDate: string | null;
+            /** Summary */
+            summary: string | null;
+        };
         /** RoleOption */
         RoleOption: {
             /** Id */
             id: string;
             /** Label */
             label: string;
+        };
+        /**
+         * RoleRulesEdit
+         * @description A role's tailoring rules (FR-PRF-5).
+         */
+        RoleRulesEdit: {
+            /** Baseversion */
+            baseVersion: number;
+            /** Titlevariants */
+            titleVariants: string[];
+            /** Loadbearing */
+            loadBearing: boolean;
+            /** Duringeducation */
+            duringEducation: boolean;
+            /** Keepfor */
+            keepFor: string[];
+            /** Cutfor */
+            cutFor: string[];
+            /**
+             * Sensitivity
+             * @enum {string}
+             */
+            sensitivity: "normal" | "sensitive";
+            /** Honestyboundaries */
+            honestyBoundaries: string[];
+        };
+        /**
+         * RoleType
+         * @description A kind of job the owner applies for, e.g. backend or ML.
+         */
+        RoleType: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /** RoleTypeEdit */
+        RoleTypeEdit: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * RoleTypesEdit
+         * @description The kinds of job you apply for, which presets, summaries and rules are kept by.
+         */
+        RoleTypesEdit: {
+            /** Baseversion */
+            baseVersion: number;
+            /** Roletypes */
+            roleTypes: components["schemas"]["RoleTypeEdit"][];
         };
         /**
          * SettingsView
@@ -1891,12 +2901,51 @@ export interface components {
             /** Value */
             value: number;
         };
+        /** Skill */
+        Skill: {
+            /** Name */
+            name: string;
+            /** Category */
+            category: string;
+            /** Tier */
+            tier?: ("strong" | "working" | "academic") | null;
+            /**
+             * Verifybeforeshipping
+             * @default false
+             */
+            verifyBeforeShipping: boolean;
+            /**
+             * Aliases
+             * @default []
+             */
+            aliases: string[];
+            /**
+             * Notes
+             * @default []
+             */
+            notes: components["schemas"]["Note"][];
+        };
         /** SkillChoice */
         SkillChoice: {
             /** Skill */
             skill: string;
             /** Decision */
             decision: ("confirmed" | "dropped") | null;
+        };
+        /** SkillEdit */
+        SkillEdit: {
+            /** Name */
+            name: string;
+            /** Previousname */
+            previousName: string | null;
+            /** Category */
+            category: string;
+            /** Tier */
+            tier: ("strong" | "working" | "academic") | null;
+            /** Verifybeforeshipping */
+            verifyBeforeShipping: boolean;
+            /** Aliases */
+            aliases: string[];
         };
         /**
          * SkillLine
@@ -1907,6 +2956,64 @@ export interface components {
             label: string;
             /** Skills */
             skills: string[];
+        };
+        /** SkillLineEdit */
+        SkillLineEdit: {
+            /** Label */
+            label: string;
+            /** Skills */
+            skills: string[];
+        };
+        /**
+         * SkillPreset
+         * @description The skills section to use for one role type.
+         */
+        SkillPreset: {
+            /** Roletype */
+            roleType: string;
+            /** Lines */
+            lines: components["schemas"]["SkillLine"][];
+        };
+        /** SkillPresetEdit */
+        SkillPresetEdit: {
+            /** Roletype */
+            roleType: string;
+            /** Lines */
+            lines: components["schemas"]["SkillLineEdit"][];
+        };
+        /**
+         * SkillPresetsEdit
+         * @description The skills section for each role type (FR-PRF-9).
+         */
+        SkillPresetsEdit: {
+            /** Baseversion */
+            baseVersion: number;
+            /** Skillpresets */
+            skillPresets: components["schemas"]["SkillPresetEdit"][];
+        };
+        /**
+         * SkillsEdit
+         * @description Your skills and the gaps list (FR-PRF-6).
+         */
+        SkillsEdit: {
+            /** Baseversion */
+            baseVersion: number;
+            /** Skills */
+            skills: components["schemas"]["SkillEdit"][];
+            /** Skillgaps */
+            skillGaps: string[];
+        };
+        /**
+         * SocialProfile
+         * @description An online profile, e.g. GitHub or LinkedIn (JSON Resume `basics.profiles`).
+         */
+        SocialProfile: {
+            /** Network */
+            network: string;
+            /** Username */
+            username?: string | null;
+            /** Url */
+            url?: string | null;
         };
         /**
          * SourceFact
@@ -1919,6 +3026,19 @@ export interface components {
             statement: string | null;
             /** Entryid */
             entryId: string | null;
+        };
+        /**
+         * StrengthOverride
+         * @description A bullet's strength for one role type, when it differs from the default.
+         */
+        StrengthOverride: {
+            /** Roletype */
+            roleType: string;
+            /**
+             * Strength
+             * @enum {string}
+             */
+            strength: "high" | "medium" | "low";
         };
         /**
          * StyleNote
@@ -1972,6 +3092,78 @@ export interface components {
              * @default []
              */
             notes: string[];
+        };
+        /**
+         * SummariesEdit
+         * @description A summary paragraph for each role type (FR-PRF-8), used only when a resume asks for one.
+         */
+        SummariesEdit: {
+            /** Baseversion */
+            baseVersion: number;
+            /** Summaries */
+            summaries: components["schemas"]["SummaryEdit"][];
+        };
+        /**
+         * Summary
+         * @description A summary paragraph for one role type. Off by default.
+         */
+        Summary: {
+            /** Roletype */
+            roleType: string;
+            /** Text */
+            text: string;
+        };
+        /** SummaryEdit */
+        SummaryEdit: {
+            /** Roletype */
+            roleType: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * Swap
+         * @description An approved alternative phrasing: the same fact in another audience's words.
+         */
+        Swap: {
+            /** Text */
+            text: string;
+            /** Replaces */
+            replaces?: string | null;
+            /**
+             * Contexts
+             * @default []
+             */
+            contexts: string[];
+            /**
+             * Origin
+             * @default imported
+             * @enum {string}
+             */
+            origin: "imported" | "approved";
+        };
+        /** SwapEdit */
+        SwapEdit: {
+            /** Text */
+            text: string;
+            /** Replaces */
+            replaces: string | null;
+            /** Contexts */
+            contexts: string[];
+            /**
+             * Origin
+             * @enum {string}
+             */
+            origin: "imported" | "approved";
+        };
+        /**
+         * SwapsEdit
+         * @description A bullet's swaps, the approved alternative phrasings (FR-WRT-5).
+         */
+        SwapsEdit: {
+            /** Baseversion */
+            baseVersion: number;
+            /** Swaps */
+            swaps: components["schemas"]["SwapEdit"][];
         };
         /**
          * TailorDraft
@@ -2228,6 +3420,61 @@ export interface components {
             derivations: components["schemas"]["Derivation"][];
             /** Claimprompt */
             claimPrompt?: string | null;
+        };
+        /**
+         * VersionChange
+         * @description One difference between a version and its parent.
+         */
+        VersionChange: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "added" | "removed" | "changed";
+            /** Path */
+            path: string;
+            /** Title */
+            title: string;
+            /** Context */
+            context: string | null;
+            /** Before */
+            before: string | null;
+            /** After */
+            after: string | null;
+            /** Diff */
+            diff: components["schemas"]["DiffPart"][];
+        };
+        /** VersionDetail */
+        VersionDetail: {
+            version: components["schemas"]["VersionSummary"];
+            /** Changes */
+            changes: components["schemas"]["VersionChange"][];
+        };
+        /** VersionList */
+        VersionList: {
+            /** Versions */
+            versions: components["schemas"]["VersionSummary"][];
+        };
+        /** VersionSummary */
+        VersionSummary: {
+            /** Number */
+            number: number;
+            /** Parent */
+            parent: number | null;
+            /**
+             * Author
+             * @enum {string}
+             */
+            author: "owner" | "ai";
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /** Restoredfrom */
+            restoredFrom: number | null;
+            /** Summary */
+            summary: string | null;
         };
         /** Words */
         Words: {
@@ -2768,6 +4015,590 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Applied"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    profile_api_profile_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+        };
+    };
+    edit_basics_api_profile_basics_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BasicsEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_role_api_profile_work__role_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_education_api_profile_education__education_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                education_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EducationEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_project_api_profile_projects__project_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_bullet_api_profile_bullets__bullet_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bullet_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulletEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_role_rules_api_profile_work__role_id__rules_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleRulesEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_coursework_api_profile_education__education_id__coursework_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                education_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseworkEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_swaps_api_profile_bullets__bullet_id__swaps_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bullet_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SwapsEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_role_types_api_profile_role_types_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleTypesEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_skills_api_profile_skills_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillsEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_skill_presets_api_profile_skill_presets_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillPresetsEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_summaries_api_profile_summaries_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SummariesEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_open_question_api_profile_open_questions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenQuestionEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_open_question_api_profile_open_questions__question_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenQuestionEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    versions_api_profile_versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionList"];
+                };
+            };
+        };
+    };
+    version_api_profile_versions__number__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_version_api_profile_versions__number__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Restore"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePage"];
                 };
             };
             /** @description Validation Error */

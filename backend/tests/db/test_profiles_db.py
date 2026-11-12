@@ -9,7 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import User
 from app.db.profiles import (
+    StaleVersion,
     VersionError,
+    change_set_summaries,
     close_change_set,
     decide_op,
     get_change_set,
@@ -18,11 +20,14 @@ from app.db.profiles import (
     list_change_sets,
     list_versions,
     load_master_profile,
+    lock_latest,
     propose_change_set,
     restore_version,
+    save_owner_changes,
     save_version,
 )
-from app.schema.changes import ChangeSet, EditBullet, ReviewedOp, SetBulletStatus
+from app.profile_ops import ProfileOpError
+from app.schema.changes import ChangeSet, EditBullet, ReviewedOp, SetBulletStatus, UpdateField
 from app.schema.profile import Profile
 
 pytestmark = pytest.mark.anyio
@@ -175,3 +180,75 @@ async def test_change_sets_belong_to_their_user(session: AsyncSession) -> None:
         await close_change_set(session, other, change_set_id, "rejected")
     with pytest.raises(VersionError):
         await decide_op(session, other, change_set_id, 0, "accepted")
+
+
+# --- The owner's own edits (FR-PRF-11) -----------------------------------------------------------
+
+
+async def test_the_latest_version_is_locked_only_when_its_the_one_expected(
+    session: AsyncSession,
+) -> None:
+    user = await new_user(session)
+    with pytest.raises(VersionError, match="no profile yet") as none:
+        await lock_latest(session, user, expected=1)
+    assert not isinstance(none.value, StaleVersion)
+    await save_version(session, user, PROFILE, author="owner")
+    await save_version(session, user, renamed(PROFILE, "Casey M. Morgan"), author="ai")
+    with pytest.raises(StaleVersion) as stale:
+        await lock_latest(session, user, expected=1)
+    assert stale.value.latest == 2
+    locked = await lock_latest(session, user, expected=2)
+    assert (locked.number, locked.profile.basics.name) == (2, "Casey M. Morgan")
+
+
+async def test_the_owners_edits_are_an_applied_change_set_and_a_new_version(
+    session: AsyncSession,
+) -> None:
+    user = await new_user(session)
+    base = await save_version(session, user, PROFILE, author="owner")
+    ops = (
+        EditBullet(bullet_id="nw_export", text="Cut the nightly export to 12 minutes."),
+        UpdateField(target_id="nw_export", field="tags", value=["backend", "data"]),
+    )
+    summary = "Edited a bullet under Engineer, Northwind Traders"
+    version = await save_owner_changes(session, user, base, ops, summary=summary)
+    assert (version.number, version.parent, version.author) == (2, 1, "owner")
+    bullet = version.profile.work[0].highlights[1]
+    assert bullet.text == "Cut the nightly export to 12 minutes."
+    assert bullet.tags == ("backend", "data")
+    assert version.change_set_id is not None
+    saved = await get_change_set(session, user, version.change_set_id)
+    assert saved.change_set == ChangeSet(
+        author="owner",
+        ops=tuple(ReviewedOp(op=op, status="accepted") for op in ops),
+        summary=summary,
+        base_version=1,
+        status="applied",
+    )
+    assert saved.decided_at is not None
+    assert await list_change_sets(session, user) == [], "the Inbox never shows them"
+
+
+async def test_owner_edits_that_dont_apply_save_nothing(session: AsyncSession) -> None:
+    user = await new_user(session)
+    base = await save_version(session, user, PROFILE, author="owner")
+    with pytest.raises(ProfileOpError, match="no bullet has ID 'gone'"):
+        await save_owner_changes(
+            session, user, base, [EditBullet(bullet_id="gone", text="Hi.")], summary="Edited"
+        )
+    assert [info.number for info in await list_versions(session, user)] == [1]
+    assert await list_change_sets(session, user, None) == []
+
+
+async def test_change_set_summaries_are_found_by_id(session: AsyncSession) -> None:
+    owner, other = await new_user(session), await new_user(session)
+    summarised = await propose_change_set(session, owner, change_set())
+    unsummarised = await propose_change_set(
+        session, owner, change_set().model_copy(update={"summary": None})
+    )
+    others = await propose_change_set(session, other, change_set())
+    assert await change_set_summaries(session, owner, [summarised, unsummarised, others]) == {
+        summarised: "From the week's journal",
+        unsummarised: None,
+    }
+    assert await change_set_summaries(session, owner, []) == {}
