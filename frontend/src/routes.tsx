@@ -7,7 +7,9 @@ import { Inbox } from "./pages/Inbox";
 import { Journal } from "./pages/Journal";
 import { NotFound } from "./pages/NotFound";
 import { PlaceholderPage } from "./pages/PlaceholderPage";
+import { Portfolio } from "./pages/Portfolio";
 import { Resumes } from "./pages/Resumes";
+import { Settings } from "./pages/Settings";
 import { SignIn } from "./pages/SignIn";
 import { Tailor } from "./pages/Tailor";
 
@@ -22,6 +24,10 @@ function pageElement(page: Page): ReactNode {
       return <Resumes />;
     case "tailor":
       return <Tailor />;
+    case "portfolio":
+      return <Portfolio />;
+    case "settings":
+      return <Settings />;
     default:
       return <PlaceholderPage page={page} />;
   }

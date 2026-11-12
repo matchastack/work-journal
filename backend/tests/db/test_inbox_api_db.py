@@ -19,7 +19,7 @@ from app.config import Settings
 from app.db.crypto import KeyRing, new_key, use_key_ring
 from app.db.models import ChangeSetRow, JournalEntry, LlmCallRow, User
 from app.db.profiles import latest_version, propose_change_set, save_version
-from app.db.settings import get_style_notes
+from app.db.settings import get_style_notes, save_confidential_terms
 from app.db.store import save_facts
 from app.llm.client import LLMClient
 from app.llm.fake import FakeMessages, reply
@@ -38,7 +38,7 @@ from app.schema.changes import (
 )
 from app.schema.fact import Fact
 from app.schema.profile import Bullet, Profile, Role, Skill
-from app.schema.settings import StyleNotes
+from app.schema.settings import ConfidentialTerms, StyleNotes
 from app.schema.verification import VerifierFinding, VerifierReport
 from app.validate.claims import ClaimReply, JudgedClaim
 
@@ -575,3 +575,65 @@ def test_a_new_role_applies_with_the_changes_that_need_it(
     role = profile.work[0]
     assert (role.id, role.location) == ("fabrikam", "Remote")
     assert [bullet.id for bullet in role.highlights] == ["fb_queue"]
+
+
+# --- What a change must leave out (T-049) --------------------------------------------------------
+
+
+def confidential(database_url: str, user_id: uuid.UUID, *terms: str) -> None:
+    async def build(session: AsyncSession) -> None:
+        await save_confidential_terms(session, user_id, ConfidentialTerms(terms=terms))
+
+    seed(database_url, build)
+
+
+def test_the_inbox_flags_operational_detail_and_confidential_terms_as_they_are_now(
+    database_url: str, owner: Owner, client: TestClient
+) -> None:
+    """R5 for a sensitive role's bullet, and the confidential terms saved since the proposal."""
+    sensitive = "Moved the nightly export to queue.payments.internal."
+    elsewhere = "Added Falcon recipes to the recipe app."
+    change_set = propose(
+        database_url,
+        owner.id,
+        ReviewedOp(
+            op=AddBullet(parent_id="northwind", bullet=Bullet(id="nw_queue", text=sensitive)),
+            verifier_report=report(sensitive),
+        ),
+        ReviewedOp(
+            op=AddBullet(parent_id="recipe_box", bullet=Bullet(id="rb_falcon", text=elsewhere)),
+            verifier_report=report(elsewhere),
+        ),
+    )
+    first, second = client.get("/api/inbox").json()["changeSets"][0]["ops"]
+    assert first["verifierReport"]["passed"] is False
+    assert [f["code"] for f in first["verifierReport"]["findings"]] == ["R5"]
+    assert (
+        '"queue.payments.internal" looks like a host name'
+        in (first["verifierReport"]["findings"][0]["message"])
+    )
+    assert second["verifierReport"]["findings"] == []
+
+    confidential(database_url, owner.id, "Falcon")
+    second = client.get("/api/inbox").json()["changeSets"][0]["ops"][1]
+    assert second["verifierReport"]["passed"] is True
+    (finding,) = second["verifierReport"]["findings"]
+    assert (finding["code"], finding["severity"]) == ("confidential", "warning")
+    assert 'the confidential term "Falcon"' in finding["message"]
+
+    response = client.post(f"/api/inbox/{change_set}/accept-passed", headers=owner.csrf)
+    assert [op["status"] for op in response.json()["ops"]] == ["proposed", "accepted"]
+
+
+def test_edited_text_is_checked_for_the_confidential_terms(
+    database_url: str, owner: Owner, client: TestClient, claude: Claude, change_set: uuid.UUID
+) -> None:
+    confidential(database_url, owner.id, "runbook")
+    claude.fake.replies.append(reply(SUPPORTED))
+    path = f"/api/inbox/{change_set}/ops/1/text"
+    response = client.put(path, json={"text": RUNBOOK}, headers=owner.csrf)
+    assert response.status_code == 200
+    report = response.json()["ops"][1]["verifierReport"]
+    assert report["passed"] is False, "Northwind is sensitive, so a confidential term is R5"
+    assert [(f["code"], f["severity"]) for f in report["findings"]] == [("R5", "error")]
+    assert 'the confidential term "runbook"' in report["findings"][0]["message"]
