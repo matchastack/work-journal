@@ -969,16 +969,18 @@ As the owner, I want errors and LLM costs visible, so that problems and spending
 **Revisit with a Console organization:** the cost view's figures are estimates from the per-tier prices (`LLM_PRICE_*`). The billed cost comes only from the Usage and Cost Admin API's cost report: US dollars per day, by model and token type. That API needs a Console organization and an Admin API key, and individual accounts can't use it. Once the owner has an organization, compare the estimates with the billed cost, and keep the Admin key off the server (decided in the review of #9).
 
 ### T-053 · End-to-end tests and staging checklist
-**Status:** ☐ · **Size:** M · **Depends on:** T-040, T-046, T-051 · **Requirements:** FR-REV-3, FR-PRT-3 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-040, T-046, T-051 · **Requirements:** FR-REV-3, FR-PRT-3 · **PR:** [#75](https://github.com/matchastack/work-journal/pull/75)
 
 As the owner, I want the main journeys tested end to end, so that releases don't break the core loop.
 
-- [ ] A Playwright test covers: sign in (test mode) → accept in the Inbox → publish → the public page shows the change. The LLM is stubbed.
-- [ ] `docs/staging-checklist.md` covers:
+- [x] A Playwright test covers: sign in (test mode) → accept in the Inbox → publish → the public page shows the change. The LLM is stubbed.
+- [x] `docs/staging-checklist.md` covers:
   - dev bot message → summary → proposal → publish
   - checking the page and the PDFs
   - tailoring a real posting
-- [ ] The Playwright test runs in CI.
+- [x] The Playwright test runs in CI.
+
+**Built (2026-11-03):** stacked on T-046 (#71), since the journey ends on the published page. The test (`backend/tests/e2e/`, marked `e2e`) uses Python's Playwright, already a dev dependency, so it reuses the backend's fixtures and seeds the data with the app's own functions: the fictional profile as version 1, a handle, two journal facts, and a refresh's change set proposed by the real refresh code from scripted replies. The app runs in the test's process under uvicorn on a free local port, with the web app's build and a database of its own, dropped afterwards. "Test mode" adds no sign-in to the app: `FakeGitHub` stands in for GitHub's OAuth endpoints, as in the sign-in tests, and the browser's redirect to github.com is answered with GitHub's callback, so `/auth/login` and `/auth/callback` run as they do for real. The app's Claude client has no replies, so a call the journey shouldn't make fails, and the browser reaches nothing but the app. It runs in its own CI job, after building the web app. The staging checklist sets up a second copy of T-051's deployment: a Vercel project, a Neon branch and a dev bot of its own, plus a working copy whose `backend/.env` is staging's.
 
 ### T-069 · Link repositories and import their history
 **Status:** ☐ · **Size:** L · **Depends on:** T-068 · **Requirements:** FR-GH-2, FR-GH-3, FR-GH-7, FR-GH-9, FR-GH-10, FR-JRN-7 · **PR:** —
