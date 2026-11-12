@@ -222,7 +222,7 @@ async def test_catchup_starts_an_interview_after_closing_the_open_entry(
     handled = await handle(session, message(chat_id, "/catchup", message_id=61))
     [interview] = await session.scalars(select(CatchUp).where(CatchUp.user_id == user_id))
     [entry] = await session.scalars(select(JournalEntry).where(JournalEntry.user_id == user_id))
-    assert handled == Handled((sent(chat_id, INTRO),), entry.id, catch_up=interview.id)
+    assert handled == Handled((sent(chat_id, INTRO),), (entry.id,), catch_up=interview.id)
     assert (entry.closed_at, entry.closed_by) == (SENT, "done")
 
 
@@ -264,7 +264,7 @@ async def test_an_answer_becomes_an_entry_of_its_own_with_the_question(
     user_id, interview_id = await asking_interview(session, chat_id)
     handled = await handle(session, message(chat_id, ANSWER))
     [entry] = await session.scalars(select(JournalEntry).where(JournalEntry.user_id == user_id))
-    assert handled == Handled((without_buttons(chat_id),), entry.id, catch_up=interview_id)
+    assert handled == Handled((without_buttons(chat_id),), (entry.id,), catch_up=interview_id)
     assert (entry.closed_at, entry.closed_by, entry.question) == (SENT, "catchup", ASKED)
     texts = await session.scalars(
         select(JournalMessage.text).where(JournalMessage.entry_id == entry.id)
@@ -339,7 +339,9 @@ async def test_catchup_stops_a_follow_up_question_that_waits(
     handled = await handle(session, message(chat_id, "/catchup"))
     [interview] = await session.scalars(select(CatchUp).where(CatchUp.user_id == user_id))
     without_skip = BotCall("editMessageReplyMarkup", {"chat_id": chat_id, "message_id": 911})
-    assert handled == Handled((sent(chat_id, INTRO), without_skip), entry.id, catch_up=interview.id)
+    assert handled == Handled(
+        (sent(chat_id, INTRO), without_skip), (entry.id,), catch_up=interview.id
+    )
     await session.refresh(entry)
     assert not entry.awaiting_follow_up
 
@@ -393,7 +395,7 @@ async def test_done_closes_the_open_entry_too(session: AsyncSession, chat_id: in
     (await interview_of(session, interview_id)).status = "thinking"
     handled = await handle(session, message(chat_id, "/done", message_id=61))
     [entry] = await session.scalars(select(JournalEntry).where(JournalEntry.user_id == user_id))
-    assert handled == Handled((sent(chat_id, DONE_AND_PAUSED),), entry.id)
+    assert handled == Handled((sent(chat_id, DONE_AND_PAUSED),), (entry.id,))
     assert (await interview_of(session, interview_id)).status == "paused"
 
 
@@ -515,10 +517,8 @@ async def test_the_answers_come_from_the_journal_as_it_is_now(
     and a deleted entry's answer is gone, as if skipped."""
     _, interview_id = await asking_interview(session, chat_id)
     handled = await handle(session, message(chat_id, ANSWER))
-    assert handled.ready is not None
-    edited = await session.scalar(
-        select(JournalMessage).where(JournalMessage.entry_id == handled.ready)
-    )
+    (entry_id,) = handled.ready
+    edited = await session.scalar(select(JournalMessage).where(JournalMessage.entry_id == entry_id))
     assert edited is not None
     edited.text = "Moved to the platform team and took over the release tooling."
     await session.flush()
@@ -526,7 +526,7 @@ async def test_the_answers_come_from_the_journal_as_it_is_now(
     assert planned is not None
     assert [turn.answer for turn in planned.turns] == [edited.text]
     assert ANSWER not in (await interview_of(session, interview_id)).transcript
-    await session.execute(delete(JournalEntry).where(JournalEntry.id == handled.ready))
+    await session.execute(delete(JournalEntry).where(JournalEntry.id == entry_id))
     planned = await plan(session, interview_id)
     assert planned is not None
     assert [turn.answer for turn in planned.turns] == [None]
@@ -670,11 +670,11 @@ async def test_no_follow_up_question_while_the_interview_runs(
 async def test_an_answer_gets_no_follow_up_question(session: AsyncSession, chat_id: int) -> None:
     _, interview_id = await asking_interview(session, chat_id)
     handled = await handle(session, message(chat_id, ANSWER))
-    assert handled.ready is not None
+    (entry_id,) = handled.ready
     interview = await interview_of(session, interview_id)
     interview.status, interview.finished_at = "finished", SENT
     client, fake = llm()
-    assert await follow_up(session, handled.ready, client, now=SENT, timeout=TIMEOUT) is None
+    assert await follow_up(session, entry_id, client, now=SENT, timeout=TIMEOUT) is None
     assert fake.requests == []
 
 
@@ -682,8 +682,8 @@ async def test_an_answer_is_read_alone(session: AsyncSession, chat_id: int) -> N
     """The bot's question is never evidence: nothing it wrote can become a fact (FR-EXT-2)."""
     await asking_interview(session, chat_id)
     handled = await handle(session, message(chat_id, ANSWER))
-    assert handled.ready is not None
-    entry = await session.get(JournalEntry, handled.ready)
+    (entry_id,) = handled.ready
+    entry = await session.get(JournalEntry, entry_id)
     assert entry is not None
     entry.role_id = "northwind"
     client, fake = llm(reply(TriageReply(label="other")))

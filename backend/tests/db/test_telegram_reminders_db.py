@@ -23,7 +23,15 @@ from sqlalchemy import delete, func, select, update
 import app.jobs as job_module
 from app.config import Settings, get_settings
 from app.db.crypto import KeyRing, new_key, use_key_ring
-from app.db.models import ChangeSetRow, FactRow, JournalEntry, JournalMessage, TelegramLink, User
+from app.db.models import (
+    CatchUp,
+    ChangeSetRow,
+    FactRow,
+    JournalEntry,
+    JournalMessage,
+    TelegramLink,
+    User,
+)
 from app.db.profiles import save_version
 from app.db.settings import (
     get_reminder_settings,
@@ -732,6 +740,29 @@ async def test_the_answer_comes_before_another_wait_for_the_next_message(
         None,
     )
     assert waiting_entry.awaiting_follow_up is (waits_for == "a follow-up answer")
+
+
+async def test_the_answer_comes_before_the_catch_up_interviews(owner: Owner, chat_id: int) -> None:
+    """Pressed last too: the interview's question still waits, and the answer is the open
+    question's alone."""
+    user_id = await owner(profile=QUESTIONS, state=waiting())
+    async with database() as session:
+        interview = CatchUp(
+            user_id=user_id,
+            status="asking",
+            transcript="[]",
+            question="What changed since your resume?",
+            asked_at=PRESSED - timedelta(minutes=1),
+        )
+        session.add(interview)
+    handled = await handle(message(chat_id, ANSWER, sent_at=PRESSED + timedelta(minutes=1)))
+
+    [(answer_entry, answer_texts)] = await entries_of(user_id)
+    assert handled == Handled(ready=(answer_entry.id,))
+    assert (answer_entry.open_question_id, answer_entry.question) == ("q_nw_volume", None)
+    assert answer_texts == [ANSWER]
+    async with database() as session:
+        assert await session.scalar(select(CatchUp.status)) == "asking"
 
 
 ROLE_QUESTION = 650
