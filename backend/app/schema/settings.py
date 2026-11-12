@@ -209,7 +209,8 @@ class ConfidentialTerms(Model):
     """Words and names that must never appear in public outputs: the portfolio page, published
     PDFs and the LinkedIn pack (FR-SET-5, NFR-PRIV-4), under `confidential_terms`.
 
-    T-049 blocks them, matching whole words in any case. Until then they're only kept.
+    They're matched as whole words or phrases, in any case (`app/validate/confidential.py`), and
+    each public output is screened for them as they are when it's shown or marked done (T-049).
     """
 
     terms: Phrases = ()

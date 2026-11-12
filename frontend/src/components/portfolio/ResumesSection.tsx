@@ -1,6 +1,7 @@
 import { useId, useState } from "react";
 
 import {
+  quotedTerms,
   resumeKey,
   useSaveResumes,
   type PortfolioView,
@@ -22,6 +23,16 @@ interface Row {
   label: string;
   chosen: boolean;
   available: boolean;
+  /** The confidential terms its PDF or button text names, which keep it off the page. */
+  confidentialTerms: string[];
+}
+
+/** Why a resume that names a confidential term is kept off the page (NFR-PRIV-4). */
+function confidentialNote(row: Row): string {
+  const terms = row.confidentialTerms;
+  const what = row.chosen ? "not offered now" : "can't be offered";
+  const noun = terms.length > 1 ? "terms" : "term";
+  return `Error: ${what}, as it names your confidential ${noun} ${quotedTerms(terms)}.`;
 }
 
 /** The chosen resumes in their order, then the others the owner may offer. */
@@ -38,6 +49,7 @@ function rowsOf(view: PortfolioView): Row[] {
       label: resume.label,
       chosen: true,
       available: resume.available,
+      confidentialTerms: resume.confidentialTerms,
     };
   });
   const keys = new Set(chosen.map((row) => row.key));
@@ -51,7 +63,8 @@ function rowsOf(view: PortfolioView): Row[] {
         name: option.name,
         label: option.label,
         chosen: false,
-        available: true,
+        available: option.confidentialTerms.length === 0,
+        confidentialTerms: option.confidentialTerms,
       }),
     );
   return [...chosen, ...others];
@@ -76,7 +89,8 @@ export function ResumesSection({ view }: { view: PortfolioView }) {
           <p>Visitors can download the resumes you choose, in this order.</p>
           <p>
             A resume shows what you marked Resume only, such as your phone number, and anyone can
-            download it. A tailored resume with an error can&apos;t be offered.
+            download it. A tailored resume with an error, or a resume that names one of your
+            confidential terms, can&apos;t be offered.
           </p>
         </>
       }
@@ -128,6 +142,7 @@ export function ResumesSection({ view }: { view: PortfolioView }) {
                     <input
                       type="checkbox"
                       checked={row.chosen}
+                      disabled={!row.chosen && !row.available}
                       onChange={(event) => {
                         change(row.key, { chosen: event.target.checked });
                       }}
@@ -135,10 +150,16 @@ export function ResumesSection({ view }: { view: PortfolioView }) {
                     />
                     <span>
                       Offer {row.name}
-                      {!row.available && (
-                        <span className="block text-xs text-amber-800">
-                          Not offered now: it has no PDF that may be sent.
+                      {row.confidentialTerms.length > 0 ? (
+                        <span className="block text-xs text-red-800">
+                          {confidentialNote(row)}
                         </span>
+                      ) : (
+                        !row.available && (
+                          <span className="block text-xs text-amber-800">
+                            Not offered now: it has no PDF that may be sent.
+                          </span>
+                        )
                       )}
                     </span>
                   </label>

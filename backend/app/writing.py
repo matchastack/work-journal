@@ -11,8 +11,9 @@ same profile share it. `apply_swap` works an approved swap into a bullet the sam
 `swap_op` saves a phrasing the owner approves as a swap on its bullet (FR-WRT-5).
 
 Every text goes through the verifier (`app/validate/verifier.py`) before anyone sees it, with the
-owner's words to avoid in every style (FR-WRT-4). One that fails is written once more, with the
-failed attempt and the verifier's findings, and is flagged if it fails again (FR-FID-7). The
+owner's words to avoid in every style (FR-WRT-4) and their confidential terms (T-049). One that
+fails is written once more, with the failed attempt and the verifier's findings, and is flagged if
+it fails again (FR-FID-7). The
 result is the verifier's report, whose text is the bullet. The prompt holds fact text, so nothing
 else from the writing is kept or logged.
 """
@@ -64,6 +65,7 @@ def write_bullet(
     style: Style = "resume",
     posting: JobPosting | None = None,
     avoid: Sequence[str] = (),
+    confidential: Sequence[str] = (),
     prompt: Prompt | None = None,
 ) -> VerifierReport:
     """Write `facts` in `style` under `entry_id`, the ID of a role, education entry or project
@@ -73,7 +75,8 @@ def write_bullet(
     the resume style it replaces the bullet, and in the others it can be saved as a swap on it.
     `facts` must then include the facts it was written from, or its claims fail the check. The
     posting style needs the parsed `posting`, and the others take none. `avoid` is the owner's
-    list of words to avoid. Raises `ValueError` for no facts or an unknown item or bullet.
+    list of words to avoid, and `confidential` their confidential terms. Raises `ValueError` for no
+    facts or an unknown item or bullet.
     """
     if not facts:
         raise ValueError("a bullet is written from at least one fact")
@@ -93,6 +96,7 @@ def write_bullet(
         replaces=edit,
         posting=posting,
         avoid=avoid,
+        confidential=confidential,
     )
     variables = {
         "item": _item(profile, entry_id),

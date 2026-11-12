@@ -14,12 +14,14 @@ const MASTER = {
   applicationId: null,
   name: "Master resume (version 3)",
   label: "Resume",
+  confidentialTerms: [],
 };
 const TAILORED = {
   source: "application" as const,
   applicationId: "app_backend",
   name: "Tailored: Backend Engineer at Acme Example (2026-10-20)",
   label: "Backend Engineer resume",
+  confidentialTerms: [],
 };
 
 function view(changes: Partial<PortfolioView> = {}): PortfolioView {
@@ -38,6 +40,7 @@ function view(changes: Partial<PortfolioView> = {}): PortfolioView {
     },
     resumes: [],
     options: [MASTER, TAILORED],
+    confidential: [],
     ...changes,
   };
 }
@@ -93,7 +96,11 @@ function servePortfolio(start: PortfolioView, refuse: Record<string, Response> =
           const { resumes } = body as { resumes: PublishedResume[] };
           state.view = {
             ...state.view,
-            resumes: resumes.map((resume) => ({ ...resume, available: true })),
+            resumes: resumes.map((resume) => ({
+              ...resume,
+              available: true,
+              confidentialTerms: [],
+            })),
           };
           return json(state.view);
         }
@@ -258,6 +265,7 @@ describe("the portfolio page", () => {
             applicationId: "app_gone",
             label: "Old resume",
             available: false,
+            confidentialTerms: [],
           },
         ],
       }),
@@ -267,5 +275,73 @@ describe("the portfolio page", () => {
     expect(resumes.getByRole("checkbox", { name: /Offer A tailored resume/ })).toBeChecked();
     expect(resumes.getByText(/Not offered now/)).toBeInTheDocument();
     expect(resumes.getByLabelText("Button text")).toHaveValue("Old resume");
+  });
+
+  it("names each confidential term the page names, and where, and won't publish it", async () => {
+    servePortfolio(
+      view({
+        confidential: [
+          { term: "Falcon", where: "Experience: Engineer" },
+          { term: "Falcon", where: "About: Profile" },
+          { term: "Orion", where: "Page address" },
+        ],
+      }),
+    );
+    renderAt();
+    const publishing = await section("Publishing");
+    const alert = publishing.getByRole("alert");
+    expect(alert).toHaveTextContent(
+      "Your page names a confidential term, so it can't be published.",
+    );
+    expect(within(alert).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      'Error: "Falcon" in Experience: Engineer; About: Profile',
+      'Error: "Orion" in Page address',
+    ]);
+    expect(publishing.getByRole("button", { name: "Publish" })).toBeDisabled();
+  });
+
+  it("says visitors get page not found while a published page names a term", async () => {
+    servePortfolio(
+      view({
+        published: true,
+        publishedAt: "2026-10-30T02:00:00Z",
+        confidential: [{ term: "Falcon", where: "Contact" }],
+      }),
+    );
+    renderAt();
+    const publishing = await section("Publishing");
+    expect(publishing.getByRole("alert")).toHaveTextContent(
+      'Visitors get "Page not found" while your page names a confidential term.',
+    );
+    expect(publishing.getByRole("button", { name: "Unpublish" })).toBeEnabled();
+  });
+
+  it("says which resumes name a confidential term", async () => {
+    servePortfolio(
+      view({
+        resumes: [
+          {
+            source: "master",
+            applicationId: null,
+            label: "Resume",
+            available: false,
+            confidentialTerms: ["Falcon"],
+          },
+        ],
+        options: [
+          { ...MASTER, confidentialTerms: ["Falcon"] },
+          { ...TAILORED, confidentialTerms: ["Falcon", "Orion"] },
+        ],
+      }),
+    );
+    renderAt();
+    const resumes = await section("Resume downloads");
+    expect(
+      resumes.getByText(/not offered now, as it names your confidential term "Falcon"\./),
+    ).toBeInTheDocument();
+    const both = /can't be offered, as it names your confidential terms "Falcon" and "Orion"/;
+    expect(resumes.getByText(both)).toBeInTheDocument();
+    expect(resumes.getByRole("checkbox", { name: /Offer Master resume/ })).toBeEnabled();
+    expect(resumes.getByRole("checkbox", { name: /Offer Tailored: Backend/ })).toBeDisabled();
   });
 });

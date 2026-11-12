@@ -911,7 +911,7 @@
           "settings"
         ],
         "summary": "Change Confidential Terms",
-        "description": "Replace the confidential terms (FR-SET-5).",
+        "description": "Replace the confidential terms (FR-SET-5). They take effect at once: the portfolio page\nand its resumes are checked each time they're shown, and the LinkedIn pack last written is\nscreened again now, so a section that names a term is flagged (NFR-PRIV-4).",
         "operationId": "change_confidential_terms_api_settings_confidential_terms_put",
         "requestBody": {
           "content": {
@@ -1210,6 +1210,14 @@
           "available": {
             "type": "boolean",
             "title": "Available"
+          },
+          "confidentialTerms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Confidentialterms",
+            "default": []
           }
         },
         "additionalProperties": false,
@@ -1328,7 +1336,7 @@
         "additionalProperties": false,
         "type": "object",
         "title": "ConfidentialTerms",
-        "description": "Words and names that must never appear in public outputs: the portfolio page, published\nPDFs and the LinkedIn pack (FR-SET-5, NFR-PRIV-4), under `confidential_terms`.\n\nT-049 blocks them, matching whole words in any case. Until then they're only kept."
+        "description": "Words and names that must never appear in public outputs: the portfolio page, published\nPDFs and the LinkedIn pack (FR-SET-5, NFR-PRIV-4), under `confidential_terms`.\n\nThey're matched as whole words or phrases, in any case (`app/validate/confidential.py`), and\neach public output is screened for them as they are when it's shown or marked done (T-049)."
       },
       "DataDeletion": {
         "properties": {
@@ -2716,6 +2724,14 @@
             },
             "type": "array",
             "title": "Options"
+          },
+          "confidential": {
+            "items": {
+              "$ref": "#/components/schemas/TermMatch"
+            },
+            "type": "array",
+            "title": "Confidential",
+            "default": []
           }
         },
         "additionalProperties": false,
@@ -3053,6 +3069,14 @@
             "maxLength": 60,
             "minLength": 1,
             "title": "Label"
+          },
+          "confidentialTerms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Confidentialterms",
+            "default": []
           }
         },
         "additionalProperties": false,
@@ -3353,6 +3377,28 @@
         ],
         "title": "TelegramView",
         "description": "Whether the owner's Telegram chat is linked, and since when (FR-SET-1)."
+      },
+      "TermMatch": {
+        "properties": {
+          "term": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Term"
+          },
+          "where": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Where"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "term",
+          "where"
+        ],
+        "title": "TermMatch",
+        "description": "A confidential term found in an output."
       },
       "ValidationError": {
         "properties": {

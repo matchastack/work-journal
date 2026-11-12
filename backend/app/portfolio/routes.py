@@ -9,14 +9,17 @@ unpublishing, shows everywhere within about two minutes, while most visitors get
 A page that isn't found is never cached, so publishing shows at once (FR-PRT-3).
 
 Unknown handles and unpublished pages get the same 404, so the page says nothing of whether a
-handle exists. The routes are left out of the OpenAPI schema: they serve HTML and PDFs, not JSON.
+handle exists, and so does a published page while it names one of the owner's confidential terms
+(NFR-PRIV-4): the HTML served is screened each time, with the terms as they are then. The
+owner's preview isn't screened, so they can see where a term is. The routes are left out of the
+OpenAPI schema: they serve HTML and PDFs, not JSON.
 """
 
 import hashlib
 import re
 import uuid
-from collections.abc import Callable, Sequence
-from datetime import UTC, date, datetime
+from collections.abc import Sequence
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response, status
@@ -28,15 +31,16 @@ from app.auth.routes import NO_STORE
 from app.auth.sessions import CurrentUser
 from app.db.store import get_artifact
 from app.deps import AppSettings, Db
-from app.portfolio.build import TEMPLATE_DIR, Assets, Link, portfolio_page, render_page
+from app.portfolio.build import TEMPLATE_DIR, Assets
 from app.portfolio.publishing import (
     NotPublishable,
     Offered,
-    PortfolioContent,
     PortfolioView,
     choose_resumes,
+    content_matches,
     find_published,
     offered_resumes,
+    page_html,
     portfolio_view,
     preview_content,
     publish,
@@ -166,6 +170,7 @@ async def preview(user: CurrentUser, db: Db, settings: AppSettings) -> HTMLRespo
         content,
         site_url=site_url,
         resume_href=lambda sha: f"/api/portfolio/preview/resumes/{sha}.pdf",
+        assets=SERVED_ASSETS,
     )
     headers = {
         **NO_STORE,
@@ -209,7 +214,8 @@ async def asset(name: str, v: Annotated[str | None, Query()] = None) -> Response
 
 @public_router.api_route("/{handle}", methods=["GET", "HEAD"])
 async def public_page(handle: str, request: Request, db: Db, settings: AppSettings) -> Response:
-    """The published portfolio page (FR-PRT-1). Not found unless it's published."""
+    """The published portfolio page (FR-PRT-1). Not found unless it's published, or while it
+    names a confidential term (NFR-PRIV-4)."""
     if not valid_handle(handle.lower()):
         return not_found()
     if handle != handle.lower():
@@ -222,7 +228,10 @@ async def public_page(handle: str, request: Request, db: Db, settings: AppSettin
         content,
         site_url=f"{settings.app_url}/p/{handle}",
         resume_href=lambda sha: f"/p/{handle}/resumes/{sha}.pdf",
+        assets=SERVED_ASSETS,
     )
+    if content_matches(content, html):
+        return not_found()
     etag = f'"{hashlib.sha256(html.encode()).hexdigest()[:32]}"'
     headers = _public_headers(content.settings.indexing) | {
         "ETag": etag,
@@ -236,7 +245,7 @@ async def public_page(handle: str, request: Request, db: Db, settings: AppSettin
 @public_router.get("/{handle}/resumes/{name}")
 async def public_resume(handle: str, name: str, request: Request, db: Db) -> Response:
     """A resume the owner chose to offer on the published page (FR-PRT-7). Only those PDFs are
-    served, and only while the page is published."""
+    served, only while the page is published, and never one that names a confidential term."""
     match = _PDF_NAME.fullmatch(name)
     if match is None or not valid_handle(handle):
         return not_found()
@@ -267,26 +276,6 @@ async def no_page(rest: str) -> Response:
 
 
 # --- Helpers -------------------------------------------------------------------------------------
-
-
-def page_html(
-    content: PortfolioContent, *, site_url: str | None, resume_href: Callable[[str], str]
-) -> str:
-    """The page, from the version and settings in `content`."""
-    settings = content.settings
-    page = portfolio_page(
-        content.profile,
-        year=date.today().year,
-        site_url=site_url,
-        downloads=[
-            Link(text=resume.label, href=resume_href(resume.sha256)) for resume in content.resumes
-        ],
-        default_visibility=settings.default_visibility,
-        open_to_work=settings.open_to_work,
-        indexing=settings.indexing,
-        assets=SERVED_ASSETS,
-    )
-    return render_page(page)
 
 
 def valid_handle(handle: str) -> bool:
