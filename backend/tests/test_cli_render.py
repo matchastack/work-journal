@@ -6,7 +6,7 @@ from typer.testing import CliRunner
 
 import app.cli as cli_module
 from app.cli import cli
-from app.render.resume import RenderedResume
+from app.render.resume import RenderedResume, render_key
 from app.selection import Selection
 
 PROFILE = Path(__file__).parent / "fixtures" / "profile.json"
@@ -27,7 +27,7 @@ def test_render_writes_the_master_document_as_a_pdf(tmp_path: Path) -> None:
 def test_render_writes_the_tex_source_beside_the_pdf(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def render_resume(selection: Selection) -> RenderedResume:
+    def render_resume(selection: Selection, **_: object) -> RenderedResume:
         return RenderedResume(
             pdf=b"%PDF",
             tex="\\documentclass{article}",
@@ -36,6 +36,7 @@ def test_render_writes_the_tex_source_beside_the_pdf(
             cuts=(),
             warnings=(),
             selection=selection,
+            key=render_key(selection),
         )
 
     monkeypatch.setattr(cli_module, "render_resume", render_resume)

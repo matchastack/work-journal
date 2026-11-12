@@ -169,8 +169,12 @@ uv run wj tick
 ```
 
 It runs a tick as Vercel's cron does, and also renders the master resume and keeps it in the
-database, with the refresh. `uv run wj render --db` writes the newest version to
-`local/resumes/master.pdf` at any time.
+database, with the refresh, where the web app's Resumes page shows it. `uv run wj render --db`
+writes the newest version to `local/resumes/master.pdf` at any time.
+
+The same goes for resumes you tailor on the web app's Tailor page: their PDFs wait for your
+computer. Run `uv run wj worker` there while you tailor, with the same settings, and it renders
+each draft as you change it.
 
 ## Check it works
 

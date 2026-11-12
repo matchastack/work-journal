@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  calendarDate,
   clockTime,
   dateAndTime,
   dayAndTime,
@@ -22,6 +23,11 @@ describe("dates and times", () => {
   it("name months", () => {
     expect(monthTitle("2026-10")).toBe("October 2026");
     expect(factMonth("2025-01")).toBe("Jan 2025");
+  });
+
+  it("write calendar dates as they are, in any time zone", () => {
+    expect(calendarDate("2026-10-04")).toBe("4 Oct 2026");
+    expect(calendarDate("2026-12-31")).toBe("31 Dec 2026");
   });
 });
 
