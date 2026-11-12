@@ -84,7 +84,8 @@ Run these from `backend/` (uv project, Python 3.12):
 | Lint | `uv run ruff check .` |
 | Format | `uv run ruff format .` |
 | Type-check | `uv run pyright` |
-| Tests | `uv run pytest` (tests that call the real Claude API: `uv run pytest -m llm`; browser tests need `uv run playwright install chromium`) |
+| Tests | `uv run pytest` (tests that call the real Claude API: `uv run pytest -m llm`; browser tests need `uv run playwright install chromium`, or a Chromium at `CHROMIUM_PATH`) |
+| Run the end-to-end test: Chromium signs in, accepts a change in the Inbox, publishes and checks the public page, against the app on a free local port with GitHub and Claude stubbed (`tests/e2e/`; needs `npm run build` in `frontend/`, `TEST_DATABASE_URL` and Chromium; part of `uv run pytest`, and its own CI job) | `uv run pytest -m e2e` |
 | **All checks before pushing** | `uv run ruff check . && uv run ruff format --check . && uv run pyright && uv run pytest` (CI runs the same checks on every PR and on `main`: `.github/workflows/ci.yml`) |
 
 Add a dependency with `uv add <package>` (or `uv add --dev <package>` for tools), and commit `pyproject.toml` together with `uv.lock`.
@@ -111,7 +112,7 @@ Add a dependency with `npm install <package>` (or `npm install --save-dev <packa
 | `backend/templates/` | LaTeX resume template and portfolio templates |
 | `backend/evals/` | Fictional evaluation cases for `wj eval`, and the baseline report |
 | `frontend/` | React web app: Vite, TypeScript, Tailwind, React Router and TanStack Query. `src/api/schema.d.ts` is generated. |
-| `docs/` | Runbooks: `deploy.md` sets up the free hosting (Vercel and Neon) |
+| `docs/` | Runbooks: `deploy.md` sets up the free hosting (Vercel and Neon), and `staging-checklist.md` tries a change on staging |
 | `local/` | **Git-ignored** personal data: the imported profile and private evaluations. Never commit it. |
 
 ## Conventions
