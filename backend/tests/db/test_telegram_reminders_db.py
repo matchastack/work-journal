@@ -525,5 +525,5 @@ async def test_help_lists_pause_and_resume(owner: Owner, chat_id: int) -> None:
     await owner()
     [call] = (await handle(command(chat_id, "/help"))).calls
     listed = [line.split(" - ")[0] for line in call.params["text"].splitlines() if line[:1] == "/"]
-    assert listed == ["/done", "/skip", "/refresh", "/pause", "/resume", "/help"]
+    assert listed == ["/done", "/skip", "/refresh", "/catchup", "/pause", "/resume", "/help"]
     assert "/pause - stop reminders\n/resume - restart reminders" in call.params["text"]

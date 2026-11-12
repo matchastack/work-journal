@@ -869,6 +869,8 @@ export interface components {
             roleId: string | null;
             /** Newrole */
             newRole: string | null;
+            /** Question */
+            question: string | null;
             /** Messages */
             messages: components["schemas"]["JournalMessageView"][];
             /** Facts */

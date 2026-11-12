@@ -10,8 +10,9 @@ both go through every such table, and a table added later is covered without a c
   they're read, and are kept for 7 days (FR-JRN-2).
 - **Deleting** the user's row deletes every row of theirs, since each `user_id` cascades. That
   includes their sessions, so they're signed out everywhere. The raw updates from their chat go
-  too, and so do the jobs queued for their journal entries and refreshes, which would otherwise
-  run for nothing. A job already running finds its entry or refresh gone, and stops.
+  too, and so do the jobs queued for their journal entries, refreshes and catch-up interviews,
+  which would otherwise run for nothing. A job already running finds what it was for gone, and
+  stops.
 
 Neither logs any content.
 """
@@ -43,6 +44,7 @@ from app.db.crypto import DecryptionError, key_ring
 from app.db.models import (
     NOT_PER_USER,
     Base,
+    CatchUp,
     JournalEntry,
     Refresh,
     TelegramLink,
@@ -64,11 +66,17 @@ DELETE_JOBS = text(
     """
     DELETE FROM procrastinate_jobs
     WHERE status <> 'doing'
-        AND (args->>'entry_id' = ANY(:entries) OR args->>'refresh_id' = ANY(:refreshes))
+        AND (
+            args->>'entry_id' = ANY(:entries)
+            OR args->>'refresh_id' = ANY(:refreshes)
+            OR args->>'catch_up_id' = ANY(:catch_ups)
+        )
     """
-).bindparams(bindparam("entries", type_=ARRAY(String)), bindparam("refreshes", type_=ARRAY(String)))
-"""Jobs for the given journal entries and refreshes, except any running now, which Procrastinate
-still has to finish. Their arguments are IDs (`app/jobs.py`)."""
+).bindparams(
+    *(bindparam(name, type_=ARRAY(String)) for name in ("entries", "refreshes", "catch_ups"))
+)
+"""Jobs for the given journal entries, refreshes and catch-up interviews, except any running now,
+which Procrastinate still has to finish. Their arguments are IDs (`app/jobs.py`)."""
 
 
 def _order(table: Table) -> list[ColumnElement[Any]]:
@@ -110,9 +118,10 @@ async def delete_all_data(session: AsyncSession, user_id: uuid.UUID) -> None:
     """Delete the user and everything stored for them. The caller commits."""
     entries = await session.scalars(select(JournalEntry.id).where(JournalEntry.user_id == user_id))
     refreshes = await session.scalars(select(Refresh.id).where(Refresh.user_id == user_id))
+    catch_ups = await session.scalars(select(CatchUp.id).where(CatchUp.user_id == user_id))
+    ids = {"entries": entries, "refreshes": refreshes, "catch_ups": catch_ups}
     await session.execute(
-        DELETE_JOBS,
-        {"entries": [str(entry) for entry in entries], "refreshes": [str(r) for r in refreshes]},
+        DELETE_JOBS, {name: [str(row) for row in rows] for name, rows in ids.items()}
     )
     updates = [row[0] for row in await _updates_from(session, await _chat(session, user_id))]
     if updates:

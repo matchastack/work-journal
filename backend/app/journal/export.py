@@ -106,6 +106,8 @@ def when(moment: datetime, zone: ZoneInfo) -> str:
 
 def _about(entry: JournalEntryView, roles: Mapping[str, str]) -> list[str]:
     lines: list[str] = []
+    if entry.question is not None:
+        lines.append(f"Catch-up question: {entry.question}")
     if entry.role_id is not None:
         lines.append(f"Role: {roles.get(entry.role_id, entry.role_id)}")
     elif entry.new_role is not None:
