@@ -785,7 +785,7 @@
           "linkedin"
         ],
         "summary": "Mark Pack Done",
-        "description": "Mark the pack done once its sections are pasted into LinkedIn: they're stored as the\nsnapshot that later packs are compared with (FR-LIN-3). A flagged section is left out, so\nit's written again. 409 when there's no pack, or it isn't the one with `digest`.",
+        "description": "Mark the pack done once its sections are pasted into LinkedIn: they're stored as the\nsnapshot that later packs are compared with (FR-LIN-3). A flagged section, including one\nthat names a confidential term now, is left out, so it's written again. 409 when there's no\npack, or it isn't the one with `digest`.",
         "operationId": "mark_pack_done_api_linkedin_done_post",
         "requestBody": {
           "content": {
@@ -2676,6 +2676,13 @@
             "type": "boolean",
             "title": "Flagged"
           },
+          "problems": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Problems"
+          },
           "report": {
             "anyOf": [
               {
@@ -2704,6 +2711,7 @@
           "length",
           "limit",
           "flagged",
+          "problems",
           "report",
           "notes"
         ],

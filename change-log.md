@@ -10,6 +10,7 @@ One short entry per pull request, newest first: what changed and what to verify.
 - After `uv run wj linkedin --db`, the LinkedIn page lists the same changed sections, and Copy puts a section's text on the clipboard
 - Mark done stays off until every section that passed is ticked; after it, the page lists only flagged sections, and with none flagged, `uv run wj linkedin --db` says nothing changed
 - With the page open, running `wj linkedin --db` after a profile change and then pressing Mark done says the pack was written again, and marks nothing
+- Adding a confidential term that a section names, in Settings, lists that section on the LinkedIn page flagged with the term, and Mark done leaves it out
 
 ## 2026-11-03 · T-049 Confidential terms and sensitive roles · [#76](https://github.com/matchastack/work-journal/pull/76)
 **Changed:** your confidential terms now keep the portfolio page, its resume downloads and LinkedIn sections that name one off the public, each shown as an error naming the term, and text written about a role marked sensitive is flagged in the Inbox when it names a term or has operational detail.

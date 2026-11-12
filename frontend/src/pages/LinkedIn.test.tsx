@@ -28,6 +28,7 @@ function section(key: string, label: string, text: string, fields: Partial<Linke
     length: text.length,
     limit: limits[kind],
     flagged: false,
+    problems: [],
     report: {
       text,
       passed: true,
@@ -195,6 +196,27 @@ describe("the LinkedIn page", () => {
     expect(screen.getByRole("checkbox", { name: "Position: Tutor at A School" })).not.toBeChecked();
   });
 
+  it("says which confidential term a section names, and leaves it off the checklist", async () => {
+    const problem =
+      'Names the confidential term "Sensor logs": take it out before you paste this section.';
+    const named = section(
+      "position:contoso",
+      "Position: Intern at Contoso",
+      "Labelled sensor logs.",
+      {
+        flagged: true,
+        problems: [problem],
+      },
+    );
+    serve(page({ pack: pack({ sections: [section("headline", "Headline", HEADLINE), named] }) }));
+    renderPage();
+    const contoso = await item("Position: Intern at Contoso");
+    expect(contoso.getByText(problem)).toBeInTheDocument();
+    expect(contoso.getByText("Verifier: passed")).toBeInTheDocument();
+    expect(contoso.getByText(/Not marked done with the others/)).toBeInTheDocument();
+    expect(contoso.queryByRole("checkbox")).not.toBeInTheDocument();
+  });
+
   it("marks a section over LinkedIn's limit", async () => {
     const long = "x".repeat(221);
     serve(page({ pack: pack({ sections: [section("headline", "Headline", long)] }) }));
@@ -241,15 +263,13 @@ describe("the LinkedIn page", () => {
     await user.click(markDone);
     const status = await screen.findByText(/^Marked done\./);
     expect(status).toHaveTextContent(
-      `Marked done. This page now lists only what changes after this. Not marked, as the verifier flagged it: ${NORTHWIND_LABEL}. Written again next time.`,
+      `Marked done. This page now lists only what changes after this. Not marked, as it's flagged: ${NORTHWIND_LABEL}. Written again next time.`,
     );
     expect(status).toHaveFocus();
     expect(sent).toEqual([
       { path: "/api/linkedin/done", body: { digest: DIGEST }, csrf: "csrf-1" },
     ]);
-    expect(
-      await screen.findByText(/The verifier flagged every section listed/),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/Every section listed is flagged/)).toBeInTheDocument();
     expect(screen.queryByRole("heading", { level: 2, name: "Headline" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Mark done" })).not.toBeInTheDocument();
     expect(

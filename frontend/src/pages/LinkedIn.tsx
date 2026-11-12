@@ -15,8 +15,8 @@ function markedMessage({ flagged }: Marked): string {
   if (flagged.length === 0) {
     return done;
   }
-  const them = flagged.length === 1 ? "it" : "them";
-  return `${done} Not marked, as the verifier flagged ${them}: ${flagged.join(", ")}. Written again next time.`;
+  const them = flagged.length === 1 ? "it's" : "they're";
+  return `${done} Not marked, as ${them} flagged: ${flagged.join(", ")}. Written again next time.`;
 }
 
 /** Where the listed sections stand: how many changed since the pack was last marked done, and

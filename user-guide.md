@@ -240,6 +240,7 @@ For each section you see:
 
 - its text, and its length against LinkedIn's limit, such as `52 of 220 characters` (220 for the headline, 2,600 for About, 2,000 for a position);
 - the verifier's result. A section the verifier flagged says why: paste it only if you are sure it is true. It isn't marked done with the others, so it is written again next time;
+- each of your [confidential terms](#settings) it names, checked each time the page loads. Such a section is flagged and listed even if you marked it done before, so take it off LinkedIn too; it isn't marked done until it's written without the term;
 - notes to check, such as a position title that differs from the one on your latest application;
 - **Copy**, which puts the text on your clipboard and shows "Copied". If the browser refuses, select the text and copy it yourself;
 - **Pasted into LinkedIn**, to tick once it is on LinkedIn.

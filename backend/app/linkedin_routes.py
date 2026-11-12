@@ -4,22 +4,31 @@ changed since the owner last marked it done, to paste into LinkedIn, and marks i
 The page shows the pack last written (`app/linkedin.py`), from the profile version it names:
 `wj linkedin --db` writes it, and the refresh will too (T-061). The page never writes the pack,
 so it makes no call to Claude, and every section on it passed the verifier when it was written,
-or is flagged.
+or is flagged. Each section is screened for the owner's confidential terms as they are now, when
+the page loads and when it's marked done (NFR-PRIV-4): one that names a term is flagged and
+listed, even if it was marked done before, and isn't marked done until it's rewritten.
 """
 
 import hashlib
+import uuid
 from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Response, status
 from pydantic import StringConstraints
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.routes import NO_STORE
 from app.auth.sessions import CurrentUser
 from app.db.profiles import latest_version
-from app.db.settings import get_linkedin_done, get_linkedin_pack, save_linkedin_done
+from app.db.settings import (
+    get_confidential_terms,
+    get_linkedin_done,
+    get_linkedin_pack,
+    save_linkedin_done,
+)
 from app.deps import Db
-from app.linkedin import LinkedInPack, PackSection, mark_done, since_done
+from app.linkedin import LinkedInPack, PackSection, mark_done, screen_pack, since_done
 from app.schema.common import Model, NonEmptyStr
 from app.schema.verification import VerifierReport
 from app.validate.style import LinkedInSection
@@ -41,7 +50,10 @@ class LinkedInPageSection(Model):
     limit: int
     """LinkedIn's limit for the section (FR-LIN-1)."""
     flagged: bool
-    """True when the text failed the verifier: it's not marked done with the others."""
+    """True when the text failed the verifier or names a confidential term: it's not marked done
+    with the others."""
+    problems: tuple[str, ...]
+    """Each confidential term the text or title names, in words: it mustn't be pasted as it is."""
     report: VerifierReport | None
     """What the verifier found when the section was written."""
     notes: tuple[str, ...]
@@ -55,9 +67,10 @@ class LinkedInPagePack(Model):
     profile_version: int | None
     """The profile version the pack was written from."""
     sections: tuple[LinkedInPageSection, ...]
-    """The sections that changed since the pack was last marked done, in the pack's order."""
+    """The sections that changed since the pack was last marked done, or name a confidential
+    term, in the pack's order."""
     unchanged: int
-    """How many sections are as they were last marked done."""
+    """How many sections are as they were last marked done, and name no confidential term."""
     removed: tuple[str, ...]
     """Sections marked done before that the profile no longer has: take them off LinkedIn."""
 
@@ -80,7 +93,8 @@ class Marked(Model):
     marked: int
     """How many sections the snapshot now holds from this pack."""
     flagged: tuple[str, ...]
-    """The labels of the sections left out, as the verifier flagged them."""
+    """The labels of the sections left out, as the verifier flagged them or they name a
+    confidential term."""
 
 
 @router.get("")
@@ -93,12 +107,13 @@ async def linkedin_page(user: CurrentUser, db: Db, response: Response) -> Linked
     version = await latest_version(db, user.id)
     view = None
     if pack is not None:
-        current = since_done(pack, done)
+        current = since_done(await _screened(db, user.id, pack), done)
+        listed = [s for s in current.sections if s.changed or s.confidential_terms]
         view = LinkedInPagePack(
             digest=_digest(pack),
             profile_version=pack.profile_version,
-            sections=tuple(_section(section) for section in current.changed),
-            unchanged=len(current.sections) - len(current.changed),
+            sections=tuple(_section(section) for section in listed),
+            unchanged=len(current.sections) - len(listed),
             removed=current.removed,
         )
     return LinkedInPage(
@@ -111,8 +126,9 @@ async def linkedin_page(user: CurrentUser, db: Db, response: Response) -> Linked
 @router.post("/done")
 async def mark_pack_done(body: MarkDone, user: CurrentUser, db: Db, response: Response) -> Marked:
     """Mark the pack done once its sections are pasted into LinkedIn: they're stored as the
-    snapshot that later packs are compared with (FR-LIN-3). A flagged section is left out, so
-    it's written again. 409 when there's no pack, or it isn't the one with `digest`."""
+    snapshot that later packs are compared with (FR-LIN-3). A flagged section, including one
+    that names a confidential term now, is left out, so it's written again. 409 when there's no
+    pack, or it isn't the one with `digest`."""
     response.headers.update(NO_STORE)
     pack = await get_linkedin_pack(db, user.id)
     if pack is None:
@@ -123,7 +139,8 @@ async def mark_pack_done(body: MarkDone, user: CurrentUser, db: Db, response: Re
             "the pack was written again since the page loaded; check its sections first",
         )
     previous = await get_linkedin_done(db, user.id)
-    done, flagged = mark_done(pack, previous, now=datetime.now(UTC))
+    screened = await _screened(db, user.id, pack)
+    done, flagged = mark_done(screened, previous, now=datetime.now(UTC))
     await save_linkedin_done(db, user.id, done)
     await db.commit()
     return Marked(
@@ -141,10 +158,17 @@ def _section(section: PackSection) -> LinkedInPageSection:
         length=section.length,
         limit=section.limit,
         flagged=section.flagged,
+        problems=section.problems,
         report=section.report,
         notes=section.notes,
     )
 
 
+async def _screened(db: AsyncSession, user_id: uuid.UUID, pack: LinkedInPack) -> LinkedInPack:
+    """`pack` with each section's confidential terms found as the owner's terms are now."""
+    return screen_pack(pack, (await get_confidential_terms(db, user_id)).terms)
+
+
 def _digest(pack: LinkedInPack) -> str:
+    """Of the pack as written: a change to the confidential terms isn't a new pack."""
     return hashlib.sha256(pack.model_dump_json().encode("utf-8")).hexdigest()

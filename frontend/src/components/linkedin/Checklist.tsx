@@ -86,8 +86,8 @@ export function Checklist({ pack, markDone }: { pack: LinkedInPack; markDone: Ma
       )}
       {needed.length === 0 ? (
         <p className="mt-6 text-sm text-stone-600">
-          The verifier flagged every section listed, so there&apos;s nothing to mark done:
-          they&apos;re written again next time.
+          Every section listed is flagged, so there&apos;s nothing to mark done: they&apos;re
+          written again next time.
         </p>
       ) : (
         <div className="mt-6 rounded-lg border border-stone-200 bg-white p-4">

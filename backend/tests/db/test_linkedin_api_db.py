@@ -18,10 +18,16 @@ from app.auth.sessions import CSRF_HEADER, SESSION_COOKIE, start_session
 from app.config import Settings
 from app.db.models import User
 from app.db.profiles import save_version
-from app.db.settings import get_linkedin_done, save_linkedin_done, save_linkedin_pack
+from app.db.settings import (
+    get_linkedin_done,
+    save_confidential_terms,
+    save_linkedin_done,
+    save_linkedin_pack,
+)
 from app.linkedin import DoneSection, LinkedInDone, LinkedInPack, PackSection
 from app.main import create_app
 from app.schema.profile import Profile
+from app.schema.settings import ConfidentialTerms
 from app.schema.verification import VerifierFinding, VerifierReport
 
 BROWSER = "https://testserver"
@@ -100,6 +106,12 @@ class Owner:
     def save_done(self, done: LinkedInDone) -> None:
         async def save(session: AsyncSession) -> None:
             await save_linkedin_done(session, self.id, done)
+
+        seed(self.database_url, save)
+
+    def save_terms(self, *terms: str) -> None:
+        async def save(session: AsyncSession) -> None:
+            await save_confidential_terms(session, self.id, ConfidentialTerms(terms=terms))
 
         seed(self.database_url, save)
 
@@ -212,6 +224,7 @@ def test_a_first_pack_lists_every_section_with_its_length_limit_and_report(
         "length": len(HEADLINE),
         "limit": 220,
         "flagged": False,
+        "problems": [],
         "report": None,
         "notes": [],
     }
@@ -243,6 +256,32 @@ def test_marking_done_stores_the_snapshot_and_leaves_only_flagged_sections_liste
     assert page["markedAt"] == done.marked_at.isoformat().replace("+00:00", "Z")
     assert [s["key"] for s in page["pack"]["sections"]] == ["position:northwind"]
     assert page["pack"]["unchanged"] == 3
+
+
+def test_a_section_that_names_a_confidential_term_is_flagged_and_not_marked(
+    owner: Owner, client: TestClient
+) -> None:
+    """NFR-PRIV-4: screened for the terms as they are now, even a section marked done before,
+    which must come off LinkedIn. A new term isn't a new pack, so the page can still mark it."""
+    owner.save_pack(first_pack())
+    digest = client.get("/api/linkedin").json()["pack"]["digest"]
+    assert mark(client, owner, digest).json()["marked"] == 3
+    owner.save_terms("Sensor logs")
+
+    page = client.get("/api/linkedin").json()["pack"]
+    assert page["digest"] == digest
+    problem = (
+        'Names the confidential term "Sensor logs": take it out before you paste this section.'
+    )
+    assert [(s["key"], s["flagged"], s["problems"]) for s in page["sections"]] == [
+        ("position:northwind", True, []),
+        ("position:contoso", True, [problem]),
+    ]
+    assert page["unchanged"] == 2
+    assert mark(client, owner, digest).json() == {
+        "marked": 2,
+        "flagged": [NORTHWIND_LABEL, CONTOSO_LABEL],
+    }
 
 
 def test_a_pack_written_since_the_page_loaded_is_not_marked(

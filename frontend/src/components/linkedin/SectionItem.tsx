@@ -10,8 +10,9 @@ function count(value: number): string {
 
 /**
  * One section of the LinkedIn pack to paste (FR-LIN-3): its text, its length against
- * LinkedIn's limit, a Copy button and what the verifier found. A section that passed has a
- * Pasted box for the checklist; a flagged one isn't marked done with the others, so it has none.
+ * LinkedIn's limit, a Copy button, each confidential term it names and what the verifier found.
+ * A section that passed has a Pasted box for the checklist; a flagged one isn't marked done with
+ * the others, so it has none.
  */
 export function SectionItem({
   section,
@@ -52,6 +53,11 @@ export function SectionItem({
         <p className="mt-2 rounded bg-stone-50 p-2 leading-relaxed whitespace-pre-wrap">
           {section.text}
         </p>
+        {section.problems.map((problem, index) => (
+          <p key={index} className="mt-2 text-sm font-medium text-red-800">
+            {problem}
+          </p>
+        ))}
         {section.notes.map((note, index) => (
           <p key={index} className="mt-2 text-sm text-amber-900">
             Check: {note}

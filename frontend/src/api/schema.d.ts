@@ -397,8 +397,9 @@ export interface paths {
         /**
          * Mark Pack Done
          * @description Mark the pack done once its sections are pasted into LinkedIn: they're stored as the
-         *     snapshot that later packs are compared with (FR-LIN-3). A flagged section is left out, so
-         *     it's written again. 409 when there's no pack, or it isn't the one with `digest`.
+         *     snapshot that later packs are compared with (FR-LIN-3). A flagged section, including one
+         *     that names a confidential term now, is left out, so it's written again. 409 when there's no
+         *     pack, or it isn't the one with `digest`.
          */
         post: operations["mark_pack_done_api_linkedin_done_post"];
         delete?: never;
@@ -1120,6 +1121,8 @@ export interface components {
             limit: number;
             /** Flagged */
             flagged: boolean;
+            /** Problems */
+            problems: string[];
             report: components["schemas"]["VerifierReport"] | null;
             /** Notes */
             notes: string[];
