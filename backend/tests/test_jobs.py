@@ -61,8 +61,8 @@ def test_retries_back_off_exponentially_then_stop() -> None:
 
 def test_the_scheduled_tasks_and_when_they_run() -> None:
     """The heartbeat every 15 minutes, quiet entries closed every minute (FR-CAP-4), raw
-    updates purged daily (FR-JRN-2), and the work refreshes wait for queued every minute. That
-    one starts no refresh: only the owner does (FR-REV-6)."""
+    updates purged daily (FR-JRN-2), and the work refreshes and catch-up interviews wait for
+    queued every minute. That one starts no refresh: only the owner does (FR-REV-6)."""
     scheduled = {
         periodic.task.name: periodic.cron
         for periodic in jobs.periodic_registry.periodic_tasks.values()
@@ -72,6 +72,7 @@ def test_the_scheduled_tasks_and_when_they_run() -> None:
         "close_quiet_entries": "* * * * *",
         "purge_telegram_updates": "17 3 * * *",
         "queue_refresh_jobs": "* * * * *",
+        "queue_catch_up_questions": "* * * * *",
     }
 
 
