@@ -753,14 +753,14 @@ As the owner, I want the bot to ask me the open questions from my master resume,
 **Built (2026-10-17):** a question's value adds up the strengths of the bullets that need it (high 3, medium 2, low 1), leaving out benched ones; each reminder asks the most valuable open question not yet asked in this round, and starts a new round once each has been asked, never with the question just asked while there's another, so an unanswered question doesn't come back every week. The journal holds an answer while it waits to be processed, and from when it gave a fact until the owner has reviewed the refresh that uses it; an answer that gave none, or that the owner rejected, lets the question come back. A reminder that asks one has an "Answer the question" button, and the owner's next message within the entry timeout is the answer: an entry of its own, closed at once and linked to the question (migration 0015), with the role of the question's bullets when one role holds them all, or else the usual role question. Pressing New role before it ends the wait, since the newest prompt is the one the owner answers. Triage and extraction read the answer alone, as any note, so the question is never evidence; code links every fact to the question while it's still open. Synthesis's existing "Answer an open question" change marks it answered when the owner accepts it, beside the new version of the bullet. No prompt or routing changed.
 
 ### T-037 · Catch-up interview
-**Status:** ☐ · **Size:** M · **Depends on:** T-033 · **Requirements:** FR-REM-4 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-033 · **Requirements:** FR-REM-4 · **PR:** [#51](https://github.com/matchastack/work-journal/pull/51)
 
 As the owner, I want a short guided interview on first use, so that the months since my last resume update are captured quickly.
 
-- [ ] It runs once after linking, or on `/catchup`, using the standard tier.
-- [ ] It asks one question at a time, up to about 10, about roles, projects, achievements and skills since the profile was last updated.
-- [ ] Answers become entries, then facts. When the interview ends, the bot offers `/refresh` to turn them into proposed changes.
-- [ ] The owner can stop at any time and resume later.
+- [x] It runs once after linking, or on `/catchup`, using the standard tier.
+- [x] It asks one question at a time, up to about 10, about roles, projects, achievements and skills since the profile was last updated.
+- [x] Answers become entries, then facts. When the interview ends, the bot offers `/refresh` to turn them into proposed changes.
+- [x] The owner can stop at any time and resume later.
 
 ### T-038 · Refresh: proposals on demand and the master resume
 **Status:** ☑ · **Size:** M · **Depends on:** T-010, T-018, T-027, T-028, T-033 · **Requirements:** FR-REV-6, FR-REV-7, FR-REM-6, FR-RES-5 · **PR:** [#43](https://github.com/matchastack/work-journal/pull/43)

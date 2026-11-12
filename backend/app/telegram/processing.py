@@ -5,6 +5,8 @@ The `extract_entry` job (`app/jobs.py`) first asks which role the closed entry i
 
 1. Triage (`app/triage.py`) labels the entry's text: an entry that isn't about work gives no
    facts.
+   An answer in the catch-up interview is read alone, without the bot's question, so that
+   nothing the bot wrote can become a fact (`app/catch_up.py`).
 2. Extraction (`app/extraction.py`) finds the facts in an entry about work. They're checked
    against the entry's text and saved encrypted, with the entry's ID, linked to its role. An
    answer to an open question (FR-EXT-4) is read alone, as any note, and its facts also link to
