@@ -1,9 +1,10 @@
-import { Fragment, useId, useState } from "react";
+import { useId, useState } from "react";
 import { Link } from "react-router";
 
 import { failureMessage } from "../../api/auth";
 import { useDecide, useEditText, type InboxOp, type Output } from "../../api/inbox";
 import { BUTTON, DANGER_BUTTON, FOCUS, INPUT, LABEL, PRIMARY_BUTTON, TEXT_BUTTON } from "../ui";
+import { WordDiff } from "../WordDiff";
 import { acceptId } from "./ids";
 import { VerifierSummary } from "./VerifierSummary";
 
@@ -20,29 +21,10 @@ const STATUS: Record<InboxOp["status"], { label: string; className: string }> = 
   rejected: { label: "Rejected", className: "bg-stone-100 text-stone-700 ring-stone-300" },
 };
 
-/** The text before and after, a word at a time: removed words struck through, added ones
- * underlined. */
+/** The text before and after: a word at a time when it's reworded, or as two values. */
 function Diff({ op }: { op: InboxOp }) {
   if (op.diff.length > 0) {
-    return (
-      <p className="mt-2 rounded bg-stone-50 p-2 leading-relaxed">
-        {op.diff.map((part, index) =>
-          part.kind === "same" ? (
-            <span key={index}>{part.text}</span>
-          ) : part.kind === "removed" ? (
-            <Fragment key={index}>
-              <del className="bg-red-100 text-red-900">{part.text}</del>
-              {/* Keep a removed last word apart from the word that replaces it. */}
-              {op.diff[index + 1]?.kind === "added" && !/\s$/.test(part.text) && " "}
-            </Fragment>
-          ) : (
-            <ins key={index} className="bg-emerald-100 text-emerald-900 no-underline">
-              {part.text}
-            </ins>
-          ),
-        )}
-      </p>
-    );
+    return <WordDiff parts={op.diff} />;
   }
   return (
     <dl className="mt-2 grid gap-x-3 gap-y-1 rounded bg-stone-50 p-2 sm:grid-cols-[auto_1fr]">
