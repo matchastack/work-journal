@@ -40,6 +40,7 @@ function journal(): Journal {
     triage: "work",
     roleId: null,
     newRole: null,
+    question: null,
     messages: [],
     facts: [],
     ...fields,
@@ -464,6 +465,20 @@ describe("the journal page", () => {
     await vi.waitFor(() => {
       expect(heading.closest("article")).toHaveFocus();
     });
+  });
+
+  it("shows a catch-up answer after the question it answers", async () => {
+    const start = journal();
+    const question = "What did you work on this week?";
+    const entries = start.entries.map((entry) =>
+      entry.id === ON_CALL ? { ...entry, question } : entry,
+    );
+    serveJournal({ ...start, entries });
+    renderAt();
+    const heading = await screen.findByRole("heading", { level: 3, name: "Sat 3 Oct, 09:00" });
+    const card = heading.closest("article");
+    expect(card).toHaveTextContent("Catch-up question: What did you work on this week?");
+    expect(card).toHaveTextContent("on call this week");
   });
 
   it("downloads the journal, with times in the browser's time zone", async () => {
