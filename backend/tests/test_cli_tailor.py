@@ -14,7 +14,7 @@ from app.llm.client import LLMClient
 from app.llm.fake import FakeMessages, reply
 from app.llm.usage import MemoryCallLog
 from app.render.fit import Cut
-from app.render.resume import RenderedResume
+from app.render.resume import RenderedResume, render_key
 from app.schema.jobs import JobPosting
 from app.schema.profile import Profile, Swap
 from app.selection import Selection
@@ -66,7 +66,7 @@ def rendered(monkeypatch: pytest.MonkeyPatch) -> list[Selection]:
     """Stands in for LaTeX: records each selection rendered, and cuts the project to fit."""
     selections: list[Selection] = []
 
-    def render(selection: Selection) -> RenderedResume:
+    def render(selection: Selection, **_: object) -> RenderedResume:
         selections.append(selection)
         cut = Cut(kind="bullet", id="rb_app", text="cut")
         printed = selection.model_copy(update={"projects": ()})
@@ -78,6 +78,7 @@ def rendered(monkeypatch: pytest.MonkeyPatch) -> list[Selection]:
             cuts=(cut,),
             warnings=(),
             selection=printed,
+            key=render_key(selection),
         )
 
     monkeypatch.setattr(cli_module, "render_resume", render)
@@ -431,7 +432,7 @@ def test_applications_takes_a_user_only_with_the_database() -> None:
 def test_the_ats_check_reports_what_the_pdfs_text_lacks(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def render(selection: Selection) -> RenderedResume:
+    def render(selection: Selection, **_: object) -> RenderedResume:
         return RenderedResume(
             pdf=b"%PDF-1.5 fake",
             tex="",
@@ -440,6 +441,7 @@ def test_the_ats_check_reports_what_the_pdfs_text_lacks(
             cuts=(),
             warnings=(),
             selection=selection,
+            key=render_key(selection),
         )
 
     monkeypatch.setattr(cli_module, "render_resume", render)

@@ -15,7 +15,7 @@ from app.tailoring.applications import (
 )
 from app.tailoring.ats import SECTION_HEADINGS, printed_sections
 from app.tailoring.coverage import printed_texts
-from app.tailoring.tailor import Phrasing, Tailored
+from app.tailoring.tailor import Phrasing, Tailored, used_phrasings
 from app.validate.lint import Finding, LintReport
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -55,11 +55,16 @@ def tailored(printed: Selection) -> Tailored:
     )
 
 
+def used(printed: Selection, accepted: set[str]) -> tuple[Phrasing, ...]:
+    """The swap, and the new phrasings of the bullets in `accepted`."""
+    return used_phrasings(tailored(printed), accepted)
+
+
 def run(printed: Selection, accepted: set[str]) -> tuple[Application, ResumeChecks]:
     return record(
-        tailored(printed),
+        POSTING,
         printed,
-        accepted=accepted,
+        used=used(printed, accepted),
         rules=LintReport(findings=(WARNING,)),
         posting_text="Senior Backend Engineer, Payments at Fabrikam Logistics...",
         pdf=PDF,
@@ -72,9 +77,9 @@ def run(printed: Selection, accepted: set[str]) -> tuple[Application, ResumeChec
 def test_an_application_records_what_went_into_the_resume() -> None:
     printed = resume()
     application, checks = record(
-        tailored(printed),
+        POSTING,
         printed,
-        accepted={"nw_export"},
+        used=used(printed, {"nw_export"}),
         rules=LintReport(findings=(WARNING,)),
         posting_text="the posting as pasted",
         pdf=PDF,
@@ -108,9 +113,9 @@ def test_an_application_records_what_went_into_the_resume() -> None:
 def test_the_ats_check_of_the_pdfs_text_is_kept() -> None:
     printed = resume()
     _, checks = record(
-        tailored(printed),
+        POSTING,
         printed,
-        accepted=set(),
+        used=used(printed, set()),
         rules=LintReport(),
         posting_text="text",
         pdf=PDF,
@@ -132,9 +137,9 @@ def test_only_what_the_pdf_shows_is_recorded() -> None:
         }
     )
     application, checks = record(
-        tailored(printed),
+        POSTING,
         fitted,
-        accepted={"nw_export", "rb_app"},
+        used=used(printed, {"nw_export", "rb_app"}),
         rules=LintReport(),
         posting_text="text",
         pdf=PDF,
@@ -152,11 +157,10 @@ def test_without_a_company_or_a_role_the_application_still_reads() -> None:
     posting = JobPosting(title="Data Engineer")
     assert application_id(posting, TODAY, "ab12cd") == "20261015-data-engineer-ab12cd"
     printed = resume().model_copy(update={"work": ()})
-    untitled = Tailored(posting=posting, selection=printed)
     application, _ = record(
-        untitled,
+        posting,
         printed,
-        accepted=set(),
+        used=(),
         rules=LintReport(),
         posting_text="text",
         pdf=PDF,
