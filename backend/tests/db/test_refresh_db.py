@@ -30,6 +30,7 @@ from app.db.profiles import (
     propose_change_set,
     save_version,
 )
+from app.db.settings import save_confidential_terms
 from app.db.store import (
     get_artifact,
     list_applications,
@@ -66,6 +67,7 @@ from app.schema.changes import AddSkill, ChangeSet, EditBullet, ResolveOpenQuest
 from app.schema.fact import Fact, Metric, SingleValue
 from app.schema.jobs import Application, JobPosting
 from app.schema.profile import Profile, Skill
+from app.schema.settings import ConfidentialTerms
 from app.synthesis import PlannedBullet, Synthesis, SynthesisPlan, synthesize
 from app.telegram.refresh import NOTHING_NEW, failure_text, proposals_text
 from app.tick import refresh_now
@@ -218,10 +220,12 @@ async def test_a_refresh_covers_the_journal_facts_no_refresh_covered(
         .where(FactRow.user_id == user_id, FactRow.id == RUNBOOK.id)
         .values(refreshed_at=EARLIER)
     )
+    await save_confidential_terms(session, user_id, ConfidentialTerms(terms=("Falcon",)))
     inputs = await started(session, user_id)
     assert inputs.facts == (ALERT,)
     assert {fact.id for fact in inputs.sources} == {ALERT.id, RUNBOOK.id, IMPORTED.id}
     assert inputs.version.number == 1
+    assert inputs.confidential == ("Falcon",), "the verifier checks each bullet for them"
     row = await refresh_row(session, inputs.refresh_id)
     assert row.started_at == NOW
 

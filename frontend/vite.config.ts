@@ -5,8 +5,11 @@ import { defineConfig } from "vitest/config";
 /** Where `uv run uvicorn app.main:app` listens. */
 const API = "http://localhost:8000";
 
-/** Paths the dev server passes on to the API. The web app's JSON routes go under /api. */
-const API_PATHS = ["/api", "/auth", "/healthz", "/docs", "/openapi.json"];
+/**
+ * Paths the dev server passes on to the API. The web app's JSON routes go under /api, and the
+ * public portfolio pages under /p/ (with the slash, so the Portfolio page stays the web app's).
+ */
+const API_PATHS = ["/api", "/auth", "/healthz", "/docs", "/openapi.json", "/p/"];
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
