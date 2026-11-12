@@ -70,11 +70,61 @@ jobs:
             - name: Type-check
               run: uv run pyright
 
-            - name: Test (excluding tests marked llm)
-              run: uv run pytest
+            - name: Test (excluding tests marked llm, and e2e, which has its own job)
+              run: uv run pytest -m "not llm and not e2e"
 
             - name: Check frontend/openapi.json matches the API
               run: uv run wj openapi ../frontend/openapi.json && git diff --exit-code ../frontend/openapi.json
+
+    e2e:
+        name: End-to-end test
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        services:
+            postgres:
+                image: postgres:16
+                env:
+                    POSTGRES_USER: work_journal
+                    POSTGRES_DB: work_journal
+                    POSTGRES_HOST_AUTH_METHOD: trust
+                ports:
+                    - 5432:5432
+                options: >-
+                    --health-cmd "pg_isready -U work_journal"
+                    --health-interval 5s
+                    --health-timeout 5s
+                    --health-retries 10
+        env:
+            TEST_DATABASE_URL: postgresql+asyncpg://work_journal@localhost:5432/work_journal
+        defaults:
+            run:
+                working-directory: backend
+        steps:
+            - uses: actions/checkout@v6
+
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: 24
+                  cache: npm
+                  cache-dependency-path: frontend/package-lock.json
+
+            - name: Build the web app, which the app serves to the browser
+              working-directory: frontend
+              run: npm ci && npm run build
+
+            - uses: astral-sh/setup-uv@v10.1.0
+              with:
+                  enable-cache: true
+                  cache-dependency-glob: backend/uv.lock
+
+            - name: Install dependencies
+              run: uv sync --locked
+
+            - name: Install Chromium
+              run: uv run playwright install --with-deps chromium
+
+            - name: Test the core loop in Chromium (sign in, Inbox, publish, public page)
+              run: uv run pytest -m e2e
 
     frontend:
         name: Frontend checks

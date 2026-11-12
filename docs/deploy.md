@@ -190,6 +190,13 @@ writes the newest version to `local/resumes/master.pdf` at any time.
 - On a reminder day after 3 days without journaling, the reminder arrives within the tick's
   hour, with "Nothing this week" and "Remind me tomorrow" buttons.
 
+## Try a change on staging first
+
+Before you merge a change to the core loop, or to the hosting, try it on staging: a second copy
+of the app with a dev bot, a Neon branch and a sign-in of its own.
+[staging-checklist.md](staging-checklist.md) sets it up once, and lists what to try and check on
+each run, from a message to the dev bot to the published page, its PDFs and a tailored resume.
+
 ## When something goes wrong
 
 | Symptom | Fix |
