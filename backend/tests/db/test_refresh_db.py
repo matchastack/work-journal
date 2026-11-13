@@ -82,7 +82,7 @@ from app.refresh import (
 from app.render.compile import CompiledPdf, CompileError
 from app.render.resume import RenderedResume, StoredRender, render_key
 from app.schema.changes import AddSkill, ChangeSet, EditBullet, ResolveOpenQuestion, ReviewedOp
-from app.schema.fact import Fact, Metric, SingleValue
+from app.schema.fact import Fact, Metric, RepoItem, RepoSource, SingleValue
 from app.schema.jobs import Application, JobPosting
 from app.schema.profile import Profile, Skill
 from app.schema.settings import ConfidentialTerms
@@ -228,11 +228,31 @@ async def test_a_refresh_waits_until_proposed_changes_are_decided(session: Async
 # --- Proposing changes ---------------------------------------------------------------------------
 
 
+FROM_GITHUB = Fact(
+    id="gh_a_1",
+    statement="Added a weekly shopping list that groups ingredients by aisle.",
+    date="2023-08",
+    project_id="recipe_box",
+    origin="github",
+    source=RepoSource(
+        repository="casey-example/recipe-box",
+        url="https://github.com/casey-example/recipe-box",
+        private=False,
+        items=(
+            RepoItem(
+                kind="pull", ref="4", url="https://github.com/casey-example/recipe-box/pull/4"
+            ),
+        ),
+    ),
+)
+
+
 async def test_a_refresh_covers_the_journal_facts_no_refresh_covered(
     session: AsyncSession,
 ) -> None:
-    """FR-REV-6: new facts and edited ones; not imported facts or ones a refresh covered."""
-    user_id = await new_user(session, ALERT, RUNBOOK, IMPORTED)
+    """FR-REV-6: new facts and edited ones, from the journal and from GitHub (T-070); not
+    imported facts or ones a refresh covered."""
+    user_id = await new_user(session, ALERT, RUNBOOK, IMPORTED, FROM_GITHUB)
     await session.execute(
         update(FactRow)
         .where(FactRow.user_id == user_id, FactRow.id == RUNBOOK.id)
@@ -240,8 +260,13 @@ async def test_a_refresh_covers_the_journal_facts_no_refresh_covered(
     )
     await save_confidential_terms(session, user_id, ConfidentialTerms(terms=("Falcon",)))
     inputs = await started(session, user_id)
-    assert inputs.facts == (ALERT,)
-    assert {fact.id for fact in inputs.sources} == {ALERT.id, RUNBOOK.id, IMPORTED.id}
+    assert inputs.facts == (ALERT, FROM_GITHUB)
+    assert {fact.id for fact in inputs.sources} == {
+        ALERT.id,
+        RUNBOOK.id,
+        IMPORTED.id,
+        FROM_GITHUB.id,
+    }
     assert inputs.version.number == 1
     assert inputs.confidential == ("Falcon",), "the verifier checks each bullet for them"
     row = await refresh_row(session, inputs.refresh_id)

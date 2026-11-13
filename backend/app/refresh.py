@@ -4,11 +4,12 @@
 1. `/refresh` (`app/telegram/refresh.py`) or `wj propose --db` starts a refresh
    (`start_refresh`), unless one is running, proposed changes still wait for review, or there's
    no profile yet.
-2. Its job (`refresh_profile` in `app/jobs.py`) proposes changes from the journal facts that no
-   refresh has covered: new facts, and facts edited since (`facts.refreshed_at`). It reads them
-   (`begin_proposals`), runs profile synthesis (T-018) outside a transaction, then saves the
-   change set for review and marks the facts covered (`record_proposals`). Synthesis writes the
-   bullets `REFRESH_CONCURRENCY` at a time, so months of facts fit in one function call (T-064).
+2. Its job (`refresh_profile` in `app/jobs.py`) proposes changes from the facts from the journal
+   and from linked GitHub repositories that no refresh has covered: new facts, and facts edited
+   since (`facts.refreshed_at`). It reads them (`begin_proposals`), runs profile synthesis
+   (T-018) outside a transaction, then saves the change set for review and marks the facts
+   covered (`record_proposals`). Synthesis writes the bullets `REFRESH_CONCURRENCY` at a time,
+   so months of facts fit in one function call (T-064).
    A fact edited in the meantime isn't marked, so the next refresh covers it again. A fact the
    change set doesn't use is covered too: it waits in the brag bank until it's edited.
 3. A refresh's outputs fall due (`outputs_due`) when its change set is decided, in the Inbox or
@@ -56,7 +57,7 @@ from app.render.resume import RenderedResume
 from app.schema.fact import Fact
 from app.schema.profile import Profile
 from app.selection import Selection
-from app.synthesis import Synthesis
+from app.synthesis import PROPOSED_FROM, Synthesis
 
 UNFINISHED_AFTER = timedelta(minutes=30)
 """How long after a try at a refresh started it counts as unfinished: well past the 300 s a try
@@ -93,7 +94,7 @@ class RefreshInputs:
     version: Version
     """The newest profile version, which the changes are proposed against."""
     facts: tuple[Fact, ...]
-    """The journal facts that no refresh has covered."""
+    """The facts from the journal and from GitHub that no refresh has covered."""
     read: Mapping[str, datetime]
     """When each of `facts` was last saved, as read: one saved since is left for the next
     refresh."""
@@ -216,7 +217,7 @@ async def begin_proposals(
     for data, origin, updated_at, refreshed_at in rows:
         fact = Fact.model_validate_json(data)
         sources.append(fact)
-        if origin == "journal" and refreshed_at is None:
+        if origin in PROPOSED_FROM and refreshed_at is None:
             new.append(fact)
             read[fact.id] = updated_at
     avoid = (await get_style_notes(session, refresh.user_id)).avoid

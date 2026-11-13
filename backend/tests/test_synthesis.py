@@ -19,6 +19,7 @@ from app.llm.usage import MemoryCallLog
 from app.profile_ops import apply
 from app.schema.changes import (
     AddBullet,
+    AddProject,
     AddRole,
     AddSkill,
     ChangeSet,
@@ -28,12 +29,13 @@ from app.schema.changes import (
     SetBulletStatus,
     UpdateField,
 )
-from app.schema.fact import Fact, Metric, SingleValue
-from app.schema.profile import Bullet, Profile, Role
+from app.schema.fact import Fact, Metric, RepoItem, RepoSource, SingleValue
+from app.schema.profile import Bullet, Profile, Project, Role
 from app.schema.verification import VerifierReport
 from app.synthesis import (
     PlannedBullet,
     PlannedEndDate,
+    PlannedProject,
     PlannedReactivation,
     PlannedRole,
     PlannedSkill,
@@ -433,7 +435,7 @@ def test_nothing_to_propose() -> None:
     assert (synthesis, fake.requests) == (Synthesis(change_set=None), [])
 
 
-def test_new_facts_are_journal_facts_nothing_cites_yet() -> None:
+def test_new_facts_are_journal_and_github_facts_nothing_cites_yet() -> None:
     imported = [fact.model_copy(update={"origin": "import"}) for fact in IMPORTED]
     in_a_bullet = ALERTS.model_copy(update={"id": "fact_nw_export"})
     reviewed = ChangeSet(
@@ -441,13 +443,15 @@ def test_new_facts_are_journal_facts_nothing_cites_yet() -> None:
         status="rejected",
         ops=(ReviewedOp(op=ResolveOpenQuestion(question_id="q_nw_volume", fact_ids=("e2_1",))),),
     )
-    facts = [*imported, in_a_bullet, VOLUME, *JOURNAL]
+    gh = from_github("gh_a_1", project_id="recipe_box")
+    facts = [*imported, in_a_bullet, VOLUME, *JOURNAL, gh]
     assert [fact.id for fact in new_facts(PROFILE, facts, [reviewed])] == [
         "e1_1",
         "e3_1",
         "e3_2",
         "e4_1",
         "e5_1",
+        "gh_a_1",
     ]
     answered = PROFILE.model_copy(
         update={
@@ -457,6 +461,147 @@ def test_new_facts_are_journal_facts_nothing_cites_yet() -> None:
         }
     )
     assert "e2_1" not in [fact.id for fact in new_facts(answered, [VOLUME])]
+
+
+# --- facts from GitHub (FR-GH-2, FR-GH-4, FR-GH-10) ---
+
+SHOPPING_TEXT = "Added a weekly shopping list that groups ingredients by aisle."
+SHOPPING_SUPPORTED = reply(
+    ClaimReply(
+        claims=(
+            JudgedClaim(claim="Added a shopping list", reason="As stated.", verdict="supported"),
+        )
+    )
+)
+
+
+def from_github(
+    fact_id: str,
+    *,
+    project_id: str | None = None,
+    new_project: str | None = None,
+    private: bool = False,
+    agent: str | None = None,
+    tools: tuple[str, ...] = (),
+) -> Fact:
+    repository = "casey-example/recipe-box"
+    url = f"https://github.com/{repository}"
+    item = RepoItem(kind="pull", ref="4", url=f"{url}/pull/4", agent=agent)
+    return Fact(
+        id=fact_id,
+        statement=SHOPPING_TEXT,
+        tools=tools,
+        date="2023-08",
+        project_id=project_id,
+        proposed_item=new_project,
+        origin="github",
+        source=RepoSource(repository=repository, url=url, private=private, items=(item,)),
+    )
+
+
+def test_a_fact_from_github_goes_only_under_its_project() -> None:
+    gh = from_github("gh_a_1", project_id="recipe_box")
+    bullets = [
+        PlannedBullet(under="northwind", fact_ids=("gh_a_1",)),
+        PlannedBullet(under="bird_calls", fact_ids=("gh_a_1",)),
+        PlannedBullet(under="recipe_box", fact_ids=("gh_a_1",)),
+    ]
+    role = PlannedRole(
+        key="cooking", organisation="Recipe Box", title="Developer", fact_ids=("gh_a_1",)
+    )
+    synthesis, fake = run(
+        plan(roles=[role], bullets=bullets),
+        written(SHOPPING_TEXT),
+        SHOPPING_SUPPORTED,
+        facts=(gh,),
+    )
+    [reviewed] = proposed(synthesis).ops
+    assert isinstance(reviewed.op, AddBullet) and reviewed.op.parent_id == "recipe_box"
+    assert synthesis.notes == (
+        'The new role "cooking" cited facts from GitHub, which belong only to their own project: '
+        "gh_a_1",
+        'Left out the new role "cooking": its facts belong to another project',
+        'A new bullet under "northwind" cited facts from GitHub, which belong only to their own '
+        "project: gh_a_1",
+        'Left out a new bullet under "northwind": its facts belong to another project',
+        'A new bullet under "bird_calls" cited facts from GitHub, which belong only to their own '
+        "project: gh_a_1",
+        'Left out a new bullet under "bird_calls": its facts belong to another project',
+    )
+    assert "casey-example" not in message(fake, 0), "the planner never sees the repository"
+    assert "casey-example" not in message(fake, 1), "nor does the writer"
+
+
+def test_a_new_project_from_a_public_repository_gets_its_address() -> None:
+    gh = from_github("gh_a_1", new_project="Recipe Box App")
+    project = PlannedProject(key="app", name="Recipe Box App", fact_ids=("gh_a_1",))
+    bullet = PlannedBullet(under="app", fact_ids=("gh_a_1",))
+    synthesis, _ = run(
+        plan(projects=[project], bullets=[bullet]),
+        written(SHOPPING_TEXT),
+        SHOPPING_SUPPORTED,
+        facts=(gh,),
+    )
+    added, bullet_op = (reviewed.op for reviewed in proposed(synthesis).ops)
+    assert isinstance(added, AddProject)
+    assert added.project.url == "https://github.com/casey-example/recipe-box"
+    assert isinstance(bullet_op, AddBullet) and bullet_op.parent_id == added.project.id
+    assert synthesis.notes == ()
+
+
+def test_a_private_repositorys_address_never_reaches_the_profile() -> None:
+    gh = from_github("gh_a_1", new_project="Recipe Box App", private=True)
+    project = PlannedProject(key="app", name="Recipe Box App", fact_ids=("gh_a_1",))
+    synthesis, _ = run(plan(projects=[project]), facts=(gh,))
+    [reviewed] = proposed(synthesis).ops
+    assert isinstance(reviewed.op, AddProject) and reviewed.op.project.url is None
+    assert "casey-example" not in reviewed.op.model_dump_json()
+
+
+def test_a_fact_from_github_makes_only_the_new_project_it_names() -> None:
+    """And a later refresh finds that project by its name."""
+    gh = from_github("gh_a_1", new_project="Recipe Box App")
+    other = PlannedProject(key="other", name="Shopping List", fact_ids=("gh_a_1",))
+    synthesis, _ = run(plan(projects=[other]), facts=(gh,))
+    assert synthesis.change_set is None
+    assert synthesis.notes == (
+        'The new project "other" cited facts from GitHub, which belong only to their own '
+        "project: gh_a_1",
+        'Left out the new project "other": its facts belong to another project',
+    )
+    made = PROFILE.model_copy(
+        update={
+            "projects": (*PROFILE.projects, Project(id="recipe_box_app", name="Recipe Box App"))
+        }
+    )
+    bullet = PlannedBullet(under="recipe_box_app", fact_ids=("gh_a_1",))
+    fake = FakeMessages(plan(bullets=[bullet]), written(SHOPPING_TEXT), SHOPPING_SUPPORTED)
+    settings = Settings(llm_model_heavy="heavy-model", llm_model_standard="standard-model")
+    later = synthesize(made, (gh,), LLMClient(settings, fake, MemoryCallLog()))
+    [reviewed] = proposed(later).ops
+    assert isinstance(reviewed.op, AddBullet) and reviewed.op.parent_id == "recipe_box_app"
+
+
+def test_a_skill_only_agents_work_names_carries_a_note() -> None:
+    """FR-GH-4 and R3: the agent itself needs no note, nor a skill the owner's own work names."""
+    by_agent = from_github(
+        "gh_a_1", project_id="recipe_box", agent="Claude Code", tools=("Redis", "Claude Code")
+    )
+    helped = from_github("gh_a_2", project_id="recipe_box", tools=("Go", "Claude Code"))
+    skills = [
+        PlannedSkill(name="Redis", category="Data", fact_ids=("gh_a_1",)),
+        PlannedSkill(name="Claude Code", category="Tools", fact_ids=("gh_a_1",)),
+        PlannedSkill(name="Go", category="Languages", fact_ids=("gh_a_2",)),
+    ]
+    synthesis, _ = run(plan(skills=skills), facts=(by_agent, helped))
+    notes = {
+        reviewed.op.skill.name: reviewed.op.rationale or ""
+        for reviewed in proposed(synthesis).ops
+        if isinstance(reviewed.op, AddSkill)
+    }
+    assert "accept it only if you can defend it" in notes["Redis"]
+    assert "defend" not in notes["Claude Code"]
+    assert "defend" not in notes["Go"]
 
 
 def test_a_bullet_for_a_sensitive_role_is_checked_for_confidential_terms() -> None:

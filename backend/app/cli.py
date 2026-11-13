@@ -557,7 +557,7 @@ def propose(
     db: DbOption = False,
     user: UserOption = None,
 ) -> None:
-    """Propose changes to the profile from the journal facts it doesn't use yet.
+    """Propose changes to the profile from the journal and GitHub facts it doesn't use yet.
 
     Calls the heavy-tier model to plan the changes, and the standard-tier model to write and
     check each bullet. Nothing changes until you review the proposal with `wj apply`. With --db,
