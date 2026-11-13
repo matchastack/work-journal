@@ -734,10 +734,13 @@ def _echo_op(number: int, reviewed: ReviewedOp, profile: Profile, facts: Sequenc
     typer.echo(f"{number}. {first}")
     for line in rest:
         typer.echo(f"   {line}")
-    statements = {fact.id: fact.statement for fact in facts}
+    known = {fact.id: fact for fact in facts}
     for fact_id in reviewed.op.fact_ids:
-        statement = statements.get(fact_id)
-        typer.echo(f"   From {fact_id}: {statement}" if statement else f"   From {fact_id}")
+        fact = known.get(fact_id)
+        typer.echo(f"   From {fact_id}: {fact.statement}" if fact else f"   From {fact_id}")
+        if fact is not None and fact.source is not None:
+            links = ", ".join(item.url for item in fact.source.items)
+            typer.echo(f"     on GitHub, {fact.source.repository}: {links}")
     if reviewed.op.rationale:
         typer.echo(f"   Note: {reviewed.op.rationale}")
     if reviewed.verifier_report is not None:
