@@ -15,6 +15,8 @@ export type StyleNotes = components["schemas"]["StyleNotes"];
 export type StyleNotesChange = components["schemas"]["StyleNotesChange"];
 export type ConfidentialTerms = components["schemas"]["ConfidentialTerms"];
 export type TelegramDeepLink = components["schemas"]["TelegramDeepLink"];
+export type LlmCosts = components["schemas"]["LlmCosts"];
+export type CostLine = components["schemas"]["CostLine"];
 
 /** Where everything stored for the owner downloads, as one JSON file. */
 export const EXPORT_URL = "/api/settings/export.json";
@@ -30,6 +32,26 @@ export const settingsQuery = queryOptions({
     return data;
   },
 });
+
+/**
+ * The LLM calls of a month (`YYYY-MM`, in UTC), or of this month without one, with their tokens
+ * and estimated cost, by task and by tier.
+ */
+export function llmCostsQuery(month: string | null) {
+  return queryOptions({
+    queryKey: ["llm-costs", month],
+    queryFn: async (): Promise<LlmCosts> => {
+      const query = month === null ? {} : { month };
+      const { data, error, response } = await api.GET("/api/settings/llm-costs", {
+        params: { query },
+      });
+      if (data === undefined) {
+        throw new ApiError(response.status, detailOf(error));
+      }
+      return data;
+    },
+  });
+}
 
 interface Answer<T> {
   data?: T;

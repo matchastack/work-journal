@@ -547,6 +547,168 @@ def test_a_rejection_reason_added_later_joins_the_notes(
     assert StyleNote.model_validate(notes[1]).source == "rejection"
 
 
+# --- LLM costs -----------------------------------------------------------------------------------
+
+
+def llm_call(
+    user_id: uuid.UUID, at: datetime, task: str, tier: str, cost: str | None
+) -> LlmCallRow:
+    return LlmCallRow(
+        user_id=user_id,
+        at=at,
+        task=task,
+        tier=tier,
+        model=f"model-{tier}",
+        prompt=f"{task}/v1",
+        outcome="ok",
+        attempts=1,
+        input_tokens=1000,
+        output_tokens=200,
+        cache_read_tokens=3000,
+        cache_write_tokens=500,
+        cost_usd=None if cost is None else Decimal(cost),
+        latency_ms=1500,
+    )
+
+
+def log_calls(database_url: str, owner: Owner, other: Owner) -> None:
+    """Calls in September and October 2026, one on each side of October's end in UTC, and
+    another owner's in October."""
+
+    async def build(session: AsyncSession) -> None:
+        session.add_all(
+            [
+                llm_call(
+                    owner.id,
+                    datetime(2026, 9, 30, 12, tzinfo=UTC),
+                    "entry_summary",
+                    "light",
+                    "0.0001",
+                ),
+                llm_call(
+                    owner.id,
+                    datetime(2026, 10, 1, 0, tzinfo=UTC),
+                    "fact_extraction",
+                    "standard",
+                    "0.0054",
+                ),
+                llm_call(
+                    owner.id,
+                    datetime(2026, 10, 15, tzinfo=UTC),
+                    "fact_extraction",
+                    "standard",
+                    None,
+                ),
+                llm_call(
+                    owner.id,
+                    datetime(2026, 10, 20, tzinfo=UTC),
+                    "profile_synthesis",
+                    "heavy",
+                    "0.25",
+                ),
+                llm_call(
+                    owner.id,
+                    datetime(2026, 10, 31, 23, 59, tzinfo=UTC),
+                    "claim_verification",
+                    "standard",
+                    "0.001",
+                ),
+                llm_call(
+                    owner.id,
+                    datetime(2026, 11, 1, 0, tzinfo=UTC),
+                    "entry_summary",
+                    "light",
+                    "0.0002",
+                ),
+                llm_call(
+                    other.id, datetime(2026, 10, 10, tzinfo=UTC), "profile_synthesis", "heavy", "9"
+                ),
+            ]
+        )
+
+    seed(database_url, build)
+
+
+def test_the_llm_costs_add_up_a_months_calls_by_task_and_tier(
+    database_url: str, owner: Owner, client: TestClient
+) -> None:
+    log_calls(database_url, owner, Owner(database_url))
+    response = client.get("/api/settings/llm-costs", params={"month": "2026-10"})
+    assert response.status_code == 200
+    assert response.headers["Cache-Control"] == "no-store"
+    costs = response.json()
+    tokens = {
+        "inputTokens": 1000,
+        "outputTokens": 200,
+        "cacheReadTokens": 3000,
+        "cacheWriteTokens": 500,
+    }
+
+    def line(calls: int, cost: float, unpriced: int = 0) -> dict[str, Any]:
+        return {
+            "calls": calls,
+            **{name: count * calls for name, count in tokens.items()},
+            "costUsd": cost,
+            "unpricedCalls": unpriced,
+        }
+
+    assert costs["month"] == "2026-10"
+    this_month = f"{datetime.now(UTC):%Y-%m}"
+    assert costs["months"] == sorted({this_month, "2026-11", "2026-10", "2026-09"}, reverse=True)
+    assert costs["total"] == line(4, 0.2564, unpriced=1)
+    assert costs["byTask"] == [
+        {"task": "profile_synthesis", "tier": "heavy", **line(1, 0.25)},
+        {"task": "fact_extraction", "tier": "standard", **line(2, 0.0054, unpriced=1)},
+        {"task": "claim_verification", "tier": "standard", **line(1, 0.001)},
+    ]
+    assert costs["byTier"] == [
+        {"tier": "heavy", **line(1, 0.25)},
+        {"tier": "standard", **line(3, 0.0064, unpriced=1)},
+    ]
+
+
+def test_the_llm_costs_show_this_month_by_default(
+    database_url: str, owner: Owner, client: TestClient
+) -> None:
+    now = datetime.now(UTC)
+
+    async def build(session: AsyncSession) -> None:
+        session.add(llm_call(owner.id, now, "message_triage", "light", "0.00005"))
+
+    seed(database_url, build)
+    costs = client.get("/api/settings/llm-costs").json()
+    assert costs["month"] == f"{now:%Y-%m}"
+    assert costs["months"] == [f"{now:%Y-%m}"]
+    assert costs["total"]["calls"] == 1
+    assert costs["total"]["costUsd"] == 0.00005
+    assert [tier["tier"] for tier in costs["byTier"]] == ["light"]
+
+
+def test_a_month_without_calls_shows_nothing(client: TestClient) -> None:
+    costs = client.get("/api/settings/llm-costs", params={"month": "2025-02"}).json()
+    assert costs["months"] == [f"{datetime.now(UTC):%Y-%m}", "2025-02"]
+    assert costs["byTask"] == costs["byTier"] == []
+    assert costs["total"]["calls"] == 0
+
+
+@pytest.mark.parametrize("month", ["2026-13", "2026-1", "October", "2026-10-01"])
+def test_a_month_that_isnt_one_is_refused(client: TestClient, month: str) -> None:
+    assert client.get("/api/settings/llm-costs", params={"month": month}).status_code == 422
+
+
+def test_a_month_that_hasnt_started_is_refused(client: TestClient) -> None:
+    now = datetime.now(UTC)
+    later = f"{now.year + 1}-{now.month:02d}"
+    response = client.get("/api/settings/llm-costs", params={"month": later})
+    assert response.status_code == 422
+    assert response.json()["detail"] == "That month hasn't started yet"
+
+
+def test_the_llm_costs_need_a_signed_in_owner(client: TestClient) -> None:
+    client.cookies.clear()
+    assert client.get("/api/settings/llm-costs").status_code == 401
+
+
 # --- Export and delete all data ------------------------------------------------------------------
 
 
