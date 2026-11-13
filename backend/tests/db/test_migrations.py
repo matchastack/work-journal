@@ -218,3 +218,23 @@ async def test_outputs_still_due_get_the_linkedin_pack_too(session: AsyncSession
         (ids[1], None, None),
         (ids[2], "pending", due),
     ]
+
+
+@pytest.mark.anyio
+async def test_going_down_from_linked_repositories_deletes_github_facts(
+    session: AsyncSession,
+) -> None:
+    """Migration 0022: without the `github` origin, facts from GitHub can't stay."""
+    user = await session.scalar(insert(User).returning(User.id))
+    use_key_ring(KeyRing.parse(new_key("k1")))
+    try:
+        for fact_id, origin in (("e1_1", "journal"), ("imp_1", "import"), ("gh_a_1", "github")):
+            session.add(FactRow(user_id=user, id=fact_id, data="{}", origin=origin))
+        await session.flush()
+    finally:
+        use_key_ring(None)
+    await session.execute(text(migration("0022_repo_links").DELETE_GITHUB_FACTS))
+    rows = await session.scalars(
+        select(FactRow.id).where(FactRow.user_id == user).order_by(FactRow.id)
+    )
+    assert list(rows) == ["e1_1", "imp_1"]

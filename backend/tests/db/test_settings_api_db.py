@@ -37,6 +37,8 @@ from app.db.models import (
     LlmCallRow,
     Refresh,
     RenderRow,
+    RepoItemRow,
+    RepoLink,
     TailorDraftRow,
     TelegramLink,
     TelegramUpdate,
@@ -806,10 +808,24 @@ def fill_every_table(database_url: str, owner: Owner) -> Filled:
         posting = JobPostingRow(user_id=owner.id, text="Backend engineer", posting={})
         catch_up = CatchUp(user_id=owner.id, status="paused", transcript="[]")
         draft = TailorDraftRow(user_id=owner.id, posting_text="Backend engineer", choices={})
+        link = RepoLink(
+            user_id=owner.id,
+            github_id=_random.randrange(10**9),
+            name="casey-example/recipe-box",
+            project_id="recipe_box",
+        )
         session.add_all(
-            [refresh, posting, catch_up, draft, VariantRow(user_id=owner.id, id="master", data={})]
+            [
+                refresh,
+                posting,
+                catch_up,
+                draft,
+                link,
+                VariantRow(user_id=owner.id, id="master", data={}),
+            ]
         )
         await session.flush()
+        session.add(RepoItemRow(user_id=owner.id, link_id=link.id, kind="pull", ref="4"))
         session.add(
             ApplicationRow(
                 user_id=owner.id,

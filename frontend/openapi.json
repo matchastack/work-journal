@@ -5032,6 +5032,13 @@
             },
             "type": "array",
             "title": "Importedfacts"
+          },
+          "repositories": {
+            "items": {
+              "$ref": "#/components/schemas/RepositoryFacts"
+            },
+            "type": "array",
+            "title": "Repositories"
           }
         },
         "additionalProperties": false,
@@ -5041,7 +5048,8 @@
           "roles",
           "projects",
           "exportedAt",
-          "importedFacts"
+          "importedFacts",
+          "repositories"
         ],
         "title": "JournalExport"
       },
@@ -6879,6 +6887,38 @@
         ],
         "title": "RepoSource",
         "description": "Where a fact from GitHub comes from (FR-GH-6): its repository and the items it cites."
+      },
+      "RepositoryFacts": {
+        "properties": {
+          "repository": {
+            "type": "string",
+            "title": "Repository"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "private": {
+            "type": "boolean",
+            "title": "Private"
+          },
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/Fact"
+            },
+            "type": "array",
+            "title": "Facts"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "repository",
+          "url",
+          "private",
+          "facts"
+        ],
+        "title": "RepositoryFacts"
       },
       "Restore": {
         "properties": {

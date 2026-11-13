@@ -93,6 +93,7 @@ def test_the_markdown_groups_entries_by_month_in_the_owners_time_zone() -> None:
         roles=(RoleOption(id="northwind", label="Engineer, Northwind Traders (2025-now)"),),
         projects=(),
         imported_facts=(Fact(id="nw_orders", statement="Built the orders API.", origin="import"),),
+        repositories=(),
     )
     assert to_markdown(export, SINGAPORE) == (
         "# Work journal\n"
@@ -153,6 +154,7 @@ def test_an_empty_journal_says_so() -> None:
         roles=(),
         projects=(),
         imported_facts=(),
+        repositories=(),
     )
     assert to_markdown(export, ZoneInfo("UTC")) == (
         "# Work journal\n"
@@ -174,6 +176,7 @@ def test_a_catch_up_answer_comes_with_its_question() -> None:
         roles=(),
         projects=(),
         imported_facts=(),
+        repositories=(),
     )
     markdown = to_markdown(export, ZoneInfo("UTC"))
     assert (

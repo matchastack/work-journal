@@ -22,8 +22,8 @@ digits, so they're never part of it.
 
 import re
 from collections import Counter
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Collection, Mapping, Sequence
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Literal
 
@@ -210,6 +210,19 @@ def build_digest(
         commits_read=len(history.commits),
         more_pulls=history.more_pulls,
     )
+
+
+def unread(
+    digest: Digest,
+    read: Collection[tuple[str, str]],
+    *,
+    window_items: int = WINDOW_ITEMS,
+    window_chars: int = WINDOW_CHARS,
+) -> Digest:
+    """The digest without the items earlier reads took, by kind and number or hash, in windows
+    again: each item is read once (FR-GH-7)."""
+    items = tuple(item for item in digest.items if (item.kind, item.ref) not in read)
+    return replace(digest, items=items, windows=_windows(items, window_items, window_chars))
 
 
 def describe_left_out(left_out: Mapping[LeftOut, int]) -> str:

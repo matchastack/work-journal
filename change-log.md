@@ -2,6 +2,16 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-11-13 · T-069 Link repositories and import their history · [#81](https://github.com/matchastack/work-journal/pull/81)
+**Changed:** `wj github link` links a GitHub repository to one of your projects, imports its history and saves the facts in it a part at a time, reading each pull request and commit once. `wj github sync` reads what's new, `wj github list` shows the linked repositories and `wj github unlink` stops reading one and keeps its facts. The journal exports include the facts from GitHub, by repository.
+
+**Verify:**
+- After the deploy, `scripts/post-deploy.sh` applies migration 0022
+- `uv run wj github link <owner/repo> --project <id>` says what it found and how many model calls it takes, asks to go on, then saves the facts
+- `uv run wj github sync` straight after says "nothing new" and makes no model call
+- `uv run wj github list` shows the repository; `uv run wj github unlink <owner/repo>` stops reading it and keeps its facts
+- The Journal page's Download JSON and Download Markdown hold the facts from GitHub, by repository
+
 ## 2026-10-30 · T-036 Open-question prompts · [#57](https://github.com/matchastack/work-journal/pull/57)
 **Changed:** A reminder now asks the most valuable open question from your master resume, one per reminder, with an "Answer the question" button. Your answer becomes an entry of its own whose facts link to the question, so the next `/refresh` proposes the stronger bullet and marks the question answered when you accept it.
 
