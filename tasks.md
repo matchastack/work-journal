@@ -23,8 +23,8 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 
 | Milestone | Tasks | Status |
 |---|---|---|
-| M0: Documents | T-000, T-055, T-056 and T-066 | ◐ |
-| M1: Engine and command line | T-001 – T-024, T-054, T-060, T-065, T-067, T-068, T-073, T-074 and T-075 (T-007 dropped) | ◐ |
+| M0: Documents | T-000, T-055, T-056 and T-066 | ☑ |
+| M1: Engine and command line | T-001 – T-024, T-054, T-060, T-065, T-067, T-068, T-073, T-074 and T-075 (T-007 dropped) | ☑ |
 | M2: Journal loop | T-025 – T-053, T-057 – T-059, T-061 – T-064 and T-069 – T-072 | ◐ |
 | M3: Quality and habit | Epics (at the end of this file) | — |
 | M4: Open to others | Epics (at the end of this file) | — |
@@ -70,7 +70,7 @@ As the owner, I want the app hosted for free, so that I can journal every day wi
 - [x] T-051 becomes the Vercel deployment, T-050 (Docker image) is dropped, and T-030, T-032 and T-052 follow the tick.
 
 ### T-066 · GitHub projects: requirements
-**Status:** ◐ · **Size:** S · **Depends on:** T-000 · **Requirements:** FR-GH-1 – FR-GH-10 (defines them) · **PR:** [#58](https://github.com/matchastack/work-journal/pull/58)
+**Status:** ☑ · **Size:** S · **Depends on:** T-000 · **Requirements:** FR-GH-1 – FR-GH-10 (defines them) · **PR:** [#58](https://github.com/matchastack/work-journal/pull/58)
 
 As the owner, I want my GitHub repositories' history to become facts for my projects, so that my side projects and open-source work reach my resume without journaling about them.
 
@@ -409,7 +409,7 @@ As the owner, I want each PDF checked the way an applicant-tracking system reads
 **Built (2026-10-16):** the check reads the text the render already extracts with pypdf. A term split by a hyphen at the end of a line is reported, and so are missing or reordered section headings, ligatures and unmapped glyphs; bitmap fonts stay a render warning. A failed check doesn't block the PDF: `wj tailor` lists what's wrong, and the result is kept with the application. The fixture PDF is a real render of the fictional resume.
 
 ### T-065 · Tailored resumes are written even when a rule fails
-**Status:** ◐ · **Size:** S · **Depends on:** T-020, T-021 · **Requirements:** R2, R3, FR-TLR-7 · **PR:** [#55](https://github.com/matchastack/work-journal/pull/55)
+**Status:** ☑ · **Size:** S · **Depends on:** T-020, T-021 · **Requirements:** R2, R3, FR-TLR-7 · **PR:** [#55](https://github.com/matchastack/work-journal/pull/55)
 
 As the owner, I want `wj tailor` to write the resume even when it breaks a resume rule, so that the tokens spent tailoring it aren't lost and I can fix the problem without paying for them again.
 
@@ -458,7 +458,7 @@ As the owner, I want everything the app writes to use ASCII characters, so that 
 - [ ] Tests.
 
 ### T-067 · Read a repository's history
-**Status:** ◐ · **Size:** M · **Depends on:** T-066 · **Requirements:** FR-GH-1, FR-GH-3, FR-GH-4, FR-GH-5, FR-GH-9, NFR-SEC-1 · **PR:** [#59](https://github.com/matchastack/work-journal/pull/59)
+**Status:** ☑ · **Size:** M · **Depends on:** T-066 · **Requirements:** FR-GH-1, FR-GH-3, FR-GH-4, FR-GH-5, FR-GH-9, NFR-SEC-1 · **PR:** [#59](https://github.com/matchastack/work-journal/pull/59)
 
 As the owner, I want to see exactly what the app would read from a repository, so that I can trust it before any model reads it.
 
@@ -499,7 +499,7 @@ As the owner, I want to see exactly what the app would read from a repository, s
 - **Windows.** At most 30 items and about 12,000 characters each.
 
 ### T-068 · Facts from repository activity
-**Status:** ◐ · **Size:** M · **Depends on:** T-067 · **Requirements:** FR-GH-4, FR-GH-6, FR-EXT-2, R1, NFR-MAINT-2 · **PR:** [#60](https://github.com/matchastack/work-journal/pull/60)
+**Status:** ☑ · **Size:** M · **Depends on:** T-067 · **Requirements:** FR-GH-4, FR-GH-6, FR-EXT-2, R1, NFR-MAINT-2 · **PR:** [#60](https://github.com/matchastack/work-journal/pull/60)
 
 As the owner, I want my repository activity turned into facts that cite the pull requests and commits behind them, so that nothing claims more than my history shows.
 
@@ -536,7 +536,7 @@ As the owner, I want my repository activity turned into facts that cite the pull
 - **Evaluation numbers.** They need the owner's key; the PR says how to run them.
 
 ### T-073 · Digest cleaning keeps what it should
-**Status:** ◐ · **Size:** S · **Depends on:** T-067 · **Requirements:** FR-GH-5, R1 · **PR:** [#61](https://github.com/matchastack/work-journal/pull/61)
+**Status:** ☑ · **Size:** S · **Depends on:** T-067 · **Requirements:** FR-GH-5, R1 · **PR:** [#61](https://github.com/matchastack/work-journal/pull/61)
 
 As the owner, I want the digest's cleaning to remove only what it should, so that a roadmap never backs a fact and the tools I name aren't lost.
 
@@ -552,7 +552,7 @@ From the review of #59:
 - [x] A test for each, which fails without the fix.
 
 ### T-074 · Read only what can count
-**Status:** ◐ · **Size:** S · **Depends on:** T-073 · **Requirements:** FR-GH-3, FR-GH-4, FR-GH-5, C7 · **PR:** [#62](https://github.com/matchastack/work-journal/pull/62)
+**Status:** ☑ · **Size:** S · **Depends on:** T-073 · **Requirements:** FR-GH-3, FR-GH-4, FR-GH-5, C7 · **PR:** [#62](https://github.com/matchastack/work-journal/pull/62)
 
 As the owner, I want the reader to read only work that reached the default branch and counts as mine, so that no unshipped or reverted work backs a fact, and a busy repository doesn't run into GitHub's rate limits.
 
@@ -565,7 +565,7 @@ From the review of #59:
 - [x] A test for each, which fails without the fix.
 
 ### T-075 · Repository facts: dates and parts that fail
-**Status:** ◐ · **Size:** S · **Depends on:** T-068 · **Requirements:** FR-GH-6, FR-GH-7 · **PR:** [#63](https://github.com/matchastack/work-journal/pull/63)
+**Status:** ☑ · **Size:** S · **Depends on:** T-068 · **Requirements:** FR-GH-6, FR-GH-7 · **PR:** [#63](https://github.com/matchastack/work-journal/pull/63)
 
 As the owner, I want each GitHub fact dated by the work it cites, and one part the model can't read not to lose the others, so that a long history is worth reading and its facts land in the right month.
 
@@ -729,7 +729,7 @@ As the owner, I want at most one short follow-up question when my note is missin
 **Built (2026-10-13):** the bot asks when the entry closes, before the role question, and only within the entry timeout of the close with no other entry open, since without an always-on worker it can't wait for a pause while the entry is open. The model writes the question about the note; code asks a fixed one instead if it has a number or isn't one short question. `/skip` does what the Skip button does, and a question with no answer within the entry timeout lapses.
 
 ### T-035 · Reminders
-**Status:** ◐ · **Size:** M · **Depends on:** T-028, T-031 · **Requirements:** FR-REM-1, FR-REM-2, FR-REM-3, FR-SET-2 · **Needs:** OQ-4 (answered) · **PR:** [#52](https://github.com/matchastack/work-journal/pull/52)
+**Status:** ☑ · **Size:** M · **Depends on:** T-028, T-031 · **Requirements:** FR-REM-1, FR-REM-2, FR-REM-3, FR-SET-2 · **Needs:** OQ-4 (answered) · **PR:** [#52](https://github.com/matchastack/work-journal/pull/52)
 
 As the owner, I want a gentle reminder on my schedule, so that journaling becomes a habit.
 
@@ -741,7 +741,7 @@ As the owner, I want a gentle reminder on my schedule, so that journaling become
 **Built (2026-10-16):** a reminder goes out at the first tick at or after its time, once, up to 4 hours late and never after local midnight; otherwise it's skipped. Only the latest one is considered, so a pause or a stopped worker never sends a burst of old reminders. Vercel's daily tick moves to 10:00 UTC, 18:00 in Singapore, so it sends the default reminder; with another reminder time, the owner moves the cron hour too. Each user's days, time and time zone are stored in the `settings` table, with defaults from `REMINDER_DAYS`, `REMINDER_TIME` and `REMINDER_TIME_ZONE`; T-048's page will edit them. "Nothing this week" is logged in the bot's reminder record as the Monday of the reminder's week, even when pressed after the weekend, and skips the rest of that week. The reminder's text is fixed, with no model call.
 
 ### T-036 · Open-question prompts
-**Status:** ◐ · **Size:** S · **Depends on:** T-035, T-027 · **Requirements:** FR-REM-5, FR-EXT-4, FR-PRF-10 · **PR:** [#57](https://github.com/matchastack/work-journal/pull/57)
+**Status:** ☑ · **Size:** S · **Depends on:** T-035, T-027 · **Requirements:** FR-REM-5, FR-EXT-4, FR-PRF-10 · **PR:** [#57](https://github.com/matchastack/work-journal/pull/57)
 
 As the owner, I want the bot to ask me the open questions from my master resume, one at a time, so that my weaker bullets get the details they need.
 
@@ -753,7 +753,7 @@ As the owner, I want the bot to ask me the open questions from my master resume,
 **Built (2026-10-17):** a question's value adds up the strengths of the bullets that need it (high 3, medium 2, low 1), leaving out benched ones; each reminder asks the most valuable open question not yet asked in this round, and starts a new round once each has been asked, never with the question just asked while there's another, so an unanswered question doesn't come back every week. The journal holds an answer while it waits to be processed, and from when it gave a fact until the owner has reviewed the refresh that uses it; an answer that gave none, or that the owner rejected, lets the question come back. A reminder that asks one has an "Answer the question" button, and the owner's next message within the entry timeout is the answer: an entry of its own, closed at once and linked to the question (migration 0015), with the role of the question's bullets when one role holds them all, or else the usual role question. Pressing New role before it ends the wait, since the newest prompt is the one the owner answers. Triage and extraction read the answer alone, as any note, so the question is never evidence; code links every fact to the question while it's still open. Synthesis's existing "Answer an open question" change marks it answered when the owner accepts it, beside the new version of the bullet. No prompt or routing changed.
 
 ### T-037 · Catch-up interview
-**Status:** ◐ · **Size:** M · **Depends on:** T-033 · **Requirements:** FR-REM-4 · **PR:** [#51](https://github.com/matchastack/work-journal/pull/51)
+**Status:** ☑ · **Size:** M · **Depends on:** T-033 · **Requirements:** FR-REM-4 · **PR:** [#51](https://github.com/matchastack/work-journal/pull/51)
 
 As the owner, I want a short guided interview on first use, so that the months since my last resume update are captured quickly.
 
@@ -783,7 +783,7 @@ As the owner, I want my profile and master resume updated only when I ask, so th
 - Vercel can't run LaTeX (C6), so the output update waits on a queue that only a worker with TeX Live takes: `wj tick` or `wj worker` on the owner's computer. The PDF is kept with the refresh, for the Resumes page (T-044).
 
 ### T-061 · Refresh: the LinkedIn pack and the portfolio page
-**Status:** ◐ · **Size:** S · **Depends on:** T-024, T-038, T-046 · **Requirements:** FR-REV-7, FR-LIN-1, FR-PRT-3 · **PR:** [#73](https://github.com/matchastack/work-journal/pull/73)
+**Status:** ☑ · **Size:** S · **Depends on:** T-024, T-038, T-046 · **Requirements:** FR-REV-7, FR-LIN-1, FR-PRT-3 · **PR:** [#73](https://github.com/matchastack/work-journal/pull/73)
 
 As the owner, I want a refresh to update my LinkedIn text and portfolio page too, so that every output shows the same new version.
 
@@ -799,7 +799,7 @@ As the owner, I want a refresh to update my LinkedIn text and portfolio page too
 - `wj linkedin show --db` prints the pack a refresh wrote, without calling a model, and says when it still waits to be written or failed, until the LinkedIn page (T-047).
 
 ### T-064 · Refreshes of months of facts within the time limit
-**Status:** ◐ · **Size:** S · **Depends on:** T-038 · **Requirements:** FR-REV-6, NFR-PERF-1 (and G3) · **PR:** [#53](https://github.com/matchastack/work-journal/pull/53)
+**Status:** ☑ · **Size:** S · **Depends on:** T-038 · **Requirements:** FR-REV-6, NFR-PERF-1 (and G3) · **PR:** [#53](https://github.com/matchastack/work-journal/pull/53)
 
 As the owner, I want a refresh after months away to finish, so that a long gap never stops me getting a current resume.
 
@@ -845,7 +845,7 @@ As the owner, I want to read my journal as one document and correct it, so that 
 - [x] Tests.
 
 ### T-042 · Profile page: items, bullets and versions
-**Status:** ◐ · **Size:** M · **Depends on:** T-027, T-039 · **Requirements:** FR-PRF-3, FR-PRF-4, FR-PRF-11 · **PR:** [#66](https://github.com/matchastack/work-journal/pull/66)
+**Status:** ☑ · **Size:** M · **Depends on:** T-027, T-039 · **Requirements:** FR-PRF-3, FR-PRF-4, FR-PRF-11 · **PR:** [#66](https://github.com/matchastack/work-journal/pull/66)
 
 As the owner, I want to edit my roles, projects and bullets directly, so that I can fix things without going through the bot.
 
@@ -855,7 +855,7 @@ As the owner, I want to edit my roles, projects and bullets directly, so that I 
 - [x] Tests.
 
 ### T-043 · Profile page: swaps, titles, coursework, skills, summaries and open questions
-**Status:** ◐ · **Size:** M · **Depends on:** T-042 · **Requirements:** FR-PRF-5, FR-PRF-6, FR-PRF-7, FR-PRF-8, FR-PRF-9, FR-PRF-10, FR-WRT-5 · **PR:** [#67](https://github.com/matchastack/work-journal/pull/67)
+**Status:** ☑ · **Size:** M · **Depends on:** T-042 · **Requirements:** FR-PRF-5, FR-PRF-6, FR-PRF-7, FR-PRF-8, FR-PRF-9, FR-PRF-10, FR-WRT-5 · **PR:** [#67](https://github.com/matchastack/work-journal/pull/67)
 
 As the owner, I want to manage the metadata that drives tailoring, so that my master-resume practice lives in the app.
 
@@ -866,7 +866,7 @@ As the owner, I want to manage the metadata that drives tailoring, so that my ma
 - [x] Tests.
 
 ### T-044 · Resumes page
-**Status:** ◐ · **Size:** M · **Depends on:** T-010, T-011, T-027, T-039 · **Requirements:** FR-RES-5, FR-RES-6 · **PR:** [#69](https://github.com/matchastack/work-journal/pull/69)
+**Status:** ☑ · **Size:** M · **Depends on:** T-010, T-011, T-027, T-039 · **Requirements:** FR-RES-5, FR-RES-6 · **PR:** [#69](https://github.com/matchastack/work-journal/pull/69)
 
 As the owner, I want to preview and download my master resume and my tailored resumes, so that I always have a current version ready.
 
@@ -881,7 +881,7 @@ As the owner, I want to preview and download my master resume and my tailored re
 - The master's lint findings are the profile check (`wj lint`) of the version it shows; a tailored resume's are the resume rules' findings kept with its application.
 
 ### T-045 · Tailor page and application history
-**Status:** ◐ · **Size:** M · **Depends on:** T-021, T-022, T-039 · **Requirements:** FR-TLR-1, FR-TLR-2, FR-TLR-3, FR-TLR-4, FR-TLR-6, FR-TLR-7, FR-TLR-8, FR-TLR-9 · **PR:** [#72](https://github.com/matchastack/work-journal/pull/72)
+**Status:** ☑ · **Size:** M · **Depends on:** T-021, T-022, T-039 · **Requirements:** FR-TLR-1, FR-TLR-2, FR-TLR-3, FR-TLR-4, FR-TLR-6, FR-TLR-7, FR-TLR-8, FR-TLR-9 · **PR:** [#72](https://github.com/matchastack/work-journal/pull/72)
 
 As the owner, I want to paste a posting and get a tailored resume I can adjust, so that applying takes minutes.
 
@@ -899,7 +899,7 @@ As the owner, I want to paste a posting and get a tailored resume I can adjust, 
 - Downloading logs the application once, with the posting, the bullets and swaps used, the title, the checks and the PDF, and locks the draft. A resume that breaks a rule is logged with its errors and marked not to send (R2). The history on the page, like the Resumes page, lists each application with its date and PDF.
 
 ### T-046 · Public portfolio page and publishing
-**Status:** ◐ · **Size:** M · **Depends on:** T-023, T-027, T-039 · **Requirements:** FR-PRT-1, FR-PRT-3, FR-PRT-4, FR-PRT-5, FR-PRT-7, FR-SET-3, NFR-PERF-2 · **Needs:** OQ-3 · **PR:** [#71](https://github.com/matchastack/work-journal/pull/71)
+**Status:** ☑ · **Size:** M · **Depends on:** T-023, T-027, T-039 · **Requirements:** FR-PRT-1, FR-PRT-3, FR-PRT-4, FR-PRT-5, FR-PRT-7, FR-SET-3, NFR-PERF-2 · **Needs:** OQ-3 · **PR:** [#71](https://github.com/matchastack/work-journal/pull/71)
 
 As the owner, I want my portfolio page served by the app and updated when I refresh, so that my public profile is current whenever I need it.
 
@@ -911,7 +911,7 @@ As the owner, I want my portfolio page served by the app and updated when I refr
 **Built (2026-10-31):** stacked on T-048 (#70), whose portfolio settings it reads; OQ-3's handle stays open, so there's no default handle and the page can't be published until the owner chooses one in Settings. Whether the page is published, the version it was published with and the resumes it offers are a settings key (`portfolio_publishing`), so no migration. Publishing pins the version the outputs show (the latest refresh's, or the newest before the first refresh), and a later refresh's replaces it as soon as that refresh's outputs fall due, without waiting for the master resume's render; so versions made since a refresh never show, and the move T-061 lists for the portfolio page is done. The default visibility covers the website and online profiles, the only contact details without a visibility of their own. The owner may offer the master resume the latest refresh rendered and tailored resumes that passed their checks, each with its own button text; only those PDFs are served. The page and its PDFs are cached by shared caches for 60 s plus 60 s stale, and browsers check them each time, so unpublishing shows within about two minutes; a 404 is never cached. T-049 keeps confidential terms off the page and its PDFs.
 
 ### T-047 · LinkedIn page
-**Status:** ◐ · **Size:** S · **Depends on:** T-024, T-039 · **Requirements:** FR-LIN-2, FR-LIN-3 · **PR:** [#68](https://github.com/matchastack/work-journal/pull/68)
+**Status:** ☑ · **Size:** S · **Depends on:** T-024, T-039 · **Requirements:** FR-LIN-2, FR-LIN-3 · **PR:** [#68](https://github.com/matchastack/work-journal/pull/68)
 
 As the owner, I want a checklist of LinkedIn sections to paste, so that LinkedIn stays in step with my resume.
 
@@ -925,7 +925,7 @@ As the owner, I want a checklist of LinkedIn sections to paste, so that LinkedIn
 - Mark done turns on once each section that passed, and each section to take off LinkedIn, is ticked. It names the pack the page showed, and a pack written since isn't marked.
 
 ### T-048 · Settings page
-**Status:** ◐ · **Size:** M · **Depends on:** T-031, T-035, T-039 · **Requirements:** FR-SET-1, FR-SET-2, FR-SET-3, FR-SET-4, FR-SET-5, FR-SET-6, NFR-PRIV-3 · **PR:** [#70](https://github.com/matchastack/work-journal/pull/70)
+**Status:** ☑ · **Size:** M · **Depends on:** T-031, T-035, T-039 · **Requirements:** FR-SET-1, FR-SET-2, FR-SET-3, FR-SET-4, FR-SET-5, FR-SET-6, NFR-PRIV-3 · **PR:** [#70](https://github.com/matchastack/work-journal/pull/70)
 
 As the owner, I want all my preferences in one place, so that I can tune the app without code changes.
 
@@ -940,7 +940,7 @@ As the owner, I want all my preferences in one place, so that I can tune the app
 **Built (2026-10-30):** each group is a typed key in the `settings` table, so no migration. The portfolio settings (a handle with no default while OQ-3 is open, unique across users; the default visibility; open to work; indexing, on by default) and the confidential terms are only kept until T-046 and T-049 read them. The page edits the style notes' words to avoid and notes as whole lists; a note kept keeps where it came from. The export holds every row of every table that belongs to the owner, and the raw Telegram updates from their chat, leaving out sign-in sessions and link tokens. Deleting, with the GitHub username typed to confirm, deletes the account and everything that cascades from it, the raw updates from the owner's chat and the jobs queued for their entries and refreshes, and signs them out.
 
 ### T-049 · Confidential terms and sensitive roles
-**Status:** ◐ · **Size:** S · **Depends on:** T-015, T-046 · **Requirements:** FR-SET-5, NFR-PRIV-4, R5 · **PR:** [#76](https://github.com/matchastack/work-journal/pull/76)
+**Status:** ☑ · **Size:** S · **Depends on:** T-015, T-046 · **Requirements:** FR-SET-5, NFR-PRIV-4, R5 · **PR:** [#76](https://github.com/matchastack/work-journal/pull/76)
 
 As the owner, I want confidential terms and sensitive-role details kept out of anything public, so that journaling freely can't get me in trouble.
 
@@ -979,7 +979,7 @@ As the owner, I want one command to run after each deploy, so that I don't have 
 - [x] `docs/deploy.md` and `CLAUDE.md` say to run it after each deploy, and that a change needing a command after its deploy adds it there.
 
 ### T-052 · Observability
-**Status:** ◐ · **Size:** S · **Depends on:** T-051 · **Requirements:** NFR-OBS-1, NFR-COST-2, NFR-PRIV-2 · **PR:** [#74](https://github.com/matchastack/work-journal/pull/74)
+**Status:** ☑ · **Size:** S · **Depends on:** T-051 · **Requirements:** NFR-OBS-1, NFR-COST-2, NFR-PRIV-2 · **PR:** [#74](https://github.com/matchastack/work-journal/pull/74)
 
 As the owner, I want errors and LLM costs visible, so that problems and spending don't surprise me.
 
@@ -990,7 +990,7 @@ As the owner, I want errors and LLM costs visible, so that problems and spending
 **Revisit with a Console organization:** the cost view's figures are estimates from the per-tier prices (`LLM_PRICE_*`). The billed cost comes only from the Usage and Cost Admin API's cost report: US dollars per day, by model and token type. That API needs a Console organization and an Admin API key, and individual accounts can't use it. Once the owner has an organization, compare the estimates with the billed cost, and keep the Admin key off the server (decided in the review of #9).
 
 ### T-053 · End-to-end tests and staging checklist
-**Status:** ◐ · **Size:** M · **Depends on:** T-040, T-046, T-051 · **Requirements:** FR-REV-3, FR-PRT-3 · **PR:** [#75](https://github.com/matchastack/work-journal/pull/75)
+**Status:** ☑ · **Size:** M · **Depends on:** T-040, T-046, T-051 · **Requirements:** FR-REV-3, FR-PRT-3 · **PR:** [#75](https://github.com/matchastack/work-journal/pull/75)
 
 As the owner, I want the main journeys tested end to end, so that releases don't break the core loop.
 
