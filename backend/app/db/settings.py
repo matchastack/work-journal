@@ -3,10 +3,11 @@
 Besides preferences, three keys keep the LinkedIn pack's state (T-024, T-061): the pack last
 written, the snapshot of the sections last marked done, and the sections of a pack a refresh is
 writing, kept as each is written. `reminders` holds the owner's reminder schedule and pause, and
-`reminder_state` the bot's record of the reminders it sent or skipped (T-035). `portfolio` holds
-the portfolio page's settings, and `portfolio_publishing` whether it's published and what it
-offers (T-046). `confidential_terms` holds the terms public outputs never name (T-049). The
-Settings page (`app/settings/`) edits the preferences, and the Portfolio page publishing.
+`reminder_state` the bot's record of the reminders it sent or skipped (T-035) and of the open
+questions they asked (T-036). `portfolio` holds the portfolio page's settings, and
+`portfolio_publishing` whether it's published and what it offers (T-046). `confidential_terms`
+holds the terms public outputs never name (T-049). The Settings page (`app/settings/`) edits the
+preferences, and the Portfolio page publishing.
 """
 
 import uuid

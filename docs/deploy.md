@@ -200,7 +200,8 @@ each draft as you change it.
 - Send `/pause`: the bot says your reminders are paused. Send `/resume`: it says they're back
   on, and when they go out, such as "Fridays at 18:00 (Asia/Singapore)".
 - On a reminder day after 3 days without journaling, the reminder arrives within the tick's
-  hour, with "Nothing this week" and "Remind me tomorrow" buttons.
+  hour, with "Nothing this week" and "Remind me tomorrow" buttons. While your profile has open
+  questions, it also asks one, with an "Answer the question" button.
 
 ## Try a change on staging first
 

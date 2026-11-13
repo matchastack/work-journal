@@ -84,3 +84,13 @@ async def linked_at(session: AsyncSession, user_id: uuid.UUID) -> datetime | Non
     return await session.scalar(
         select(TelegramLink.linked_at).where(TelegramLink.user_id == user_id)
     )
+
+
+async def lock_link(session: AsyncSession, user_id: uuid.UUID) -> int | None:
+    """Lock the user's Telegram link until the transaction ends, and return its chat. None when
+    no chat is linked. The lock serializes every change to the owner's reminder setting and
+    record (`app/telegram/reminders.py`); a transaction that also locks a journal entry takes
+    this lock first."""
+    return await session.scalar(
+        select(TelegramLink.chat_id).where(TelegramLink.user_id == user_id).with_for_update()
+    )

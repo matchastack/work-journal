@@ -5,8 +5,9 @@ before the answer, and storing it twice does nothing (NFR-REL-1). The answer can
 reply as a Bot API call, which Telegram makes itself, so replying needs no request of its own.
 Any further calls, such as editing a message after a button press, are made right after the
 answer. When the update closes an entry or chooses its role, the entry's jobs run right after
-that (FR-CAP-5), after `/refresh`, the refresh's job (FR-REV-6), and when it moves the catch-up
-interview on, the job that asks its next question, ahead of the entry's (FR-REM-4).
+that (FR-CAP-5), in one tick with any other entry it closed, after `/refresh`, the refresh's job
+(FR-REV-6), and when it moves the catch-up interview on, the job that asks its next question,
+ahead of the entry's (FR-REM-4).
 """
 
 import logging
@@ -60,9 +61,9 @@ async def webhook(
             make_calls, settings.telegram_bot_token, request.app.state.http, handled.calls[1:]
         )
     if handled.catch_up is not None:
-        background.add_task(catch_up_now, handled.catch_up, handled.ready)
-    elif handled.ready is not None:
-        background.add_task(extract_now, handled.ready)
+        background.add_task(catch_up_now, handled.catch_up, *handled.ready)
+    elif handled.ready:
+        background.add_task(extract_now, *handled.ready)
     if handled.refresh is not None:
         background.add_task(refresh_now, handled.refresh)
     if not handled.calls:

@@ -14,8 +14,11 @@ menu does (`COMMANDS`). Button presses, and the message that names a new role, a
 role an entry is about (`app/telegram/roles.py`). A message that answers a closed entry's
 follow-up question joins that entry, and its Skip button skips the question
 (`app/telegram/follow_up.py`). Otherwise, a message that answers the interview's question becomes
-an entry of its own. A reminder's buttons say there's nothing this week or ask for it again
-tomorrow. Message text is never logged.
+an entry of its own. A reminder's buttons say there's nothing this week, ask for it again
+tomorrow, or answer the open question it asks: the owner's next message is then the answer, an
+entry of its own (`app/telegram/reminders.py`). That comes before a new role's name asked for
+earlier, a follow-up answer and the interview's answer, which wait longer; pressing New role
+afterwards ends the wait for the answer instead. Message text is never logged.
 """
 
 import uuid
@@ -32,12 +35,12 @@ from app.reminders import DEFAULT_SCHEDULE, Schedule
 from app.telegram import catch_up
 from app.telegram.api import BotCall, send
 from app.telegram.catch_up import CatchUpAnswer
-from app.telegram.entries import DEFAULT_TIMEOUT, close_open_entry, entry_for
+from app.telegram.entries import DEFAULT_TIMEOUT, close_open_entry, close_quiet_entry, entry_for
 from app.telegram.follow_up import SKIP, answered, awaiting, lapsed, press_skip, skip
 from app.telegram.linking import LINKED, link_chat, start_token
 from app.telegram.refresh import refresh
 from app.telegram.reminders import BUTTONS as REMINDER_BUTTONS
-from app.telegram.reminders import pause, press_reminder, resume
+from app.telegram.reminders import pause, press_reminder, resume, take_answer
 from app.telegram.roles import Answer, name_role, naming_entry, press
 from app.telegram.updates import CallbackQuery, Message, Update
 
@@ -75,23 +78,24 @@ def help_text(timeout: timedelta) -> str:
 
 @dataclass(frozen=True)
 class Handled:
-    """What came of an update: the Bot API calls that answer it, in order, and the entry whose
-    jobs can run right away (FR-CAP-5), if there is one: an entry the update closed, so that the
-    bot asks about it, one whose follow-up question it answered or skipped, so that the bot asks
-    which role it's about, or one whose role it chose, so that its facts are extracted. A
-    `/refresh` hands on its refresh, whose job can run right away too, and the catch-up
-    interview hands on itself when its next question can be asked."""
+    """What came of an update: the Bot API calls that answer it, in order, and the entries whose
+    jobs can run right away (FR-CAP-5), oldest first: an entry the update closed, so that the bot
+    asks about it, one whose follow-up question it answered or skipped, so that the bot asks
+    which role it's about, one whose role it chose, so that its facts are extracted, or the
+    answer to an open question, closed at once, after any entry it closed. A `/refresh` hands on
+    its refresh instead, whose job can run right away too, and the catch-up interview hands on
+    itself when its next question can be asked."""
 
     calls: tuple[BotCall, ...] = ()
-    ready: uuid.UUID | None = None
+    ready: tuple[uuid.UUID, ...] = ()
     refresh: uuid.UUID | None = None
     catch_up: uuid.UUID | None = None
 
     @classmethod
     def of(cls, answer: Answer | CatchUpAnswer) -> Self:
         if isinstance(answer, CatchUpAnswer):
-            return cls(answer.calls, answer.ready, catch_up=answer.catch_up)
-        return cls(answer.calls, answer.ready)
+            return cls(answer.calls, _ids(answer.ready), catch_up=answer.catch_up)
+        return cls(answer.calls, _ids(answer.ready))
 
 
 async def handle_update(
@@ -172,21 +176,27 @@ async def _new_message(
         return await _command(
             session, owner, chat_id, body, message.sent_at, entry_timeout, app_url, reminders
         )
-    if (naming := await naming_entry(session, owner)) is not None:
-        return Handled.of(name_role(naming, chat_id, body))
-    asked = await awaiting(session, owner)
-    interview = await catch_up.asking(session, owner)
-    if asked is not None and not lapsed(asked, message.sent_at, entry_timeout):
-        entry_id, handled = asked.id, Handled.of(answered(asked, chat_id))
-    elif interview is not None and catch_up.answers(interview, message.sent_at, entry_timeout):
-        entry_id, answer = await catch_up.answer(session, interview, chat_id, body, message.sent_at)
-        handled = Handled.of(answer)
+    if (answer := await take_answer(session, owner, message.sent_at, entry_timeout)) is not None:
+        closed = await close_quiet_entry(session, owner, message.sent_at, entry_timeout)
+        entry_id, handled = answer, Handled(ready=(*_ids(closed), answer))
     else:
-        lapsing = ()
-        if interview is not None:
-            lapsing = catch_up.lapse(interview, chat_id, message.sent_at, entry_timeout)
-        entry_id, closed = await entry_for(session, owner, message.sent_at, entry_timeout)
-        handled = Handled(lapsing, ready=closed)
+        if (naming := await naming_entry(session, owner)) is not None:
+            return Handled.of(name_role(naming, chat_id, body))
+        asked = await awaiting(session, owner)
+        interview = await catch_up.asking(session, owner)
+        if asked is not None and not lapsed(asked, message.sent_at, entry_timeout):
+            entry_id, handled = asked.id, Handled.of(answered(asked, chat_id))
+        elif interview is not None and catch_up.answers(interview, message.sent_at, entry_timeout):
+            entry_id, reply = await catch_up.answer(
+                session, interview, chat_id, body, message.sent_at
+            )
+            handled = Handled.of(reply)
+        else:
+            lapsing = ()
+            if interview is not None:
+                lapsing = catch_up.lapse(interview, chat_id, message.sent_at, entry_timeout)
+            entry_id, closed = await entry_for(session, owner, message.sent_at, entry_timeout)
+            handled = Handled(lapsing, ready=_ids(closed))
     statement = (
         insert(JournalMessage)
         .values(
@@ -250,8 +260,8 @@ async def _command(
             assert interview is not None
             calls = catch_up.pause(interview, chat_id)
             text = DONE_AND_PAUSED if closed else catch_up.PAUSED
-            return Handled((send(chat_id, text), *calls), closed)
-        return Handled((send(chat_id, DONE if closed else NOTHING_OPEN),), closed)
+            return Handled((send(chat_id, text), *calls), _ids(closed))
+        return Handled((send(chat_id, DONE if closed else NOTHING_OPEN),), _ids(closed))
     if command == "/skip":
         if await awaiting(session, owner) is None:
             interview = await catch_up.asking(session, owner)
@@ -261,7 +271,7 @@ async def _command(
     if command == "/catchup":
         closed = await close_open_entry(session, owner, sent_at)
         started = await catch_up.start(session, owner, chat_id)
-        return Handled(started.calls, closed or started.ready, catch_up=started.catch_up)
+        return Handled(started.calls, _ids(closed or started.ready), catch_up=started.catch_up)
     if command == "/refresh":
         answer = await refresh(session, owner, chat_id, app_url=app_url)
         return Handled(answer.calls, refresh=answer.refresh)
@@ -274,6 +284,10 @@ async def _command(
     return Handled((send(chat_id, f"{UNKNOWN}\n\n{help_text(entry_timeout)}"),))
 
 
+def _ids(entry_id: uuid.UUID | None) -> tuple[uuid.UUID, ...]:
+    return () if entry_id is None else (entry_id,)
+
+
 async def _link(session: AsyncSession, chat_id: int, token: str) -> Handled:
     """Answer `/start <token>`: link the chat, and on the owner's first link, start the catch-up
     interview (FR-REM-4)."""
@@ -283,7 +297,7 @@ async def _link(session: AsyncSession, chat_id: int, token: str) -> Handled:
         return Handled((send(chat_id, reply),))
     started = await catch_up.first_run(session, owner, chat_id)
     calls = (send(chat_id, reply), *started.calls)
-    return Handled(calls, started.ready, catch_up=started.catch_up)
+    return Handled(calls, _ids(started.ready), catch_up=started.catch_up)
 
 
 async def _edit(session: AsyncSession, message: Message) -> None:

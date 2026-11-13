@@ -229,6 +229,47 @@ def test_a_chosen_role_no_longer_in_the_profile_is_removed() -> None:
     )
 
 
+def test_every_fact_from_an_answer_links_to_its_open_question() -> None:
+    """FR-EXT-4: code links them, whatever the model wrote."""
+    facts = (fact(), fact(statement="Wrote the runbook."))
+    answer = check_facts(ExtractionReply(facts=facts), NOTE, PROFILE, question_id="q_nw_volume")
+    assert [item.question_id for item in answer.facts] == ["q_nw_volume", "q_nw_volume"]
+    assert answer.notes == ()
+    assert checked(*facts).facts[0].question_id is None, "a note that answers nothing"
+
+
+@pytest.mark.parametrize(
+    "question_id",
+    [
+        pytest.param("q_nw_latency", id="gone from the profile"),
+        pytest.param("q_project_dates", id="answered"),
+    ],
+)
+def test_a_question_no_longer_open_in_the_profile_is_removed(question_id: str) -> None:
+    """No refresh can use an answer to a question that was answered or closed meanwhile."""
+    extraction = check_facts(
+        ExtractionReply(facts=(fact(),)), NOTE, PROFILE, question_id=question_id
+    )
+    assert extraction.facts[0].question_id is None
+    assert extraction.notes == (
+        f'fact_1: removed the link to "{question_id}", which isn\'t an open question in the '
+        "profile",
+    )
+
+
+def test_an_answer_is_read_alone_and_its_facts_link_to_the_question() -> None:
+    """The model reads the note as any other, never the question, so the question backs no
+    fact."""
+    llm, fake = client(ExtractionReply(facts=(fact(),)))
+    extraction = extract_facts(NOTE, PROFILE, llm, written=WRITTEN, question_id="q_nw_volume")
+    assert fake.requests[0]["messages"][0]["content"] == (
+        f"The note was written on 2026-09-14.\n\n<note>\n{NOTE}\n</note>"
+    )
+    question = PROFILE.open_questions[0].question
+    assert all(question not in block["text"] for block in fake.requests[0]["system"])
+    assert extraction.facts[0].question_id == "q_nw_volume"
+
+
 # --- The reply's schema -------------------------------------------------------------------------
 
 

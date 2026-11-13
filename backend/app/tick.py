@@ -112,17 +112,19 @@ async def tick(
     return len(stalled)
 
 
-async def extract_now(entry_id: uuid.UUID) -> None:
-    """Queue a just-closed entry's extraction and run a tick, so the reply doesn't wait for the
-    scheduler (FR-CAP-5). The webhook does this right after answering, and `wj telegram poll` too.
-    It's a shortcut: if a tick is already running in this process, or this one fails, the sweep
-    in the next tick (`close_quiet_entries`) queues the entry instead: the daily one, or the next
-    one an update starts."""
+async def extract_now(*entry_ids: uuid.UUID) -> None:
+    """Queue just-closed entries' extraction, in this order, and run a tick, so the replies don't
+    wait for the scheduler (FR-CAP-5). The webhook does this right after answering, and
+    `wj telegram poll` too. It's a shortcut: if a tick is already running in this process, or
+    this one fails, the sweep in the next tick (`close_quiet_entries`) queues the entries
+    instead: the daily one, or the next one an update starts."""
 
     async def queue() -> None:
-        await queue_extraction(entry_id)
+        for entry_id in entry_ids:
+            await queue_extraction(entry_id)
 
-    await _run_now(queue, f"journal entry {entry_id}")
+    entries = "journal entry" if len(entry_ids) == 1 else "journal entries"
+    await _run_now(queue, f"{entries} {', '.join(map(str, entry_ids))}")
 
 
 async def refresh_now(refresh_id: uuid.UUID) -> None:
@@ -149,8 +151,8 @@ async def draft_now(draft_id: uuid.UUID) -> None:
     await _run_now(queue, f"tailoring draft {draft_id}")
 
 
-async def catch_up_now(catch_up_id: uuid.UUID, entry_id: uuid.UUID | None = None) -> None:
-    """Queue the catch-up interview's next question, then the extraction of the entry the update
+async def catch_up_now(catch_up_id: uuid.UUID, *entry_ids: uuid.UUID) -> None:
+    """Queue the catch-up interview's next question, then the extraction of the entries the update
     closed, if any, such as the answer's, and run a tick, so the question follows the owner's
     answer at once (FR-REM-4). The webhook does this right after answering, and
     `wj telegram poll` too. If a tick is already running in this process, this waits up to
@@ -161,7 +163,7 @@ async def catch_up_now(catch_up_id: uuid.UUID, entry_id: uuid.UUID | None = None
 
     async def queue() -> None:
         await queue_catch_up(catch_up_id)
-        if entry_id is not None:
+        for entry_id in entry_ids:
             await queue_extraction(entry_id)
 
     await _run_now(queue, f"catch-up {catch_up_id}", wait_s=WAIT_FOR_TICK_S)

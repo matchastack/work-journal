@@ -2,6 +2,15 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-10-30 · T-036 Open-question prompts · [#57](https://github.com/matchastack/work-journal/pull/57)
+**Changed:** A reminder now asks the most valuable open question from your master resume, one per reminder, with an "Answer the question" button. Your answer becomes an entry of its own whose facts link to the question, so the next `/refresh` proposes the stronger bullet and marks the question answered when you accept it.
+
+**Verify:**
+- CI is green on the PR
+- After the deploy, run `scripts/post-deploy.sh`, which applies migration 0015
+- The next reminder ends with a question whose bullet is strong in your master resume; "Answer the question" and a one-message answer bring back the facts saved from it, with a line saying your next /refresh can use them
+- `/refresh` then proposes a new version of that bullet and "Answer an open question"; once both are accepted and applied, the next reminder asks a different question
+
 ## 2026-10-30 · T-064 Refreshes of months of facts within the time limit · [#53](https://github.com/matchastack/work-journal/pull/53)
 **Changed:** a refresh writes and checks its bullets 10 at a time instead of one by one, so a refresh of about 100 facts finishes within the 300 s Vercel gives it; `REFRESH_CONCURRENCY` sets how many.
 
