@@ -23,9 +23,15 @@ import app.jobs as job_module
 import app.render.resume as resume_module
 from app.config import Settings, get_settings
 from app.db.crypto import KeyRing, new_key, use_key_ring
-from app.db.models import FactRow, LlmCallRow, Refresh, TelegramLink, User
+from app.db.models import FactRow, LlmCallRow, Refresh, Setting, TelegramLink, User
 from app.db.profiles import decide_op, list_change_sets, propose_change_set, save_version
-from app.db.settings import save_confidential_terms
+from app.db.settings import (
+    get_linkedin_draft,
+    get_linkedin_pack,
+    save_confidential_terms,
+    save_linkedin_done,
+    save_linkedin_draft,
+)
 from app.db.store import (
     find_render,
     get_artifact,
@@ -41,8 +47,10 @@ from app.jobs import (
     jobs,
     queue_refresh_jobs,
     run_output_update,
+    run_pack_update,
     run_refresh,
 )
+from app.linkedin import LinkedInPack, WrittenSection, mark_done, write_pack
 from app.llm.client import LLMClient
 from app.llm.fake import FakeMessages, refusal, reply
 from app.llm.usage import CallLog, MemoryCallLog
@@ -55,9 +63,13 @@ from app.refresh import (
     RefreshInterrupted,
     begin_proposals,
     change_set_decided,
+    due_packs,
+    keep_pack_progress,
     master_selection,
     outputs_to_update,
+    pack_to_write,
     record_outputs,
+    record_pack,
     record_proposals,
     start_refresh,
 )
@@ -70,7 +82,7 @@ from app.schema.profile import Profile, Skill
 from app.schema.settings import ConfidentialTerms
 from app.synthesis import PlannedBullet, Synthesis, SynthesisPlan, synthesize
 from app.telegram.refresh import NOTHING_NEW, failure_text, proposals_text
-from app.tick import refresh_now
+from app.tick import refresh_now, tick
 from app.validate.claims import ClaimReply, JudgedClaim
 from app.writing import WrittenBullet
 
@@ -290,6 +302,7 @@ async def test_nothing_new_brings_the_outputs_up_to_date(session: AsyncSession) 
     row = await refresh_row(session, first.refresh_id)
     assert (row.status, row.change_set_id) == ("nothing_new", None)
     assert (row.outputs, row.output_version, row.outputs_at) == ("pending", 1, NOW)
+    assert (row.linkedin_pack, row.linkedin_pack_at) == ("pending", NOW), "the pack too"
 
     edited = PROFILE.model_copy(update={"skill_gaps": ("Rust",)})
     await save_version(session, user_id, edited, author="owner")
@@ -299,6 +312,9 @@ async def test_nothing_new_brings_the_outputs_up_to_date(session: AsyncSession) 
     assert ((await refresh_row(session, second.refresh_id)).output_version) == 2
     old = await refresh_row(session, first.refresh_id)
     assert (old.outputs, old.outputs_at) == ("superseded", later)
+    assert (old.linkedin_pack, old.linkedin_pack_at) == ("superseded", later)
+    packs = await due_packs(session)
+    assert second.refresh_id in packs and first.refresh_id not in packs
 
 
 @pytest.mark.parametrize(("decision", "version"), [("accepted", 2), ("rejected", 1)])
@@ -314,7 +330,7 @@ async def test_deciding_the_changes_makes_the_outputs_due(
     await decide_op(session, user_id, saved.id, 0, decision)
     await apply_change_set(session, user_id, saved.id, now=NOW)
     row = await refresh_row(session, inputs.refresh_id)
-    assert (row.outputs, row.output_version) == ("pending", version)
+    assert (row.outputs, row.output_version, row.linkedin_pack) == ("pending", version, "pending")
 
 
 async def test_a_change_set_no_refresh_proposed_doesnt_touch_the_outputs(
@@ -610,14 +626,21 @@ async def test_a_refresh_stopped_at_the_time_limit_fails_and_says_so(
 
 async def test_the_sweep_queues_what_refreshes_wait_for(committed: Committed) -> None:
     """A running refresh's job, in case the bot couldn't run it at once, and the update of the
-    outputs that are due, on the queue for workers with LaTeX."""
+    outputs that are due: the master resume on the queue for workers with LaTeX, and the LinkedIn
+    pack on the default queue."""
     _, running = await committed(ALERT)
     _, pending = await committed()
     async with database() as session:
         await session.execute(
             update(Refresh)
             .where(Refresh.id == pending)
-            .values(status="nothing_new", finished_at=NOW, outputs="pending", output_version=1)
+            .values(
+                status="nothing_new",
+                finished_at=NOW,
+                outputs="pending",
+                output_version=1,
+                linkedin_pack="pending",
+            )
         )
     connector = InMemoryConnector()
     with jobs.replace_connector(connector):
@@ -626,6 +649,7 @@ async def test_the_sweep_queues_what_refreshes_wait_for(committed: Committed) ->
     queued = [(job["task_name"], job["queue_name"], job["args"]) for job in connector.jobs.values()]
     assert ("refresh_profile", "default", {"refresh_id": str(running)}) in queued
     assert ("update_outputs", "latex", {"refresh_id": str(pending)}) in queued
+    assert ("write_linkedin_pack", "default", {"refresh_id": str(pending)}) in queued, "no LaTeX"
     assert len(queued) == len(set(map(str, queued))), "queued once"
 
 
@@ -717,3 +741,294 @@ async def test_the_output_update_renders_the_master_resume(committed: Committed)
         assert kept == StoredRender(pdf=stored[1], bullet_cuts=0), "kept under its key"
     await run_output_update(refresh_id)
     assert (await committed_row(refresh_id)).outputs_at == row.outputs_at, "once"
+
+
+# --- The LinkedIn pack ---------------------------------------------------------------------------
+
+PACK = {
+    "headline": "Software Engineer | Python services and data tooling",
+    "about": "I build Python services at Northwind Traders.\n\nBefore, I built research tools.",
+    "position:northwind": "I build Python services that process order events.",
+    "position:contoso": "I built a Python tool that labelled sensor logs.",
+}
+SUPPORTED = ClaimReply(
+    claims=(JudgedClaim(claim="Python", reason="The facts say so.", verdict="supported"),)
+)
+
+
+def pack_replies(*keys: str) -> list[BetaMessage]:
+    """For each section, the writer's reply and a claim check that passes it."""
+    return [
+        message
+        for key in keys
+        for message in (reply(WrittenSection(text=PACK[key])), reply(SUPPORTED))
+    ]
+
+
+def never_last(error: BaseException) -> bool:
+    return False
+
+
+async def test_a_pack_that_cant_be_written_is_marked_failed_apart_from_the_master_resume(
+    session: AsyncSession,
+) -> None:
+    user_id = await new_user(session)
+    refresh_id = await due(session, user_id)
+    job = await pack_to_write(session, refresh_id)
+    assert job is not None
+    assert (job.user_id, job.version, job.profile, job.written) == (user_id, 1, PROFILE, ())
+    assert await record_pack(session, job, None, now=NOW)
+    row = await refresh_row(session, refresh_id)
+    assert (row.linkedin_pack, row.linkedin_pack_at, row.outputs) == ("failed", NOW, "pending")
+    assert await pack_to_write(session, refresh_id) is None
+    assert await outputs_to_update(session, refresh_id) is not None, "the master resume waits"
+
+
+async def test_a_superseded_pack_is_left_as_it_is(session: AsyncSession) -> None:
+    user_id = await new_user(session)
+    first = await due(session, user_id)
+    job = await pack_to_write(session, first)
+    assert job is not None
+    second = await due(session, user_id)
+    assert not await record_pack(session, job, LinkedInPack(sections=()), now=NOW)
+    assert (await refresh_row(session, first)).linkedin_pack == "superseded"
+    assert (await refresh_row(session, second)).linkedin_pack == "pending"
+    assert await get_linkedin_pack(session, user_id) is None
+
+
+async def test_sections_written_from_the_same_version_are_read_back(
+    session: AsyncSession,
+) -> None:
+    """For a try that follows one stopped part way. Sections from another version aren't."""
+    user_id = await new_user(session)
+    refresh_id = await due(session, user_id)
+    job = await pack_to_write(session, refresh_id)
+    assert job is not None
+    section = written_pack(job.profile).sections[0]
+    await keep_pack_progress(session, job, [section])
+    again = await pack_to_write(session, refresh_id)
+    assert again is not None and again.written == (section,)
+    await save_linkedin_draft(
+        session, user_id, LinkedInPack(sections=(section,), profile_version=2)
+    )
+    other = await pack_to_write(session, refresh_id)
+    assert other is not None and other.written == ()
+
+
+def written_pack(profile: Profile) -> LinkedInPack:
+    """The pack as the fake client writes it, with every section passing."""
+    client = LLMClient(llm_settings(), FakeMessages(*pack_replies(*PACK)), MemoryCallLog())
+    return write_pack(profile, client)
+
+
+async def due_committed(committed: Committed, **options: Any) -> tuple[uuid.UUID, uuid.UUID]:
+    """A user whose refresh found nothing new, so its outputs are due, committed."""
+    user_id, refresh_id = await committed(**options)
+    async with database() as session:
+        inputs = await begin_proposals(session, refresh_id, now=NOW)
+        assert inputs is not None
+        await record_proposals(session, inputs, Synthesis(change_set=None), now=NOW)
+    return user_id, refresh_id
+
+
+async def stored(user_id: uuid.UUID) -> tuple[LinkedInPack | None, LinkedInPack | None]:
+    """The user's pack and the draft of the one being written."""
+    async with database() as session:
+        return await get_linkedin_pack(session, user_id), await get_linkedin_draft(session, user_id)
+
+
+async def test_the_pack_job_writes_the_pack_from_the_refresh_version(
+    committed: Committed, claude: Callable[..., FakeMessages]
+) -> None:
+    """FR-REV-7, FR-LIN-1: every section written and verified from the version the outputs are
+    to show, and saved as the user's pack. The master resume isn't touched."""
+    user_id, refresh_id = await due_committed(committed)
+    fake = claude(*pack_replies(*PACK))
+    await run_pack_update(refresh_id, last_attempt=never_last)
+    assert [request["model"] for request in fake.requests] == ["standard-model"] * 8
+    pack, draft = await stored(user_id)
+    assert pack is not None and draft is None
+    assert pack.profile_version == 1
+    assert [section.text for section in pack.sections] == list(PACK.values())
+    assert all(section.report and section.report.passed for section in pack.sections)
+    row = await committed_row(refresh_id)
+    assert (row.linkedin_pack, row.outputs, row.master_pdf_sha256) == ("updated", "pending", None)
+    async with database() as session:
+        calls = await session.scalars(select(LlmCallRow.task).where(LlmCallRow.user_id == user_id))
+        assert set(calls) == {"linkedin_pack", "claim_verification"}
+    await run_pack_update(refresh_id, last_attempt=never_last)
+    assert len(fake.requests) == 8, "once"
+
+
+async def test_the_pack_job_writes_a_section_again_without_a_confidential_term(
+    committed: Committed, claude: Callable[..., FakeMessages]
+) -> None:
+    """T-049: the owner's confidential terms reach the pack a refresh writes, as they do
+    `wj linkedin --db`'s."""
+    user_id, refresh_id = await due_committed(committed)
+    async with database() as session:
+        await save_confidential_terms(session, user_id, ConfidentialTerms(terms=("sensor logs",)))
+    clean = "I built a Python tool that labelled logs."
+    fake = claude(
+        *pack_replies("headline", "about", "position:northwind"),
+        reply(WrittenSection(text=PACK["position:contoso"])),
+        reply(SUPPORTED),
+        reply(WrittenSection(text=clean)),
+        reply(SUPPORTED),
+    )
+    await run_pack_update(refresh_id, last_attempt=never_last)
+    assert len(fake.requests) == 10
+    pack, _ = await stored(user_id)
+    assert pack is not None
+    contoso = pack.sections[3]
+    assert (contoso.text, contoso.flagged) == (clean, False)
+    assert contoso.report is not None and contoso.report.attempts == 2
+
+
+async def test_a_refresh_with_nothing_new_brings_the_pack_to_the_newest_version(
+    committed: Committed, claude: Callable[..., FakeMessages]
+) -> None:
+    """FR-REV-7: an edit the owner made reaches the pack. As with `wj linkedin --db`, only the
+    sections that changed since the pack marked done are written; the others are carried over
+    without a call (FR-LIN-2)."""
+    user_id, first = await due_committed(committed)
+    claude(*pack_replies(*PACK))
+    await run_pack_update(first, last_attempt=never_last)
+    edited = PROFILE.model_dump(mode="json")
+    for bullet in edited["work"][1]["highlights"]:
+        if bullet["id"] == "ct_datasets":
+            bullet["text"] = "Surveyed 40 open datasets for the study."
+    async with database() as session:
+        pack = await get_linkedin_pack(session, user_id)
+        assert pack is not None
+        await save_linkedin_done(session, user_id, mark_done(pack, None, now=NOW)[0])
+        await save_version(session, user_id, Profile.model_validate(edited), author="owner")
+        second = await start_refresh(session, user_id)
+        assert isinstance(second, uuid.UUID)
+        inputs = await begin_proposals(session, second, now=NOW)
+        assert inputs is not None
+        await record_proposals(session, inputs, Synthesis(change_set=None), now=NOW)
+
+    fake = claude(*pack_replies("about", "position:contoso"))
+    await run_pack_update(second, last_attempt=never_last)
+    assert len(fake.requests) == 4
+    pack, _ = await stored(user_id)
+    assert pack is not None and pack.profile_version == 2
+    assert [section.key for section in pack.sections if section.report is None] == [
+        "headline",
+        "position:northwind",
+    ]
+    assert (await committed_row(second)).linkedin_pack == "updated"
+    assert (await committed_row(first)).linkedin_pack == "updated", "written before"
+
+
+async def test_a_refusal_fails_the_pack_at_once(
+    committed: Committed, claude: Callable[..., FakeMessages]
+) -> None:
+    """It won't change on a retry. The sections written before it stay for the next try, and
+    no pack is saved."""
+    user_id, refresh_id = await due_committed(committed)
+    claude(*pack_replies("headline"), refusal(), refusal())
+    await run_pack_update(refresh_id, last_attempt=never_last)
+    row = await committed_row(refresh_id)
+    assert (row.linkedin_pack, row.outputs) == ("failed", "pending")
+    pack, draft = await stored(user_id)
+    assert pack is None
+    assert draft is not None and [section.key for section in draft.sections] == ["headline"]
+
+
+async def test_a_try_stopped_part_way_keeps_its_sections_for_the_retry(
+    committed: Committed, claude: Callable[..., FakeMessages]
+) -> None:
+    """Such as one the tick stops at its time limit, or an error that may pass: the retry writes
+    only the sections still missing. On the last try, the pack is marked failed."""
+    user_id, refresh_id = await due_committed(committed)
+    claude(*pack_replies("headline", "about"), RuntimeError("connection reset"))
+    with pytest.raises(RuntimeError):
+        await run_pack_update(refresh_id, last_attempt=never_last)
+    assert (await committed_row(refresh_id)).linkedin_pack == "pending", "to retry"
+    pack, draft = await stored(user_id)
+    assert pack is None
+    assert draft is not None and [section.key for section in draft.sections] == [
+        "headline",
+        "about",
+    ]
+
+    claude(RuntimeError("connection reset"))
+    with pytest.raises(RuntimeError):
+        await run_pack_update(refresh_id, last_attempt=lambda error: True)
+    assert (await committed_row(refresh_id)).linkedin_pack == "failed"
+
+    async with database() as session:
+        await session.execute(
+            update(Refresh).where(Refresh.id == refresh_id).values(linkedin_pack="pending")
+        )
+    fake = claude(*pack_replies("position:northwind", "position:contoso"))
+    await run_pack_update(refresh_id, last_attempt=never_last)
+    assert len(fake.requests) == 4
+    pack, draft = await stored(user_id)
+    assert pack is not None and draft is None
+    assert [section.text for section in pack.sections] == list(PACK.values())
+
+
+class SlowMessages(FakeMessages):
+    """Waits at the request numbered `at` until `go` is set."""
+
+    def __init__(self, *replies: BetaMessage, at: int) -> None:
+        super().__init__(*replies)
+        self.at = at
+        self.waiting = threading.Event()
+        self.go = threading.Event()
+
+    def stream(self, **request: Any) -> Any:
+        if len(self.requests) + 1 == self.at:
+            self.waiting.set()
+            self.go.wait(timeout=10)
+        return super().stream(**request)
+
+
+async def test_a_pack_stopped_at_the_time_limit_is_retried_from_where_it_stopped(
+    committed: Committed, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The tick stops a job that runs past its time; the sections written stay."""
+    user_id, refresh_id = await due_committed(committed)
+    slow = SlowMessages(*pack_replies(*PACK), at=5)
+    monkeypatch.setattr(job_module, "_llm_client", lambda log: LLMClient(llm_settings(), slow, log))
+    job = asyncio.create_task(run_pack_update(refresh_id, last_attempt=never_last))
+    try:
+        while not slow.waiting.is_set():
+            await asyncio.sleep(0.01)
+        job.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await job
+    finally:
+        slow.go.set()
+    assert (await committed_row(refresh_id)).linkedin_pack == "pending", "to retry"
+    _, draft = await stored(user_id)
+    assert draft is not None and [section.key for section in draft.sections] == [
+        "headline",
+        "about",
+    ]
+
+
+async def test_a_tick_without_latex_writes_the_pack(
+    committed: Committed,
+    claude: Callable[..., FakeMessages],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Such as Vercel's: the pack doesn't wait for the master resume, which does (C6)."""
+    user_id, refresh_id = await due_committed(committed)
+    claude(*pack_replies(*PACK))
+    monkeypatch.setattr("app.tick.worker_queues", lambda: ["default"])
+    connector = InMemoryConnector()
+    with jobs.replace_connector(connector):
+        await tick(now=NOW.timestamp())
+    pack, _ = await stored(user_id)
+    assert pack is not None and pack.profile_version == 1
+    row = await committed_row(refresh_id)
+    assert (row.linkedin_pack, row.outputs) == ("updated", "pending")
+    waiting = [job["task_name"] for job in connector.jobs.values() if job["status"] == "todo"]
+    assert waiting == ["update_outputs"]
+    async with database() as session:
+        keys = await session.scalars(select(Setting.key).where(Setting.user_id == user_id))
+        assert sorted(keys) == ["linkedin_pack"], "no draft left"

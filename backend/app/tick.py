@@ -46,7 +46,8 @@ TICK_BUDGET_S = 20.0
 JOB_GRACE_S = 240.0
 """How long a job that started within the budget may still run: long enough for a refresh's
 synthesis. With the budget, this stays under the function's 300 s limit (`backend/vercel.json`),
-the most Vercel's free plan allows."""
+the most Vercel's free plan allows. A LinkedIn pack that needs longer keeps the sections it
+wrote, and its retry, at a later tick, writes the rest (`run_pack_update` in `app/jobs.py`)."""
 WAIT_FOR_TICK_S = 30.0
 """How long `catch_up_now` waits for a tick already running in this process to finish. With the
 tick's budget and grace, this stays under the function's 300 s limit (`backend/vercel.json`)."""

@@ -1,25 +1,29 @@
 """The owner's settings: one JSON value per key and user (`Setting` in `app/db/models.py`).
 
-Besides preferences, two keys keep the LinkedIn pack's state (T-024): the pack last written, and
-the snapshot of the sections last marked done. `reminders` holds the owner's reminder schedule
-and pause, and `reminder_state` the bot's record of the reminders it sent or skipped (T-035).
-`portfolio` holds the portfolio page's settings, and `portfolio_publishing` whether it's published
-and what it offers (T-046). `confidential_terms` holds the terms public outputs never name (T-049).
-The Settings page (`app/settings/`) edits the preferences, and the Portfolio page publishing.
+Besides preferences, three keys keep the LinkedIn pack's state (T-024, T-061): the pack last
+written, the snapshot of the sections last marked done, and the sections of a pack a refresh is
+writing, kept as each is written. `reminders` holds the owner's reminder schedule and pause, and
+`reminder_state` the bot's record of the reminders it sent or skipped (T-035). `portfolio` holds
+the portfolio page's settings, and `portfolio_publishing` whether it's published and what it
+offers (T-046). `confidential_terms` holds the terms public outputs never name (T-049). The
+Settings page (`app/settings/`) edits the preferences, and the Portfolio page publishing.
 """
 
 import uuid
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Setting
+from app.db.store import list_applications
 from app.linkedin import LinkedInDone, LinkedInPack
 from app.schema.common import Model
+from app.schema.jobs import Application
 from app.schema.settings import (
     ConfidentialTerms,
     PortfolioPublishing,
@@ -33,6 +37,7 @@ from app.schema.settings import (
 STYLE_NOTES = "style_notes"
 LINKEDIN_PACK = "linkedin_pack"
 LINKEDIN_DONE = "linkedin_done"
+LINKEDIN_DRAFT = "linkedin_draft"
 REMINDERS = "reminders"
 REMINDER_STATE = "reminder_state"
 PORTFOLIO = "portfolio"
@@ -40,6 +45,21 @@ PORTFOLIO_PUBLISHING = "portfolio_publishing"
 CONFIDENTIAL_TERMS = "confidential_terms"
 HANDLE_LOCK = 0x776A68616E646C65
 """The advisory lock taken while a portfolio handle is checked and saved: "wjhandle" in ASCII."""
+
+
+@dataclass(frozen=True)
+class PackInputs:
+    """What the LinkedIn pack is written from, besides the profile (`app/linkedin.py`)."""
+
+    done: LinkedInDone | None
+    """The sections last marked done."""
+    latest_application: Application | None
+    avoid: tuple[str, ...]
+    """The owner's words to avoid (FR-WRT-4)."""
+    preferences: tuple[str, ...]
+    """The owner's style notes."""
+    confidential: tuple[str, ...]
+    """The owner's confidential terms, which no section may name (NFR-PRIV-4)."""
 
 
 async def get_style_notes(session: AsyncSession, user_id: uuid.UUID) -> StyleNotes:
@@ -93,6 +113,41 @@ async def get_linkedin_done(session: AsyncSession, user_id: uuid.UUID) -> Linked
 
 async def save_linkedin_done(session: AsyncSession, user_id: uuid.UUID, done: LinkedInDone) -> None:
     await _save(session, user_id, LINKEDIN_DONE, done)
+
+
+async def get_linkedin_draft(session: AsyncSession, user_id: uuid.UUID) -> LinkedInPack | None:
+    """The sections of a pack a refresh is writing, as far as it got (`app/jobs.py`); None when
+    none is being written."""
+    value = await _get(session, user_id, LINKEDIN_DRAFT)
+    return None if value is None else LinkedInPack.model_validate(value)
+
+
+async def save_linkedin_draft(
+    session: AsyncSession, user_id: uuid.UUID, draft: LinkedInPack
+) -> None:
+    await _save(session, user_id, LINKEDIN_DRAFT, draft)
+
+
+async def clear_linkedin_draft(session: AsyncSession, user_id: uuid.UUID) -> None:
+    await session.execute(
+        delete(Setting).where(Setting.user_id == user_id, Setting.key == LINKEDIN_DRAFT)
+    )
+
+
+async def linkedin_pack_inputs(session: AsyncSession, user_id: uuid.UUID) -> PackInputs:
+    """What the user's LinkedIn pack is written from: the sections last marked done, their
+    latest application, their style notes and their confidential terms. `wj linkedin --db` and a
+    refresh read the same."""
+    done = await get_linkedin_done(session, user_id)
+    applications = await list_applications(session, user_id)
+    notes = await get_style_notes(session, user_id)
+    return PackInputs(
+        done=done,
+        latest_application=applications[0] if applications else None,
+        avoid=notes.avoid,
+        preferences=tuple(note.text for note in notes.notes),
+        confidential=(await get_confidential_terms(session, user_id)).terms,
+    )
 
 
 async def get_reminder_settings(session: AsyncSession, user_id: uuid.UUID) -> ReminderSettings:

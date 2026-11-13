@@ -157,12 +157,13 @@ other.
 
 Send `/refresh` when you want your profile to catch up with your journal. The bot proposes
 changes from the facts since your last refresh and sends a link to the Inbox, where you review
-them. Once you apply them, or at once when there's nothing new, your master resume is due to be
-rendered from the newest version.
+them. Once you apply them, or at once when there's nothing new, your master resume and LinkedIn
+pack are due to be updated from the newest version. The pack needs no LaTeX, so Vercel's next
+tick writes it; `uv run wj linkedin show --db` prints it.
 
-Vercel can't run LaTeX, so that render waits for your computer. With TeX Live installed
-(`backend/templates/README.md`) and `backend/.env` as in step 6, plus the Claude settings
-(`ANTHROPIC_API_KEY` and the `LLM_MODEL_*` variables) as on Vercel, run from `backend/`:
+Vercel can't run LaTeX, so the master resume's render waits for your computer. With TeX Live
+installed (`backend/templates/README.md`) and `backend/.env` as in step 6, plus the Claude
+settings (`ANTHROPIC_API_KEY` and the `LLM_MODEL_*` variables) as on Vercel, run from `backend/`:
 
 ```
 uv run wj tick
