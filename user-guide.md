@@ -34,7 +34,7 @@ Every generated sentence is checked against your facts, so wording never changes
 | Link Telegram, change reminders, style notes and other preferences, or export or delete your data | The web app, Settings page |
 | Publish your portfolio page, and choose the resumes it offers | The web app, Portfolio page |
 | Render the master resume, write LinkedIn text | The command-line tool (web pages **Coming**) |
-| Paste the LinkedIn text that changed into LinkedIn | The web app, LinkedIn page (after `wj linkedin --db`) |
+| Paste the LinkedIn text that changed into LinkedIn | The web app, LinkedIn page (a refresh writes the text) |
 | See what a GitHub repository's history would give one of your projects, and the facts in it | `wj github digest`, then `wj github extract` (saving the facts for `/refresh` is **Coming**: T-069 to T-072) |
 
 ## Set up on your computer
@@ -300,7 +300,7 @@ Your public page, at `/p/<handle>` on the app's address. Nobody sees it until yo
 
 A checklist of the LinkedIn text to paste: the sections of your LinkedIn pack (the headline, About and a description for each position) that changed since you last marked the pack done. The first time, every section is listed. Work Journal never posts to LinkedIn; you paste the text yourself.
 
-The page shows the pack last written. For now, write it with `uv run wj linkedin --db` (see [LinkedIn text](#linkedin-text)); writing it on each refresh is **Coming** (T-061). If your profile has a newer version than the pack, the page says so.
+The page shows the pack last written. A refresh writes it once you apply its changes, and `uv run wj linkedin --db` writes it at once (see [LinkedIn text](#linkedin-text)). If your profile has a newer version than the pack, the page says so.
 
 For each section you see:
 
