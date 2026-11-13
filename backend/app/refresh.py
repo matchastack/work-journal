@@ -187,7 +187,18 @@ async def running_refreshes(session: AsyncSession) -> list[uuid.UUID]:
 async def begin_proposals(
     session: AsyncSession, refresh_id: uuid.UUID, *, now: datetime
 ) -> RefreshInputs | None:
-    """Mark the refresh started, and read what it proposes changes from. Returns None when it
+    """Mark the refresh started (`start_proposals`), and read what it proposes changes from
+    (`proposal_inputs`)."""
+    if await start_proposals(session, refresh_id, now=now) is None:
+        return None
+    return await proposal_inputs(session, refresh_id)
+
+
+async def start_proposals(
+    session: AsyncSession, refresh_id: uuid.UUID, *, now: datetime
+) -> uuid.UUID | None:
+    """Mark the refresh started, before it reads the linked repositories and proposes, so a try
+    stopped while reading counts as unfinished too. Returns its user's ID, or None when it
     isn't running, such as when it's done already, or when another try started it recently and
     may still be at work, such as `wj propose --db`.
 
@@ -202,10 +213,21 @@ async def begin_proposals(
         if refresh.started_at >= now - UNFINISHED_AFTER:
             return None
         raise RefreshInterrupted(refresh.user_id)
+    if await latest_version(session, refresh.user_id) is None:
+        return None
+    refresh.started_at = now
+    return refresh.user_id
+
+
+async def proposal_inputs(session: AsyncSession, refresh_id: uuid.UUID) -> RefreshInputs | None:
+    """What a started refresh proposes changes from, read now, so it has the facts its read of
+    the linked repositories saved. Returns None when it isn't running any more."""
+    refresh = await session.scalar(select(Refresh).where(Refresh.id == refresh_id))
+    if refresh is None or refresh.status != "running":
+        return None
     version = await latest_version(session, refresh.user_id)
     if version is None:
         return None
-    refresh.started_at = now
     rows = await session.execute(
         select(FactRow.data, FactRow.origin, FactRow.updated_at, FactRow.refreshed_at)
         .where(FactRow.user_id == refresh.user_id)
