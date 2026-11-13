@@ -2,7 +2,7 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-11-13 · T-071 `/refresh` reads linked repositories first · PR_LINK
+## 2026-11-13 · T-071 `/refresh` reads linked repositories first · [#83](https://github.com/matchastack/work-journal/pull/83)
 **Changed:** `/refresh` reads what's new in your linked GitHub repositories before it proposes, up to `GITHUB_REFRESH_WINDOWS` parts (default 3), and the bot says what it read, what waits and what failed, without naming a repository. `wj propose --db` reads all of it first, and a repository another read is working on is left to it.
 
 **Verify:**

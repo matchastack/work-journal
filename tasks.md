@@ -1046,7 +1046,7 @@ As the owner, I want my GitHub facts proposed as project bullets at the next ref
 **Built (2026-11-13):** a GitHub fact belongs to its project, or to the new project its link named, which a later refresh finds by its name, so a link to a new project keeps feeding it. The planner and the writer never see a fact's source, so no repository's name or address reaches them from it. Each item a GitHub fact cites keeps the agent that made it, not one that only helped, and a skill gets the note when every new fact naming it rests only on such items. The Inbox shows every change's note, its proposal's rationale, which `wj apply` already printed. The prompts are unchanged, as code does the placing, so `wj eval` isn't affected.
 
 ### T-071 · `/refresh` reads linked repositories first
-**Status:** ◐ · **Size:** M · **Depends on:** T-070 · **Requirements:** FR-GH-8, FR-REM-6, NFR-PERF-1 · **PR:** PR_LINK
+**Status:** ◐ · **Size:** M · **Depends on:** T-070 · **Requirements:** FR-GH-8, FR-REM-6, NFR-PERF-1 · **PR:** [#83](https://github.com/matchastack/work-journal/pull/83)
 
 As the owner, I want `/refresh` to read my linked repositories first, so that one command brings my projects up to date.
 
