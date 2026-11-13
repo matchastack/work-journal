@@ -33,7 +33,7 @@ Every generated sentence is checked against your facts, so wording never changes
 | Tailor a resume to a job posting, and see where you applied | The web app, Tailor page (its PDFs render on your computer: `uv run wj worker`) |
 | Link Telegram, change reminders, style notes and other preferences, see what the model cost each month, or export or delete your data | The web app, Settings page |
 | Publish your portfolio page, and choose the resumes it offers | The web app, Portfolio page |
-| Render the master resume, write LinkedIn text | The command-line tool (web pages **Coming**) |
+| Render the master resume, or write the LinkedIn text, without waiting for a refresh | The command-line tool: `wj render --db`, `wj linkedin --db` |
 | Paste the LinkedIn text that changed into LinkedIn | The web app, LinkedIn page (a refresh writes the text) |
 | See what a GitHub repository's history would give one of your projects, and the facts in it | `wj github digest`, then `wj github extract` (saving the facts for `/refresh` is **Coming**: T-069 to T-072) |
 
