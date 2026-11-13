@@ -1046,22 +1046,24 @@ As the owner, I want my GitHub facts proposed as project bullets at the next ref
 **Built (2026-11-13):** a GitHub fact belongs to its project, or to the new project its link named, which a later refresh finds by its name, so a link to a new project keeps feeding it. The planner and the writer never see a fact's source, so no repository's name or address reaches them from it. Each item a GitHub fact cites keeps the agent that made it, not one that only helped, and a skill gets the note when every new fact naming it rests only on such items. The Inbox shows every change's note, its proposal's rationale, which `wj apply` already printed. The prompts are unchanged, as code does the placing, so `wj eval` isn't affected.
 
 ### T-071 · `/refresh` reads linked repositories first
-**Status:** ☐ · **Size:** M · **Depends on:** T-070 · **Requirements:** FR-GH-8, FR-REM-6, NFR-PERF-1 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-070 · **Requirements:** FR-GH-8, FR-REM-6, NFR-PERF-1 · **PR:** PR_LINK
 
 As the owner, I want `/refresh` to read my linked repositories first, so that one command brings my projects up to date.
 
-- [ ] The refresh job reads what's new before it proposes.
+- [x] The refresh job reads what's new before it proposes.
   - It reads at most `GITHUB_REFRESH_WINDOWS` windows, all at once.
   - 0 turns the read off.
-- [ ] `wj propose --db` reads everything before it starts the refresh.
-- [ ] A GitHub or model error never fails the refresh, and windows already saved stay saved.
-- [ ] A refresh stopped while reading says it didn't finish.
-- [ ] The bot's message adds three things, with no repository text:
+- [x] `wj propose --db` reads everything before it starts the refresh.
+- [x] A GitHub or model error never fails the refresh, and windows already saved stay saved.
+- [x] A refresh stopped while reading says it didn't finish.
+- [x] The bot's message adds three things, with no repository text:
   - what was read;
   - what's left for the next refresh or `wj github sync`;
   - what failed.
-- [ ] A repository that another read is working on is skipped.
-- [ ] Database tests use the fake GitHub and the fake LLM client.
+- [x] A repository that another read is working on is skipped.
+- [x] Database tests use the fake GitHub and the fake LLM client.
+
+**Built (2026-11-13):** stacked on T-070 (#82). The job marks the refresh started before it reads, then reads its facts after, so the facts the read saved are proposed from and a refresh stopped while reading counts as unfinished. `GITHUB_REFRESH_WINDOWS` defaults to 3. A read claims each repository for up to 30 minutes (`repo_links.reading_since`, migration 0023), and `wj github sync` claims them too, so a repository another read is working on is skipped. The parts are read in the order of the links and their history, so a long backlog in one repository can hold back the others until `wj github sync` reads it all.
 
 ### T-072 · GitHub facts on the Journal page
 **Status:** ☐ · **Size:** M · **Depends on:** T-069 · **Requirements:** FR-GH-10, FR-JRN-5, FR-JRN-6, FR-EXT-3 · **PR:** —

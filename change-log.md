@@ -2,6 +2,15 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-11-13 · T-071 `/refresh` reads linked repositories first · PR_LINK
+**Changed:** `/refresh` reads what's new in your linked GitHub repositories before it proposes, up to `GITHUB_REFRESH_WINDOWS` parts (default 3), and the bot says what it read, what waits and what failed, without naming a repository. `wj propose --db` reads all of it first, and a repository another read is working on is left to it.
+
+**Verify:**
+- After the deploy, `scripts/post-deploy.sh` applies migration 0023
+- With a repository linked and something new pushed, `/refresh` proposes from it, and the bot's message ends with "From GitHub: read N parts of your linked repositories, with N new facts."
+- With `GITHUB_REFRESH_WINDOWS=0` in Vercel's environment variables, `/refresh` reads nothing from GitHub
+- `uv run wj propose --db` starts with "Reading what's new in your linked repositories."
+
 ## 2026-11-13 · T-070 Refreshes propose from GitHub facts · [#82](https://github.com/matchastack/work-journal/pull/82)
 **Changed:** `/refresh` and `wj propose` now propose changes from the facts in your linked GitHub repositories too, each only under its own project. A new project made from a public repository's facts gets its address, and the Inbox and `wj apply` show each GitHub fact's repository and links, and any note on a change. T-069 is marked done.
 
