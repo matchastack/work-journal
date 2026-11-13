@@ -2,6 +2,15 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-11-13 · T-070 Refreshes propose from GitHub facts · PR_LINK
+**Changed:** `/refresh` and `wj propose` now propose changes from the facts in your linked GitHub repositories too, each only under its own project. A new project made from a public repository's facts gets its address, and the Inbox and `wj apply` show each GitHub fact's repository and links, and any note on a change. T-069 is marked done.
+
+**Verify:**
+- After `uv run wj github sync`, `/refresh` proposes bullets from the GitHub facts under the linked project only
+- In the Inbox, a GitHub source fact shows its repository and links to its pull requests and commits
+- A new skill that only an AI coding agent's work names shows a note to accept it only if you can defend it
+- A new project from a public repository links to it; one from a private repository has no link
+
 ## 2026-11-13 · Milestone and task statuses · [#80](https://github.com/matchastack/work-journal/pull/80)
 **Changed:** `tasks.md` marks M0 and M1 done, and the 22 tasks whose pull requests merged since the last update (T-035 to T-037, T-042 to T-049, T-052, T-053, T-061, T-064 to T-068 and T-073 to T-075). The user guide no longer says web pages for rendering the master resume and writing the LinkedIn text are coming: a refresh does both, and the command-line tool does them on demand.
 
