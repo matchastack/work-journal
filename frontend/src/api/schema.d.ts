@@ -1992,6 +1992,8 @@ export interface components {
             title: string;
             /** Context */
             context: string | null;
+            /** Note */
+            note: string | null;
             /** Before */
             before: string | null;
             /** After */
@@ -2745,6 +2747,8 @@ export interface components {
             ref: string;
             /** Url */
             url: string;
+            /** Agent */
+            agent?: string | null;
         };
         /**
          * RepoSource
@@ -3144,6 +3148,7 @@ export interface components {
             statement: string | null;
             /** Entryid */
             entryId: string | null;
+            github: components["schemas"]["RepoSource"] | null;
         };
         /**
          * StrengthOverride
