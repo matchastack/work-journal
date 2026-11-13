@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from sqlalchemy import Executable, delete, func, insert, select
+from sqlalchemy import Executable, delete, func, insert, select, update
 from sqlalchemy.ext.asyncio import create_async_engine
 from typer.testing import CliRunner, Result
 
@@ -32,7 +32,7 @@ from app.db.models import (
     Setting,
     User,
 )
-from app.linkedin import WrittenSection
+from app.linkedin import LinkedInPack, PackSection, WrittenSection
 from app.llm.client import LLMClient
 from app.llm.fake import FakeMessages, reply
 from app.llm.usage import MemoryCallLog
@@ -41,6 +41,7 @@ from app.render.resume import RenderedResume, render_key
 from app.schema.fact import Fact
 from app.schema.jobs import Application, JobPosting
 from app.schema.profile import Profile, Swap
+from app.schema.verification import VerifierReport
 from app.selection import Selection
 from app.synthesis import PlannedBullet, SynthesisPlan
 from app.tailoring.tailor import PlannedItem, TailoringPlan
@@ -497,6 +498,65 @@ def test_linkedin_uses_the_database_and_remembers_what_was_marked_done(
     again = invoke("linkedin", "--db", "--user", owner)
     assert again.exit_code == 0, again.output
     assert again.stdout == "Nothing changed since you last marked the pack done.\n"
+
+
+def test_linkedin_show_prints_the_pack_a_refresh_wrote_or_why_there_is_none(
+    database_url: str, owner: str
+) -> None:
+    """No model is called. A refresh's pack that waits to be written, or couldn't be, is
+    mentioned until a pack from its version is there."""
+    loaded = invoke("db", "load-profile", str(FIXTURES / "profile.json"), "--user", owner)
+    assert loaded.exit_code == 0, loaded.output
+    user = select(User.id).where(User.github_login == owner).scalar_subquery()
+    refresh = {
+        "user_id": user,
+        "status": "nothing_new",
+        "finished_at": func.now(),
+        "outputs": "pending",
+        "output_version": 1,
+        "linkedin_pack": "failed",
+    }
+    scalars(database_url, insert(Refresh).values(refresh))
+    failed = invoke("linkedin", "show", "--db", "--user", owner)
+    assert failed.exit_code == 1
+    assert failed.stdout == (
+        "A refresh couldn't write the pack from version 1 of your profile. Write it with "
+        "`wj linkedin --db`, or send /refresh to try again.\n"
+    )
+    assert failed.stderr == "There's no pack yet; write one with `wj linkedin --db`.\n"
+    pending = update(Refresh).where(Refresh.user_id == user).values(linkedin_pack="pending")
+    scalars(database_url, pending)
+    waiting = invoke("linkedin", "show", "--db", "--user", owner)
+    assert waiting.stdout.startswith("A refresh's pack, from version 1 of your profile, waits")
+
+    text = "Software Engineer | Python"
+    section = PackSection(
+        key="headline",
+        kind="headline",
+        label="Headline",
+        text=text,
+        source="abc",
+        changed=True,
+        report=VerifierReport(text=text, passed=True),
+    )
+    pack = LinkedInPack(sections=(section,), profile_version=1)
+    value = pack.model_dump(mode="json", by_alias=True)
+    scalars(database_url, insert(Setting).values(user_id=user, key="linkedin_pack", value=value))
+    shown = invoke("linkedin", "show", "--db", "--user", owner)
+    assert shown.exit_code == 0, shown.output
+    assert shown.stdout.splitlines() == [
+        "Written from version 1 of your profile.",
+        f"== Headline ({len(text)}/220 characters) ==",
+        text,
+        "",
+        "Once you've pasted them into LinkedIn, run `wj linkedin done --db`.",
+    ]
+    assert invoke("linkedin", "done", "--db", "--user", owner).exit_code == 0
+    after = invoke("linkedin", "show", "--db", "--user", owner)
+    assert after.stdout == (
+        "Written from version 1 of your profile.\n"
+        "Nothing changed since you last marked the pack done.\n"
+    )
 
 
 def test_linkedin_done_leaves_out_sections_that_name_a_confidential_term(

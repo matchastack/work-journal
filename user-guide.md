@@ -34,7 +34,7 @@ Every generated sentence is checked against your facts, so wording never changes
 | Link Telegram, change reminders, style notes and other preferences, see what the model cost each month, or export or delete your data | The web app, Settings page |
 | Publish your portfolio page, and choose the resumes it offers | The web app, Portfolio page |
 | Render the master resume, write LinkedIn text | The command-line tool (web pages **Coming**) |
-| Paste the LinkedIn text that changed into LinkedIn | The web app, LinkedIn page (after `wj linkedin --db`) |
+| Paste the LinkedIn text that changed into LinkedIn | The web app, LinkedIn page (a refresh writes the text) |
 | See what a GitHub repository's history would give one of your projects, and the facts in it | `wj github digest`, then `wj github extract` (saving the facts for `/refresh` is **Coming**: T-069 to T-072) |
 
 ## Set up on your computer
@@ -209,7 +209,7 @@ Each bullet is also checked for what it must leave out, with your [confidential 
 
 **Accept all that passed** accepts every waiting change the verifier passed. Once every change is decided, **Apply** makes a new version of your profile from the accepted ones. After each decision, focus moves to the next waiting change, so you can work through the list from the keyboard.
 
-The master resume is then due to be rendered from the new version (see [Running and maintaining the backend](#running-and-maintaining-the-backend)).
+Your outputs then move to the new version: the background work writes the LinkedIn pack (see [LinkedIn text](#linkedin-text)), and renders the master resume on a computer with TeX Live (see [Running and maintaining the backend](#running-and-maintaining-the-backend)).
 
 ### Journal
 
@@ -302,7 +302,7 @@ Your public page, at `/p/<handle>` on the app's address. Nobody sees it until yo
 
 A checklist of the LinkedIn text to paste: the sections of your LinkedIn pack (the headline, About and a description for each position) that changed since you last marked the pack done. The first time, every section is listed. Work Journal never posts to LinkedIn; you paste the text yourself.
 
-The page shows the pack last written. For now, write it with `uv run wj linkedin --db` (see [LinkedIn text](#linkedin-text)); writing it on each refresh is **Coming** (T-061). If your profile has a newer version than the pack, the page says so.
+The page shows the pack last written. A refresh writes it once you apply its changes, and `uv run wj linkedin --db` writes it at once (see [LinkedIn text](#linkedin-text)). If your profile has a newer version than the pack, the page says so.
 
 For each section you see:
 
@@ -382,10 +382,21 @@ Writes the static page from the profile's public content to the folder, for host
 
 ### LinkedIn text
 
+A refresh writes your LinkedIn pack for you. Once you apply its changes in the Inbox, or when `/refresh` finds nothing new, the next tick of background work writes the headline, About and position texts from the new version of your profile. Sections whose content hasn't changed since you last marked the pack done are kept as they are. Read and use the pack with:
+
 ```sh
-uv run wj linkedin --db          # the headline, About and position texts that changed since last time
-uv run wj linkedin --db --all    # every section, even unchanged ones
-uv run wj linkedin done --db     # mark the pack done, once you have pasted it into LinkedIn
+uv run wj linkedin show --db         # the sections that changed since you last marked the pack done
+uv run wj linkedin show --db --all   # every section, even unchanged ones
+uv run wj linkedin done --db         # mark the pack done, once you have pasted it into LinkedIn
+```
+
+`wj linkedin show` calls no model. If the refresh's pack still waits to be written, it says so: `uv run wj tick` writes it at once. If the refresh couldn't write it, it says that too.
+
+To write the pack by hand from the newest version of your profile, such as after changing your style notes:
+
+```sh
+uv run wj linkedin --db          # write and print the sections that changed since last time
+uv run wj linkedin --db --all    # write every section again, and print them all
 ```
 
 Paste the text into LinkedIn yourself; Work Journal never posts there. The web app's [LinkedIn](#linkedin) page shows the same sections, with a Copy button for each, and marks the pack done too.
@@ -463,6 +474,8 @@ Every sentence written passes the verifier before it is stored or printed.
 
 **Tailored resumes from the web app.** The same goes for the [Tailor](#tailor) page's PDFs: run `uv run wj worker` on that computer while you tailor, and it renders each draft as you change it (`uv run wj tick` renders what waits, once).
 
+**The LinkedIn pack after a refresh** needs no LaTeX, so the hosted app writes it at its next tick: the daily one, or the one that runs when the bot answers you, such as after `/done`. `uv run wj tick` or `uv run wj worker` writes it too. A tick stops work after a few minutes; a long pack keeps the sections it wrote and the next tick writes the rest.
+
 **Logs and errors.** The app, `wj worker` and `wj tick` log one JSON object per line on standard error (on Vercel, in the project's logs), at `LOG_LEVEL`. With `SENTRY_DSN` set, their errors, including a background job that fails for the last time, are reported to Sentry. Neither ever holds journal or fact text: an error shows where it happened in the code and its type, but not its message.
 
 **Staging.** Before you merge a change to the core loop, try it on a staging copy of the app, with a dev bot and a database of its own: [docs/staging-checklist.md](docs/staging-checklist.md) sets it up and lists what to check, from a message to the dev bot to the published page, its PDFs and a tailored resume.
@@ -485,6 +498,7 @@ Every sentence written passes the verifier before it is stored or printed.
 | The bot says a refresh didn't finish in time | Run `uv run wj propose --db` from your computer |
 | A Tailor page draft keeps waiting for its PDF | Run `uv run wj worker` (or `uv run wj tick`) on a computer with TeX Live and the settings from `docs/deploy.md` step 6 |
 | A Tailor page draft says the model settings are missing | Set `ANTHROPIC_API_KEY` and the `LLM_MODEL_*` variables where the app runs, then **Try again** |
+| `wj linkedin show --db` says a refresh couldn't write the pack | Check the Claude settings (`ANTHROPIC_API_KEY`, `LLM_MODEL_STANDARD`), then write it with `uv run wj linkedin --db`, or send `/refresh` again |
 | The LLM costs say some calls had no price | Set `LLM_PRICE_HEAVY`, `LLM_PRICE_STANDARD` and `LLM_PRICE_LIGHT` (`backend/.env.example`); calls made after that are priced |
 | Journal text can't be read after changing keys | `DATA_ENCRYPTION_KEY` must still include the key the text was written with |
 | `wj github digest` says the token belongs to another GitHub account | Use a token of your own account: the one your profile's GitHub username names, or the one you sign in with |
