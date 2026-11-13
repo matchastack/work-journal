@@ -22,7 +22,7 @@ from app.db.models import FactRow, JournalEntry, JournalMessage, JournalMessageE
 from app.db.profiles import save_version
 from app.db.store import save_facts
 from app.main import create_app
-from app.schema.fact import Fact, Metric, SingleValue
+from app.schema.fact import Fact, Metric, RepoItem, RepoSource, SingleValue
 from app.schema.profile import Profile
 
 BROWSER = "https://testserver"
@@ -655,6 +655,62 @@ def test_the_json_export_holds_every_entry_and_fact(
     assert {key: export[key] for key in journal} == journal
     assert [fact["id"] for fact in export["importedFacts"]] == ["nw_orders"]
     assert datetime.fromisoformat(export["exportedAt"]).date() == today
+
+
+def github_fact(fact_id: str, repository: str, date: str, *, private: bool = False) -> Fact:
+    url = f"https://github.com/{repository}"
+    item = RepoItem(kind="pull", ref="4", url=f"{url}/pull/4")
+    source = RepoSource(repository=repository, url=url, private=private, items=(item,))
+    return Fact(
+        id=fact_id,
+        statement=f"Shipped {fact_id}.",
+        date=date,
+        project_id="recipe_box",
+        origin="github",
+        source=source,
+    )
+
+
+def test_the_exports_hold_the_github_facts_by_repository(
+    database_url: str, owner: Owner, client: TestClient
+) -> None:
+    """FR-JRN-7 and FR-GH-10: by repository, in name order, each one's newest first."""
+
+    async def linked(session: AsyncSession) -> None:
+        facts = [
+            github_fact("gh_a_1", "casey-example/recipe-box", "2023-07"),
+            github_fact("gh_a_2", "casey-example/recipe-box", "2023-08"),
+            github_fact("gh_b_1", "casey-example/bird-calls", "2024-04", private=True),
+        ]
+        await save_facts(session, owner.id, facts)
+
+    seed(database_url, linked)
+    export = client.get("/api/journal/export.json").json()
+    assert [
+        (repository["repository"], repository["private"], [f["id"] for f in repository["facts"]])
+        for repository in export["repositories"]
+    ] == [
+        ("casey-example/bird-calls", True, ["gh_b_1"]),
+        ("casey-example/recipe-box", False, ["gh_a_2", "gh_a_1"]),
+    ]
+    assert export["importedFacts"] == []
+    markdown = client.get("/api/journal/export.md").text
+    assert markdown.endswith(
+        "## Facts from GitHub\n\n"
+        "### casey-example/bird-calls (private)\n\n"
+        "https://github.com/casey-example/bird-calls\n\n"
+        "- Shipped gh_b_1.\n"
+        "  (accomplishment; 2024-04)\n"
+        "  from https://github.com/casey-example/bird-calls/pull/4\n\n"
+        "### casey-example/recipe-box\n\n"
+        "https://github.com/casey-example/recipe-box\n\n"
+        "- Shipped gh_a_2.\n"
+        "  (accomplishment; 2023-08)\n"
+        "  from https://github.com/casey-example/recipe-box/pull/4\n"
+        "- Shipped gh_a_1.\n"
+        "  (accomplishment; 2023-07)\n"
+        "  from https://github.com/casey-example/recipe-box/pull/4\n"
+    )
 
 
 def test_the_markdown_export_is_in_the_owners_time_zone(

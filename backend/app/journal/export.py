@@ -1,13 +1,16 @@
 """The journal exported as Markdown and as JSON (FR-JRN-7).
 
 Both hold every entry and every fact. The JSON holds everything the Journal page shows, with each
-message's earlier text, and the facts from the imported resume, which belong to no entry. The
-Markdown is for reading: the entries by month, each message as last edited and the facts saved
-from it, then the imported facts, with times in the owner's time zone. Both come from one read
-of the journal (`load_journal`), so 1,000 entries take well under the 10 s FR-JRN-7 allows.
+message's earlier text, the facts from the imported resume, which belong to no entry, and the
+facts from linked GitHub repositories, by repository (FR-GH-10). The Markdown is for reading: the
+entries by month, each message as last edited and the facts saved from it, then the imported
+facts, then the GitHub facts by repository with their links, with times in the owner's time zone.
+Both come from one read of the journal (`load_journal`), so 1,000 entries take well under the
+10 s FR-JRN-7 allows.
 """
 
 import uuid
+from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -17,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import FactRow
 from app.journal.document import Journal, JournalEntryView, load_journal
+from app.schema.common import Model
 from app.schema.fact import Fact
 from app.validate.numbers import describe_metric
 
@@ -44,10 +48,21 @@ NOTES = {
 """What the Markdown says about an entry that isn't processed."""
 
 
+class RepositoryFacts(Model):
+    repository: str
+    """The repository, as `owner/name`."""
+    url: str
+    private: bool
+    facts: tuple[Fact, ...]
+    """Newest first."""
+
+
 class JournalExport(Journal):
     exported_at: datetime
     imported_facts: tuple[Fact, ...]
     """Facts from the imported master resume (FR-IMP-4), which belong to no entry."""
+    repositories: tuple[RepositoryFacts, ...]
+    """Facts from linked GitHub repositories (FR-GH-10), by repository, in name order."""
 
 
 async def export_journal(
@@ -55,18 +70,41 @@ async def export_journal(
 ) -> JournalExport:
     """The user's whole journal and every fact, as of `now`."""
     journal = await load_journal(session, user_id)
-    imported = await session.scalars(
-        select(FactRow.data)
-        .where(FactRow.user_id == user_id, FactRow.origin == "import")
+    rows = await session.execute(
+        select(FactRow.origin, FactRow.data)
+        .where(FactRow.user_id == user_id, FactRow.origin.in_(("import", "github")))
         .order_by(FactRow.id)
     )
+    facts = [(origin, Fact.model_validate_json(data)) for origin, data in rows]
     return JournalExport(
         entries=journal.entries,
         roles=journal.roles,
         projects=journal.projects,
         exported_at=now,
-        imported_facts=tuple(Fact.model_validate_json(data) for data in imported),
+        imported_facts=tuple(fact for origin, fact in facts if origin == "import"),
+        repositories=by_repository([fact for origin, fact in facts if origin == "github"]),
     )
+
+
+def by_repository(facts: Sequence[Fact]) -> tuple[RepositoryFacts, ...]:
+    """GitHub facts by repository, in name order, each repository's newest first (undated last).
+    A repository renamed since keeps its facts under each name they were read with."""
+    groups: dict[str, list[Fact]] = defaultdict(list)
+    for fact in facts:
+        if fact.source is not None:
+            groups[fact.source.repository].append(fact)
+    repositories: list[RepositoryFacts] = []
+    for name in sorted(groups, key=str.casefold):
+        group = sorted(groups[name], key=lambda fact: fact.id)
+        group.sort(key=lambda fact: fact.date or "", reverse=True)
+        source = group[0].source
+        assert source is not None, "grouped by their source"
+        repositories.append(
+            RepositoryFacts(
+                repository=name, url=source.url, private=source.private, facts=tuple(group)
+            )
+        )
+    return tuple(repositories)
 
 
 def to_markdown(export: JournalExport, zone: ZoneInfo) -> str:
@@ -94,6 +132,12 @@ def to_markdown(export: JournalExport, zone: ZoneInfo) -> str:
             lines += ["Facts:", "", *_facts(entry.facts), ""]
     if export.imported_facts:
         lines += ["## Facts from your imported resume", "", *_facts(export.imported_facts), ""]
+    if export.repositories:
+        lines += ["## Facts from GitHub", ""]
+        for repository in export.repositories:
+            private = " (private)" if repository.private else ""
+            lines += [f"### {repository.repository}{private}", "", repository.url, ""]
+            lines += [*_facts(repository.facts, links=True), ""]
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
@@ -119,7 +163,9 @@ def _about(entry: JournalEntryView, roles: Mapping[str, str]) -> list[str]:
     return lines
 
 
-def _facts(facts: Sequence[Fact]) -> list[str]:
+def _facts(facts: Sequence[Fact], *, links: bool = False) -> list[str]:
+    """Each fact, with its details below it; with `links`, also the pull requests and commits a
+    GitHub fact rests on."""
     lines: list[str] = []
     for fact in facts:
         lines.append(f"- {fact.statement}")
@@ -134,6 +180,8 @@ def _facts(facts: Sequence[Fact]) -> list[str]:
         if fact.outcome:
             details.append(f"outcome: {fact.outcome}")
         lines.append(f"  ({'; '.join(details)})")
+        if links and fact.source is not None:
+            lines.append("  from " + ", ".join(item.url for item in fact.source.items))
     return lines
 
 
