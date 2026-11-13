@@ -2,6 +2,13 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-11-13 · Milestone and task statuses · PR link below
+**Changed:** `tasks.md` marks M0 and M1 done, and the 22 tasks whose pull requests merged since the last update (T-035 to T-037, T-042 to T-049, T-052, T-053, T-061, T-064 to T-068 and T-073 to T-075). The user guide no longer says web pages for rendering the master resume and writing the LinkedIn text are coming: a refresh does both, and the command-line tool does them on demand.
+
+**Verify:**
+- The overview table shows M0 and M1 as done, and M2 in progress
+- Only T-069 to T-072 are still to do
+
 ## 2026-10-30 · T-036 Open-question prompts · [#57](https://github.com/matchastack/work-journal/pull/57)
 **Changed:** A reminder now asks the most valuable open question from your master resume, one per reminder, with an "Answer the question" button. Your answer becomes an entry of its own whose facts link to the question, so the next `/refresh` proposes the stronger bullet and marks the question answered when you accept it.
 
