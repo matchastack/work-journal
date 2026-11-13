@@ -34,6 +34,7 @@ Every generated sentence is checked against your facts, so wording never changes
 | Link Telegram, change reminders, style notes and other preferences, or export or delete your data | The web app, Settings page |
 | Publish your portfolio page, and choose the resumes it offers | The web app, Portfolio page |
 | Render the master resume, write LinkedIn text | The command-line tool (web pages **Coming**) |
+| Paste the LinkedIn text that changed into LinkedIn | The web app, LinkedIn page (after `wj linkedin --db`) |
 | See what a GitHub repository's history would give one of your projects, and the facts in it | `wj github digest`, then `wj github extract` (saving the facts for `/refresh` is **Coming**: T-069 to T-072) |
 
 ## Set up on your computer
@@ -182,7 +183,7 @@ Open `http://localhost:5173` while developing, or your deployed address. Sign in
 | [Resumes](#resumes) | Built | Preview and download your master resume and tailored resumes |
 | [Tailor](#tailor) | Built | Tailor a resume to a job posting, and see where you applied |
 | [Portfolio](#portfolio) | Built | Preview your public page, choose its resumes, and publish it |
-| LinkedIn | Coming (T-047) | Copy the updated sections into LinkedIn |
+| [LinkedIn](#linkedin) | Built | Copy the updated sections into LinkedIn |
 | [Settings](#settings) | Built | Telegram, reminders, the portfolio page, style notes, confidential terms and your data |
 
 A page that is not built yet says which task will add it. Until then, use the command-line equivalents in the next chapter.
@@ -296,6 +297,25 @@ Your public page, at `/p/<handle>` on the app's address. Nobody sees it until yo
 - **Resume downloads.** Tick the resumes visitors may download, give each button its text, and **Save resume downloads**. You can offer the master resume your latest refresh rendered (it changes with each refresh) and tailored resumes that passed their checks. A resume shows what you marked Resume only, such as your phone number, so check it before you offer it. Visitors see the button text, not the company a tailored resume was for.
 - **Confidential terms.** The page and its resumes never show one of your [confidential terms](#settings), checked each time they're asked for. If the page names one (in what it shows or in its handle), **Publish** is off, and the Publishing section shows an error naming each term and where it is, such as `Experience: Software Engineer`. If a published page comes to name one, for example after you add a term or a refresh brings a new version, visitors get "Page not found" (within about two minutes, as caches catch up) until it's gone; the preview still shows the page, so you can find it. To fix it, take the term out of your profile, or make that text Resume only or Private, and refresh; or remove the term in Settings if it may be public. A resume whose PDF or button text names a term can't be ticked, and one you chose before stays chosen but isn't offered or downloadable; each says which term.
 
+### LinkedIn
+
+A checklist of the LinkedIn text to paste: the sections of your LinkedIn pack (the headline, About and a description for each position) that changed since you last marked the pack done. The first time, every section is listed. Work Journal never posts to LinkedIn; you paste the text yourself.
+
+The page shows the pack last written. For now, write it with `uv run wj linkedin --db` (see [LinkedIn text](#linkedin-text)); writing it on each refresh is **Coming** (T-061). If your profile has a newer version than the pack, the page says so.
+
+For each section you see:
+
+- its text, and its length against LinkedIn's limit, such as `52 of 220 characters` (220 for the headline, 2,600 for About, 2,000 for a position);
+- the verifier's result. A section the verifier flagged says why: paste it only if you are sure it is true. It isn't marked done with the others, so it is written again next time;
+- each of your [confidential terms](#settings) it names, checked each time the page loads. Such a section is flagged and listed even if you marked it done before, so take it off LinkedIn too; it isn't marked done until it's written without the term;
+- notes to check, such as a position title that differs from the one on your latest application;
+- **Copy**, which puts the text on your clipboard and shows "Copied". If the browser refuses, select the text and copy it yourself;
+- **Pasted into LinkedIn**, to tick once it is on LinkedIn.
+
+Under **Take off LinkedIn**, the page lists sections you marked done before that your public profile no longer has, such as a role you made private. Tick each once you have removed it.
+
+**Mark done** turns on once every section that passed, and every section to take off, is ticked. It saves what your LinkedIn profile now says, so from then on the page lists only what changes after it. If the pack was written again since you opened the page, nothing is marked: check the new sections and tick them again.
+
 ### Settings
 
 Your preferences, one section each. Each section has its own **Save** button and says "Saved." when it is.
@@ -366,7 +386,7 @@ uv run wj linkedin --db --all    # every section, even unchanged ones
 uv run wj linkedin done --db     # mark the pack done, once you have pasted it into LinkedIn
 ```
 
-Paste the text into LinkedIn yourself; Work Journal never posts there.
+Paste the text into LinkedIn yourself; Work Journal never posts there. The web app's [LinkedIn](#linkedin) page shows the same sections, with a Copy button for each, and marks the pack done too.
 
 With `--db`, a section that names one of your confidential terms is written once more without it. One that still names it is printed with `Error: Names the confidential term "..."`, the command exits with status 1, and `wj linkedin done --db` leaves it out, naming it, so don't paste it. Adding a term later flags the sections already written that name it.
 

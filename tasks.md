@@ -904,13 +904,18 @@ As the owner, I want my portfolio page served by the app and updated when I refr
 **Built (2026-10-31):** stacked on T-048 (#70), whose portfolio settings it reads; OQ-3's handle stays open, so there's no default handle and the page can't be published until the owner chooses one in Settings. Whether the page is published, the version it was published with and the resumes it offers are a settings key (`portfolio_publishing`), so no migration. Publishing pins the version the outputs show (the latest refresh's, or the newest before the first refresh), and a later refresh's replaces it as soon as that refresh's outputs fall due, without waiting for the master resume's render; so versions made since a refresh never show, and the move T-061 lists for the portfolio page is done. The default visibility covers the website and online profiles, the only contact details without a visibility of their own. The owner may offer the master resume the latest refresh rendered and tailored resumes that passed their checks, each with its own button text; only those PDFs are served. The page and its PDFs are cached by shared caches for 60 s plus 60 s stale, and browsers check them each time, so unpublishing shows within about two minutes; a 404 is never cached. T-049 keeps confidential terms off the page and its PDFs.
 
 ### T-047 · LinkedIn page
-**Status:** ☐ · **Size:** S · **Depends on:** T-024, T-039 · **Requirements:** FR-LIN-2, FR-LIN-3 · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-024, T-039 · **Requirements:** FR-LIN-2, FR-LIN-3 · **PR:** [#68](https://github.com/matchastack/work-journal/pull/68)
 
 As the owner, I want a checklist of LinkedIn sections to paste, so that LinkedIn stays in step with my resume.
 
-- [ ] Shows the pack from the latest refresh, only the changed sections, each with a copy button and a character counter.
-- [ ] "Mark done" stores a snapshot.
-- [ ] Tests.
+- [x] Shows the pack from the latest refresh, only the changed sections, each with a copy button and a character counter.
+- [x] "Mark done" stores a snapshot.
+- [x] Tests.
+
+**Built (2026-10-30):**
+- The page shows the pack last written and never writes one, so it calls no model. Until the refresh writes the pack (T-061), `wj linkedin --db` does.
+- Sections are compared with the newest snapshot, so a pack marked done from the command line drops off the page too.
+- Mark done turns on once each section that passed, and each section to take off LinkedIn, is ticked. It names the pack the page showed, and a pack written since isn't marked.
 
 ### T-048 · Settings page
 **Status:** ◐ · **Size:** M · **Depends on:** T-031, T-035, T-039 · **Requirements:** FR-SET-1, FR-SET-2, FR-SET-3, FR-SET-4, FR-SET-5, FR-SET-6, NFR-PRIV-3 · **PR:** [#70](https://github.com/matchastack/work-journal/pull/70)

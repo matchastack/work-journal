@@ -12,6 +12,16 @@ One short entry per pull request, newest first: what changed and what to verify.
 - After `/refresh` with a few dozen new facts, the bot says how many updates are proposed, not that the refresh didn't finish, and the Inbox lists them with their verifier reports
 - If the API answers 429 during a refresh, a lower `REFRESH_CONCURRENCY` in Vercel's environment variables stops it
 
+## 2026-10-30 · T-047 LinkedIn page · [#68](https://github.com/matchastack/work-journal/pull/68)
+**Changed:** the web app's LinkedIn page lists the sections of your LinkedIn pack that changed since you last marked it done, each with a Copy button and its length against LinkedIn's limit, and Mark done saves the snapshot. The pack comes from `wj linkedin --db` until the refresh writes it (T-061).
+
+**Verify:**
+- CI is green on #68
+- After `uv run wj linkedin --db`, the LinkedIn page lists the same changed sections, and Copy puts a section's text on the clipboard
+- Mark done stays off until every section that passed is ticked; after it, the page lists only flagged sections, and with none flagged, `uv run wj linkedin --db` says nothing changed
+- With the page open, running `wj linkedin --db` after a profile change and then pressing Mark done says the pack was written again, and marks nothing
+- Adding a confidential term that a section names, in Settings, lists that section on the LinkedIn page flagged with the term, and Mark done leaves it out
+
 ## 2026-10-30 · T-043 Profile page: tailoring metadata · [#67](https://github.com/matchastack/work-journal/pull/67)
 **Changed:** the Profile page edits what drives tailoring: each role's tailoring rules, each education entry's coursework and rules, each bullet's swaps, and your role types, skills and gaps, skills presets, summaries and open questions. Each save is a change set by you and a new version, and History names what changed.
 
