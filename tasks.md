@@ -1062,17 +1062,19 @@ As the owner, I want `/refresh` to read my linked repositories first, so that on
 - [ ] Database tests use the fake GitHub and the fake LLM client.
 
 ### T-072 · GitHub facts on the Journal page
-**Status:** ☐ · **Size:** M · **Depends on:** T-069 · **Requirements:** FR-GH-10, FR-JRN-5, FR-JRN-6, FR-EXT-3 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-069 · **Requirements:** FR-GH-10, FR-JRN-5, FR-JRN-6, FR-EXT-3 · **PR:** PR_LINK
 
 As the owner, I want to read, correct and delete the facts from my repositories, so that my record stays accurate.
 
-- [ ] A "From GitHub" section after the journal lists each linked repository and its facts by month, with links to their pull requests and commits.
-- [ ] GitHub facts can be edited and deleted like other facts.
+- [x] A "From GitHub" section after the journal lists each linked repository and its facts by month, with links to their pull requests and commits.
+- [x] GitHub facts can be edited and deleted like other facts.
   - The page warns when the profile cites a fact.
   - GitHub facts link to projects only.
-- [ ] The download buttons work with no journal entries.
-- [ ] The page works with the keyboard.
-- [ ] Tests for the API and components.
+- [x] The download buttons work with no journal entries.
+- [x] The page works with the keyboard.
+- [x] Tests for the API and components.
+
+**Built (2026-11-13):** the journal's API gives the facts from GitHub by repository, as the exports do, so the page and both downloads share one list. A linked repository with no fact yet is listed too, without saying whether it's private, as no fact tells. Facts are grouped by the repository name they were read with, so a repository renamed since shows under each name. The API refuses a role on a GitHub fact (422), and its form has no role field.
 
 ---
 
