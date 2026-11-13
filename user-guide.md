@@ -31,7 +31,7 @@ Every generated sentence is checked against your facts, so wording never changes
 | Update your profile from new notes | `/refresh` in Telegram, then the web app's Inbox |
 | Preview and download your master resume and tailored resumes | The web app, Resumes page |
 | Tailor a resume to a job posting, and see where you applied | The web app, Tailor page (its PDFs render on your computer: `uv run wj worker`) |
-| Link Telegram, change reminders, style notes and other preferences, or export or delete your data | The web app, Settings page |
+| Link Telegram, change reminders, style notes and other preferences, see what the model cost each month, or export or delete your data | The web app, Settings page |
 | Publish your portfolio page, and choose the resumes it offers | The web app, Portfolio page |
 | Render the master resume, write LinkedIn text | The command-line tool (web pages **Coming**) |
 | Paste the LinkedIn text that changed into LinkedIn | The web app, LinkedIn page (a refresh writes the text) |
@@ -64,6 +64,8 @@ Open `http://localhost:8000/healthz` to check it is up, or `http://localhost:800
 | `APP_URL` | The app's address. `http://localhost:8000` by default; `https://` everywhere but your own computer |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` | The bot's token from @BotFather, and a random secret for the webhook |
 | `ANTHROPIC_API_KEY`, `LLM_MODEL_HEAVY`, `LLM_MODEL_STANDARD`, `LLM_MODEL_LIGHT` | Claude. Any command that writes or reads text with the model needs these |
+| `LLM_PRICE_HEAVY`, `LLM_PRICE_STANDARD`, `LLM_PRICE_LIGHT` | Optional: each tier's price in US dollars per million input and output tokens, such as `[3, 15]`. The LLM costs on the Settings page are estimated from them |
+| `SENTRY_DSN` | Optional: the DSN of a Sentry project, so that errors in the app, `wj worker` and `wj tick` are reported there. Journal text is never sent. Empty means nothing is sent |
 | `ENTRY_TIMEOUT_MINUTES` | Minutes of quiet that close a journal entry (default 30) |
 | `REFRESH_CONCURRENCY` | How many bullets a refresh writes and checks at once (default 10), so a refresh of months of facts finishes in time. Lower it if the Claude API answers 429 (Too Many Requests) |
 | `REMINDER_DAYS`, `REMINDER_TIME`, `REMINDER_TIME_ZONE` | When the bot reminds you to journal: days such as `fri` or `mon,thu`, a local time and an IANA time zone (default Fridays at 18:00, Asia/Singapore) |
@@ -184,7 +186,7 @@ Open `http://localhost:5173` while developing, or your deployed address. Sign in
 | [Tailor](#tailor) | Built | Tailor a resume to a job posting, and see where you applied |
 | [Portfolio](#portfolio) | Built | Preview your public page, choose its resumes, and publish it |
 | [LinkedIn](#linkedin) | Built | Copy the updated sections into LinkedIn |
-| [Settings](#settings) | Built | Telegram, reminders, the portfolio page, style notes, confidential terms and your data |
+| [Settings](#settings) | Built | Telegram, reminders, the portfolio page, style notes, confidential terms, LLM costs and your data |
 
 A page that is not built yet says which task will add it. Until then, use the command-line equivalents in the next chapter.
 
@@ -325,6 +327,7 @@ Your preferences, one section each. Each section has its own **Save** button and
 - **Portfolio page:** the handle in your page's address, `/p/<handle>` (2 to 40 lowercase letters, digits and single hyphens; it's saved in lowercase, and one another account has is refused), the default visibility (Public, Resume only or Private) for what you haven't given a visibility of its own (your website and online profiles; only Public shows on the page), **Show that I'm open to work**, and **Let search engines index the page**. They take effect on the page at once. Publish it from the [Portfolio](#portfolio) page.
 - **Style notes:** words to avoid and notes about your style, one per line. The style check flags the words to avoid in everything written for you; the LinkedIn text follows the notes for now. The reasons you give for rejecting a change in the Inbox are added to the notes.
 - **Confidential terms:** names and words that must never appear on your portfolio page, in its resume downloads or in LinkedIn text, one per line, such as a client's or an internal project's name. Each matches as a whole word or phrase, in any case: `Atlas` matches `ATLAS` and `Atlas's` but not `Atlassian`, and `Project Falcon` matches across a line break or a hyphen. Saving them takes effect at once on the [Portfolio](#portfolio) page and the LinkedIn text, and in the [Inbox](#inbox).
+- **LLM costs:** what the model calls made for you cost in a month, estimated, with a table by task (such as fact extraction) and one by tier (heavy, standard and light), showing the calls, the tokens and the estimated cost. **Month** shows an earlier one; months are in UTC. Each call is priced when it's made, at its tier's `LLM_PRICE_*` setting, so a call made while its tier had no price isn't in the estimate: the section says how many there were. These are estimates; your Anthropic bill has the real cost.
 - **Your data:** **Download all my data** saves one JSON file with everything stored for you: your journal (readable, not encrypted), facts, profile versions, proposed changes, applications, resume PDFs, settings and the bot's recent raw messages from your chat. Sign-in sessions and link tokens are left out. **Delete all my data** asks you to type your GitHub username, then deletes your account and everything stored for it, and signs you out everywhere. It can't be undone, so download your data first. Your messages stay in your Telegram chat, and files on your computer, such as `local/`, are not touched. If you sign in again, you start with an empty journal.
 
 ## The command-line tool
@@ -474,6 +477,8 @@ Every sentence written passes the verifier before it is stored or printed.
 
 **The LinkedIn pack after a refresh** needs no LaTeX, so the hosted app writes it at its next tick: the daily one, or the one that runs when the bot answers you, such as after `/done`. `uv run wj tick` or `uv run wj worker` writes it too. A tick stops work after a few minutes; a long pack keeps the sections it wrote and the next tick writes the rest.
 
+**Logs and errors.** The app, `wj worker` and `wj tick` log one JSON object per line on standard error (on Vercel, in the project's logs), at `LOG_LEVEL`. With `SENTRY_DSN` set, their errors, including a background job that fails for the last time, are reported to Sentry. Neither ever holds journal or fact text: an error shows where it happened in the code and its type, but not its message.
+
 **Staging.** Before you merge a change to the core loop, try it on a staging copy of the app, with a dev bot and a database of its own: [docs/staging-checklist.md](docs/staging-checklist.md) sets it up and lists what to check, from a message to the dev bot to the published page, its PDFs and a tailored resume.
 
 **Rotating keys.** Add the new key in front of the old one in `DATA_ENCRYPTION_KEY`, run `wj keys rotate`, and only then remove the old key.
@@ -495,6 +500,7 @@ Every sentence written passes the verifier before it is stored or printed.
 | A Tailor page draft keeps waiting for its PDF | Run `uv run wj worker` (or `uv run wj tick`) on a computer with TeX Live and the settings from `docs/deploy.md` step 6 |
 | A Tailor page draft says the model settings are missing | Set `ANTHROPIC_API_KEY` and the `LLM_MODEL_*` variables where the app runs, then **Try again** |
 | `wj linkedin show --db` says a refresh couldn't write the pack | Check the Claude settings (`ANTHROPIC_API_KEY`, `LLM_MODEL_STANDARD`), then write it with `uv run wj linkedin --db`, or send `/refresh` again |
+| The LLM costs say some calls had no price | Set `LLM_PRICE_HEAVY`, `LLM_PRICE_STANDARD` and `LLM_PRICE_LIGHT` (`backend/.env.example`); calls made after that are priced |
 | Journal text can't be read after changing keys | `DATA_ENCRYPTION_KEY` must still include the key the text was written with |
 | `wj github digest` says the token belongs to another GitHub account | Use a token of your own account: the one your profile's GitHub username names, or the one you sign in with |
 | `wj github digest` says the repository doesn't exist | Give the token access to that repository, with Contents and Pull requests set to read-only |

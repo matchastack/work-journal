@@ -3,13 +3,27 @@ import { describe, expect, it } from "vitest";
 import {
   calendarDate,
   clockTime,
+  count,
   dateAndTime,
   dayAndTime,
   describeMetric,
   factMonth,
   monthKey,
   monthTitle,
+  usd,
 } from "./format";
+
+describe("amounts", () => {
+  it("are counts with separators and dollars to the cent", () => {
+    expect(count(1234567)).toBe("1,234,567");
+    expect(count(0)).toBe("0");
+    expect(usd(1234.5)).toBe("$1,234.50");
+    expect(usd(0.256)).toBe("$0.26");
+    expect(usd(0.005)).toBe("$0.01");
+    expect(usd(0.0049)).toBe("<$0.01");
+    expect(usd(0)).toBe("$0.00");
+  });
+});
 
 // Tests run with TZ=Asia/Singapore (vite.config.ts), 8 hours ahead of UTC.
 describe("dates and times", () => {

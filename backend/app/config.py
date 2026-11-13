@@ -26,6 +26,8 @@ LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 
 WEBHOOK_SECRET = re.compile(r"^[A-Za-z0-9_-]{1,256}$")
 """The characters and length Telegram allows in a webhook's secret token."""
+SENTRY_DSN = re.compile(r"^https://[^\s/@]+@[^\s/@]+(/[^\s/]+)*/\d+$")
+"""A Sentry project's DSN: `https://<key>@<host>/<project number>`, with an optional path."""
 LOCAL_DIR = REPOSITORY / "local"
 """The repository's git-ignored folder for personal and runtime data."""
 
@@ -94,6 +96,9 @@ class Settings(BaseSettings):
     cron_secret: SecretStr | None = None
     """The secret Vercel's cron sends to `/internal/tick` as `Authorization: Bearer <secret>`.
     Without it, the tick refuses every request."""
+    sentry_dsn: SecretStr | None = None
+    """Where errors are reported (NFR-OBS-1): the DSN of a Sentry project, such as
+    `https://<key>@<host>/<project>`. Without it, nothing is sent to Sentry."""
     web_dist_dir: Path = REPOSITORY / "frontend" / "dist"
     """The built web app (`npm run build` in `frontend/`), served at `/` when it exists. A
     relative path is inside `backend/`, as `webapp` is on Vercel (`scripts/vercel-build.sh`)."""
@@ -108,6 +113,13 @@ class Settings(BaseSettings):
     def telegram_secret_format(cls, value: SecretStr | None) -> SecretStr | None:
         if value is not None and not WEBHOOK_SECRET.match(value.get_secret_value()):
             raise ValueError("must be 1 to 256 letters, digits, '_' and '-'")
+        return value
+
+    @field_validator("sentry_dsn")
+    @classmethod
+    def sentry_dsn_format(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is not None and not SENTRY_DSN.match(value.get_secret_value()):
+            raise ValueError("must be a Sentry DSN, such as https://<key>@<host>/<project>")
         return value
 
     @field_validator("app_url")

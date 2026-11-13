@@ -4,7 +4,7 @@ import { createMemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createQueryClient } from "../api/queryClient";
-import type { ReminderChange, SettingsView } from "../api/settings";
+import type { CostLine, LlmCosts, ReminderChange, SettingsView } from "../api/settings";
 import { App } from "../App";
 import { LINK_CHECK_MS } from "../components/settings/TelegramSection";
 import { clockTime } from "../format";
@@ -39,6 +39,48 @@ function settings(): SettingsView {
   };
 }
 
+const MONTHS = ["2026-11", "2026-10", "2026-09"];
+
+function line(calls: number, costUsd: number, unpricedCalls = 0): CostLine {
+  return {
+    calls,
+    inputTokens: 1000 * calls,
+    outputTokens: 200 * calls,
+    cacheReadTokens: 3000 * calls,
+    cacheWriteTokens: 500 * calls,
+    costUsd,
+    unpricedCalls,
+  };
+}
+
+/** The LLM costs the API reports: calls in October 2026, and none in the other months. */
+function llmCosts(month: string): LlmCosts {
+  if (month !== "2026-10") {
+    return { month, months: MONTHS, total: line(0, 0), byTask: [], byTier: [] };
+  }
+  return {
+    month,
+    months: MONTHS,
+    total: line(4, 0.2564, 1),
+    byTask: [
+      { task: "profile_synthesis", tier: "heavy", ...line(1, 0.25) },
+      { task: "fact_extraction", tier: "standard", ...line(2, 0.0054, 1) },
+      { task: "claim_verification", tier: "standard", ...line(1, 0.001) },
+    ],
+    byTier: [
+      { tier: "heavy", ...line(1, 0.25) },
+      { tier: "standard", ...line(3, 0.0064, 1) },
+    ],
+  };
+}
+
+/** The text of each cell of a table, row by row. */
+function cells(table: HTMLElement): (string | null)[][] {
+  return within(table)
+    .getAllByRole("row")
+    .map((row) => Array.from(row.querySelectorAll("th, td"), (cell) => cell.textContent));
+}
+
 interface Sent {
   method: string;
   path: string;
@@ -66,10 +108,13 @@ function onceEach(items: readonly string[]): string[] {
 function serveSettings(refuse: Record<string, Response> = {}) {
   const state = { settings: settings(), signedIn: true, expiresAt: expiresAt() };
   const sent: Sent[] = [];
+  /** The months the page asked the costs of; null for this month. */
+  const costMonths: (string | null)[] = [];
   vi.stubGlobal(
     "fetch",
     vi.fn(async (request: Request) => {
-      const path = new URL(request.url).pathname;
+      const url = new URL(request.url);
+      const path = url.pathname;
       const body: unknown = request.body === null ? undefined : await request.json();
       if (request.method !== "GET") {
         sent.push({ method: request.method, path, body, csrf: request.headers.get("X-CSRF-Token") });
@@ -118,6 +163,11 @@ function serveSettings(refuse: Record<string, Response> = {}) {
         case "PUT /api/settings/confidential-terms":
           current.confidentialTerms = { terms: onceEach((body as { terms: string[] }).terms) };
           return json(current.confidentialTerms);
+        case "GET /api/settings/llm-costs": {
+          const month = url.searchParams.get("month");
+          costMonths.push(month);
+          return json(llmCosts(month ?? "2026-11"));
+        }
         case "POST /api/telegram/link":
           return json({ url: DEEP_LINK, expiresAt: state.expiresAt });
         case "DELETE /api/settings/data":
@@ -128,7 +178,7 @@ function serveSettings(refuse: Record<string, Response> = {}) {
       }
     }),
   );
-  return { sent, state };
+  return { sent, state, costMonths };
 }
 
 function renderAt(path = "/settings") {
@@ -163,6 +213,7 @@ describe("the settings page", () => {
       "Portfolio page",
       "Style notes",
       "Confidential terms",
+      "LLM costs",
       "Your data",
     ]);
     const telegram = await section("Telegram");
@@ -465,6 +516,55 @@ describe("the settings page", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Settings" })).toBeInTheDocument();
   });
 
+  it("shows a month's estimated LLM cost by task and by tier, and earlier months", async () => {
+    const { costMonths } = serveSettings();
+    renderAt();
+    const costs = await section("LLM costs");
+    expect(await costs.findByText("No model calls in November 2026.")).toBeInTheDocument();
+    expect(costs.getByText(/LLM_PRICE_HEAVY/)).toBeInTheDocument();
+    expect(costs.getByText(/These are estimates/)).toBeInTheDocument();
+    const month = costs.getByLabelText("Month");
+    expect(month).toHaveValue("2026-11");
+    const options = within(month).getAllByRole("option");
+    expect(options.map((option) => option.textContent)).toEqual([
+      "November 2026",
+      "October 2026",
+      "September 2026",
+    ]);
+
+    await userEvent.selectOptions(month, "October 2026");
+    expect(await costs.findByText(/estimated for 4 calls in October 2026\./)).toHaveTextContent(
+      "$0.26 estimated for 4 calls in October 2026.",
+    );
+    expect(costMonths).toEqual([null, "2026-10"]);
+    expect(costs.getByText(/had no price/)).toHaveTextContent(
+      "1 call had no price for its tier when made, so the estimate leaves it out.",
+    );
+    const columns = ["Calls", "Input tokens", "Cached input tokens", "Output tokens"];
+    expect(cells(costs.getByRole("table", { name: "By task" }))).toEqual([
+      ["Task", "Tier", ...columns, "Estimated cost"],
+      ["Profile synthesis", "Heavy", "1", "1,000", "3,500", "200", "$0.25"],
+      ["Fact extraction", "Standard", "2", "2,000", "7,000", "400", "$0.01"],
+      ["Claim verification", "Standard", "1", "1,000", "3,500", "200", "<$0.01"],
+    ]);
+    expect(cells(costs.getByRole("table", { name: "By tier" }))).toEqual([
+      ["Tier", ...columns, "Estimated cost"],
+      ["Heavy", "1", "1,000", "3,500", "200", "$0.25"],
+      ["Standard", "3", "3,000", "10,500", "600", "$0.01"],
+      ["All tiers", "4", "4,000", "14,000", "800", "$0.26"],
+    ]);
+  });
+
+  it("says when the costs don't load, and the rest of the page still works", async () => {
+    serveSettings({ "GET /api/settings/llm-costs": json({ detail: "boom" }, 500) });
+    renderAt();
+    const costs = await section("LLM costs");
+    expect(await costs.findByRole("alert")).toHaveTextContent("The costs didn't load.");
+    expect(costs.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+    const data = await section("Your data");
+    expect(data.getByRole("link", { name: "Download all my data" })).toBeInTheDocument();
+  });
+
   it("offers to try again when the settings don't load", async () => {
     serveSettings({ "GET /api/settings": json({ detail: "boom" }, 500) });
     renderAt();
@@ -479,6 +579,8 @@ describe("the settings page", () => {
     await userEvent.click(screen.getByRole("button", { name: "Link Telegram" }));
     await screen.findByRole("link", { name: "Open in Telegram" });
     await userEvent.click(screen.getByRole("button", { name: "Delete all my data" }));
+    await userEvent.selectOptions(screen.getByLabelText("Month"), "2026-10");
+    await screen.findByRole("table", { name: "By tier" });
     const html = document.documentElement.outerHTML;
     expect(html.match(/[^\t\n\r\x20-\x7e]/gu) ?? []).toEqual([]);
   });

@@ -1,10 +1,11 @@
 """`/api/settings`: the signed-in owner's preferences and data (T-048, FR-SET-1 to FR-SET-6,
-NFR-PRIV-3)."""
+NFR-PRIV-3), and what their LLM calls cost (T-052, NFR-COST-2)."""
 
 import logging
 from datetime import UTC, datetime
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Response, status
+from fastapi import APIRouter, HTTPException, Query, Response, status
 from fastapi.responses import JSONResponse
 
 from app.auth.routes import NO_STORE
@@ -23,6 +24,7 @@ from app.linkedin import screen_pack
 from app.reminders import default_schedule
 from app.schema.common import Model
 from app.schema.settings import ConfidentialTerms, PortfolioSettings, ReminderSettings, StyleNotes
+from app.settings.costs import LlmCosts, llm_costs, month_of
 from app.settings.data import delete_all_data, export_data
 from app.settings.views import (
     ReminderChange,
@@ -108,6 +110,26 @@ async def change_confidential_terms(
         await save_linkedin_pack(db, user.id, screen_pack(pack, body.terms))
     await db.commit()
     return body
+
+
+@router.get("/llm-costs")
+async def llm_cost_view(
+    user: CurrentUser,
+    db: Db,
+    response: Response,
+    month: Annotated[
+        str | None,
+        Query(pattern=r"^\d{4}-(0[1-9]|1[0-2])$", description="`YYYY-MM`, in UTC"),
+    ] = None,
+) -> LlmCosts:
+    """The owner's LLM calls in a month, this month by default, with their tokens and estimated
+    cost, by task and by tier (NFR-COST-2). A month that hasn't started yet is refused (422)."""
+    response.headers.update(NO_STORE)
+    now = datetime.now(UTC)
+    chosen = month or month_of(now)
+    if chosen > month_of(now):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "That month hasn't started yet")
+    return await llm_costs(db, user.id, chosen, now=now)
 
 
 @router.get(

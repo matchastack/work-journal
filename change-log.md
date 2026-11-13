@@ -12,6 +12,15 @@ One short entry per pull request, newest first: what changed and what to verify.
 - After `/refresh` with a few dozen new facts, the bot says how many updates are proposed, not that the refresh didn't finish, and the Inbox lists them with their verifier reports
 - If the API answers 429 during a refresh, a lower `REFRESH_CONCURRENCY` in Vercel's environment variables stops it
 
+## 2026-11-01 · T-052 Observability · [#74](https://github.com/matchastack/work-journal/pull/74)
+**Changed:** the app, `wj worker` and `wj tick` log JSON lines without journal text and, with `SENTRY_DSN` set, report errors to Sentry with journal text scrubbed; the Settings page shows each month's estimated LLM cost by task and by tier.
+
+**Verify:**
+- CI is green on the PR
+- Vercel's logs show the app's log lines as JSON
+- On Settings, **LLM costs** shows this month's calls after a note and `/done`, and **Month** shows earlier ones
+- With `SENTRY_DSN` set in Vercel, an error appears in Sentry with its type and stack trace, but no message, request body or journal text
+
 ## 2026-11-01 · T-061 Refresh: the LinkedIn pack · [#73](https://github.com/matchastack/work-journal/pull/73)
 **Changed:** once a refresh's changes are applied, or it finds nothing new, a job writes the LinkedIn pack from the new version beside the master resume, without waiting for LaTeX, and `wj linkedin show --db` prints it.
 

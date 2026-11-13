@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMe } from "../api/auth";
 import { settingsQuery } from "../api/settings";
 import { DataSection } from "../components/settings/DataSection";
+import { LlmCostsSection } from "../components/settings/LlmCostsSection";
 import { PortfolioForm } from "../components/settings/PortfolioForm";
 import { RemindersForm } from "../components/settings/RemindersForm";
 import { TelegramSection } from "../components/settings/TelegramSection";
@@ -11,8 +12,8 @@ import { BUTTON } from "../components/ui";
 
 /**
  * Every preference in one place (FR-SET-1 to FR-SET-5): the Telegram link, the reminders, the
- * portfolio page, the style notes and the confidential terms, each saved on its own; and the
- * owner's data, to download or delete (FR-SET-6).
+ * portfolio page, the style notes and the confidential terms, each saved on its own; what the LLM
+ * calls cost each month (NFR-COST-2); and the owner's data, to download or delete (FR-SET-6).
  */
 export function Settings() {
   const settings = useQuery(settingsQuery);
@@ -48,6 +49,7 @@ export function Settings() {
           <PortfolioForm portfolio={settings.data.portfolio} />
           <StyleNotesForm notes={settings.data.styleNotes} />
           <ConfidentialTermsForm terms={settings.data.confidentialTerms} />
+          <LlmCostsSection />
           <DataSection login={me.data?.githubLogin ?? null} />
         </div>
       )}
