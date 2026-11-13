@@ -472,6 +472,7 @@ async def run_refresh(refresh_id: uuid.UUID) -> None:
                 base_version=inputs.version.number,
                 avoid=inputs.avoid,
                 confidential=inputs.confidential,
+                concurrency=get_settings().refresh_concurrency,
             )
         async with database() as session:
             proposals = await record_proposals(session, inputs, synthesis, now=datetime.now(UTC))

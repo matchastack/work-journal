@@ -687,6 +687,7 @@ def _synthesize(
             base_version=base_version,
             avoid=avoid,
             confidential=confidential,
+            concurrency=get_settings().refresh_concurrency,
         )
     except LLMConfigError as error:
         typer.echo(str(error), err=True)
