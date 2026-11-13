@@ -1062,7 +1062,7 @@ As the owner, I want `/refresh` to read my linked repositories first, so that on
 - [ ] Database tests use the fake GitHub and the fake LLM client.
 
 ### T-072 · GitHub facts on the Journal page
-**Status:** ◐ · **Size:** M · **Depends on:** T-069 · **Requirements:** FR-GH-10, FR-JRN-5, FR-JRN-6, FR-EXT-3 · **PR:** PR_LINK
+**Status:** ◐ · **Size:** M · **Depends on:** T-069 · **Requirements:** FR-GH-10, FR-JRN-5, FR-JRN-6, FR-EXT-3 · **PR:** [#84](https://github.com/matchastack/work-journal/pull/84)
 
 As the owner, I want to read, correct and delete the facts from my repositories, so that my record stays accurate.
 
