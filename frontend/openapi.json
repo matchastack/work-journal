@@ -2362,6 +2362,59 @@
         }
       }
     },
+    "/api/settings/llm-costs": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Llm Cost View",
+        "description": "The owner's LLM calls in a month, this month by default, with their tokens and estimated\ncost, by task and by tier (NFR-COST-2). A month that hasn't started yet is refused (422).",
+        "operationId": "llm_cost_view_api_settings_llm_costs_get",
+        "parameters": [
+          {
+            "name": "month",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "`YYYY-MM`, in UTC",
+              "title": "Month"
+            },
+            "description": "`YYYY-MM`, in UTC"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LlmCosts"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/settings/export.json": {
       "get": {
         "tags": [
@@ -3270,6 +3323,51 @@
         "type": "object",
         "title": "ConfidentialTerms",
         "description": "Words and names that must never appear in public outputs: the portfolio page, published\nPDFs and the LinkedIn pack (FR-SET-5, NFR-PRIV-4), under `confidential_terms`.\n\nThey're matched as whole words or phrases, in any case (`app/validate/confidential.py`), and\neach public output is screened for them as they are when it's shown or marked done (T-049)."
+      },
+      "CostLine": {
+        "properties": {
+          "calls": {
+            "type": "integer",
+            "title": "Calls"
+          },
+          "inputTokens": {
+            "type": "integer",
+            "title": "Inputtokens"
+          },
+          "outputTokens": {
+            "type": "integer",
+            "title": "Outputtokens"
+          },
+          "cacheReadTokens": {
+            "type": "integer",
+            "title": "Cachereadtokens"
+          },
+          "cacheWriteTokens": {
+            "type": "integer",
+            "title": "Cachewritetokens"
+          },
+          "costUsd": {
+            "type": "number",
+            "title": "Costusd"
+          },
+          "unpricedCalls": {
+            "type": "integer",
+            "title": "Unpricedcalls"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "calls",
+          "inputTokens",
+          "outputTokens",
+          "cacheReadTokens",
+          "cacheWriteTokens",
+          "costUsd",
+          "unpricedCalls"
+        ],
+        "title": "CostLine",
+        "description": "The calls of a month, a task or a tier, with their tokens and estimated cost."
       },
       "CourseworkEdit": {
         "properties": {
@@ -5466,6 +5564,49 @@
           "notes"
         ],
         "title": "LintView"
+      },
+      "LlmCosts": {
+        "properties": {
+          "month": {
+            "type": "string",
+            "title": "Month"
+          },
+          "months": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Months"
+          },
+          "total": {
+            "$ref": "#/components/schemas/CostLine"
+          },
+          "byTask": {
+            "items": {
+              "$ref": "#/components/schemas/TaskCost"
+            },
+            "type": "array",
+            "title": "Bytask"
+          },
+          "byTier": {
+            "items": {
+              "$ref": "#/components/schemas/TierCost"
+            },
+            "type": "array",
+            "title": "Bytier"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "month",
+          "months",
+          "total",
+          "byTask",
+          "byTier"
+        ],
+        "title": "LlmCosts",
+        "description": "A month's LLM calls and their estimated cost, by task and by tier."
       },
       "Location": {
         "properties": {
@@ -8385,6 +8526,60 @@
         "title": "TailoredResume",
         "description": "A resume tailored to a job posting, as its application logged it (FR-TLR-8)."
       },
+      "TaskCost": {
+        "properties": {
+          "calls": {
+            "type": "integer",
+            "title": "Calls"
+          },
+          "inputTokens": {
+            "type": "integer",
+            "title": "Inputtokens"
+          },
+          "outputTokens": {
+            "type": "integer",
+            "title": "Outputtokens"
+          },
+          "cacheReadTokens": {
+            "type": "integer",
+            "title": "Cachereadtokens"
+          },
+          "cacheWriteTokens": {
+            "type": "integer",
+            "title": "Cachewritetokens"
+          },
+          "costUsd": {
+            "type": "number",
+            "title": "Costusd"
+          },
+          "unpricedCalls": {
+            "type": "integer",
+            "title": "Unpricedcalls"
+          },
+          "task": {
+            "type": "string",
+            "title": "Task"
+          },
+          "tier": {
+            "type": "string",
+            "title": "Tier"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "calls",
+          "inputTokens",
+          "outputTokens",
+          "cacheReadTokens",
+          "cacheWriteTokens",
+          "costUsd",
+          "unpricedCalls",
+          "task",
+          "tier"
+        ],
+        "title": "TaskCost"
+      },
       "TelegramDeepLink": {
         "properties": {
           "url": {
@@ -8514,6 +8709,55 @@
         ],
         "title": "TermMatch",
         "description": "A confidential term found in an output."
+      },
+      "TierCost": {
+        "properties": {
+          "calls": {
+            "type": "integer",
+            "title": "Calls"
+          },
+          "inputTokens": {
+            "type": "integer",
+            "title": "Inputtokens"
+          },
+          "outputTokens": {
+            "type": "integer",
+            "title": "Outputtokens"
+          },
+          "cacheReadTokens": {
+            "type": "integer",
+            "title": "Cachereadtokens"
+          },
+          "cacheWriteTokens": {
+            "type": "integer",
+            "title": "Cachewritetokens"
+          },
+          "costUsd": {
+            "type": "number",
+            "title": "Costusd"
+          },
+          "unpricedCalls": {
+            "type": "integer",
+            "title": "Unpricedcalls"
+          },
+          "tier": {
+            "type": "string",
+            "title": "Tier"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "calls",
+          "inputTokens",
+          "outputTokens",
+          "cacheReadTokens",
+          "cacheWriteTokens",
+          "costUsd",
+          "unpricedCalls",
+          "tier"
+        ],
+        "title": "TierCost"
       },
       "ValidationError": {
         "properties": {
