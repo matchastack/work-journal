@@ -91,6 +91,10 @@ def test_items_say_who_made_them(recipe_box: Digest) -> None:
     assert item(recipe_box, "c3").made_by == "By you, with another person"
     assert item(recipe_box, "c3").coauthored
     assert item(recipe_box, "pr2").made_by == "By you, with Claude Code"
+    assert not item(recipe_box, "pr2").by_agent, "Claude Code helped, so the work is yours"
+    bird_calls = build_digest(read("casey-example/bird-calls"))
+    assert item(bird_calls, "pr3").made_by == "By GitHub Copilot, for you"
+    assert item(bird_calls, "pr3").by_agent
 
 
 def test_what_was_left_out_is_counted(recipe_box: Digest) -> None:

@@ -143,6 +143,8 @@ def test_the_agent_that_made_the_work_joins_the_tools(recipe_box: Digest) -> Non
     bird_calls = digest("casey-example/bird-calls")
     (typed,) = checked(bird_calls, fact(["pr3"], "Added type hints to the data loader.")).facts
     assert typed.tools == ("GitHub Copilot",)
+    assert typed.source is not None and typed.source.items[0].agent == "GitHub Copilot"
+    assert made.source is not None and made.source.items[0].agent is None, "it only helped"
 
 
 def test_the_date_is_the_latest_cited_month(recipe_box: Digest) -> None:
