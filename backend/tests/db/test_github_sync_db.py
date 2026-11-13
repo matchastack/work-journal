@@ -25,13 +25,16 @@ from app.db.crypto import KeyRing, new_key, use_key_ring
 from app.db.models import FactRow, RepoItemRow, User
 from app.db.profiles import save_version
 from app.db.repo_links import (
+    READ_LEASE,
     ItemKey,
     LinkedRepository,
+    claim_read,
     get_link,
     item_counts,
     link_repository,
     list_links,
     read_keys,
+    release_read,
     unlink,
 )
 from app.db.store import list_facts
@@ -40,7 +43,7 @@ from app.github.digest import Digest, build_digest, unread
 from app.github.extraction import RepoExtractionReply, RepoTarget
 from app.github.fake import TOKEN, FakeGitHubApi
 from app.github.reader import ExpectedOwner, read_history
-from app.github.sync import ReadReport, plan_read, read_parts
+from app.github.sync import LinkedRead, ReadReport, plan_read, read_linked, read_parts
 from app.llm.client import LLMClient
 from app.llm.fake import FakeMessages, refusal, reply
 from app.llm.usage import MemoryCallLog
@@ -305,3 +308,90 @@ async def test_two_reads_at_once_never_save_an_item_twice(database_url: str) -> 
             await session.commit()
     finally:
         await engine.dispose()
+
+
+# --- Reading every linked repository before a refresh (T-071) ---
+
+
+async def read_all(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    llm: LLMClient,
+    *,
+    max_parts: int | None = None,
+    fake: FakeGitHubApi | None = None,
+) -> LinkedRead:
+    async with httpx2.AsyncClient(transport=(fake or github()).transport) as http:
+        api = GitHubApi(SecretStr(TOKEN), http)
+        return await read_linked(
+            session, user_id, api, PROFILE, llm, owner=OWNER, max_parts=max_parts
+        )
+
+
+async def test_a_refresh_reads_at_most_its_parts_and_leaves_the_rest(
+    session: AsyncSession,
+) -> None:
+    """FR-GH-8: the server reads a limited number of parts, so the refresh fits its time."""
+    user_id = await new_user(session)
+    await linked(session, user_id)
+    llm, fake = model(found((IMPORT, "pr1")))
+    read = await read_all(session, user_id, llm, max_parts=1)
+    assert len(fake.requests) == 1
+    assert read == LinkedRead(repositories=1, parts=1, facts=1, left=0)
+    stored = await get_link(session, user_id, github_id=RECIPE_BOX_ID)
+    assert stored is not None and stored.read_at is not None, "one part held everything new"
+    assert stored.start == stored.read_at - timedelta(days=14)
+
+
+async def test_parts_beyond_the_limit_wait_for_the_next_read(
+    session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The parts are read all at once, so the replies come in any order: they're all alike."""
+    user_id = await new_user(session)
+    await linked(session, user_id)
+    # Each item in a part of its own: the about item, c1, c2, pr1, c3 and pr2.
+    monkeypatch.setattr("app.github.sync.unread", _one_item_parts)
+    llm, fake = model(found(), found(), found())
+    read = await read_all(session, user_id, llm, max_parts=3)
+    assert len(fake.requests) == 3
+    assert (read.parts, read.left, read.facts) == (3, 3, 0)
+    stored = await get_link(session, user_id, github_id=RECIPE_BOX_ID)
+    assert stored is not None and stored.read_at is None, "the read didn't take everything"
+    assert len(await read_keys(session, stored.id)) == 3
+
+
+def _one_item_parts(digest: Digest, read: Collection[ItemKey]) -> Digest:
+    return unread(digest, read, window_items=1)
+
+
+async def test_a_repository_another_read_is_working_on_is_skipped(
+    session: AsyncSession,
+) -> None:
+    user_id = await new_user(session)
+    link = await linked(session, user_id)
+    assert await claim_read(session, link.id, now=datetime.now(UTC))
+    llm, fake = model()
+    read = await read_all(session, user_id, llm)
+    assert fake.requests == []
+    assert read == LinkedRead(repositories=1, skipped=1)
+    await release_read(session, link.id)
+    assert await claim_read(session, link.id, now=datetime.now(UTC)), "free again"
+    stale = datetime.now(UTC) + READ_LEASE + timedelta(minutes=1)
+    assert await claim_read(session, link.id, now=stale), "a read that stopped long ago"
+
+
+async def test_github_and_model_errors_never_stop_the_read(session: AsyncSession) -> None:
+    """FR-GH-8: a repository that can't be read is counted, and the parts saved stay saved."""
+    user_id = await new_user(session)
+    await linked(session, user_id)
+    down = github()
+    down.status = 503
+    llm, fake = model()
+    read = await read_all(session, user_id, llm, fake=down)
+    assert (read.unreadable, read.parts, fake.requests) == (1, 0, [])
+    outage = APIConnectionError(request=httpx2.Request("POST", "https://api.anthropic.com"))
+    llm, _ = model(outage)
+    read = await read_all(session, user_id, llm)
+    assert (read.unreadable, read.parts, read.left) == (1, 0, 1)
+    stored = await get_link(session, user_id, github_id=RECIPE_BOX_ID)
+    assert stored is not None and stored.reading_since is None, "the read let it go"
