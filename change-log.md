@@ -2,7 +2,7 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-11-13 · T-069 Link repositories and import their history · PR_LINK
+## 2026-11-13 · T-069 Link repositories and import their history · [#81](https://github.com/matchastack/work-journal/pull/81)
 **Changed:** `wj github link` links a GitHub repository to one of your projects, imports its history and saves the facts in it a part at a time, reading each pull request and commit once. `wj github sync` reads what's new, `wj github list` shows the linked repositories and `wj github unlink` stops reading one and keeps its facts. The journal exports include the facts from GitHub, by repository.
 
 **Verify:**
