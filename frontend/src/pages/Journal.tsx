@@ -4,6 +4,7 @@ import { useLocation } from "react-router";
 
 import { exportUrls, journalQuery, type JournalEntry } from "../api/journal";
 import { EntryCard } from "../components/journal/EntryCard";
+import { GitHubFacts } from "../components/journal/GitHubFacts";
 import { BUTTON, FOCUS } from "../components/ui";
 import { monthKey, monthTitle } from "../format";
 
@@ -29,8 +30,9 @@ function byMonth(entries: readonly JournalEntry[]): Month[] {
 
 /**
  * The journal as one document, oldest first and grouped by month, with the facts saved from
- * each entry inline (FR-JRN-5). Entries, messages and facts can be corrected in place (FR-JRN-6),
- * and the whole journal downloads as Markdown or JSON (FR-JRN-7).
+ * each entry inline (FR-JRN-5), then the facts from the linked GitHub repositories (FR-GH-10).
+ * Entries, messages and facts can be corrected in place (FR-JRN-6), and the whole journal
+ * downloads as Markdown or JSON (FR-JRN-7), even with no entries.
  */
 export function Journal() {
   const journal = useQuery(journalQuery);
@@ -57,7 +59,7 @@ export function Journal() {
             Everything you&apos;ve sent the bot, oldest first, with the facts saved from it.
           </p>
         </div>
-        {journal.data !== undefined && journal.data.entries.length > 0 && (
+        {journal.data !== undefined && (
           <div className="flex gap-2">
             <a href={urls.markdown} download className={BUTTON}>
               Download Markdown
@@ -101,6 +103,16 @@ export function Journal() {
                   <span className="text-stone-500">({month.entries.length})</span>
                 </li>
               ))}
+              {journal.data.repositories.length > 0 && (
+                <li>
+                  <a
+                    href="#github-title"
+                    className={`rounded text-emerald-800 underline-offset-2 hover:underline ${FOCUS}`}
+                  >
+                    From GitHub
+                  </a>
+                </li>
+              )}
             </ul>
           </nav>
           <div className="max-w-3xl space-y-10">
@@ -126,6 +138,9 @@ export function Journal() {
             ))}
           </div>
         </div>
+      )}
+      {journal.data !== undefined && (
+        <GitHubFacts repositories={journal.data.repositories} projects={journal.data.projects} />
       )}
     </section>
   );

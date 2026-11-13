@@ -142,12 +142,12 @@ function editOf(draft: Draft): { edit: FactEdit } | { problem: string } {
   };
 }
 
-function roleOptions(fact: JournalFact, entry: JournalEntry, roles: readonly RoleOption[]) {
+function roleOptions(fact: JournalFact, entry: JournalEntry | null, roles: readonly RoleOption[]) {
   const options = roles.map((role) => ({ value: `role:${role.id}`, label: role.label }));
   if (fact.roleId && !roles.some((role) => role.id === fact.roleId)) {
     options.push({ value: `role:${fact.roleId}`, label: `${fact.roleId} (not in your profile)` });
   }
-  for (const name of new Set([fact.proposedRole, entry.newRole])) {
+  for (const name of new Set([fact.proposedRole, entry?.newRole])) {
     if (name) {
       options.push({ value: `new:${name}`, label: `New role: ${name}` });
     }
@@ -160,10 +160,16 @@ function projectOptions(fact: JournalFact, projects: readonly ProjectOption[]) {
   if (fact.projectId && !projects.some((project) => project.id === fact.projectId)) {
     options.push({ value: fact.projectId, label: `${fact.projectId} (not in your profile)` });
   }
-  return [{ value: "", label: "No project" }, ...options];
+  // A fact from GitHub without a project in the profile belongs to the new one it names.
+  const none =
+    fact.origin === "github" && fact.proposedItem
+      ? `New project: ${fact.proposedItem}`
+      : "No project";
+  return [{ value: "", label: none }, ...options];
 }
 
-/** Edit a fact's fields (FR-EXT-3). Escape cancels. */
+/** Edit a fact's fields (FR-EXT-3). Escape cancels. A fact from GitHub has no entry, and links
+ * to a project only (FR-GH-2), so it has no role field. */
 export function FactForm({
   fact,
   entry,
@@ -172,7 +178,7 @@ export function FactForm({
   onDone,
 }: {
   fact: JournalFact;
-  entry: JournalEntry;
+  entry: JournalEntry | null;
   roles: readonly RoleOption[];
   projects: readonly ProjectOption[];
   onDone: () => void;
@@ -300,25 +306,27 @@ export function FactForm({
         </div>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <label htmlFor={field("role")} className={LABEL}>
-            Role
-          </label>
-          <select
-            id={field("role")}
-            value={draft.role}
-            onChange={(event) => {
-              change({ role: event.target.value });
-            }}
-            className={INPUT}
-          >
-            {roleOptions(fact, entry, roles).map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        {fact.origin !== "github" && (
+          <div>
+            <label htmlFor={field("role")} className={LABEL}>
+              Role
+            </label>
+            <select
+              id={field("role")}
+              value={draft.role}
+              onChange={(event) => {
+                change({ role: event.target.value });
+              }}
+              className={INPUT}
+            >
+              {roleOptions(fact, entry, roles).map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div>
           <label htmlFor={field("project")} className={LABEL}>
             Project

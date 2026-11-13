@@ -4873,6 +4873,13 @@
             },
             "type": "array",
             "title": "Projects"
+          },
+          "repositories": {
+            "items": {
+              "$ref": "#/components/schemas/RepositoryFacts"
+            },
+            "type": "array",
+            "title": "Repositories"
           }
         },
         "additionalProperties": false,
@@ -4880,7 +4887,8 @@
         "required": [
           "entries",
           "roles",
-          "projects"
+          "projects",
+          "repositories"
         ],
         "title": "Journal"
       },
@@ -5021,6 +5029,13 @@
             "type": "array",
             "title": "Projects"
           },
+          "repositories": {
+            "items": {
+              "$ref": "#/components/schemas/RepositoryFacts"
+            },
+            "type": "array",
+            "title": "Repositories"
+          },
           "exportedAt": {
             "type": "string",
             "format": "date-time",
@@ -5032,13 +5047,6 @@
             },
             "type": "array",
             "title": "Importedfacts"
-          },
-          "repositories": {
-            "items": {
-              "$ref": "#/components/schemas/RepositoryFacts"
-            },
-            "type": "array",
-            "title": "Repositories"
           }
         },
         "additionalProperties": false,
@@ -5047,9 +5055,9 @@
           "entries",
           "roles",
           "projects",
+          "repositories",
           "exportedAt",
-          "importedFacts",
-          "repositories"
+          "importedFacts"
         ],
         "title": "JournalExport"
       },
@@ -6899,12 +6907,19 @@
             "title": "Url"
           },
           "private": {
-            "type": "boolean",
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Private"
           },
           "facts": {
             "items": {
-              "$ref": "#/components/schemas/Fact"
+              "$ref": "#/components/schemas/JournalFact"
             },
             "type": "array",
             "title": "Facts"
@@ -6918,7 +6933,8 @@
           "private",
           "facts"
         ],
-        "title": "RepositoryFacts"
+        "title": "RepositoryFacts",
+        "description": "A GitHub repository, and the facts read from it (FR-GH-10)."
       },
       "Restore": {
         "properties": {
