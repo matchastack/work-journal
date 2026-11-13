@@ -1004,30 +1004,32 @@ As the owner, I want the main journeys tested end to end, so that releases don't
 **Built (2026-11-03):** stacked on T-046 (#71), since the journey ends on the published page. The test (`backend/tests/e2e/`, marked `e2e`) uses Python's Playwright, already a dev dependency, so it reuses the backend's fixtures and seeds the data with the app's own functions: the fictional profile as version 1, a handle, two journal facts, and a refresh's change set proposed by the real refresh code from scripted replies. The app runs in the test's process under uvicorn on a free local port, with the web app's build and a database of its own, dropped afterwards. "Test mode" adds no sign-in to the app: `FakeGitHub` stands in for GitHub's OAuth endpoints, as in the sign-in tests, and the browser's redirect to github.com is answered with GitHub's callback, so `/auth/login` and `/auth/callback` run as they do for real. The app's Claude client has no replies, so a call the journey shouldn't make fails, and the browser reaches nothing but the app. It runs in its own CI job, after building the web app. The staging checklist sets up a second copy of T-051's deployment: a Vercel project, a Neon branch and a dev bot of its own, plus a working copy whose `backend/.env` is staging's.
 
 ### T-069 · Link repositories and import their history
-**Status:** ☐ · **Size:** L · **Depends on:** T-068 · **Requirements:** FR-GH-2, FR-GH-3, FR-GH-7, FR-GH-9, FR-GH-10, FR-JRN-7 · **PR:** —
+**Status:** ◐ · **Size:** L · **Depends on:** T-068 · **Requirements:** FR-GH-2, FR-GH-3, FR-GH-7, FR-GH-9, FR-GH-10, FR-JRN-7 · **PR:** PR_LINK
 
 As the owner, I want to link each repository to a project once, import its history and read what's new later, so that my side projects reach my resume without journaling.
 
-- [ ] A migration:
+- [x] A migration:
   - adds `repo_links`, with the repository's name and a new project's name encrypted;
   - adds `repo_items`, the keys of the items read, with no text;
   - allows the `github` origin on facts.
 
   Its downgrade deletes GitHub facts first.
-- [ ] `wj github link <owner/repo> (--project <id> | --new-project <name>) [--since YYYY-MM] [--ownership <cap>] [--yes]`:
+- [x] `wj github link <owner/repo> (--project <id> | --new-project <name>) [--since YYYY-MM] [--ownership <cap>] [--yes]`:
   - checks the token and the project;
   - says how many pull requests and commits it found, and how many model calls they take;
   - asks to go on;
   - saves each window's facts as it goes.
 
   For a project already in the profile, `--since` defaults to the month the profile was loaded. A benched project gets a warning.
-- [ ] `wj github sync` reads what's new in every linked repository.
-- [ ] `wj github list` shows the linked repositories.
-- [ ] `wj github unlink` stops reading one and keeps its facts.
-- [ ] Each item is read once, even when two reads run at once, and each read looks back 14 days.
-- [ ] A window the model can't read is recorded and skipped. An outage stops that repository until the next read.
-- [ ] The Markdown and JSON exports include GitHub facts, by repository.
-- [ ] Database tests, including two reads racing, and a second read that makes no model call.
+- [x] `wj github sync` reads what's new in every linked repository.
+- [x] `wj github list` shows the linked repositories.
+- [x] `wj github unlink` stops reading one and keeps its facts.
+- [x] Each item is read once, even when two reads run at once, and each read looks back 14 days.
+- [x] A window the model can't read is recorded and skipped. An outage stops that repository until the next read.
+- [x] The Markdown and JSON exports include GitHub facts, by repository.
+- [x] Database tests, including two reads racing, and a second read that makes no model call.
+
+**Built (2026-11-13):** a link is found by GitHub's number for the repository, so a rename keeps it; its name stays encrypted. A read saves each part's facts with its items' keys in one transaction. When another read took one of those items first, the part saves nothing and the read doesn't count as finished, so the next read starts where this one did: two reads may both ask the model, but only one saves. A part the model can't read is kept as read and failed, so it isn't tried again, and `wj github list` counts its items. The description, languages and README are read once. Linking again keeps the month a link reads from once a read has finished. Refreshes don't use GitHub facts yet: T-070 adds that.
 
 ### T-070 · Refreshes propose from GitHub facts
 **Status:** ☐ · **Size:** M · **Depends on:** T-069, T-064 · **Requirements:** FR-GH-2, FR-GH-4, FR-GH-10, FR-REV-1, FR-REV-6 · **PR:** —
