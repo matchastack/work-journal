@@ -75,9 +75,9 @@ from app.linkedin import (
     LinkedInDone,
     LinkedInPack,
     PackSection,
-    compared,
     mark_done,
     screen_pack,
+    since_done,
     write_pack,
 )
 from app.llm.client import LLMCallError, LLMClient, LLMConfigError
@@ -1547,7 +1547,7 @@ def linkedin_show(
         raise typer.Exit(1)
     if written is not None:
         typer.echo(f"Written from version {written} of your profile.")
-    _echo_pack(compared(pack, done), everything=everything, db=db)
+    _echo_pack(since_done(pack, done), everything=everything, db=db)
 
 
 def _echo_pack(pack: LinkedInPack, *, everything: bool, db: bool) -> None:

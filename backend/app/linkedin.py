@@ -17,7 +17,8 @@ text that fails is written once more, and flagged if it fails again (FR-FID-7).
 role and title, the prompt version and the owner's style notes. A section whose hash matches the
 last pack the owner marked done is carried over without a call; one that differs is written
 again, and listed only if its text changed (FR-LIN-2). Marking a pack done stores its sections
-as the new snapshot.
+as the new snapshot. The web app's LinkedIn page shows the pack last written against the newest
+snapshot (`since_done`), so once it's marked done, its sections are no longer listed.
 
 **Titles.** A current role whose LinkedIn title differs from the title on the most recent
 application is flagged, so the owner can make them match (FR-LIN-4).
@@ -339,20 +340,20 @@ def mark_done(
     return LinkedInDone(sections=tuple(sections), marked_at=now), tuple(flagged)
 
 
-def compared(pack: LinkedInPack, done: LinkedInDone | None) -> LinkedInPack:
-    """The pack against the sections marked done now, which may be later than when it was
-    written: which sections differ from them, and which sections marked done it doesn't have."""
-    earlier = {section.key: section for section in (done.sections if done else ())}
+def since_done(pack: LinkedInPack, done: LinkedInDone | None) -> LinkedInPack:
+    """`pack` against `done`, the snapshot last marked done, which may be newer than the pack:
+    a section is changed when its text isn't the snapshot's, and a section the snapshot has that
+    the pack doesn't is removed (FR-LIN-2). Once the pack is marked done, only a flagged section
+    can still be changed, as marking leaves it out."""
+    earlier = {section.key: section.text for section in (done.sections if done else ())}
     sections = tuple(
-        section.model_copy(
-            update={
-                "changed": section.key not in earlier or earlier[section.key].text != section.text
-            }
-        )
+        section.model_copy(update={"changed": earlier.get(section.key) != section.text})
         for section in pack.sections
     )
     keys = {section.key for section in pack.sections}
-    removed = tuple(section.label for section in earlier.values() if section.key not in keys)
+    removed = tuple(
+        section.label for section in (done.sections if done else ()) if section.key not in keys
+    )
     return pack.model_copy(update={"sections": sections, "removed": removed})
 
 
