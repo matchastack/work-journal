@@ -12,6 +12,16 @@ One short entry per pull request, newest first: what changed and what to verify.
 - After `/refresh` with a few dozen new facts, the bot says how many updates are proposed, not that the refresh didn't finish, and the Inbox lists them with their verifier reports
 - If the API answers 429 during a refresh, a lower `REFRESH_CONCURRENCY` in Vercel's environment variables stops it
 
+## 2026-11-01 · T-061 Refresh: the LinkedIn pack · [#73](https://github.com/matchastack/work-journal/pull/73)
+**Changed:** once a refresh's changes are applied, or it finds nothing new, a job writes the LinkedIn pack from the new version beside the master resume, without waiting for LaTeX, and `wj linkedin show --db` prints it.
+
+**Verify:**
+- CI is green on #73
+- After `uv run alembic upgrade head`, apply a refresh's changes in the Inbox and run `uv run wj tick`: `uv run wj linkedin show --db` prints the sections that changed, written from the new version
+- After `uv run wj linkedin done --db`, `/refresh` with nothing new and a tick leave the pack's sections as they were, without a model call
+- Without `LLM_MODEL_STANDARD`, a tick still renders the master resume, and `wj linkedin show --db` says the refresh couldn't write the pack
+- With a confidential term in Settings that a section would name, the refresh's pack writes it without the term, or flags it, as `wj linkedin --db` does
+
 ## 2026-10-30 · T-047 LinkedIn page · [#68](https://github.com/matchastack/work-journal/pull/68)
 **Changed:** the web app's LinkedIn page lists the sections of your LinkedIn pack that changed since you last marked it done, each with a Copy button and its length against LinkedIn's limit, and Mark done saves the snapshot. The pack comes from `wj linkedin --db` until the refresh writes it (T-061).
 

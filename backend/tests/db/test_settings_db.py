@@ -11,8 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import User
 from app.db.settings import (
     add_style_notes,
+    clear_linkedin_draft,
     get_confidential_terms,
     get_linkedin_done,
+    get_linkedin_draft,
     get_linkedin_pack,
     get_portfolio_settings,
     get_reminder_settings,
@@ -21,6 +23,7 @@ from app.db.settings import (
     handle_taken,
     save_confidential_terms,
     save_linkedin_done,
+    save_linkedin_draft,
     save_linkedin_pack,
     save_portfolio_settings,
     save_reminder_settings,
@@ -99,6 +102,25 @@ async def test_the_linkedin_pack_and_its_done_snapshot_are_kept(session: AsyncSe
     await save_linkedin_pack(session, user, pack.model_copy(update={"profile_version": 3}))
     assert await get_linkedin_pack(session, user) == pack.model_copy(update={"profile_version": 3})
     assert await get_linkedin_done(session, user) == done
+
+
+async def test_the_draft_of_a_pack_being_written_is_kept_apart_until_cleared(
+    session: AsyncSession,
+) -> None:
+    """The sections a refresh has written so far never replace the pack the owner reads."""
+    user = await new_user(session)
+    section = PackSection(
+        key="headline", kind="headline", label="Headline", text="Engineer", source="a", changed=True
+    )
+    pack = LinkedInPack(sections=(section,), profile_version=1)
+    await save_linkedin_pack(session, user, pack)
+    draft = LinkedInPack(sections=(section.model_copy(update={"text": "New"}),), profile_version=2)
+    await save_linkedin_draft(session, user, draft)
+    assert await get_linkedin_draft(session, user) == draft
+    assert await get_linkedin_pack(session, user) == pack
+    await clear_linkedin_draft(session, user)
+    assert await get_linkedin_draft(session, user) is None
+    assert await get_linkedin_pack(session, user) == pack
 
 
 async def test_reminders_follow_the_defaults_until_the_owner_sets_them(
