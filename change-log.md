@@ -2,7 +2,7 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-11-13 · Milestone and task statuses · PR link below
+## 2026-11-13 · Milestone and task statuses · [#80](https://github.com/matchastack/work-journal/pull/80)
 **Changed:** `tasks.md` marks M0 and M1 done, and the 22 tasks whose pull requests merged since the last update (T-035 to T-037, T-042 to T-049, T-052, T-053, T-061, T-064 to T-068 and T-073 to T-075). The user guide no longer says web pages for rendering the master resume and writing the LinkedIn text are coming: a refresh does both, and the command-line tool does them on demand.
 
 **Verify:**
