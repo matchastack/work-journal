@@ -20,7 +20,7 @@ from app import cli as cli_module
 from app.cli import cli
 from app.config import Settings, get_settings
 from app.db.crypto import new_key, use_key_ring
-from app.db.models import FactRow, ProfileVersionRow, User
+from app.db.models import FactRow, ProfileVersionRow, RepoLink, User
 from app.db.profiles import save_version
 from app.github.extraction import RepoExtractionReply
 from app.github.fake import TOKEN, FakeGitHubApi
@@ -28,6 +28,7 @@ from app.llm.client import LLMClient
 from app.llm.fake import FakeMessages, reply
 from app.llm.usage import MemoryCallLog
 from app.schema.profile import Profile
+from app.synthesis import SynthesisPlan
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "github"
 runner = CliRunner()
@@ -273,3 +274,56 @@ def test_link_refuses_a_project_the_profile_doesnt_have(
     assert result.exit_code == 2
     assert "the profile has no project 'no_such_project'" in result.output
     assert fake.requests == []
+
+
+def test_propose_reads_the_linked_repositories_before_the_refresh(
+    owner: User, database_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """T-071: `wj propose --db` reads everything new first, as `/refresh` reads some."""
+    assert owner.github_id is not None
+    with_profile(database_url, owner, loaded=datetime(2023, 8, 10, tzinfo=UTC))
+    github(monkeypatch, owner.github_id)
+    model(monkeypatch, found("pr1"))
+    linked = wj(owner, "link", RECIPE_BOX, "--project", "recipe_box", "--yes")
+    assert linked.exit_code == 0, linked.output
+    fake = model(monkeypatch, RepoExtractionReply(facts=()))
+    plan = SynthesisPlan()
+    monkeypatch.setattr(
+        cli_module,
+        "_llm_client",
+        lambda: LLMClient(
+            Settings(llm_model_standard="standard-model", llm_model_heavy="heavy-model"),
+            fake,
+            MemoryCallLog(),
+        ),
+    )
+    fake.replies.append(reply(plan))
+    result = runner.invoke(cli, ["propose", "--db", "--user", str(owner.github_login)])
+    assert result.exit_code == 0, result.output
+    lines = result.stdout.splitlines()
+    assert lines[:3] == [
+        "Reading what's new in your linked repositories.",
+        "From GitHub: nothing new read from your linked repositories.",
+        "Planning changes from 1 new fact.",
+    ]
+
+
+def test_sync_leaves_a_repository_another_read_is_working_on(
+    owner: User, database_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert owner.github_id is not None
+    with_profile(database_url, owner, loaded=datetime(2023, 8, 10, tzinfo=UTC))
+    fake_github = github(monkeypatch, owner.github_id)
+    model(monkeypatch, found("pr1"))
+    assert wj(owner, "link", RECIPE_BOX, "--project", "recipe_box", "--yes").exit_code == 0
+    user = select(User.id).where(User.github_login == owner.github_login).scalar_subquery()
+    reading = update(RepoLink).where(RepoLink.user_id == user).values(reading_since=func.now())
+    run(database_url, reading)
+    asked = len(fake_github.requests)
+    idle = model(monkeypatch)
+    synced = wj(owner, "sync")
+    assert synced.exit_code == 0, synced.output
+    assert synced.stdout == (
+        "casey-example/recipe-box: another read is working on it, so it's left to that one.\n"
+    )
+    assert (idle.requests, len(fake_github.requests)) == ([], asked), "nothing is read"
