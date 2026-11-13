@@ -11,6 +11,16 @@ One short entry per pull request, newest first: what changed and what to verify.
 - The next reminder ends with a question whose bullet is strong in your master resume; "Answer the question" and a one-message answer bring back the facts saved from it, with a line saying your next /refresh can use them
 - `/refresh` then proposes a new version of that bullet and "Answer an open question"; once both are accepted and applied, the next reminder asks a different question
 
+## 2026-10-30 · T-064 Refreshes of months of facts within the time limit · [#53](https://github.com/matchastack/work-journal/pull/53)
+**Changed:** a refresh writes and checks its bullets 10 at a time instead of one by one, so a refresh of about 100 facts finishes within the 300 s Vercel gives it; `REFRESH_CONCURRENCY` sets how many.
+
+**Verify:**
+- CI is green on the PR
+- `uv run wj propose --db` with many new facts proposes the same kind of changes as before, much faster
+- Ctrl+C during `uv run wj propose --db` stops it at once and marks the refresh failed
+- After `/refresh` with a few dozen new facts, the bot says how many updates are proposed, not that the refresh didn't finish, and the Inbox lists them with their verifier reports
+- If the API answers 429 during a refresh, a lower `REFRESH_CONCURRENCY` in Vercel's environment variables stops it
+
 ## 2026-11-01 · T-052 Observability · [#74](https://github.com/matchastack/work-journal/pull/74)
 **Changed:** the app, `wj worker` and `wj tick` log JSON lines without journal text and, with `SENTRY_DSN` set, report errors to Sentry with journal text scrubbed; the Settings page shows each month's estimated LLM cost by task and by tier.
 

@@ -15,6 +15,8 @@
   raises `LLMUnavailable`; any other API error raises `LLMRequestError`.
 - Every call that reaches the API is recorded in the call log (`usage.py`) with its task, models,
   prompt version, tokens, cost and latency, never any text (NFR-PRIV-2).
+- One client may serve several threads at once, as a refresh's bullets do (`app/synthesis.py`):
+  each call keeps its own state, and the SDK's client and the call logs are thread-safe.
 
 Replies are streamed, so long outputs don't hit the SDK's limit on non-streaming requests.
 """

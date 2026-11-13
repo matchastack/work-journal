@@ -85,15 +85,19 @@ class CallLog(Protocol):
 
 
 class JsonlCallLog:
-    """Appends one JSON line per call to a file."""
+    """Appends one JSON line per call to a file. Calls made from several threads at once, such as
+    a refresh's bullets, append one at a time, so their lines don't mix."""
 
     def __init__(self, path: Path) -> None:
         self.path = path
+        self._lock = threading.Lock()
 
     def record(self, call: CallRecord) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.path.open("a", encoding="utf-8") as file:
-            file.write(json.dumps(call.model_dump(mode="json")) + "\n")
+        line = json.dumps(call.model_dump(mode="json")) + "\n"
+        with self._lock:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            with self.path.open("a", encoding="utf-8") as file:
+                file.write(line)
 
 
 class CallLogs:

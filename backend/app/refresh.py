@@ -7,9 +7,10 @@
 2. Its job (`refresh_profile` in `app/jobs.py`) proposes changes from the journal facts that no
    refresh has covered: new facts, and facts edited since (`facts.refreshed_at`). It reads them
    (`begin_proposals`), runs profile synthesis (T-018) outside a transaction, then saves the
-   change set for review and marks the facts covered (`record_proposals`). A fact edited in the
-   meantime isn't marked, so the next refresh covers it again. A fact the change set doesn't use
-   is covered too: it waits in the brag bank until it's edited.
+   change set for review and marks the facts covered (`record_proposals`). Synthesis writes the
+   bullets `REFRESH_CONCURRENCY` at a time, so months of facts fit in one function call (T-064).
+   A fact edited in the meantime isn't marked, so the next refresh covers it again. A fact the
+   change set doesn't use is covered too: it waits in the brag bank until it's edited.
 3. A refresh's outputs fall due (`outputs_due`) when its change set is decided, in the Inbox or
    with `wj apply --db` (`change_set_decided`), or at once when it proposes nothing. They're to
    show the newest version then, so edits the owner made since the last refresh reach them too.

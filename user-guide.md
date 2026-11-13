@@ -67,6 +67,7 @@ Open `http://localhost:8000/healthz` to check it is up, or `http://localhost:800
 | `LLM_PRICE_HEAVY`, `LLM_PRICE_STANDARD`, `LLM_PRICE_LIGHT` | Optional: each tier's price in US dollars per million input and output tokens, such as `[3, 15]`. The LLM costs on the Settings page are estimated from them |
 | `SENTRY_DSN` | Optional: the DSN of a Sentry project, so that errors in the app, `wj worker` and `wj tick` are reported there. Journal text is never sent. Empty means nothing is sent |
 | `ENTRY_TIMEOUT_MINUTES` | Minutes of quiet that close a journal entry (default 30) |
+| `REFRESH_CONCURRENCY` | How many bullets a refresh writes and checks at once (default 10), so a refresh of months of facts finishes in time. Lower it if the Claude API answers 429 (Too Many Requests) |
 | `REMINDER_DAYS`, `REMINDER_TIME`, `REMINDER_TIME_ZONE` | When the bot reminds you to journal: days such as `fri` or `mon,thu`, a local time and an IANA time zone (default Fridays at 18:00, Asia/Singapore) |
 
 ### Local database

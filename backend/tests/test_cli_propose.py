@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 from anthropic.types.beta import BetaMessage
@@ -10,14 +11,14 @@ from typer.testing import CliRunner, Result
 
 from app import cli as cli_module
 from app.cli import cli
-from app.config import Settings
+from app.config import Settings, get_settings
 from app.llm.client import LLMClient
 from app.llm.fake import FakeMessages, reply
 from app.llm.usage import MemoryCallLog
 from app.schema.changes import ChangeSet
 from app.schema.fact import Fact
 from app.schema.profile import Profile
-from app.synthesis import PlannedBullet, PlannedRole, SynthesisPlan
+from app.synthesis import PlannedBullet, PlannedRole, Synthesis, SynthesisPlan
 from app.validate.claims import ClaimReply, JudgedClaim
 from app.writing import WrittenBullet
 
@@ -170,6 +171,29 @@ def test_propose_writes_the_change_set_and_shows_each_change(
     again = invoke("propose", files)
     assert again.exit_code == 1
     assert "still waits for review: run `wj apply` first" in again.stderr
+
+
+def test_propose_writes_bullets_refresh_concurrency_at_a_time(
+    files: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """As a refresh's job does (T-064)."""
+    concurrency: list[int] = []
+    real = cli_module.synthesize
+
+    def spy(*args: Any, **options: Any) -> Synthesis:
+        concurrency.append(options["concurrency"])
+        return real(*args, **options)
+
+    monkeypatch.setattr(cli_module, "synthesize", spy)
+    monkeypatch.setenv("REFRESH_CONCURRENCY", "3")
+    get_settings.cache_clear()
+    try:
+        propose(files, monkeypatch)
+    finally:
+        get_settings.cache_clear()
+    assert concurrency == [3]
+    _, change_set = saved(files)
+    assert len(change_set.ops) == 3
 
 
 def test_apply_with_yes_accepts_what_passed_and_updates_the_profile(
