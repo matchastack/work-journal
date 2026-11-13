@@ -2098,6 +2098,8 @@ export interface components {
             exportedAt: string;
             /** Importedfacts */
             importedFacts: components["schemas"]["Fact"][];
+            /** Repositories */
+            repositories: components["schemas"]["RepositoryFacts"][];
         };
         /** JournalFact */
         JournalFact: {
@@ -2757,6 +2759,17 @@ export interface components {
             private: boolean;
             /** Items */
             items: components["schemas"]["RepoItem"][];
+        };
+        /** RepositoryFacts */
+        RepositoryFacts: {
+            /** Repository */
+            repository: string;
+            /** Url */
+            url: string;
+            /** Private */
+            private: boolean;
+            /** Facts */
+            facts: components["schemas"]["Fact"][];
         };
         /** Restore */
         Restore: {

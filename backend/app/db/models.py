@@ -12,6 +12,7 @@ from typing import Any, Literal
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
@@ -178,11 +179,11 @@ class ProfileVersionRow(Base):
 
 
 class FactRow(Base):
-    """A fact from the journal or the import. Its content is encrypted (FR-JRN-4); the columns
-    beside it are IDs and dates for finding it."""
+    """A fact from the journal, the import or a linked GitHub repository. Its content is encrypted
+    (FR-JRN-4); the columns beside it are IDs and dates for finding it."""
 
     __tablename__ = "facts"
-    __table_args__ = (CheckConstraint("origin IN ('journal', 'import')", name="origin"),)
+    __table_args__ = (CheckConstraint("origin IN ('journal', 'import', 'github')", name="origin"),)
 
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
@@ -190,7 +191,7 @@ class FactRow(Base):
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     data: Mapped[str] = mapped_column(EncryptedText("facts.data"))
     """The fact (`app/schema/fact.py`) as JSON."""
-    origin: Mapped[Literal["journal", "import"]] = mapped_column(String(8))
+    origin: Mapped[Literal["journal", "import", "github"]] = mapped_column(String(8))
     entry_id: Mapped[str | None] = mapped_column(String(64))
     role_id: Mapped[str | None] = mapped_column(String(64))
     project_id: Mapped[str | None] = mapped_column(String(64))
@@ -202,6 +203,64 @@ class FactRow(Base):
     refreshed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     """When a refresh covered the fact (FR-REV-6). None while it waits for the next one: it's
     new, or it was edited since (`save_facts` clears it)."""
+
+
+class RepoLink(Base):
+    """A GitHub repository the owner linked to one project (FR-GH-2): one in the profile, by ID,
+    or a new one they named. Its facts are saved as facts with the `github` origin.
+
+    Its name, and a new project's name, are encrypted (FR-GH-9). GitHub's number for the
+    repository identifies it, so it's found again after a rename. Unlinking stops reading it and
+    keeps its facts; linking it again carries on where it stopped (`read_at` and `repo_items`)."""
+
+    __tablename__ = "repo_links"
+    __table_args__ = (
+        UniqueConstraint("user_id", "github_id"),
+        CheckConstraint("(project_id IS NULL) <> (new_project IS NULL)", name="project"),
+        CheckConstraint("ownership IN ('owned', 'contributed', 'assisted')", name="ownership"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, server_default=func.gen_random_uuid())
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    github_id: Mapped[int] = mapped_column(BigInteger)
+    """GitHub's number for the repository."""
+    name: Mapped[str] = mapped_column(EncryptedText("repo_links.name"))
+    """The repository, as `owner/name`, as GitHub last gave it."""
+    project_id: Mapped[str | None] = mapped_column(String(64))
+    new_project: Mapped[str | None] = mapped_column(EncryptedText("repo_links.new_project"))
+    ownership: Mapped[Literal["owned", "contributed", "assisted"] | None] = mapped_column(
+        String(16)
+    )
+    """The cap the owner chose for its facts' ownership; None for the default (FR-GH-6)."""
+    since: Mapped[date | None] = mapped_column(Date)
+    """The first day of the month its history is read from; None for all of it (FR-GH-3)."""
+    linked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    unlinked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    """When the owner stopped reading it; None while it's linked."""
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    """When the last whole read started. The next looks back 14 days before it (FR-GH-7); until
+    one finishes, reads start at `since`."""
+
+
+class RepoItemRow(Base):
+    """The key of a pull request, a commit or the description that a read of a linked repository
+    took (FR-GH-7): its number or hash, never its text. An item is read once."""
+
+    __tablename__ = "repo_items"
+    __table_args__ = (CheckConstraint("kind IN ('about', 'pull', 'commit')", name="kind"),)
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    link_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("repo_links.id", ondelete="CASCADE"), primary_key=True
+    )
+    kind: Mapped[Literal["about", "pull", "commit"]] = mapped_column(String(8), primary_key=True)
+    ref: Mapped[str] = mapped_column(String(64), primary_key=True)
+    """The pull request's number or the commit's hash; empty for the description."""
+    read_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    failed: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    """Whether the model couldn't read the part the item was in, so it gave no facts."""
 
 
 class Refresh(Base):

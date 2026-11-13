@@ -6,7 +6,7 @@ import re
 import uuid
 from collections.abc import AsyncGenerator, Callable, Coroutine, Sequence
 from contextlib import asynccontextmanager
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, Any
@@ -40,6 +40,19 @@ from app.db.profiles import (
     lock_profile,
     save_version,
 )
+from app.db.repo_links import (
+    ItemCounts,
+    ItemKey,
+    LinkedRepository,
+    find_link,
+    get_link,
+    item_counts,
+    link_repository,
+    list_links,
+    profile_loaded_at,
+    read_keys,
+    unlink,
+)
 from app.db.settings import (
     PackInputs,
     get_confidential_terms,
@@ -64,10 +77,11 @@ from app.evals.dataset import FICTIONAL_DIR, SUITES, Dataset, DatasetError, load
 from app.evals.report import evaluation_report
 from app.evals.run import CaseResult, Evaluation, SuiteResult, run_suite
 from app.extraction import extract_facts
-from app.github.api import GitHubApi, GitHubApiError, check_repository_name
-from app.github.digest import Digest, build_digest, describe_left_out
+from app.github.api import GitHubApi, GitHubApiError, GitHubTokenError, check_repository_name
+from app.github.digest import MONTHS, Digest, build_digest, describe_left_out
 from app.github.extraction import RepoTarget, extract_repo_facts
 from app.github.reader import ExpectedOwner, read_history
+from app.github.sync import PartRead, ReadReport, find_repository, plan_read, read_parts
 from app.importers.master_resume import MasterResumeError, import_master_resume
 from app.jobs import run_worker
 from app.linkedin import (
@@ -1955,24 +1969,35 @@ class OwnershipCap(StrEnum):
     ASSISTED = "assisted"
 
 
+DatabaseUserOption = Annotated[
+    str | None,
+    typer.Option(
+        "--user", help="The owner's GitHub username. Not needed while the database has one user."
+    ),
+]
+ProjectOption = Annotated[
+    str | None, typer.Option(help="The project in your profile the facts belong to, by ID.")
+]
+NewProjectOption = Annotated[
+    str | None,
+    typer.Option(help="Or the name of a new project, which a refresh may add to the profile."),
+]
+OwnershipOption = Annotated[
+    OwnershipCap | None,
+    typer.Option(
+        help="The most the facts may claim of your part. Default: owned in your own "
+        "repository, contributed elsewhere."
+    ),
+]
+
+
 @github_cli.command("extract")
 def github_extract(
     repository: RepositoryArgument,
-    project: Annotated[
-        str | None, typer.Option(help="The project in your profile the facts belong to, by ID.")
-    ] = None,
-    new_project: Annotated[
-        str | None,
-        typer.Option(help="Or the name of a new project, which a refresh may add to the profile."),
-    ] = None,
+    project: ProjectOption = None,
+    new_project: NewProjectOption = None,
     since: SinceOption = None,
-    ownership: Annotated[
-        OwnershipCap | None,
-        typer.Option(
-            help="The most the facts may claim of your part. Default: owned in your own "
-            "repository, contributed elsewhere."
-        ),
-    ] = None,
+    ownership: OwnershipOption = None,
     profile: GitHubProfileOption = None,
     db: DbOption = False,
     user: UserOption = None,
@@ -2015,6 +2040,331 @@ def github_extract(
         typer.echo(f"{part} couldn't be read, so its facts are missing: {failed.reason}", err=True)
     if extraction.failed:
         raise typer.Exit(1)
+
+
+@github_cli.command("link")
+def github_link(
+    repository: RepositoryArgument,
+    project: ProjectOption = None,
+    new_project: NewProjectOption = None,
+    since: Annotated[
+        str | None,
+        typer.Option(
+            help="Read from this month on, as YYYY-MM. Default: for a project in your profile, "
+            "the month your profile was loaded; for a new project, the whole history."
+        ),
+    ] = None,
+    ownership: OwnershipOption = None,
+    yes: Annotated[bool, typer.Option("--yes", help="Go on without asking.")] = False,
+    user: DatabaseUserOption = None,
+) -> None:
+    """Link a repository to a project, import its history and save its facts (FR-GH-2).
+
+    Says how many merged pull requests and commits it found and how many model calls they take,
+    then asks to go on. Each part's facts are saved as it's read. Linking a repository again
+    carries on where it stopped. Uses the database (DATABASE_URL) and GITHUB_REPOS_TOKEN.
+    """
+    name = _repository_name(repository)
+    start = _month_start(since)
+    try:
+        target = RepoTarget(project, new_project, None if ownership is None else ownership.value)
+    except ValueError as error:
+        raise typer.BadParameter(str(error), param_hint="--project") from None
+    asyncio.run(_link_repository(name, target, start, yes=yes, login=user))
+
+
+@github_cli.command("sync")
+def github_sync(user: DatabaseUserOption = None) -> None:
+    """Read what's new in every linked repository, and save its facts (FR-GH-7).
+
+    Each item is read once, so a repository with nothing new makes no model call. A part the
+    model can't read is recorded and skipped, and a repository that can't be read waits for the
+    next sync; either makes the exit status 1.
+    """
+    asyncio.run(_sync_repositories(user))
+
+
+@github_cli.command("list")
+def github_list(user: DatabaseUserOption = None) -> None:
+    """List the linked repositories.
+
+    Each one's project, the month its history is read from, when it was last read, and how many
+    items were read.
+    """
+    asyncio.run(_list_repositories(user))
+
+
+@github_cli.command("unlink")
+def github_unlink(repository: RepositoryArgument, user: DatabaseUserOption = None) -> None:
+    """Stop reading a linked repository, and keep its facts.
+
+    Linking it again carries on where it stopped.
+    """
+    name = _repository_name(repository)
+    asyncio.run(_unlink_repository(name, user))
+
+
+async def _link_repository(
+    name: str, target: RepoTarget, start: datetime | None, *, yes: bool, login: str | None
+) -> None:
+    async with _repository_session() as session:
+        user_id = await _user(session, login)
+        profile = (await _latest(session, user_id)).profile
+        project_name = _project_name(target, profile)
+        if any(p.id == target.project_id and p.status == "benched" for p in profile.projects):
+            typer.echo(f"Note: {project_name} is benched, so its bullets never render.", err=True)
+        owner = await _user_owner(session, user_id)
+        loaded = await profile_loaded_at(session, user_id)
+        await session.commit()
+        started_at = datetime.now(UTC)
+        async with _github_http() as http:
+            api = GitHubApi.from_settings(get_settings(), http)
+            try:
+                repository = await find_repository(api, name, owner=owner)
+                link = await get_link(session, user_id, github_id=repository.id)
+                read = set[ItemKey]() if link is None else await read_keys(session, link.id)
+                # Nothing waits on the database while GitHub, the owner or the model is read.
+                await session.commit()
+                since = _link_since(start, link, target, loaded)
+                if link is not None and link.read_at is not None:
+                    begin = link.start
+                    typer.echo(f"{repository.full_name} was linked before: carrying on from there.")
+                else:
+                    begin = None if since is None else datetime.combine(since, time(), UTC)
+                digest = await plan_read(
+                    api, repository.full_name, owner=owner, start=begin, read=read
+                )
+            except GitHubApiError as error:
+                typer.echo(str(error), err=True)
+                raise typer.Exit(1) from None
+        _echo_found(digest, begin)
+        if digest.windows and not yes and not typer.confirm("Go on?", default=False):
+            typer.echo("Nothing was linked.")
+            return
+        link = await link_repository(
+            session,
+            user_id,
+            github_id=repository.id,
+            name=repository.full_name,
+            target=target,
+            since=since,
+        )
+        await session.commit()
+        report = await read_parts(
+            session,
+            user_id,
+            link,
+            digest,
+            profile,
+            _llm_client(),
+            started_at=started_at,
+            on_part=lambda part: _echo_part(part, len(digest.windows)),
+        )
+    typer.echo(f"Linked {repository.full_name} to {project_name}, and saved {_facts(report)}.")
+    if report.stopped is not None:
+        typer.echo(f"The read stopped: {report.stopped}. `wj github sync` carries on.", err=True)
+    if report.stopped is not None or report.failed:
+        raise typer.Exit(1)
+
+
+async def _sync_repositories(login: str | None) -> None:
+    problems = False
+    async with _repository_session() as session:
+        user_id = await _user(session, login)
+        links = await list_links(session, user_id)
+        if not links:
+            typer.echo("No repository is linked. Link one with `wj github link`.")
+            return
+        profile = (await _latest(session, user_id)).profile
+        owner = await _user_owner(session, user_id)
+        client = _llm_client()
+        async with _github_http() as http:
+            api = GitHubApi.from_settings(get_settings(), http)
+            for link in links:
+                problems |= not await _sync_one(session, user_id, link, api, owner, profile, client)
+    if problems:
+        raise typer.Exit(1)
+
+
+async def _sync_one(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    link: LinkedRepository,
+    api: GitHubApi,
+    owner: ExpectedOwner,
+    profile: Profile,
+    client: LLMClient,
+) -> bool:
+    """Read what's new in one linked repository. Returns whether it all went well."""
+    try:
+        link.target.project_name(profile)
+    except ValueError:
+        typer.echo(
+            f"{link.name}: its project {link.target.project_id} isn't in your profile any more. "
+            "Link it again with --project or --new-project.",
+            err=True,
+        )
+        return False
+    read = await read_keys(session, link.id)
+    # Nothing waits on the database while GitHub or the model is read.
+    await session.commit()
+    started_at = datetime.now(UTC)
+    try:
+        digest = await plan_read(api, link.name, owner=owner, start=link.start, read=read)
+    except GitHubTokenError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from None
+    except GitHubApiError as error:
+        typer.echo(f"{link.name}: GitHub couldn't be read: {error}. The next sync tries again.")
+        return False
+    if not digest.windows:
+        typer.echo(f"{link.name}: nothing new.")
+        # A read that found nothing new still finished: the next looks back from now.
+        await read_parts(session, user_id, link, digest, profile, client, started_at=started_at)
+        return True
+    report = await read_parts(
+        session,
+        user_id,
+        link,
+        digest,
+        profile,
+        client,
+        started_at=started_at,
+        on_part=lambda part: _echo_part(part, len(digest.windows), link.name),
+    )
+    typer.echo(f"{link.name}: saved {_facts(report)}.")
+    if report.stopped is not None:
+        typer.echo(f"{link.name}: stopped: {report.stopped}. The next sync carries on.", err=True)
+    return report.stopped is None and not report.failed
+
+
+async def _list_repositories(login: str | None) -> None:
+    async with _repository_session() as session:
+        user_id = await _user(session, login)
+        links = await list_links(session, user_id)
+        if not links:
+            typer.echo("No repository is linked. Link one with `wj github link`.")
+            return
+        profile = (await _latest(session, user_id)).profile
+        counts = await item_counts(session, user_id)
+    for link in links:
+        read = counts.get(link.id, ItemCounts())
+        start = "the start" if link.since is None else _month_name(link.since)
+        last = "not yet" if link.read_at is None else _day_name(link.read_at)
+        details = [f"read from {start}", f"last read {last}", _count(read.read, "item") + " read"]
+        if read.failed:
+            details[-1] += f" ({read.failed} in parts the model couldn't read)"
+        if link.target.ownership is not None:
+            details.append(f"ownership capped at {link.target.ownership}")
+        typer.echo(f"{link.name}: {_link_project(link, profile)}; {', '.join(details)}.")
+
+
+async def _unlink_repository(name: str, login: str | None) -> None:
+    async with _repository_session() as session:
+        user_id = await _user(session, login)
+        link = await find_link(session, user_id, name)
+        if link is None:
+            typer.echo(f"{name} isn't linked. `wj github list` shows the repositories that are.")
+            raise typer.Exit(1)
+        await unlink(session, link.id, now=datetime.now(UTC))
+        await session.commit()
+    typer.echo(
+        f"Unlinked {link.name}: it won't be read again, and its facts stay. Linking it again "
+        "carries on where it stopped."
+    )
+
+
+@asynccontextmanager
+async def _repository_session() -> AsyncGenerator[AsyncSession]:
+    """A session on DATABASE_URL whose caller commits, as a read saves each part as it goes."""
+    url = get_settings().database_url
+    if url is None:
+        typer.echo("Set DATABASE_URL to use the database.", err=True)
+        raise typer.Exit(1)
+    engine = create_engine(url.get_secret_value())
+    try:
+        async with session_factory(engine)() as session:
+            yield session
+    finally:
+        await engine.dispose()
+
+
+async def _user_owner(session: AsyncSession, user_id: uuid.UUID) -> ExpectedOwner:
+    account = await session.get(User, user_id)
+    assert account is not None, "_user returns a user that exists"
+    return ExpectedOwner(github_id=account.github_id, login=account.github_login)
+
+
+def _project_name(target: RepoTarget, profile: Profile) -> str:
+    try:
+        return target.project_name(profile)
+    except ValueError as error:
+        raise typer.BadParameter(str(error), param_hint="--project") from None
+
+
+def _link_since(
+    given: datetime | None,
+    link: LinkedRepository | None,
+    target: RepoTarget,
+    loaded: datetime | None,
+) -> date | None:
+    """The month a link's history starts: the one given; else, for a repository linked before,
+    its own; else, for a project in the profile, the month the profile was loaded, so what the
+    imported resume already says isn't proposed again (FR-GH-3)."""
+    if given is not None:
+        return given.date()
+    if link is not None:
+        return link.since
+    if target.project_id is not None and loaded is not None:
+        return date(loaded.year, loaded.month, 1)
+    return None
+
+
+def _echo_found(digest: Digest, begin: datetime | None) -> None:
+    start = "its start" if begin is None else _month_name(begin.date())
+    found = f"Found {_count(digest.pulls_read, 'merged pull request')} and "
+    found += f"{_count(digest.commits_read, 'commit')} in {digest.repository} since {start}"
+    if not digest.windows:
+        typer.echo(f"{found}, and nothing new to read.")
+        return
+    calls = _count(len(digest.windows), "model call")
+    typer.echo(f"{found}: {_count(len(digest.items), 'new item')} to read, so {calls}.")
+    if digest.more_pulls:
+        typer.echo("GitHub's search gave only the first 1,000 merged pull requests.")
+
+
+def _echo_part(part: PartRead, parts: int, repository: str | None = None) -> None:
+    where = f"Part {part.index + 1} of {parts}"
+    if repository is not None:
+        where = f"{repository}: part {part.index + 1} of {parts}"
+    if part.taken:
+        typer.echo(f"{where}: another read took its items first, so this one saved nothing.")
+    elif part.failed is not None:
+        typer.echo(f"{where} couldn't be read, so its facts are missing: {part.failed}", err=True)
+    else:
+        left_out = f" (left out {part.left_out} its items don't back)" if part.left_out else ""
+        typer.echo(f"{where}: saved {_count(len(part.facts), 'fact')}{left_out}.")
+
+
+def _facts(report: ReadReport) -> str:
+    return _count(report.facts, "fact")
+
+
+def _link_project(link: LinkedRepository, profile: Profile) -> str:
+    if link.target.new_project is not None:
+        return f"new project {link.target.new_project}"
+    try:
+        return f"{link.target.project_name(profile)} ({link.target.project_id})"
+    except ValueError:
+        return f"{link.target.project_id}, which isn't in your profile any more"
+
+
+def _month_name(day: date) -> str:
+    return f"{MONTHS[day.month - 1]} {day.year}"
+
+
+def _day_name(moment: datetime) -> str:
+    return f"{moment.day} {MONTHS[moment.month - 1][:3]} {moment.year}"
 
 
 def _repository_name(repository: str) -> str:

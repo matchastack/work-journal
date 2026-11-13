@@ -35,7 +35,7 @@ Every generated sentence is checked against your facts, so wording never changes
 | Publish your portfolio page, and choose the resumes it offers | The web app, Portfolio page |
 | Render the master resume, or write the LinkedIn text, without waiting for a refresh | The command-line tool: `wj render --db`, `wj linkedin --db` |
 | Paste the LinkedIn text that changed into LinkedIn | The web app, LinkedIn page (a refresh writes the text) |
-| See what a GitHub repository's history would give one of your projects, and the facts in it | `wj github digest`, then `wj github extract` (saving the facts for `/refresh` is **Coming**: T-069 to T-072) |
+| Link a GitHub repository to one of your projects, and save the facts in its history | `wj github link`, then `wj github sync` for what's new (turning them into bullets at `/refresh` is **Coming**: T-070 to T-072) |
 
 ## Set up on your computer
 
@@ -222,7 +222,7 @@ You can correct anything in place:
 - **Facts:** edit the statement, outcome, kind, your part in it, date, numbers, role, project and tools, or delete the fact. If the profile cites a fact, the page names the bullets before it deletes.
 - **Entries:** delete a whole entry, with its messages and facts. If the profile cites any of those facts, the page names the bullets and asks you to confirm first.
 
-**Download Markdown** and **Download JSON** at the top save the whole journal.
+**Download Markdown** and **Download JSON** at the top save the whole journal, with the facts from your imported resume and from your [linked GitHub repositories](#projects-from-github), by repository.
 
 ### Profile
 
@@ -406,7 +406,7 @@ With `--db`, a section that names one of your confidential terms is written once
 
 ### Projects from GitHub
 
-Work Journal can read a GitHub repository's history to find facts for one of your projects, so you don't have to journal about side projects. For now, `wj github digest` shows exactly what it would read, and `wj github extract` prints the facts the model finds in it. Saving those facts, so that `/refresh` turns them into bullets, is **Coming** (T-069 to T-072).
+Work Journal can read a GitHub repository's history to find facts for one of your projects, so you don't have to journal about side projects. Link a repository to a project with `wj github link`, which saves the facts in its history, and read what's new later with `wj github sync`. `wj github digest` shows exactly what it would read, and `wj github extract` prints the facts without saving them. Turning the saved facts into bullets at `/refresh`, and showing them on the Journal page, is **Coming** (T-070 to T-072).
 
 **Make a token.** On GitHub, open Settings, Developer settings, Personal access tokens, Fine-grained tokens, and generate a new token:
 
@@ -447,6 +447,24 @@ It prints the facts as JSON, then lists on the error stream what it left out and
 - belongs to the project you named, never to a role, and is dated by the latest pull request or commit it cites (a fact that cites only the repository's description and README has no date);
 - claims at most "owned" in your own repository, and "contributed" elsewhere or when another person co-authored the work. It's never "led". `--ownership` changes that cap;
 - lists the AI coding agent among its tools when one made or helped with the work.
+
+**Link a repository.** Linking saves the facts in a repository's history to your journal, for one project. It needs `DATABASE_URL`, `GITHUB_REPOS_TOKEN` and the model settings, and checks the token against the account you sign in with:
+
+```sh
+uv run wj github link <owner/repo> --project recipe_box          # a project in your profile, by ID
+uv run wj github link <owner/repo> --new-project "Recipe Box"    # or a new project
+uv run wj github sync                                            # later: what's new in each linked repository
+uv run wj github list                                            # the linked repositories
+uv run wj github unlink <owner/repo>                             # stop reading one
+```
+
+- **Where it starts.** For a project already in your profile, the history is read from the month your profile was loaded, so what your imported resume already says isn't proposed again. For a new project, it's read from the start. `--since YYYY-MM` sets the month yourself. If the project is benched, `wj github link` says that its bullets never render.
+- **Before it reads.** It says how many merged pull requests and commits it found, how many new items that leaves and how many model calls they take, and asks `Go on?`. `--yes` goes on without asking. `--ownership` sets the cap on your part, as for `wj github extract`.
+- **As it reads.** It reads the history a part at a time and saves each part's facts as it goes, so stopping halfway keeps what was read. Each pull request and commit is read once: Work Journal keeps their numbers and hashes, never their text. A repository with nothing new makes no model call.
+- **What's new.** `wj github sync` reads each linked repository from 14 days before its last read, so commits pushed late are still found.
+- **When something can't be read.** If the model declines a part, or can't answer it in the right shape, that part is recorded and skipped, and the command exits with status 1. If the model can't be reached, the read stops, and the next `wj github sync` carries on from where it stopped. If GitHub can't be reached, `wj github link` links nothing, and `wj github sync` goes on to the next repository and tries that one again next time.
+- **Unlinking** stops reading the repository and keeps its facts. Linking it again, even to another project, carries on where it stopped.
+- **Privacy.** The repository's name is stored encrypted, and its text goes only to the model: only the facts are kept.
 
 ### Work on single notes and bullets
 
@@ -505,5 +523,7 @@ Every sentence written passes the verifier before it is stored or printed.
 | `wj github digest` says the token belongs to another GitHub account | Use a token of your own account: the one your profile's GitHub username names, or the one you sign in with |
 | `wj github digest` says the repository doesn't exist | Give the token access to that repository, with Contents and Pull requests set to read-only |
 | `wj github digest` says GitHub's rate limit is used up | Wait until the time it gives (a minute when GitHub doesn't say), then run it again |
+| `wj github sync` says a repository's project isn't in your profile any more | Link it again with `--project` (another project's ID) or `--new-project`; it carries on where it stopped |
+| `wj github link` or `sync` says a part couldn't be read | Its pull requests and commits are kept as read, so they're not tried again. The facts in the other parts are saved |
 
 More hosting problems are in [docs/deploy.md](docs/deploy.md#when-something-goes-wrong).
