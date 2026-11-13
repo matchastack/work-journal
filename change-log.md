@@ -2,7 +2,7 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-11-13 · T-070 Refreshes propose from GitHub facts · PR_LINK
+## 2026-11-13 · T-070 Refreshes propose from GitHub facts · [#82](https://github.com/matchastack/work-journal/pull/82)
 **Changed:** `/refresh` and `wj propose` now propose changes from the facts in your linked GitHub repositories too, each only under its own project. A new project made from a public repository's facts gets its address, and the Inbox and `wj apply` show each GitHub fact's repository and links, and any note on a change. T-069 is marked done.
 
 **Verify:**

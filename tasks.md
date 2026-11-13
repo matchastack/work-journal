@@ -1032,7 +1032,7 @@ As the owner, I want to link each repository to a project once, import its histo
 **Built (2026-11-13):** a link is found by GitHub's number for the repository, so a rename keeps it; its name stays encrypted. A read saves each part's facts with its items' keys in one transaction. When another read took one of those items first, the part saves nothing and the read doesn't count as finished, so the next read starts where this one did: two reads may both ask the model, but only one saves. A part the model can't read is kept as read and failed, so it isn't tried again, and `wj github list` counts its items. The description, languages and README are read once. Linking again keeps the month a link reads from once a read has finished. Refreshes don't use GitHub facts yet: T-070 adds that.
 
 ### T-070 · Refreshes propose from GitHub facts
-**Status:** ◐ · **Size:** M · **Depends on:** T-069, T-064 · **Requirements:** FR-GH-2, FR-GH-4, FR-GH-10, FR-REV-1, FR-REV-6 · **PR:** PR_LINK
+**Status:** ◐ · **Size:** M · **Depends on:** T-069, T-064 · **Requirements:** FR-GH-2, FR-GH-4, FR-GH-10, FR-REV-1, FR-REV-6 · **PR:** [#82](https://github.com/matchastack/work-journal/pull/82)
 
 As the owner, I want my GitHub facts proposed as project bullets at the next refresh, with their sources, so that I review them like any other change.
 
