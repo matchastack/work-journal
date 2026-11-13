@@ -20,6 +20,7 @@ from app.github.digest import (
     clean,
     clean_readme,
     describe_left_out,
+    unread,
 )
 from app.github.fake import TOKEN, FakeGitHubApi
 from app.github.reader import ExpectedOwner, History, PullHistory, read_history
@@ -66,6 +67,21 @@ def test_the_owners_work_is_kept_oldest_first(recipe_box: Digest) -> None:
     ]
     assert recipe_box.owned
     assert (recipe_box.pulls_read, recipe_box.commits_read) == (4, 13)
+
+
+def test_items_read_before_are_left_out_and_the_rest_put_in_parts_again(
+    recipe_box: Digest,
+) -> None:
+    """FR-GH-7: each item is read once, so a later read keeps only what's new."""
+    read = {("about", ""), (item(recipe_box, "pr1").kind, item(recipe_box, "pr1").ref)}
+    rest = unread(recipe_box, read, window_items=2)
+    assert [entry.label for entry in rest.items] == ["c1", "c2", "c3", "pr2"]
+    assert [[entry.label for entry in part] for part in rest.windows] == [
+        ["c1", "c2"],
+        ["c3", "pr2"],
+    ]
+    assert rest.repository == recipe_box.repository and rest.pulls_read == recipe_box.pulls_read
+    assert unread(recipe_box, {(entry.kind, entry.ref) for entry in recipe_box.items}).windows == ()
 
 
 def test_items_say_who_made_them(recipe_box: Digest) -> None:
