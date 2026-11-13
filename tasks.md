@@ -783,15 +783,20 @@ As the owner, I want my profile and master resume updated only when I ask, so th
 - Vercel can't run LaTeX (C6), so the output update waits on a queue that only a worker with TeX Live takes: `wj tick` or `wj worker` on the owner's computer. The PDF is kept with the refresh, for the Resumes page (T-044).
 
 ### T-061 · Refresh: the LinkedIn pack and the portfolio page
-**Status:** ☐ · **Size:** S · **Depends on:** T-024, T-038, T-046 · **Requirements:** FR-REV-7, FR-LIN-1, FR-PRT-3 · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-024, T-038, T-046 · **Requirements:** FR-REV-7, FR-LIN-1, FR-PRT-3 · **PR:** [#73](https://github.com/matchastack/work-journal/pull/73)
 
 As the owner, I want a refresh to update my LinkedIn text and portfolio page too, so that every output shows the same new version.
 
-- [ ] The output-update job (T-038) also regenerates the LinkedIn pack, and moves the portfolio page to the new version if it's published.
+- [x] The output-update job (T-038) also regenerates the LinkedIn pack, and moves the portfolio page to the new version if it's published.
+- [x] A refresh with no new facts still brings both up to date with the latest version.
+- [x] Tests use the fake LLM client.
 
-**Note (T-046):** a published portfolio page already moves to a refresh's version as soon as its outputs fall due, including after a refresh with no new facts (`shown_version` in `app/portfolio/publishing.py`), so this task is left with the LinkedIn pack.
-- [ ] A refresh with no new facts still brings both up to date with the latest version.
-- [ ] Tests use the fake LLM client.
+**The portfolio part is covered by T-046 ([#71](https://github.com/matchastack/work-journal/pull/71)):** the published page shows the version from the latest refresh, worked out on each request, so a refresh moves it with nothing more to run. This PR adds the LinkedIn part.
+
+**Built (2026-11-01):**
+- The pack falls due with the master resume and is written in a job of its own (`write_linkedin_pack`), on the default queue: it needs the standard-tier model but no LaTeX, so it doesn't wait for the master resume (C6). It's written as `wj linkedin --db` writes it, so the sections unchanged since the pack marked done are carried over without a call.
+- Each section is kept as it's written, so a job the tick stops at its time limit is retried without writing those again. A refusal, an unusable answer or missing model settings fail the pack at once; other errors are retried, and fail it on the last try. The refresh records the pack's status, and the next refresh or `wj linkedin --db` writes it again.
+- `wj linkedin show --db` prints the pack a refresh wrote, without calling a model, and says when it still waits to be written or failed, until the LinkedIn page (T-047).
 
 ### T-064 · Refreshes of months of facts within the time limit
 **Status:** ☐ · **Size:** S · **Depends on:** T-038 · **Requirements:** FR-REV-6, NFR-PERF-1 (and G3) · **PR:** —
