@@ -16,7 +16,7 @@ from app.llm.client import LLMClient
 from app.llm.fake import FakeMessages, reply
 from app.llm.usage import MemoryCallLog
 from app.schema.changes import ChangeSet
-from app.schema.fact import Fact
+from app.schema.fact import Fact, RepoItem, RepoSource
 from app.schema.profile import Profile
 from app.synthesis import PlannedBullet, PlannedRole, Synthesis, SynthesisPlan
 from app.validate.claims import ClaimReply, JudgedClaim
@@ -171,6 +171,49 @@ def test_propose_writes_the_change_set_and_shows_each_change(
     again = invoke("propose", files)
     assert again.exit_code == 1
     assert "still waits for review: run `wj apply` first" in again.stderr
+
+
+def test_propose_and_apply_take_github_facts_with_their_links(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """T-070: `wj propose` covers GitHub facts as journal ones, and `wj apply` shows where on
+    GitHub each comes from."""
+    (tmp_path / "profile.json").write_text(
+        (FIXTURES / "profile.json").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    url = "https://github.com/casey-example/recipe-box"
+    shopping = Fact(
+        id="gh_a_1",
+        statement="Added a weekly shopping list that groups ingredients by aisle.",
+        date="2023-08",
+        project_id="recipe_box",
+        origin="github",
+        source=RepoSource(
+            repository="casey-example/recipe-box",
+            url=url,
+            private=False,
+            items=(RepoItem(kind="pull", ref="4", url=f"{url}/pull/4"),),
+        ),
+    )
+    facts = [fact.model_dump(mode="json") for fact in (*IMPORTED, shopping)]
+    (tmp_path / "facts.json").write_text(json.dumps(facts), encoding="utf-8")
+    text = "Added a weekly shopping list that groups ingredients by aisle."
+    plan = SynthesisPlan(bullets=(PlannedBullet(under="recipe_box", fact_ids=("gh_a_1",)),))
+    claims = ClaimReply(
+        claims=(
+            JudgedClaim(claim="Added a shopping list", reason="As stated.", verdict="supported"),
+        )
+    )
+    propose(tmp_path, monkeypatch, reply(plan), reply(WrittenBullet(text=text)), reply(claims))
+    use_fake(monkeypatch)
+    result = invoke("apply", tmp_path, "--yes")
+    assert result.exit_code == 0, result.output
+    assert (
+        "   From gh_a_1: Added a weekly shopping list that groups ingredients by aisle.\n"
+        f"     on GitHub, casey-example/recipe-box: {url}/pull/4\n"
+    ) in result.stdout
+    profile, _ = saved(tmp_path)
+    assert profile.projects[0].highlights[-1].sources == ("gh_a_1",)
 
 
 def test_propose_writes_bullets_refresh_concurrency_at_a_time(

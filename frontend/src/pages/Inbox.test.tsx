@@ -43,6 +43,7 @@ function op(position: number, fields: Partial<InboxOp>): InboxOp {
     reason: null,
     title: "",
     context: null,
+    note: null,
     before: null,
     after: null,
     diff: [],
@@ -76,7 +77,7 @@ function inbox(): Inbox {
               { kind: "same", text: "from 50 to 12 minutes by batching database writes." },
             ],
             outputs: ["master_resume", "tailored_resumes", "portfolio", "linkedin"],
-            sources: [{ id: "fact_nw_export", statement: EXPORT, entryId: null }],
+            sources: [{ id: "fact_nw_export", statement: EXPORT, entryId: null, github: null }],
             verifierReport: { ...report(REWORDED), claims: [] },
             editable: true,
           }),
@@ -86,8 +87,8 @@ function inbox(): Inbox {
             after: "Wrote the runbook in Go.",
             outputs: ["master_resume", "tailored_resumes", "portfolio", "linkedin"],
             sources: [
-              { id: "f_runbook", statement: "Wrote the runbook.", entryId: ENTRY },
-              { id: "gone", statement: null, entryId: null },
+              { id: "f_runbook", statement: "Wrote the runbook.", entryId: ENTRY, github: null },
+              { id: "gone", statement: null, entryId: null, github: null },
             ],
             verifierReport: report("Wrote the runbook in Go.", "No fact names Go."),
             editable: true,
@@ -248,6 +249,60 @@ describe("the inbox", () => {
     await userEvent.click(added.getByRole("link", { name: "In your journal" }));
     expect(router.state.location.pathname).toBe("/journal");
     expect(router.state.location.hash).toBe(`#${ENTRY}`);
+  });
+
+  it("shows where on GitHub a fact comes from, and what to know before deciding", async () => {
+    const url = "https://github.com/casey-example/recipe-box";
+    const fromGitHub = inbox();
+    const [changeSet] = fromGitHub.changeSets;
+    if (changeSet === undefined) {
+      throw new Error("no change set");
+    }
+    changeSet.ops = [
+      op(0, {
+        kind: "add_skill",
+        title: "Add the skill Redis",
+        note: "Only work an AI coding agent did for you names it.",
+        sources: [
+          {
+            id: "gh_a_1",
+            statement: "Cached recipes in Redis.",
+            entryId: null,
+            github: {
+              repository: "casey-example/recipe-box",
+              url,
+              private: true,
+              items: [
+                { kind: "pull", ref: "4", url: `${url}/pull/4`, agent: "Claude Code" },
+                { kind: "commit", ref: "36a8189c0b8e", url: `${url}/commit/36a8189c0b8e` },
+              ],
+            },
+          },
+        ],
+      }),
+    ];
+    serveInbox(fromGitHub);
+    renderInbox();
+    const skill = await change("Add the skill Redis");
+    expect(
+      skill.getByText("Note: Only work an AI coding agent did for you names it."),
+    ).toBeInTheDocument();
+    expect(skill.getByRole("link", { name: "casey-example/recipe-box" })).toHaveAttribute(
+      "href",
+      url,
+    );
+    expect(skill.getByRole("link", { name: "pull request 4" })).toHaveAttribute(
+      "href",
+      `${url}/pull/4`,
+    );
+    expect(skill.getByRole("link", { name: "commit 36a8189" })).toHaveAttribute(
+      "href",
+      `${url}/commit/36a8189c0b8e`,
+    );
+    expect(skill.getByText(/on GitHub,/)).toHaveTextContent(
+      "(on GitHub, casey-example/recipe-box, private: pull request 4, commit 36a8189)",
+    );
+    expect(skill.queryByText("(from your imported resume)")).not.toBeInTheDocument();
   });
 
   it("keeps a removed last word apart from the word that replaces it", async () => {

@@ -31,6 +31,7 @@ from app.db.profiles import (
     propose_change_set,
     save_version,
 )
+from app.db.repo_links import link_repository
 from app.db.settings import (
     get_linkedin_draft,
     get_linkedin_pack,
@@ -47,6 +48,9 @@ from app.db.store import (
     save_render,
     store_artifact,
 )
+from app.github.extraction import RepoExtractionReply, RepoTarget
+from app.github.fake import TOKEN, FakeGitHubApi
+from app.github.sync import LinkedRead
 from app.inbox.review import apply_change_set
 from app.jobs import (
     database,
@@ -82,12 +86,12 @@ from app.refresh import (
 from app.render.compile import CompiledPdf, CompileError
 from app.render.resume import RenderedResume, StoredRender, render_key
 from app.schema.changes import AddSkill, ChangeSet, EditBullet, ResolveOpenQuestion, ReviewedOp
-from app.schema.fact import Fact, Metric, SingleValue
+from app.schema.fact import Fact, Metric, RepoItem, RepoSource, SingleValue
 from app.schema.jobs import Application, JobPosting
 from app.schema.profile import Profile, Skill
 from app.schema.settings import ConfidentialTerms
 from app.synthesis import PlannedBullet, Synthesis, SynthesisPlan, synthesize
-from app.telegram.refresh import NOTHING_NEW, failure_text, proposals_text
+from app.telegram.refresh import NOTHING_NEW, failure_text, github_text, proposals_text
 from app.tick import refresh_now, tick
 from app.validate.claims import ClaimReply, JudgedClaim
 from app.writing import WrittenBullet
@@ -228,11 +232,31 @@ async def test_a_refresh_waits_until_proposed_changes_are_decided(session: Async
 # --- Proposing changes ---------------------------------------------------------------------------
 
 
+FROM_GITHUB = Fact(
+    id="gh_a_1",
+    statement="Added a weekly shopping list that groups ingredients by aisle.",
+    date="2023-08",
+    project_id="recipe_box",
+    origin="github",
+    source=RepoSource(
+        repository="casey-example/recipe-box",
+        url="https://github.com/casey-example/recipe-box",
+        private=False,
+        items=(
+            RepoItem(
+                kind="pull", ref="4", url="https://github.com/casey-example/recipe-box/pull/4"
+            ),
+        ),
+    ),
+)
+
+
 async def test_a_refresh_covers_the_journal_facts_no_refresh_covered(
     session: AsyncSession,
 ) -> None:
-    """FR-REV-6: new facts and edited ones; not imported facts or ones a refresh covered."""
-    user_id = await new_user(session, ALERT, RUNBOOK, IMPORTED)
+    """FR-REV-6: new facts and edited ones, from the journal and from GitHub (T-070); not
+    imported facts or ones a refresh covered."""
+    user_id = await new_user(session, ALERT, RUNBOOK, IMPORTED, FROM_GITHUB)
     await session.execute(
         update(FactRow)
         .where(FactRow.user_id == user_id, FactRow.id == RUNBOOK.id)
@@ -240,8 +264,13 @@ async def test_a_refresh_covers_the_journal_facts_no_refresh_covered(
     )
     await save_confidential_terms(session, user_id, ConfidentialTerms(terms=("Falcon",)))
     inputs = await started(session, user_id)
-    assert inputs.facts == (ALERT,)
-    assert {fact.id for fact in inputs.sources} == {ALERT.id, RUNBOOK.id, IMPORTED.id}
+    assert inputs.facts == (ALERT, FROM_GITHUB)
+    assert {fact.id for fact in inputs.sources} == {
+        ALERT.id,
+        RUNBOOK.id,
+        IMPORTED.id,
+        FROM_GITHUB.id,
+    }
     assert inputs.version.number == 1
     assert inputs.confidential == ("Falcon",), "the verifier checks each bullet for them"
     row = await refresh_row(session, inputs.refresh_id)
@@ -1151,3 +1180,137 @@ async def test_a_tick_without_latex_writes_the_pack(
     async with database() as session:
         keys = await session.scalars(select(Setting.key).where(Setting.user_id == user_id))
         assert sorted(keys) == ["linkedin_pack"], "no draft left"
+
+
+# --- Reading the linked repositories first (T-071) -------------------------------------------
+
+
+@pytest.fixture
+def linked_github(
+    committed: Committed, monkeypatch: pytest.MonkeyPatch
+) -> Callable[..., Awaitable[tuple[uuid.UUID, uuid.UUID, FakeGitHubApi]]]:
+    """A user with a refresh started, as `committed` makes them, whose GitHub account owns the
+    linked recipe box repository, and GitHub as it serves them."""
+
+    async def make(*facts: Fact, **options: Any) -> tuple[uuid.UUID, uuid.UUID, FakeGitHubApi]:
+        account = _random.randrange(10**8, 10**9)
+        monkeypatch.setenv("GITHUB_REPOS_TOKEN", TOKEN)
+        get_settings.cache_clear()
+        user_id, refresh_id = await committed(*facts, **options)
+        fake = FakeGitHubApi({"id": account, "login": "casey-example", "type": "User"})
+        recipe_box = Path(__file__).parents[1] / "fixtures" / "github" / "recipe-box.json"
+        payload = recipe_box.read_text(encoding="utf-8").replace('"id": 4242', f'"id": {account}')
+        fake.add(json.loads(payload))
+        monkeypatch.setattr(
+            job_module, "_github_http", lambda: httpx2.AsyncClient(transport=fake.transport)
+        )
+        async with database() as session:
+            await session.execute(update(User).where(User.id == user_id).values(github_id=account))
+            await link_repository(
+                session,
+                user_id,
+                github_id=_random.randrange(10**8, 10**9),
+                name="casey-example/recipe-box",
+                target=RepoTarget(project_id="recipe_box"),
+                since=None,
+            )
+        return user_id, refresh_id, fake
+
+    return make
+
+
+async def test_the_job_reads_the_linked_repositories_first_and_says_what_it_read(
+    linked_github: Callable[..., Awaitable[tuple[uuid.UUID, uuid.UUID, FakeGitHubApi]]],
+    chat_id: int,
+    claude: Callable[..., FakeMessages],
+    telegram: Telegram,
+) -> None:
+    """FR-GH-8 and FR-REM-6, with no repository's name in the message."""
+    _, refresh_id, github = await linked_github(ALERT, RUNBOOK, chat_id=chat_id)
+    fake = claude(reply(RepoExtractionReply(facts=())), *synthesis_replies())
+    await run_refresh(refresh_id)
+    assert output_name(fake.requests[0]) == "RepoExtractionReply", "GitHub is read first"
+    assert github.paths()[0] == "/user"
+    [message] = telegram.sent
+    assert message["text"] == (
+        "1 update proposed from 2 facts since your last refresh. Review them:\n"
+        f"{APP_URL}/inbox\n\n"
+        "From GitHub: read 1 part of your linked repositories, with 0 new facts."
+    )
+    assert "recipe" not in message["text"]
+    assert (await committed_row(refresh_id)).status == "proposed"
+
+
+async def test_github_errors_never_fail_the_refresh(
+    linked_github: Callable[..., Awaitable[tuple[uuid.UUID, uuid.UUID, FakeGitHubApi]]],
+    chat_id: int,
+    claude: Callable[..., FakeMessages],
+    telegram: Telegram,
+) -> None:
+    _, refresh_id, github = await linked_github(ALERT, RUNBOOK, chat_id=chat_id)
+    github.status = 503
+    claude(*synthesis_replies())
+    await run_refresh(refresh_id)
+    [message] = telegram.sent
+    assert message["text"].endswith(
+        "From GitHub: nothing new read from your linked repositories. "
+        "1 repository couldn't be read this time."
+    )
+    assert (await committed_row(refresh_id)).status == "proposed"
+
+
+async def test_no_read_when_github_refresh_windows_is_0(
+    linked_github: Callable[..., Awaitable[tuple[uuid.UUID, uuid.UUID, FakeGitHubApi]]],
+    chat_id: int,
+    claude: Callable[..., FakeMessages],
+    telegram: Telegram,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, refresh_id, github = await linked_github(ALERT, RUNBOOK, chat_id=chat_id)
+    monkeypatch.setenv("GITHUB_REFRESH_WINDOWS", "0")
+    get_settings.cache_clear()
+    claude(*synthesis_replies())
+    await run_refresh(refresh_id)
+    assert github.requests == []
+    [message] = telegram.sent
+    assert "GitHub" not in message["text"]
+
+
+async def test_a_refresh_stopped_while_reading_github_says_it_didnt_finish(
+    linked_github: Callable[..., Awaitable[tuple[uuid.UUID, uuid.UUID, FakeGitHubApi]]],
+    chat_id: int,
+    telegram: Telegram,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, refresh_id, _ = await linked_github(ALERT, chat_id=chat_id)
+    reading = asyncio.Event()
+
+    async def slow_read(*args: Any, **kwargs: Any) -> LinkedRead:
+        reading.set()
+        await asyncio.sleep(10)
+        return LinkedRead()
+
+    monkeypatch.setattr(job_module, "read_linked", slow_read)
+    job = asyncio.create_task(run_refresh(refresh_id))
+    await reading.wait()
+    job.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await job
+    assert telegram.sent == [{"chat_id": chat_id, "text": failure_text("it didn't finish in time")}]
+    assert (await committed_row(refresh_id)).status == "failed"
+
+
+def test_the_bot_says_what_it_read_from_github_in_counts() -> None:
+    assert github_text(LinkedRead()) == ""
+    assert github_text(
+        LinkedRead(repositories=3, parts=2, facts=1, left=2, failed=1, skipped=1, unreadable=2)
+    ) == (
+        "From GitHub: read 2 parts of your linked repositories, with 1 new fact. "
+        "2 parts wait for the next /refresh or `wj github sync`. "
+        "1 part was left out: the model couldn't read it. "
+        "2 repositories couldn't be read this time. "
+        "1 repository was being read already, so I left it."
+    )
+    assert github_text(LinkedRead(stopped=True)).startswith(
+        "Your linked GitHub repositories couldn't be read this time."
+    )

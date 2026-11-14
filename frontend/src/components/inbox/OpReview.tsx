@@ -46,6 +46,35 @@ function Diff({ op }: { op: InboxOp }) {
   );
 }
 
+type GitHubSource = NonNullable<InboxOp["sources"][number]["github"]>;
+
+/** Where on GitHub a fact comes from: its repository and the items it rests on (FR-GH-10). */
+function GitHubLinks({ github }: { github: GitHubSource }) {
+  const link = `rounded text-emerald-800 underline underline-offset-2 ${FOCUS}`;
+  return (
+    <span className="text-stone-500">
+      (on GitHub,{" "}
+      <a href={github.url} className={link} rel="noreferrer">
+        {github.repository}
+      </a>
+      {github.private ? ", private" : ""}:{" "}
+      {github.items.map((item, index) => (
+        <span key={`${item.kind}-${item.ref}`}>
+          {index > 0 && ", "}
+          <a href={item.url} className={link} rel="noreferrer">
+            {item.kind === "pull"
+              ? `pull request ${item.ref}`
+              : item.kind === "commit"
+                ? `commit ${item.ref.slice(0, 7)}`
+                : "description"}
+          </a>
+        </span>
+      ))}
+      )
+    </span>
+  );
+}
+
 function Sources({ op }: { op: InboxOp }) {
   if (op.sources.length === 0) {
     return null;
@@ -64,6 +93,8 @@ function Sources({ op }: { op: InboxOp }) {
               >
                 In your journal
               </Link>
+            ) : source.github ? (
+              <GitHubLinks github={source.github} />
             ) : (
               source.statement !== null && (
                 <span className="text-stone-500">(from your imported resume)</span>
@@ -129,6 +160,7 @@ export function OpReview({
         {op.context !== null && (
           <p className="mt-1 text-sm text-stone-600">About: &quot;{op.context}&quot;</p>
         )}
+        {op.note !== null && <p className="mt-1 text-sm text-amber-900">Note: {op.note}</p>}
         {needed !== undefined && (
           <p className="mt-1 text-sm text-stone-600">
             Goes with &quot;{needed.title}&quot;{needed.after === null ? "" : `: ${needed.after}`}.

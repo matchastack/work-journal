@@ -4,11 +4,12 @@
 1. `/refresh` (`app/telegram/refresh.py`) or `wj propose --db` starts a refresh
    (`start_refresh`), unless one is running, proposed changes still wait for review, or there's
    no profile yet.
-2. Its job (`refresh_profile` in `app/jobs.py`) proposes changes from the journal facts that no
-   refresh has covered: new facts, and facts edited since (`facts.refreshed_at`). It reads them
-   (`begin_proposals`), runs profile synthesis (T-018) outside a transaction, then saves the
-   change set for review and marks the facts covered (`record_proposals`). Synthesis writes the
-   bullets `REFRESH_CONCURRENCY` at a time, so months of facts fit in one function call (T-064).
+2. Its job (`refresh_profile` in `app/jobs.py`) proposes changes from the facts from the journal
+   and from linked GitHub repositories that no refresh has covered: new facts, and facts edited
+   since (`facts.refreshed_at`). It reads them (`begin_proposals`), runs profile synthesis
+   (T-018) outside a transaction, then saves the change set for review and marks the facts
+   covered (`record_proposals`). Synthesis writes the bullets `REFRESH_CONCURRENCY` at a time,
+   so months of facts fit in one function call (T-064).
    A fact edited in the meantime isn't marked, so the next refresh covers it again. A fact the
    change set doesn't use is covered too: it waits in the brag bank until it's edited.
 3. A refresh's outputs fall due (`outputs_due`) when its change set is decided, in the Inbox or
@@ -56,7 +57,7 @@ from app.render.resume import RenderedResume
 from app.schema.fact import Fact
 from app.schema.profile import Profile
 from app.selection import Selection
-from app.synthesis import Synthesis
+from app.synthesis import PROPOSED_FROM, Synthesis
 
 UNFINISHED_AFTER = timedelta(minutes=30)
 """How long after a try at a refresh started it counts as unfinished: well past the 300 s a try
@@ -93,7 +94,7 @@ class RefreshInputs:
     version: Version
     """The newest profile version, which the changes are proposed against."""
     facts: tuple[Fact, ...]
-    """The journal facts that no refresh has covered."""
+    """The facts from the journal and from GitHub that no refresh has covered."""
     read: Mapping[str, datetime]
     """When each of `facts` was last saved, as read: one saved since is left for the next
     refresh."""
@@ -186,7 +187,18 @@ async def running_refreshes(session: AsyncSession) -> list[uuid.UUID]:
 async def begin_proposals(
     session: AsyncSession, refresh_id: uuid.UUID, *, now: datetime
 ) -> RefreshInputs | None:
-    """Mark the refresh started, and read what it proposes changes from. Returns None when it
+    """Mark the refresh started (`start_proposals`), and read what it proposes changes from
+    (`proposal_inputs`)."""
+    if await start_proposals(session, refresh_id, now=now) is None:
+        return None
+    return await proposal_inputs(session, refresh_id)
+
+
+async def start_proposals(
+    session: AsyncSession, refresh_id: uuid.UUID, *, now: datetime
+) -> uuid.UUID | None:
+    """Mark the refresh started, before it reads the linked repositories and proposes, so a try
+    stopped while reading counts as unfinished too. Returns its user's ID, or None when it
     isn't running, such as when it's done already, or when another try started it recently and
     may still be at work, such as `wj propose --db`.
 
@@ -201,10 +213,21 @@ async def begin_proposals(
         if refresh.started_at >= now - UNFINISHED_AFTER:
             return None
         raise RefreshInterrupted(refresh.user_id)
+    if await latest_version(session, refresh.user_id) is None:
+        return None
+    refresh.started_at = now
+    return refresh.user_id
+
+
+async def proposal_inputs(session: AsyncSession, refresh_id: uuid.UUID) -> RefreshInputs | None:
+    """What a started refresh proposes changes from, read now, so it has the facts its read of
+    the linked repositories saved. Returns None when it isn't running any more."""
+    refresh = await session.scalar(select(Refresh).where(Refresh.id == refresh_id))
+    if refresh is None or refresh.status != "running":
+        return None
     version = await latest_version(session, refresh.user_id)
     if version is None:
         return None
-    refresh.started_at = now
     rows = await session.execute(
         select(FactRow.data, FactRow.origin, FactRow.updated_at, FactRow.refreshed_at)
         .where(FactRow.user_id == refresh.user_id)
@@ -216,7 +239,7 @@ async def begin_proposals(
     for data, origin, updated_at, refreshed_at in rows:
         fact = Fact.model_validate_json(data)
         sources.append(fact)
-        if origin == "journal" and refreshed_at is None:
+        if origin in PROPOSED_FROM and refreshed_at is None:
             new.append(fact)
             read[fact.id] = updated_at
     avoid = (await get_style_notes(session, refresh.user_id)).avoid

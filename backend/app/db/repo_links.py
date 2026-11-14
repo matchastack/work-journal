@@ -26,6 +26,9 @@ from app.schema.fact import Fact
 
 LOOK_BACK = timedelta(days=14)
 """How far before the last read a read starts, so commits pushed late are still found (C7)."""
+READ_LEASE = timedelta(minutes=30)
+"""How long a read may work on a repository before another counts it as stopped, as
+`UNFINISHED_AFTER` does for a refresh: well past the 300 s a refresh's job may run."""
 
 ItemKey = tuple[ItemKind, str]
 """An item's kind and its number or hash: what a read keeps of it."""
@@ -42,6 +45,8 @@ class LinkedRepository:
     linked_at: datetime
     unlinked_at: datetime | None
     read_at: datetime | None
+    reading_since: datetime | None = None
+    """When the read working on it began, if one is."""
 
     @property
     def start(self) -> datetime | None:
@@ -192,6 +197,28 @@ async def save_part(
     return True
 
 
+async def claim_read(session: AsyncSession, link_id: uuid.UUID, *, now: datetime) -> bool:
+    """Mark that a read is working on the repository, and commit. Returns False, changing
+    nothing, when another read is at work on it: that read takes what's new (T-071)."""
+    claimed = await session.scalar(
+        update(RepoLink)
+        .where(
+            RepoLink.id == link_id,
+            (RepoLink.reading_since.is_(None)) | (RepoLink.reading_since < now - READ_LEASE),
+        )
+        .values(reading_since=now)
+        .returning(RepoLink.id)
+    )
+    await session.commit()
+    return claimed is not None
+
+
+async def release_read(session: AsyncSession, link_id: uuid.UUID) -> None:
+    """Mark that the read working on the repository is done, and commit."""
+    await session.execute(update(RepoLink).where(RepoLink.id == link_id).values(reading_since=None))
+    await session.commit()
+
+
 async def finish_read(session: AsyncSession, link_id: uuid.UUID, started_at: datetime) -> None:
     """Record that a read which began at `started_at` took everything it found, and commit. The
     next read looks back from the latest such start."""
@@ -222,4 +249,5 @@ def _linked(row: RepoLink) -> LinkedRepository:
         linked_at=row.linked_at,
         unlinked_at=row.unlinked_at,
         read_at=row.read_at,
+        reading_since=row.reading_since,
     )

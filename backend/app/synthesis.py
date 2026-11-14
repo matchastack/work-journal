@@ -16,6 +16,13 @@ Code checks the plan before it becomes operations (`app/schema/changes.py`):
   gets a new version only when the plan makes it active again.
 - Each fact goes into one bullet at most, and a fact the owner filed under a role goes into a
   bullet under that role, or under a project.
+- A fact from GitHub belongs to its project (FR-GH-2): one in the profile, or the new project the
+  owner named when linking the repository, which a refresh may add and a later one finds by its
+  name. It never backs a role, another project, or a bullet under either.
+- A new project made from a public repository's facts gets the repository's address as its URL;
+  a private repository's never reaches the profile (FR-GH-10). A new skill that only work an AI
+  coding agent did names carries a note to accept it only if the owner can defend it (FR-GH-4,
+  R3); the agent itself doesn't.
 A fact that answers an open question resolves it (FR-EXT-4): code adds that operation.
 
 The writer (`app/writing.py`) writes each planned bullet and the verifier checks it, so every
@@ -34,6 +41,7 @@ import threading
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 
+from app.github.authors import AGENTS
 from app.llm.client import LLMClient
 from app.llm.prompts import Prompt, load_prompt
 from app.profile_ops import ProfileOpError, apply
@@ -58,6 +66,8 @@ from app.writing import write_bullet
 
 PROMPT_NAME = "profile_synthesis"
 PROMPT_VERSION = 1
+PROPOSED_FROM = frozenset({"journal", "github"})
+"""The facts changes are proposed from. The imported resume's facts are its bullets already."""
 
 _PLANNING_FIELDS = {
     "id",
@@ -185,7 +195,8 @@ def synthesize(
 def new_facts(
     profile: Profile, facts: Iterable[Fact], change_sets: Iterable[ChangeSet] = ()
 ) -> list[Fact]:
-    """The journal facts that neither the profile nor any of `change_sets` cites yet."""
+    """The facts from the journal and from GitHub that neither the profile nor any of
+    `change_sets` cites yet."""
     cited = {source for bullet in profile.all_bullets() for source in bullet.sources}
     cited |= {answer for question in profile.open_questions for answer in question.answer_fact_ids}
     cited |= {
@@ -194,7 +205,7 @@ def new_facts(
         for reviewed in change_set.ops
         for fact_id in reviewed.op.fact_ids
     }
-    return [fact for fact in facts if fact.origin == "journal" and fact.id not in cited]
+    return [fact for fact in facts if fact.origin in PROPOSED_FROM and fact.id not in cited]
 
 
 def planning_facts_json(facts: Sequence[Fact]) -> str:
@@ -365,6 +376,39 @@ class _Builder:
             self.notes.append(f"Left out {what}: it cites no new fact")
         return kept
 
+    def _placed(
+        self, fact_ids: Sequence[str], what: str, fits: Callable[[Fact], bool]
+    ) -> tuple[str, ...]:
+        """`fact_ids` without the facts from GitHub that don't belong where `what` goes, which
+        are noted (FR-GH-2)."""
+        elsewhere = [fact_id for fact_id in fact_ids if not fits(self.new[fact_id])]
+        if elsewhere:
+            self.notes.append(
+                f"{_upper(what)} cited facts from GitHub, which belong only to their own "
+                f"project: {', '.join(elsewhere)}"
+            )
+            if len(elsewhere) == len(fact_ids):
+                self.notes.append(f"Left out {what}: its facts belong to another project")
+        return tuple(fact_id for fact_id in fact_ids if fact_id not in elsewhere)
+
+    @staticmethod
+    def _belongs_under(entry_id: str, profile: Profile) -> Callable[[Fact], bool]:
+        """Whether a fact may go under the role, education entry or project `entry_id`: a fact
+        from GitHub only under its project, or under the project named as the new one it
+        implies."""
+
+        def fits(fact: Fact) -> bool:
+            if fact.origin != "github":
+                return True
+            if fact.project_id is not None:
+                return entry_id == fact.project_id
+            return any(
+                project.id == entry_id and _same(fact.proposed_item, project.name)
+                for project in profile.projects
+            )
+
+        return fits
+
     def _id(self, base: str, *, numbered: bool = False) -> str:
         """An ID made from `base` that nothing in the profile or the plan has yet: `base`,
         `base_2`, and so on, or with `numbered`, `base_1`, `base_2`, and so on."""
@@ -379,7 +423,7 @@ class _Builder:
 
     def _role(self, planned: PlannedRole) -> AddRole | None:
         what = f'the new role "{planned.key}"'
-        fact_ids = self._cited(planned.fact_ids, what)
+        fact_ids = self._placed(self._cited(planned.fact_ids, what), what, _not_from_github)
         if not fact_ids:
             return None
         facts = [self.new[fact_id] for fact_id in fact_ids]
@@ -412,7 +456,11 @@ class _Builder:
 
     def _project(self, planned: PlannedProject) -> AddProject | None:
         what = f'the new project "{planned.key}"'
-        fact_ids = self._cited(planned.fact_ids, what)
+
+        def names_it(fact: Fact) -> bool:
+            return fact.project_id is None and _same(fact.proposed_item, planned.name)
+
+        fact_ids = self._placed(self._cited(planned.fact_ids, what), what, names_it)
         if not fact_ids:
             return None
         facts = [self.new[fact_id] for fact_id in fact_ids]
@@ -433,9 +481,11 @@ class _Builder:
         end = planned.end_date if planned.end_date in dates else None
         if start and end and end < start:
             end = None
+        public = [f.source.url for f in facts if f.source is not None and not f.source.private]
         project = Project(
             id=self._id(planned.name),
             name=planned.name,
+            url=public[0] if public else None,
             keywords=keywords,
             start_date=start,
             end_date=end,
@@ -466,16 +516,25 @@ class _Builder:
         if name.casefold() in known | self.skills:
             return None
         self.skills.add(name.casefold())
+        rationale = (
+            "It's new to your catalogue, so it's marked verify-before-shipping: confirm it before "
+            "a tailored resume lists it."
+        )
+        naming = [fact for fact in self.facts if _same_any(name, fact.tools)]
+        if not _same_any(name, AGENT_NAMES) and naming and all(map(_agent_made, naming)):
+            rationale += (
+                " Only work an AI coding agent did for you names it, so accept it only if you "
+                "can defend it."
+            )
         return AddSkill(
             skill=Skill(name=name, category=planned.category, verify_before_shipping=True),
             fact_ids=fact_ids,
-            rationale="It's new to your catalogue, so it's marked verify-before-shipping: "
-            "confirm it before a tailored resume lists it.",
+            rationale=rationale,
         )
 
     def _end_date(self, planned: PlannedEndDate) -> UpdateField | None:
         what = f'the end date of "{planned.role_id}"'
-        fact_ids = self._cited(planned.fact_ids, what)
+        fact_ids = self._placed(self._cited(planned.fact_ids, what), what, _not_from_github)
         if not fact_ids:
             return None
         role = next((role for role in self.profile.work if role.id == planned.role_id), None)
@@ -497,8 +556,11 @@ class _Builder:
         if not fact_ids:
             return None
         if planned.item_id in self.bullets:
-            _, bullet = self.bullets[planned.item_id]
+            entry_id, bullet = self.bullets[planned.item_id]
             if bullet.status == "active":
+                return None
+            fact_ids = self._placed(fact_ids, what, self._belongs_under(entry_id, self.profile))
+            if not fact_ids:
                 return None
             self.reactivated.add(bullet.id)
             return SetBulletStatus(bullet_id=bullet.id, status="active", fact_ids=fact_ids)
@@ -507,6 +569,9 @@ class _Builder:
             self.notes.append(f"Left out {what}: there's no such bullet or project")
             return None
         if project.status == "active":
+            return None
+        fact_ids = self._placed(fact_ids, what, self._belongs_under(project.id, self.profile))
+        if not fact_ids:
             return None
         return UpdateField(target_id=project.id, field="status", value="active", fact_ids=fact_ids)
 
@@ -543,6 +608,9 @@ class _Builder:
         items = (*interim.work, *interim.education, *interim.projects)
         if not any(item.id == entry_id for item in items):
             self.notes.append(f"Left out {what}: there's nothing called that to put it under")
+            return None
+        fact_ids = self._placed(fact_ids, what, self._belongs_under(entry_id, interim))
+        if not fact_ids:
             return None
         if any(role.id == entry_id for role in interim.work):
             elsewhere = [f for f in fact_ids if self.new[f].role_id not in (None, entry_id)]
@@ -600,6 +668,30 @@ class _Builder:
             if answers:
                 resolved.append(ResolveOpenQuestion(question_id=question.id, fact_ids=answers))
         return resolved
+
+
+AGENT_NAMES = tuple(agent.name for agent in AGENTS)
+"""The AI coding agents, as facts name them among their tools."""
+
+
+def _not_from_github(fact: Fact) -> bool:
+    """Whether a fact can back a role: a fact from GitHub belongs to a project, never a role."""
+    return fact.origin != "github"
+
+
+def _agent_made(fact: Fact) -> bool:
+    """Whether an AI coding agent made all the work a fact from GitHub rests on (FR-GH-4). The
+    repository's description is no one's work."""
+    work = [item for item in fact.source.items if item.kind != "about"] if fact.source else []
+    return bool(work) and all(item.agent is not None for item in work)
+
+
+def _same(name: str | None, other: str) -> bool:
+    return name is not None and name.casefold() == other.casefold()
+
+
+def _same_any(name: str, names: Iterable[str]) -> bool:
+    return any(_same(name, other) for other in names)
 
 
 def _in_order[T, R](items: Sequence[T], work: Callable[[T], R], concurrency: int) -> list[R]:

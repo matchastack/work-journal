@@ -44,6 +44,7 @@ from app.db.repo_links import (
     ItemCounts,
     ItemKey,
     LinkedRepository,
+    claim_read,
     find_link,
     get_link,
     item_counts,
@@ -51,6 +52,7 @@ from app.db.repo_links import (
     list_links,
     profile_loaded_at,
     read_keys,
+    release_read,
     unlink,
 )
 from app.db.settings import (
@@ -81,7 +83,14 @@ from app.github.api import GitHubApi, GitHubApiError, GitHubTokenError, check_re
 from app.github.digest import MONTHS, Digest, build_digest, describe_left_out
 from app.github.extraction import RepoTarget, extract_repo_facts
 from app.github.reader import ExpectedOwner, read_history
-from app.github.sync import PartRead, ReadReport, find_repository, plan_read, read_parts
+from app.github.sync import (
+    PartRead,
+    ReadReport,
+    find_repository,
+    plan_read,
+    read_linked,
+    read_parts,
+)
 from app.importers.master_resume import MasterResumeError, import_master_resume
 from app.jobs import run_worker
 from app.linkedin import (
@@ -141,6 +150,7 @@ from app.telegram.api import BotApi, TelegramError
 from app.telegram.journal import COMMANDS
 from app.telegram.linking import deep_link, new_link_token
 from app.telegram.polling import poll
+from app.telegram.refresh import github_text
 from app.tick import TICK_BUDGET_S, catch_up_now, extract_now, refresh_now, tick
 from app.validate.lint import LintReport, check_sendable, format_report, lint_profile
 from app.writing import Style, apply_swap, locate_bullet, swap_op, write_bullet
@@ -557,7 +567,7 @@ def propose(
     db: DbOption = False,
     user: UserOption = None,
 ) -> None:
-    """Propose changes to the profile from the journal facts it doesn't use yet.
+    """Propose changes to the profile from the journal and GitHub facts it doesn't use yet.
 
     Calls the heavy-tier model to plan the changes, and the standard-tier model to write and
     check each bullet. Nothing changes until you review the proposal with `wj apply`. With --db,
@@ -653,8 +663,10 @@ def apply_changes(
 
 
 def _refresh(login: str | None) -> None:
-    """A refresh, run here (`app/refresh.py`): propose changes from the facts since the last
-    one, and save them for review. When there's nothing to propose, the outputs fall due."""
+    """A refresh, run here (`app/refresh.py`): read what's new in the linked repositories, all of
+    it (FR-GH-8), then propose changes from the facts since the last one, and save them for
+    review. When there's nothing to propose, the outputs fall due."""
+    asyncio.run(_read_before_refresh(login))
     inputs = asyncio.run(_start_refresh(login))
     refresh_id = inputs.refresh_id
     try:
@@ -676,6 +688,28 @@ def _refresh(login: str | None) -> None:
         typer.echo("There are no new facts to propose changes from.")
     elif proposals.changes:
         typer.echo("Saved the proposal. Review it with `wj apply --db`.")
+
+
+async def _read_before_refresh(login: str | None) -> None:
+    """Read what's new in every linked repository, all of it, before the refresh starts, and say
+    what was read. A repository that can't be read is counted, never stops the refresh."""
+    if get_settings().github_repos_token is None:
+        return
+    async with _repository_session() as session:
+        user_id = await _user(session, login)
+        version = await latest_version(session, user_id)
+        if version is None or not await list_links(session, user_id):
+            return
+        owner = await _user_owner(session, user_id)
+        await session.commit()
+        typer.echo("Reading what's new in your linked repositories.")
+        async with _github_http() as http:
+            api = GitHubApi.from_settings(get_settings(), http)
+            read = await read_linked(
+                session, user_id, api, version.profile, _llm_client(), owner=owner
+            )
+    if text := github_text(read):
+        typer.echo(text)
 
 
 def _synthesize(
@@ -734,10 +768,13 @@ def _echo_op(number: int, reviewed: ReviewedOp, profile: Profile, facts: Sequenc
     typer.echo(f"{number}. {first}")
     for line in rest:
         typer.echo(f"   {line}")
-    statements = {fact.id: fact.statement for fact in facts}
+    known = {fact.id: fact for fact in facts}
     for fact_id in reviewed.op.fact_ids:
-        statement = statements.get(fact_id)
-        typer.echo(f"   From {fact_id}: {statement}" if statement else f"   From {fact_id}")
+        fact = known.get(fact_id)
+        typer.echo(f"   From {fact_id}: {fact.statement}" if fact else f"   From {fact_id}")
+        if fact is not None and fact.source is not None:
+            links = ", ".join(item.url for item in fact.source.items)
+            typer.echo(f"     on GitHub, {fact.source.repository}: {links}")
     if reviewed.op.rationale:
         typer.echo(f"   Note: {reviewed.op.rationale}")
     if reviewed.verifier_report is not None:
@@ -2195,7 +2232,8 @@ async def _sync_one(
     profile: Profile,
     client: LLMClient,
 ) -> bool:
-    """Read what's new in one linked repository. Returns whether it all went well."""
+    """Read what's new in one linked repository, unless another read is working on it, such as a
+    refresh's on the server (T-071). Returns whether it all went well."""
     try:
         link.target.project_name(profile)
     except ValueError:
@@ -2205,10 +2243,29 @@ async def _sync_one(
             err=True,
         )
         return False
+    started_at = datetime.now(UTC)
+    if not await claim_read(session, link.id, now=started_at):
+        typer.echo(f"{link.name}: another read is working on it, so it's left to that one.")
+        return True
+    try:
+        return await _read_claimed(session, user_id, link, api, owner, profile, client, started_at)
+    finally:
+        await release_read(session, link.id)
+
+
+async def _read_claimed(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    link: LinkedRepository,
+    api: GitHubApi,
+    owner: ExpectedOwner,
+    profile: Profile,
+    client: LLMClient,
+    started_at: datetime,
+) -> bool:
     read = await read_keys(session, link.id)
     # Nothing waits on the database while GitHub or the model is read.
     await session.commit()
-    started_at = datetime.now(UTC)
     try:
         digest = await plan_read(api, link.name, owner=owner, start=link.start, read=read)
     except GitHubTokenError as error:

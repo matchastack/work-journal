@@ -1004,7 +1004,7 @@ As the owner, I want the main journeys tested end to end, so that releases don't
 **Built (2026-11-03):** stacked on T-046 (#71), since the journey ends on the published page. The test (`backend/tests/e2e/`, marked `e2e`) uses Python's Playwright, already a dev dependency, so it reuses the backend's fixtures and seeds the data with the app's own functions: the fictional profile as version 1, a handle, two journal facts, and a refresh's change set proposed by the real refresh code from scripted replies. The app runs in the test's process under uvicorn on a free local port, with the web app's build and a database of its own, dropped afterwards. "Test mode" adds no sign-in to the app: `FakeGitHub` stands in for GitHub's OAuth endpoints, as in the sign-in tests, and the browser's redirect to github.com is answered with GitHub's callback, so `/auth/login` and `/auth/callback` run as they do for real. The app's Claude client has no replies, so a call the journey shouldn't make fails, and the browser reaches nothing but the app. It runs in its own CI job, after building the web app. The staging checklist sets up a second copy of T-051's deployment: a Vercel project, a Neon branch and a dev bot of its own, plus a working copy whose `backend/.env` is staging's.
 
 ### T-069 · Link repositories and import their history
-**Status:** ◐ · **Size:** L · **Depends on:** T-068 · **Requirements:** FR-GH-2, FR-GH-3, FR-GH-7, FR-GH-9, FR-GH-10, FR-JRN-7 · **PR:** [#81](https://github.com/matchastack/work-journal/pull/81)
+**Status:** ☑ · **Size:** L · **Depends on:** T-068 · **Requirements:** FR-GH-2, FR-GH-3, FR-GH-7, FR-GH-9, FR-GH-10, FR-JRN-7 · **PR:** [#81](https://github.com/matchastack/work-journal/pull/81)
 
 As the owner, I want to link each repository to a project once, import its history and read what's new later, so that my side projects reach my resume without journaling.
 
@@ -1032,34 +1032,38 @@ As the owner, I want to link each repository to a project once, import its histo
 **Built (2026-11-13):** a link is found by GitHub's number for the repository, so a rename keeps it; its name stays encrypted. A read saves each part's facts with its items' keys in one transaction. When another read took one of those items first, the part saves nothing and the read doesn't count as finished, so the next read starts where this one did: two reads may both ask the model, but only one saves. A part the model can't read is kept as read and failed, so it isn't tried again, and `wj github list` counts its items. The description, languages and README are read once. Linking again keeps the month a link reads from once a read has finished. Refreshes don't use GitHub facts yet: T-070 adds that.
 
 ### T-070 · Refreshes propose from GitHub facts
-**Status:** ☐ · **Size:** M · **Depends on:** T-069, T-064 · **Requirements:** FR-GH-2, FR-GH-4, FR-GH-10, FR-REV-1, FR-REV-6 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-069, T-064 · **Requirements:** FR-GH-2, FR-GH-4, FR-GH-10, FR-REV-1, FR-REV-6 · **PR:** [#82](https://github.com/matchastack/work-journal/pull/82)
 
 As the owner, I want my GitHub facts proposed as project bullets at the next refresh, with their sources, so that I review them like any other change.
 
-- [ ] A refresh covers GitHub facts as it covers journal facts, and so does `wj propose` in file mode.
-- [ ] Synthesis puts a GitHub fact only under its project, or under the new project it names. Anything else is left out, with a note.
-- [ ] A project made from a public repository's facts gets the repository's address as its URL. A private repository's address never reaches the profile.
-- [ ] A new skill named only by agent-made facts carries a note in the Inbox, saying to accept it only if you can defend it (R3). The agent itself is exempt.
-- [ ] The Inbox shows each GitHub source fact with its repository and links, and so does `wj apply --db`. The API types are regenerated.
-- [ ] Tests use the fake client.
+- [x] A refresh covers GitHub facts as it covers journal facts, and so does `wj propose` in file mode.
+- [x] Synthesis puts a GitHub fact only under its project, or under the new project it names. Anything else is left out, with a note.
+- [x] A project made from a public repository's facts gets the repository's address as its URL. A private repository's address never reaches the profile.
+- [x] A new skill named only by agent-made facts carries a note in the Inbox, saying to accept it only if you can defend it (R3). The agent itself is exempt.
+- [x] The Inbox shows each GitHub source fact with its repository and links, and so does `wj apply --db`. The API types are regenerated.
+- [x] Tests use the fake client.
+
+**Built (2026-11-13):** a GitHub fact belongs to its project, or to the new project its link named, which a later refresh finds by its name, so a link to a new project keeps feeding it. The planner and the writer never see a fact's source, so no repository's name or address reaches them from it. Each item a GitHub fact cites keeps the agent that made it, not one that only helped, and a skill gets the note when every new fact naming it rests only on such items. The Inbox shows every change's note, its proposal's rationale, which `wj apply` already printed. The prompts are unchanged, as code does the placing, so `wj eval` isn't affected.
 
 ### T-071 · `/refresh` reads linked repositories first
-**Status:** ☐ · **Size:** M · **Depends on:** T-070 · **Requirements:** FR-GH-8, FR-REM-6, NFR-PERF-1 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-070 · **Requirements:** FR-GH-8, FR-REM-6, NFR-PERF-1 · **PR:** [#83](https://github.com/matchastack/work-journal/pull/83)
 
 As the owner, I want `/refresh` to read my linked repositories first, so that one command brings my projects up to date.
 
-- [ ] The refresh job reads what's new before it proposes.
+- [x] The refresh job reads what's new before it proposes.
   - It reads at most `GITHUB_REFRESH_WINDOWS` windows, all at once.
   - 0 turns the read off.
-- [ ] `wj propose --db` reads everything before it starts the refresh.
-- [ ] A GitHub or model error never fails the refresh, and windows already saved stay saved.
-- [ ] A refresh stopped while reading says it didn't finish.
-- [ ] The bot's message adds three things, with no repository text:
+- [x] `wj propose --db` reads everything before it starts the refresh.
+- [x] A GitHub or model error never fails the refresh, and windows already saved stay saved.
+- [x] A refresh stopped while reading says it didn't finish.
+- [x] The bot's message adds three things, with no repository text:
   - what was read;
   - what's left for the next refresh or `wj github sync`;
   - what failed.
-- [ ] A repository that another read is working on is skipped.
-- [ ] Database tests use the fake GitHub and the fake LLM client.
+- [x] A repository that another read is working on is skipped.
+- [x] Database tests use the fake GitHub and the fake LLM client.
+
+**Built (2026-11-13):** stacked on T-070 (#82). The job marks the refresh started before it reads, then reads its facts after, so the facts the read saved are proposed from and a refresh stopped while reading counts as unfinished. `GITHUB_REFRESH_WINDOWS` defaults to 3. A read claims each repository for up to 30 minutes (`repo_links.reading_since`, migration 0023), and `wj github sync` claims them too, so a repository another read is working on is skipped. The parts are read in the order of the links and their history, so a long backlog in one repository can hold back the others until `wj github sync` reads it all.
 
 ### T-072 · GitHub facts on the Journal page
 **Status:** ◐ · **Size:** M · **Depends on:** T-069 · **Requirements:** FR-GH-10, FR-JRN-5, FR-JRN-6, FR-EXT-3 · **PR:** [#84](https://github.com/matchastack/work-journal/pull/84)

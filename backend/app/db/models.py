@@ -240,6 +240,10 @@ class RepoLink(Base):
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     """When the last whole read started. The next looks back 14 days before it (FR-GH-7); until
     one finishes, reads start at `since`."""
+    reading_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    """When the read that's working on it began, such as a refresh's on the server while
+    `wj github sync` runs: another read skips it until that one is done, or has been at it too
+    long to be still running (`READ_LEASE` in `app/db/repo_links.py`)."""
 
 
 class RepoItemRow(Base):

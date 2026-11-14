@@ -36,7 +36,7 @@ from app.schema.changes import (
     SetBulletStatus,
     UpdateField,
 )
-from app.schema.fact import Fact
+from app.schema.fact import Fact, RepoItem, RepoSource
 from app.schema.profile import Bullet, Profile, Role, Skill
 from app.schema.settings import ConfidentialTerms, StyleNotes
 from app.schema.verification import VerifierFinding, VerifierReport
@@ -174,10 +174,28 @@ def propose(database_url: str, user_id: uuid.UUID, *ops: ReviewedOp) -> uuid.UUI
     return seed(database_url, build)
 
 
+GITHUB_URL = "https://github.com/casey-example/recipe-box"
+FROM_GITHUB = Fact(
+    id="gh_a_1",
+    statement="Wrote the recipe importer in Go.",
+    tools=("Go",),
+    project_id="recipe_box",
+    origin="github",
+    source=RepoSource(
+        repository="casey-example/recipe-box",
+        url=GITHUB_URL,
+        private=True,
+        items=(RepoItem(kind="pull", ref="4", url=f"{GITHUB_URL}/pull/4", agent="Claude Code"),),
+    ),
+)
+AGENTS_ONLY = "Only work an AI coding agent did for you names it."
+
+
 @pytest.fixture
 def change_set(database_url: str, owner: Owner) -> uuid.UUID:
     """A refresh's proposal: a reworded bullet that passed the verifier, a new bullet it
-    flagged, benching a bullet and a new skill. The new bullet cites a journal fact."""
+    flagged, benching a bullet and a new skill. The new bullet cites a journal fact, and the
+    new skill a fact from GitHub, with a note."""
 
     async def facts(session: AsyncSession) -> str:
         entry = JournalEntry(
@@ -188,7 +206,7 @@ def change_set(database_url: str, owner: Owner) -> uuid.UUID:
         session.add(entry)
         await session.flush()
         runbook = Fact(id="f_runbook", statement=RUNBOOK, entry_id=str(entry.id))
-        await save_facts(session, owner.id, [*IMPORTED, runbook])
+        await save_facts(session, owner.id, [*IMPORTED, runbook, FROM_GITHUB])
         return str(entry.id)
 
     entry = seed(database_url, facts)
@@ -208,7 +226,13 @@ def change_set(database_url: str, owner: Owner) -> uuid.UUID:
             verifier_report=report("Wrote the runbook in Go.", "No fact names Go."),
         ),
         ReviewedOp(op=SetBulletStatus(bullet_id="nw_orders", status="benched", reason="Older")),
-        ReviewedOp(op=AddSkill(skill=Skill(name="Go", category="Languages"))),
+        ReviewedOp(
+            op=AddSkill(
+                skill=Skill(name="Go", category="Languages"),
+                fact_ids=(FROM_GITHUB.id,),
+                rationale=AGENTS_ONLY,
+            )
+        ),
     )
     assert entry
     return change_set
@@ -264,6 +288,7 @@ def test_each_change_shows_its_diff_sources_outputs_and_report(
         "reason": None,
         "title": "Reword a bullet under Engineer, Northwind Traders",
         "context": None,
+        "note": None,
         "before": EXPORT,
         "after": REWORDED,
         "diff": [
@@ -277,6 +302,7 @@ def test_each_change_shows_its_diff_sources_outputs_and_report(
                 "id": "fact_nw_export",
                 "statement": IMPORTED[0].statement,
                 "entryId": None,
+                "github": None,
             }
         ],
         "verifierReport": None,
@@ -288,11 +314,27 @@ def test_each_change_shows_its_diff_sources_outputs_and_report(
     assert added["after"] == "Wrote the runbook in Go."
     assert added["sources"][0]["statement"] == RUNBOOK
     assert added["sources"][0]["entryId"]
-    assert added["sources"][1] == {"id": "gone_fact", "statement": None, "entryId": None}
+    assert added["sources"][1] == {
+        "id": "gone_fact",
+        "statement": None,
+        "entryId": None,
+        "github": None,
+    }
     assert added["verifierReport"]["findings"][0]["message"] == "No fact names Go."
     assert (benched["verifierReport"], benched["editable"], benched["diff"]) == (None, False, [])
     assert (benched["before"], benched["after"]) == ("active", "benched: Older")
     assert skill["outputs"] == ["master_resume", "tailored_resumes", "portfolio"]
+    assert skill["note"] == AGENTS_ONLY
+    (github,) = skill["sources"]
+    assert (github["statement"], github["entryId"]) == (FROM_GITHUB.statement, None)
+    assert github["github"] == {
+        "repository": "casey-example/recipe-box",
+        "url": GITHUB_URL,
+        "private": True,
+        "items": [
+            {"kind": "pull", "ref": "4", "url": f"{GITHUB_URL}/pull/4", "agent": "Claude Code"}
+        ],
+    }
 
 
 # --- Deciding ------------------------------------------------------------------------------------

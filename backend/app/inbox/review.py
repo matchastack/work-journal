@@ -60,7 +60,7 @@ from app.refresh import change_set_decided
 from app.review import needs, rechecked
 from app.schema.changes import AddBullet, Author, ChangeOp, EditBullet, OpStatus, ReviewedOp
 from app.schema.common import Model
-from app.schema.fact import Fact
+from app.schema.fact import Fact, RepoSource
 from app.schema.profile import Profile
 from app.schema.verification import VerifierReport
 from app.telegram.processing import NO_PROFILE
@@ -95,7 +95,10 @@ class SourceFact(Model):
     statement: str | None
     """None when the fact has been deleted."""
     entry_id: str | None
-    """The journal entry it came from; None for a fact from the imported resume."""
+    """The journal entry it came from; None for a fact from the imported resume or GitHub."""
+    github: RepoSource | None
+    """For a fact from GitHub, its repository and the pull requests and commits it rests on,
+    with their links (FR-GH-10)."""
 
 
 class InboxOp(Model):
@@ -106,6 +109,9 @@ class InboxOp(Model):
     """Why the owner rejected it."""
     title: str
     context: str | None
+    note: str | None
+    """What to know before deciding, such as a new skill that only an AI coding agent's work
+    names (FR-GH-4)."""
     before: str | None
     after: str | None
     diff: tuple[DiffPart, ...]
@@ -346,6 +352,7 @@ def _op_view(
         reason=reviewed.reason,
         title=described.title,
         context=described.context,
+        note=op.rationale,
         before=before,
         after=after,
         diff=(
@@ -363,8 +370,10 @@ def _op_view(
 
 def _source(fact_id: str, fact: Fact | None) -> SourceFact:
     if fact is None:
-        return SourceFact(id=fact_id, statement=None, entry_id=None)
-    return SourceFact(id=fact_id, statement=fact.statement, entry_id=fact.entry_id)
+        return SourceFact(id=fact_id, statement=None, entry_id=None, github=None)
+    return SourceFact(
+        id=fact_id, statement=fact.statement, entry_id=fact.entry_id, github=fact.source
+    )
 
 
 def _report(stored: Mapping[str, JsonValue] | None) -> VerifierReport | None:
