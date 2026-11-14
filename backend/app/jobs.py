@@ -31,15 +31,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.catch_up import next_question
 from app.config import get_settings
 from app.db.engine import create_engine, session_factory, with_query
-from app.db.models import CatchUp, JournalEntry, TelegramLink
+from app.db.models import CatchUp, JournalEntry, TelegramLink, User
+from app.db.profiles import latest_version
 from app.db.store import find_render
+from app.github.api import GitHubApi
+from app.github.reader import ExpectedOwner
+from app.github.sync import LinkedRead, read_linked
 from app.linkedin import LinkedInPack, PackSection, PackWriter
 from app.llm.client import LLMClient, LLMConfigError, LLMInvalidOutput, LLMRefusal
 from app.llm.usage import CallLog, DatabaseCallLog
 from app.refresh import (
     PackJob,
     RefreshInterrupted,
-    begin_proposals,
     due_outputs,
     due_packs,
     fail_refresh,
@@ -47,10 +50,12 @@ from app.refresh import (
     master_selection,
     outputs_to_update,
     pack_to_write,
+    proposal_inputs,
     record_outputs,
     record_pack,
     record_proposals,
     running_refreshes,
+    start_proposals,
 )
 from app.reminders import default_schedule
 from app.render.compile import CompileError
@@ -446,17 +451,27 @@ async def queue_refresh(refresh_id: uuid.UUID) -> bool:
 
 
 async def run_refresh(refresh_id: uuid.UUID) -> None:
-    """Propose changes from the facts the refresh covers (`app/refresh.py`), outside a
-    transaction, then save them and tell the owner. A failure fails the refresh and tells the
-    owner, and so does running out of time, when the tick stops the job, or finding that an
-    earlier try never finished. A message that can't be sent is only logged: the proposals are
-    saved, and wait in the Inbox."""
+    """Read what's new in the linked repositories (FR-GH-8), then propose changes from the facts
+    the refresh covers (`app/refresh.py`), outside a transaction, then save them and tell the
+    owner, with what was read from GitHub. A failure fails the refresh and tells the owner, and
+    so does running out of time, when the tick stops the job, even while it reads GitHub, or
+    finding that an earlier try never finished. GitHub's errors never fail it. A message that
+    can't be sent is only logged: the proposals are saved, and wait in the Inbox."""
     try:
         async with database() as session:
-            inputs = await begin_proposals(session, refresh_id, now=datetime.now(UTC))
+            user_id = await start_proposals(session, refresh_id, now=datetime.now(UTC))
     except RefreshInterrupted:
         await _refresh_failed(refresh_id, "it didn't finish in time")
         return
+    if user_id is None:
+        return
+    try:
+        github = await _read_linked_repositories(user_id)
+    except asyncio.CancelledError:
+        await _refresh_failed(refresh_id, "it didn't finish in time")
+        raise
+    async with database() as session:
+        inputs = await proposal_inputs(session, refresh_id)
     if inputs is None:
         return
     log = DatabaseCallLog(inputs.user_id)
@@ -492,9 +507,43 @@ async def run_refresh(refresh_id: uuid.UUID) -> None:
     if proposals is None or chat_id is None:
         return
     try:
-        await _send(chat_id, proposals_text(proposals, get_settings().app_url))
+        await _send(chat_id, proposals_text(proposals, get_settings().app_url, github=github))
     except TelegramError:
         logger.warning("couldn't tell the owner that refresh %s is ready", refresh_id)
+
+
+async def _read_linked_repositories(user_id: uuid.UUID) -> LinkedRead | None:
+    """Read what's new in the user's linked repositories before the refresh proposes: at most
+    `GITHUB_REFRESH_WINDOWS` parts (FR-GH-8). Returns None when it's off, or there's no token.
+    Nothing but running out of time stops the refresh here: an error is logged by its type and
+    reported as a read that stopped, and the parts saved before it stay saved."""
+    settings = get_settings()
+    if settings.github_refresh_windows == 0 or settings.github_repos_token is None:
+        return None
+    log = DatabaseCallLog(user_id)
+    try:
+        async with _reading_session() as session:
+            version = await latest_version(session, user_id)
+            account = await session.get(User, user_id)
+            if version is None or account is None:
+                return None
+            owner = ExpectedOwner(github_id=account.github_id, login=account.github_login)
+            async with _github_http() as http:
+                return await read_linked(
+                    session,
+                    user_id,
+                    GitHubApi.from_settings(settings, http),
+                    version.profile,
+                    _llm_client(log),
+                    owner=owner,
+                    max_parts=settings.github_refresh_windows,
+                )
+    except Exception as error:
+        logger.warning("the linked repositories couldn't be read: %s", type(error).__name__)
+        return LinkedRead(stopped=True)
+    finally:
+        async with database() as session:
+            await log.save(session)
 
 
 async def _refresh_failed(refresh_id: uuid.UUID, reason: str) -> None:
@@ -907,6 +956,26 @@ def _clock() -> datetime:
 
 def _telegram_http() -> httpx2.AsyncClient:
     """The HTTP client for Telegram's Bot API (tests replace it with a stand-in for Telegram)."""
+    return httpx2.AsyncClient()
+
+
+@asynccontextmanager
+async def _reading_session() -> AsyncGenerator[AsyncSession]:
+    """A database session whose user commits, as a read of the linked repositories saves each
+    part as it goes."""
+    url = get_settings().database_url
+    if url is None:
+        raise RuntimeError("set DATABASE_URL to run background jobs")
+    engine = create_engine(url.get_secret_value())
+    try:
+        async with session_factory(engine)() as session:
+            yield session
+    finally:
+        await engine.dispose()
+
+
+def _github_http() -> httpx2.AsyncClient:
+    """The HTTP client for GitHub's REST API (tests replace it with a stand-in for GitHub)."""
     return httpx2.AsyncClient()
 
 

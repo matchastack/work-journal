@@ -88,6 +88,8 @@ class Item:
     """Who made it, in words, such as "By you, with Claude Code"; empty for "about"."""
     agent: str | None = None
     """The AI coding agent that made it or helped make it, if any (FR-GH-4)."""
+    by_agent: bool = False
+    """Whether the agent made it for the owner, rather than helped them make it."""
     coauthored: bool = False
     """Whether another person had a part in it."""
 
@@ -409,6 +411,7 @@ def _pull_item(read: PullHistory, made: Authorship, owner: Owner) -> Item:
         body=body,
         made_by=made_by(made),
         agent=made.agent,
+        by_agent=made.maker == "agent",
         coauthored=made.coauthored,
     )
 
@@ -438,6 +441,7 @@ def _commit_item(commit: Commit, made: Authorship) -> Item:
         body=clean(body, max_chars=COMMIT_CHARS),
         made_by=made_by(made),
         agent=made.agent,
+        by_agent=made.maker == "agent",
         coauthored=made.coauthored,
     )
 
@@ -478,18 +482,7 @@ def _labelled(items: list[Item]) -> list[Item]:
 
 
 def _with_label(item: Item, label: str) -> Item:
-    return Item(
-        label=label,
-        kind=item.kind,
-        ref=item.ref,
-        url=item.url,
-        at=item.at,
-        title=item.title,
-        body=item.body,
-        made_by=item.made_by,
-        agent=item.agent,
-        coauthored=item.coauthored,
-    )
+    return replace(item, label=label)
 
 
 def _windows(items: Sequence[Item], max_items: int, max_chars: int) -> tuple[tuple[Item, ...], ...]:

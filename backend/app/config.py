@@ -60,6 +60,10 @@ class Settings(BaseSettings):
     """A fine-grained personal access token (`github_pat_...`) that reads the history of the
     repositories the owner chose, for project facts (requirements §7.16). It isn't
     `GITHUB_TOKEN`, which other tools set and would silently replace it."""
+    github_refresh_windows: Annotated[int, Field(ge=0)] = 3
+    """How many parts of the linked repositories' new history a refresh's job reads before it
+    proposes (FR-GH-8), all at once, so the refresh still fits a Vercel function's 300 s. 0 turns
+    the read off. `wj propose --db` and `wj github sync` read everything."""
     anthropic_api_key: SecretStr | None = None
     """The Claude API key. Without it, the Anthropic SDK looks for its other credentials."""
     llm_model_heavy: str | None = None

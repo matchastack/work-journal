@@ -4675,6 +4675,17 @@
             ],
             "title": "Context"
           },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
           "before": {
             "anyOf": [
               {
@@ -4759,6 +4770,7 @@
           "reason",
           "title",
           "context",
+          "note",
           "before",
           "after",
           "diff",
@@ -6841,6 +6853,17 @@
             "type": "string",
             "minLength": 1,
             "title": "Url"
+          },
+          "agent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent"
           }
         },
         "additionalProperties": false,
@@ -7990,6 +8013,16 @@
               }
             ],
             "title": "Entryid"
+          },
+          "github": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RepoSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -7997,7 +8030,8 @@
         "required": [
           "id",
           "statement",
-          "entryId"
+          "entryId",
+          "github"
         ],
         "title": "SourceFact",
         "description": "A fact an operation cites."

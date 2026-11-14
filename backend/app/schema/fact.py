@@ -73,6 +73,9 @@ class RepoItem(Model):
     ref: str = ""
     """The pull request's number or the commit's hash; empty for the repository's description."""
     url: NonEmptyStr
+    agent: str | None = None
+    """The AI coding agent that made it for the owner, if one did (FR-GH-4); None for the owner's
+    own work, even when an agent helped."""
 
 
 class RepoSource(Model):

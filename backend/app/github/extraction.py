@@ -265,7 +265,15 @@ def _github_fact(
         repository=digest.repository,
         url=digest.url,
         private=digest.private,
-        items=tuple(RepoItem(kind=item.kind, ref=item.ref, url=item.url) for item in cited),
+        items=tuple(
+            RepoItem(
+                kind=item.kind,
+                ref=item.ref,
+                url=item.url,
+                agent=item.agent if item.by_agent else None,
+            )
+            for item in cited
+        ),
     )
     return Fact(
         id=fact_id,

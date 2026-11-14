@@ -35,7 +35,7 @@ Every generated sentence is checked against your facts, so wording never changes
 | Publish your portfolio page, and choose the resumes it offers | The web app, Portfolio page |
 | Render the master resume, or write the LinkedIn text, without waiting for a refresh | The command-line tool: `wj render --db`, `wj linkedin --db` |
 | Paste the LinkedIn text that changed into LinkedIn | The web app, LinkedIn page (a refresh writes the text) |
-| Link a GitHub repository to one of your projects, and save the facts in its history | `wj github link`, then `wj github sync` for what's new (turning them into bullets at `/refresh` is **Coming**: T-070 to T-072) |
+| Link a GitHub repository to one of your projects, and save the facts in its history for `/refresh` | `wj github link`; each `/refresh` then reads what's new first, and `wj github sync` reads all of it |
 
 ## Set up on your computer
 
@@ -68,6 +68,7 @@ Open `http://localhost:8000/healthz` to check it is up, or `http://localhost:800
 | `SENTRY_DSN` | Optional: the DSN of a Sentry project, so that errors in the app, `wj worker` and `wj tick` are reported there. Journal text is never sent. Empty means nothing is sent |
 | `ENTRY_TIMEOUT_MINUTES` | Minutes of quiet that close a journal entry (default 30) |
 | `REFRESH_CONCURRENCY` | How many bullets a refresh writes and checks at once (default 10), so a refresh of months of facts finishes in time. Lower it if the Claude API answers 429 (Too Many Requests) |
+| `GITHUB_REFRESH_WINDOWS` | How many parts of your linked repositories' new history `/refresh` reads before it proposes, all at once (default 3), so it finishes in time; the rest waits for the next `/refresh` or `wj github sync`. 0 turns the read off |
 | `REMINDER_DAYS`, `REMINDER_TIME`, `REMINDER_TIME_ZONE` | When the bot reminds you to journal: days such as `fri` or `mon,thu`, a local time and an IANA time zone (default Fridays at 18:00, Asia/Singapore) |
 
 ### Local database
@@ -165,7 +166,7 @@ After the last question, send `/refresh` to turn your answers into proposed chan
 |---|---|
 | `/done` | Close the current entry now, or pause the catch-up interview |
 | `/skip` | Skip the bot's question: the follow-up question about the last entry, or the interview's |
-| `/refresh` | Propose profile changes from your new facts. The bot says how many it proposes with a link to the Inbox, or that there is nothing new. While a refresh runs, `/refresh` says so. If proposals are still waiting, decide on them before sending it again |
+| `/refresh` | Propose profile changes from your new facts, after reading what's new in your [linked GitHub repositories](#at-a-refresh). The bot says how many it proposes with a link to the Inbox, or that there is nothing new, and what it read from GitHub. While a refresh runs, `/refresh` says so. If proposals are still waiting, decide on them before sending it again |
 | `/catchup` | Start the catch-up interview, or carry on where it paused |
 | `/pause` | Stop reminders |
 | `/resume` | Restart reminders, and say when they go out |
@@ -194,7 +195,7 @@ A page that is not built yet says which task will add it. Until then, use the co
 
 After `/refresh`, each set of proposed changes appears here. Nothing changes in your profile until you apply it.
 
-For each change you see the text before and after (removed words struck through, added words underlined), the facts it came from with a link to the journal entry, and the verifier's result. Then:
+For each change you see the text before and after (removed words struck through, added words underlined), the facts it came from with a link to the journal entry (or, for a fact from GitHub, its repository and links to the pull requests and commits it rests on), any note to read before deciding, and the verifier's result. Then:
 
 - **Accept** it as proposed.
 - **Edit** its text and save. The verifier checks the new wording again.
@@ -406,7 +407,7 @@ With `--db`, a section that names one of your confidential terms is written once
 
 ### Projects from GitHub
 
-Work Journal can read a GitHub repository's history to find facts for one of your projects, so you don't have to journal about side projects. Link a repository to a project with `wj github link`, which saves the facts in its history, and read what's new later with `wj github sync`. `wj github digest` shows exactly what it would read, and `wj github extract` prints the facts without saving them. Turning the saved facts into bullets at `/refresh`, and showing them on the Journal page, is **Coming** (T-070 to T-072).
+Work Journal can read a GitHub repository's history to find facts for one of your projects, so you don't have to journal about side projects. Link a repository to a project with `wj github link`, which saves the facts in its history, and read what's new later with `wj github sync`. Each `/refresh` reads what's new in them first, and proposes changes from those facts too (see [At a refresh](#at-a-refresh)). `wj github digest` shows exactly what it would read, and `wj github extract` prints the facts without saving them. Showing the facts on the Journal page is **Coming** (T-072).
 
 **Make a token.** On GitHub, open Settings, Developer settings, Personal access tokens, Fine-grained tokens, and generate a new token:
 
@@ -465,6 +466,23 @@ uv run wj github unlink <owner/repo>                             # stop reading 
 - **When something can't be read.** If the model declines a part, or can't answer it in the right shape, that part is recorded and skipped, and the command exits with status 1. If the model can't be reached, the read stops, and the next `wj github sync` carries on from where it stopped. If GitHub can't be reached, `wj github link` links nothing, and `wj github sync` goes on to the next repository and tries that one again next time.
 - **Unlinking** stops reading the repository and keeps its facts. Linking it again, even to another project, carries on where it stopped.
 - **Privacy.** The repository's name is stored encrypted, and its text goes only to the model: only the facts are kept.
+
+#### At a refresh
+
+`/refresh` first reads what's new in your linked repositories, then covers the facts from them that no refresh has covered, as it covers your journal's.
+
+- **How much it reads.** The hosted app reads up to `GITHUB_REFRESH_WINDOWS` parts (default 3), all at once, so the refresh finishes in time; the rest waits for the next `/refresh`, or `uv run wj github sync` reads all of it. `uv run wj propose --db` reads all of it before it starts.
+- **What the bot says.** After the proposals, how many parts it read and how many facts they gave, how many wait, and what couldn't be read. It never names a repository.
+- **When something goes wrong.** If GitHub or the model can't be reached, the refresh still proposes from your journal, and the parts already saved stay saved. A repository that `wj github sync` is reading at the time is left to it, and the other way round.
+
+In the [Inbox](#inbox):
+
+- A fact from GitHub goes only under its project: the one you linked the repository to, or the new project you named, which the refresh may add for you. A change that would put it under a role or another project is left out.
+- A new project made from a public repository's facts gets the repository's address as its link. A private repository's address is never added to your profile.
+- Each source fact shows its repository and links to the pull requests and commits it rests on.
+- A new skill that only work an AI coding agent did for you names carries a note: accept it only if you can defend it. The agent itself, such as Claude Code, needs no note.
+
+`uv run wj apply --db` shows the same: each GitHub fact's repository and links, and the note.
 
 ### Work on single notes and bullets
 
