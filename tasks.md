@@ -1032,7 +1032,7 @@ As the owner, I want to link each repository to a project once, import its histo
 **Built (2026-11-13):** a link is found by GitHub's number for the repository, so a rename keeps it; its name stays encrypted. A read saves each part's facts with its items' keys in one transaction. When another read took one of those items first, the part saves nothing and the read doesn't count as finished, so the next read starts where this one did: two reads may both ask the model, but only one saves. A part the model can't read is kept as read and failed, so it isn't tried again, and `wj github list` counts its items. The description, languages and README are read once. Linking again keeps the month a link reads from once a read has finished. Refreshes don't use GitHub facts yet: T-070 adds that.
 
 ### T-070 · Refreshes propose from GitHub facts
-**Status:** ◐ · **Size:** M · **Depends on:** T-069, T-064 · **Requirements:** FR-GH-2, FR-GH-4, FR-GH-10, FR-REV-1, FR-REV-6 · **PR:** [#82](https://github.com/matchastack/work-journal/pull/82)
+**Status:** ☑ · **Size:** M · **Depends on:** T-069, T-064 · **Requirements:** FR-GH-2, FR-GH-4, FR-GH-10, FR-REV-1, FR-REV-6 · **PR:** [#82](https://github.com/matchastack/work-journal/pull/82)
 
 As the owner, I want my GitHub facts proposed as project bullets at the next refresh, with their sources, so that I review them like any other change.
 
@@ -1046,7 +1046,7 @@ As the owner, I want my GitHub facts proposed as project bullets at the next ref
 **Built (2026-11-13):** a GitHub fact belongs to its project, or to the new project its link named, which a later refresh finds by its name, so a link to a new project keeps feeding it. The planner and the writer never see a fact's source, so no repository's name or address reaches them from it. Each item a GitHub fact cites keeps the agent that made it, not one that only helped, and a skill gets the note when every new fact naming it rests only on such items. The Inbox shows every change's note, its proposal's rationale, which `wj apply` already printed. The prompts are unchanged, as code does the placing, so `wj eval` isn't affected.
 
 ### T-071 · `/refresh` reads linked repositories first
-**Status:** ◐ · **Size:** M · **Depends on:** T-070 · **Requirements:** FR-GH-8, FR-REM-6, NFR-PERF-1 · **PR:** [#83](https://github.com/matchastack/work-journal/pull/83)
+**Status:** ☑ · **Size:** M · **Depends on:** T-070 · **Requirements:** FR-GH-8, FR-REM-6, NFR-PERF-1 · **PR:** [#83](https://github.com/matchastack/work-journal/pull/83)
 
 As the owner, I want `/refresh` to read my linked repositories first, so that one command brings my projects up to date.
 
@@ -1066,17 +1066,19 @@ As the owner, I want `/refresh` to read my linked repositories first, so that on
 **Built (2026-11-13):** stacked on T-070 (#82). The job marks the refresh started before it reads, then reads its facts after, so the facts the read saved are proposed from and a refresh stopped while reading counts as unfinished. `GITHUB_REFRESH_WINDOWS` defaults to 3. A read claims each repository for up to 30 minutes (`repo_links.reading_since`, migration 0023), and `wj github sync` claims them too, so a repository another read is working on is skipped. The parts are read in the order of the links and their history, so a long backlog in one repository can hold back the others until `wj github sync` reads it all.
 
 ### T-072 · GitHub facts on the Journal page
-**Status:** ☐ · **Size:** M · **Depends on:** T-069 · **Requirements:** FR-GH-10, FR-JRN-5, FR-JRN-6, FR-EXT-3 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-069 · **Requirements:** FR-GH-10, FR-JRN-5, FR-JRN-6, FR-EXT-3 · **PR:** [#84](https://github.com/matchastack/work-journal/pull/84)
 
 As the owner, I want to read, correct and delete the facts from my repositories, so that my record stays accurate.
 
-- [ ] A "From GitHub" section after the journal lists each linked repository and its facts by month, with links to their pull requests and commits.
-- [ ] GitHub facts can be edited and deleted like other facts.
+- [x] A "From GitHub" section after the journal lists each linked repository and its facts by month, with links to their pull requests and commits.
+- [x] GitHub facts can be edited and deleted like other facts.
   - The page warns when the profile cites a fact.
   - GitHub facts link to projects only.
-- [ ] The download buttons work with no journal entries.
-- [ ] The page works with the keyboard.
-- [ ] Tests for the API and components.
+- [x] The download buttons work with no journal entries.
+- [x] The page works with the keyboard.
+- [x] Tests for the API and components.
+
+**Built (2026-11-13):** the journal's API gives the facts from GitHub by repository, as the exports do, so the page and both downloads share one list. A linked repository with no fact yet is listed too, without saying whether it's private, as no fact tells. Facts are grouped by the repository name they were read with, so a repository renamed since shows under each name. The API refuses a role on a GitHub fact (422), and its form has no role field.
 
 ---
 

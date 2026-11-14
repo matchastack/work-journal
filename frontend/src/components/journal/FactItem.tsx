@@ -8,12 +8,13 @@ import {
   type RoleOption,
 } from "../../api/journal";
 import { describeMetric, factMonth } from "../../format";
-import { TEXT_BUTTON } from "../ui";
+import { FOCUS, TEXT_BUTTON } from "../ui";
 import { ConfirmDelete } from "./ConfirmDelete";
 import { FactForm } from "./FactForm";
 import { hasOwnRole, KIND_LABELS, OWNERSHIP_LABELS, roleText } from "./labels";
 
-/** A fact saved from an entry, shown inline (FR-JRN-5). It can be edited and deleted
+/** A fact saved from an entry, shown inline (FR-JRN-5), or read from GitHub, with no entry and
+ * links to the pull requests and commits it rests on (FR-GH-10). It can be edited and deleted
  * (FR-EXT-3); deleting one the profile cites names the bullets first (FR-JRN-6). */
 export function FactItem({
   fact,
@@ -22,7 +23,7 @@ export function FactItem({
   projects,
 }: {
   fact: JournalFact;
-  entry: JournalEntry;
+  entry: JournalEntry | null;
   roles: readonly RoleOption[];
   projects: readonly ProjectOption[];
 }) {
@@ -44,8 +45,12 @@ export function FactItem({
     KIND_LABELS[fact.kind],
     fact.ownership ? OWNERSHIP_LABELS[fact.ownership] : null,
     fact.date ? factMonth(fact.date) : null,
-    hasOwnRole(fact, entry) ? (roleText(fact, roles) ?? "No role") : null,
-    fact.projectId ? `Project: ${project?.name ?? fact.projectId}` : null,
+    entry !== null && hasOwnRole(fact, entry) ? (roleText(fact, roles) ?? "No role") : null,
+    fact.projectId
+      ? `Project: ${project?.name ?? fact.projectId}`
+      : fact.origin === "github" && fact.proposedItem
+        ? `New project: ${fact.proposedItem}`
+        : null,
     fact.tools.length > 0 ? `Tools: ${fact.tools.join(", ")}` : null,
   ].filter((detail) => detail !== null);
   const cited = fact.citedBy.length;
@@ -70,6 +75,7 @@ export function FactItem({
         </ul>
       )}
       {fact.outcome && <p className="mt-1 text-xs text-stone-700">Outcome: {fact.outcome}</p>}
+      {fact.source && <SourceLinks source={fact.source} />}
       {cited > 0 && (
         <p className="mt-1 text-xs text-emerald-800">
           Cited by {cited === 1 ? "a bullet" : `${String(cited)} bullets`} in your profile
@@ -116,5 +122,32 @@ export function FactItem({
         />
       )}
     </li>
+  );
+}
+
+type Source = NonNullable<JournalFact["source"]>;
+
+/** The pull requests and commits a fact from GitHub rests on, as links. */
+function SourceLinks({ source }: { source: Source }) {
+  return (
+    <p className="mt-1 text-xs text-stone-700">
+      From{" "}
+      {source.items.map((item, index) => (
+        <span key={`${item.kind}-${item.ref}`}>
+          {index > 0 && ", "}
+          <a
+            href={item.url}
+            rel="noreferrer"
+            className={`rounded text-emerald-800 underline underline-offset-2 ${FOCUS}`}
+          >
+            {item.kind === "pull"
+              ? `pull request ${item.ref}`
+              : item.kind === "commit"
+                ? `commit ${item.ref.slice(0, 7)}`
+                : "the repository's description"}
+          </a>
+        </span>
+      ))}
+    </p>
   );
 }
