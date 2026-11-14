@@ -1032,7 +1032,7 @@ As the owner, I want to link each repository to a project once, import its histo
 **Built (2026-11-13):** a link is found by GitHub's number for the repository, so a rename keeps it; its name stays encrypted. A read saves each part's facts with its items' keys in one transaction. When another read took one of those items first, the part saves nothing and the read doesn't count as finished, so the next read starts where this one did: two reads may both ask the model, but only one saves. A part the model can't read is kept as read and failed, so it isn't tried again, and `wj github list` counts its items. The description, languages and README are read once. Linking again keeps the month a link reads from once a read has finished. Refreshes don't use GitHub facts yet: T-070 adds that.
 
 ### T-070 · Refreshes propose from GitHub facts
-**Status:** ◐ · **Size:** M · **Depends on:** T-069, T-064 · **Requirements:** FR-GH-2, FR-GH-4, FR-GH-10, FR-REV-1, FR-REV-6 · **PR:** [#82](https://github.com/matchastack/work-journal/pull/82)
+**Status:** ☑ · **Size:** M · **Depends on:** T-069, T-064 · **Requirements:** FR-GH-2, FR-GH-4, FR-GH-10, FR-REV-1, FR-REV-6 · **PR:** [#82](https://github.com/matchastack/work-journal/pull/82)
 
 As the owner, I want my GitHub facts proposed as project bullets at the next refresh, with their sources, so that I review them like any other change.
 
@@ -1046,7 +1046,7 @@ As the owner, I want my GitHub facts proposed as project bullets at the next ref
 **Built (2026-11-13):** a GitHub fact belongs to its project, or to the new project its link named, which a later refresh finds by its name, so a link to a new project keeps feeding it. The planner and the writer never see a fact's source, so no repository's name or address reaches them from it. Each item a GitHub fact cites keeps the agent that made it, not one that only helped, and a skill gets the note when every new fact naming it rests only on such items. The Inbox shows every change's note, its proposal's rationale, which `wj apply` already printed. The prompts are unchanged, as code does the placing, so `wj eval` isn't affected.
 
 ### T-071 · `/refresh` reads linked repositories first
-**Status:** ◐ · **Size:** M · **Depends on:** T-070 · **Requirements:** FR-GH-8, FR-REM-6, NFR-PERF-1 · **PR:** [#83](https://github.com/matchastack/work-journal/pull/83)
+**Status:** ☑ · **Size:** M · **Depends on:** T-070 · **Requirements:** FR-GH-8, FR-REM-6, NFR-PERF-1 · **PR:** [#83](https://github.com/matchastack/work-journal/pull/83)
 
 As the owner, I want `/refresh` to read my linked repositories first, so that one command brings my projects up to date.
 
