@@ -89,7 +89,7 @@ As the owner, I want my GitHub repositories' history to become facts for my proj
 - [x] No personal data is committed.
 
 ### T-076 · Telegram in M3: requirements
-**Status:** ◐ · **Size:** S · **Depends on:** T-000 · **Requirements:** FR-REV-5, FR-CAP-9 (defines their acceptance criteria) · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-000 · **Requirements:** FR-REV-5, FR-CAP-9 (defines their acceptance criteria) · **PR:** [#86](https://github.com/matchastack/work-journal/pull/86)
 
 As the owner, I want the first M3 tasks planned before they're built, so that I can agree how the bot reviews changes and takes job postings.
 

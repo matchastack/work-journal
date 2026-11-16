@@ -2,7 +2,7 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-11-16 · T-076 Telegram in M3: requirements · PR
+## 2026-11-16 · T-076 Telegram in M3: requirements · [#86](https://github.com/matchastack/work-journal/pull/86)
 **Changed:** the requirements give FR-REV-5 (reviewing changes in the chat) and FR-CAP-9 (job postings through the bot) their acceptance criteria, and `tasks.md` plans them as T-077 and T-078. T-072 and M2 are marked done.
 
 **Verify:**
