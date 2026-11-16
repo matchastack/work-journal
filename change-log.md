@@ -2,6 +2,14 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-11-16 · T-076 Telegram in M3: requirements · PR
+**Changed:** the requirements give FR-REV-5 (reviewing changes in the chat) and FR-CAP-9 (job postings through the bot) their acceptance criteria, and `tasks.md` plans them as T-077 and T-078. T-072 and M2 are marked done.
+
+**Verify:**
+- FR-REV-5 says what you want from reviewing in the chat: one change at a time, Accept only for changes the verifier passed, edits and reasons left to the Inbox, and an Apply button
+- FR-CAP-9 says what you want from `/tailor`: the posting in one or more messages until `/done`, no links opened, and a reply with the coverage and a link to the draft
+- T-077 and T-078 are split and ordered the way you want
+
 ## 2026-11-13 · T-072 GitHub facts on the Journal page · [#84](https://github.com/matchastack/work-journal/pull/84)
 **Changed:** the Journal page ends with a "From GitHub" section: each linked repository, and its facts by month with links to their pull requests and commits. They're edited and deleted like other facts, with no role. The downloads show even with no journal entries.
 
