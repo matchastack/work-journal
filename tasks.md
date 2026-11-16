@@ -1096,7 +1096,7 @@ As the owner, I want to read, correct and delete the facts from my repositories,
 The Telegram epics come first, as T-077 and T-078. Neither adds a model call. The other epics are broken into tasks when these are done.
 
 ### T-077 · Review changes in Telegram
-**Status:** ◐ · **Size:** M · **Depends on:** T-038, T-040 · **Requirements:** FR-REV-5, FR-REV-2, FR-REV-3, FR-REV-7, FR-FID-7 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-038, T-040 · **Requirements:** FR-REV-5, FR-REV-2, FR-REV-3, FR-REV-7, FR-FID-7 · **PR:** [#87](https://github.com/matchastack/work-journal/pull/87)
 
 As the owner, I want to decide on proposed changes in the chat, one at a time, so that a refresh doesn't wait until I'm at a computer.
 

@@ -2,7 +2,7 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-11-16 · T-077 Review changes in Telegram · PR
+## 2026-11-16 · T-077 Review changes in Telegram · [#87](https://github.com/matchastack/work-journal/pull/87)
 **Changed:** the bot's message about a refresh's proposals has a **Review here** button, which shows the changes one at a time in one message, with Accept (only for changes the verifier passed), Reject and Next, then an Apply button once every change is decided. The decisions are the Inbox's own.
 
 **Verify:**
