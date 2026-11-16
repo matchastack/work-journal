@@ -10,7 +10,6 @@ Both come from one read of the journal (`load_journal`), so 1,000 entries take w
 """
 
 import uuid
-from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -20,7 +19,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import FactRow
 from app.journal.document import Journal, JournalEntryView, load_journal
-from app.schema.common import Model
 from app.schema.fact import Fact
 from app.validate.numbers import describe_metric
 
@@ -48,21 +46,10 @@ NOTES = {
 """What the Markdown says about an entry that isn't processed."""
 
 
-class RepositoryFacts(Model):
-    repository: str
-    """The repository, as `owner/name`."""
-    url: str
-    private: bool
-    facts: tuple[Fact, ...]
-    """Newest first."""
-
-
 class JournalExport(Journal):
     exported_at: datetime
     imported_facts: tuple[Fact, ...]
     """Facts from the imported master resume (FR-IMP-4), which belong to no entry."""
-    repositories: tuple[RepositoryFacts, ...]
-    """Facts from linked GitHub repositories (FR-GH-10), by repository, in name order."""
 
 
 async def export_journal(
@@ -70,41 +57,19 @@ async def export_journal(
 ) -> JournalExport:
     """The user's whole journal and every fact, as of `now`."""
     journal = await load_journal(session, user_id)
-    rows = await session.execute(
-        select(FactRow.origin, FactRow.data)
-        .where(FactRow.user_id == user_id, FactRow.origin.in_(("import", "github")))
+    imported = await session.scalars(
+        select(FactRow.data)
+        .where(FactRow.user_id == user_id, FactRow.origin == "import")
         .order_by(FactRow.id)
     )
-    facts = [(origin, Fact.model_validate_json(data)) for origin, data in rows]
     return JournalExport(
         entries=journal.entries,
         roles=journal.roles,
         projects=journal.projects,
+        repositories=journal.repositories,
         exported_at=now,
-        imported_facts=tuple(fact for origin, fact in facts if origin == "import"),
-        repositories=by_repository([fact for origin, fact in facts if origin == "github"]),
+        imported_facts=tuple(Fact.model_validate_json(data) for data in imported),
     )
-
-
-def by_repository(facts: Sequence[Fact]) -> tuple[RepositoryFacts, ...]:
-    """GitHub facts by repository, in name order, each repository's newest first (undated last).
-    A repository renamed since keeps its facts under each name they were read with."""
-    groups: dict[str, list[Fact]] = defaultdict(list)
-    for fact in facts:
-        if fact.source is not None:
-            groups[fact.source.repository].append(fact)
-    repositories: list[RepositoryFacts] = []
-    for name in sorted(groups, key=str.casefold):
-        group = sorted(groups[name], key=lambda fact: fact.id)
-        group.sort(key=lambda fact: fact.date or "", reverse=True)
-        source = group[0].source
-        assert source is not None, "grouped by their source"
-        repositories.append(
-            RepositoryFacts(
-                repository=name, url=source.url, private=source.private, facts=tuple(group)
-            )
-        )
-    return tuple(repositories)
 
 
 def to_markdown(export: JournalExport, zone: ZoneInfo) -> str:
@@ -132,9 +97,11 @@ def to_markdown(export: JournalExport, zone: ZoneInfo) -> str:
             lines += ["Facts:", "", *_facts(entry.facts), ""]
     if export.imported_facts:
         lines += ["## Facts from your imported resume", "", *_facts(export.imported_facts), ""]
-    if export.repositories:
+    if any(repository.facts for repository in export.repositories):
         lines += ["## Facts from GitHub", ""]
         for repository in export.repositories:
+            if not repository.facts:
+                continue
             private = " (private)" if repository.private else ""
             lines += [f"### {repository.repository}{private}", "", repository.url, ""]
             lines += [*_facts(repository.facts, links=True), ""]

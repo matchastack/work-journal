@@ -2052,6 +2052,8 @@ export interface components {
             roles: components["schemas"]["RoleOption"][];
             /** Projects */
             projects: components["schemas"]["ProjectOption"][];
+            /** Repositories */
+            repositories: components["schemas"]["RepositoryFacts"][];
         };
         /** JournalEntryView */
         JournalEntryView: {
@@ -2093,6 +2095,8 @@ export interface components {
             roles: components["schemas"]["RoleOption"][];
             /** Projects */
             projects: components["schemas"]["ProjectOption"][];
+            /** Repositories */
+            repositories: components["schemas"]["RepositoryFacts"][];
             /**
              * Exportedat
              * Format: date-time
@@ -2100,8 +2104,6 @@ export interface components {
             exportedAt: string;
             /** Importedfacts */
             importedFacts: components["schemas"]["Fact"][];
-            /** Repositories */
-            repositories: components["schemas"]["RepositoryFacts"][];
         };
         /** JournalFact */
         JournalFact: {
@@ -2764,16 +2766,19 @@ export interface components {
             /** Items */
             items: components["schemas"]["RepoItem"][];
         };
-        /** RepositoryFacts */
+        /**
+         * RepositoryFacts
+         * @description A GitHub repository, and the facts read from it (FR-GH-10).
+         */
         RepositoryFacts: {
             /** Repository */
             repository: string;
             /** Url */
             url: string;
             /** Private */
-            private: boolean;
+            private: boolean | null;
             /** Facts */
-            facts: components["schemas"]["Fact"][];
+            facts: components["schemas"]["JournalFact"][];
         };
         /** Restore */
         Restore: {

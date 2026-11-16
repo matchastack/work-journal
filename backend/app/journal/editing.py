@@ -163,10 +163,13 @@ async def edit_fact(
     session: AsyncSession, user_id: uuid.UUID, fact_id: str, edit: FactEdit
 ) -> JournalFact:
     """Change a fact's fields. Raises `UnknownLink` for a role or project that isn't in the
-    profile, unless the fact already links to it."""
+    profile, unless the fact already links to it, and for a role on a fact from GitHub, which
+    belongs to a project only (FR-GH-2)."""
     current = await get_fact(session, user_id, fact_id)
     if current is None:
         raise NotFound(f"there's no fact {fact_id}")
+    if current.origin == "github" and (edit.role_id or edit.proposed_role):
+        raise UnknownLink("a fact from GitHub belongs to a project, never to a role")
     profile = await latest_profile(session, user_id)
     roles = {role.id for role in profile.work} | {current.role_id}
     if edit.role_id is not None and edit.role_id not in roles:

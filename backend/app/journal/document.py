@@ -9,6 +9,7 @@ owner, and never logged.
 
 import uuid
 from collections import defaultdict
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Literal
 
@@ -17,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import FactRow, JournalEntry, JournalMessage, JournalMessageEdit
 from app.db.profiles import latest_version
+from app.db.repo_links import list_links
 from app.schema.common import Model
 from app.schema.fact import Fact
 from app.schema.profile import Profile
@@ -85,12 +87,27 @@ class ProjectOption(Model):
     name: str
 
 
+class RepositoryFacts(Model):
+    """A GitHub repository, and the facts read from it (FR-GH-10)."""
+
+    repository: str
+    """The repository, as `owner/name`."""
+    url: str
+    private: bool | None
+    """None for a linked repository with no fact yet, which tells nothing of it."""
+    facts: tuple[JournalFact, ...]
+    """Newest first, the undated last."""
+
+
 class Journal(Model):
     entries: tuple[JournalEntryView, ...]
     """Oldest first."""
     roles: tuple[RoleOption, ...]
     """The roles in the latest profile version, which facts can link to."""
     projects: tuple[ProjectOption, ...]
+    repositories: tuple[RepositoryFacts, ...]
+    """The facts from GitHub, by repository, in name order, with each linked repository that has
+    none yet (FR-GH-10)."""
 
 
 def entry_status(entry: JournalEntry) -> EntryStatus:
@@ -196,7 +213,49 @@ async def load_journal(session: AsyncSession, user_id: uuid.UUID) -> Journal:
         projects=tuple(
             ProjectOption(id=project.id, name=project.name) for project in profile.projects
         ),
+        repositories=by_repository(
+            [journal_fact(fact, cited) for fact in await _github_facts(session, user_id)],
+            linked=[link.name for link in await list_links(session, user_id)],
+        ),
     )
+
+
+async def _github_facts(session: AsyncSession, user_id: uuid.UUID) -> list[Fact]:
+    rows = await session.scalars(
+        select(FactRow.data)
+        .where(FactRow.user_id == user_id, FactRow.origin == "github")
+        .order_by(FactRow.id)
+    )
+    return [Fact.model_validate_json(data) for data in rows]
+
+
+def by_repository(
+    facts: Sequence[JournalFact], *, linked: Sequence[str] = ()
+) -> tuple[RepositoryFacts, ...]:
+    """GitHub facts by repository, in name order, each repository's newest first (undated last),
+    with each of the `linked` repositories that has no fact yet. A repository renamed since
+    keeps its facts under each name they were read with."""
+    groups: dict[str, list[JournalFact]] = defaultdict(list)
+    for fact in facts:
+        if fact.source is not None:
+            groups[fact.source.repository].append(fact)
+    known = {name.casefold() for name in groups}
+    repositories = [
+        RepositoryFacts(repository=name, url=f"https://github.com/{name}", private=None, facts=())
+        for name in dict.fromkeys(linked)
+        if name.casefold() not in known
+    ]
+    for name, group in groups.items():
+        group.sort(key=lambda fact: fact.id)
+        group.sort(key=lambda fact: fact.date or "", reverse=True)
+        source = group[0].source
+        assert source is not None, "grouped by their source"
+        repositories.append(
+            RepositoryFacts(
+                repository=name, url=source.url, private=source.private, facts=tuple(group)
+            )
+        )
+    return tuple(sorted(repositories, key=lambda repository: repository.repository.casefold()))
 
 
 def journal_fact(fact: Fact, cited: dict[str, list[Citation]]) -> JournalFact:

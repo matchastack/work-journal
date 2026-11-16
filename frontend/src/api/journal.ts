@@ -11,6 +11,7 @@ export type JournalFact = components["schemas"]["JournalFact"];
 export type Citation = components["schemas"]["Citation"];
 export type RoleOption = components["schemas"]["RoleOption"];
 export type ProjectOption = components["schemas"]["ProjectOption"];
+export type RepositoryFacts = components["schemas"]["RepositoryFacts"];
 export type FactEdit = components["schemas"]["FactEdit"];
 export type Metric = components["schemas"]["Metric"];
 export type FactKind = FactEdit["kind"];

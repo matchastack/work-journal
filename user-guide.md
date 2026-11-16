@@ -35,7 +35,7 @@ Every generated sentence is checked against your facts, so wording never changes
 | Publish your portfolio page, and choose the resumes it offers | The web app, Portfolio page |
 | Render the master resume, or write the LinkedIn text, without waiting for a refresh | The command-line tool: `wj render --db`, `wj linkedin --db` |
 | Paste the LinkedIn text that changed into LinkedIn | The web app, LinkedIn page (a refresh writes the text) |
-| Link a GitHub repository to one of your projects, and save the facts in its history for `/refresh` | `wj github link`; each `/refresh` then reads what's new first, and `wj github sync` reads all of it |
+| Link a GitHub repository to one of your projects, and save the facts in its history for `/refresh` | `wj github link`; each `/refresh` then reads what's new first, and `wj github sync` reads all of it. The Journal page shows the facts |
 
 ## Set up on your computer
 
@@ -181,7 +181,7 @@ Open `http://localhost:5173` while developing, or your deployed address. Sign in
 | Page | Status | What it is for |
 |---|---|---|
 | [Inbox](#inbox) | Built | Review the changes proposed from your journal |
-| [Journal](#journal) | Built | Everything you sent the bot, with the facts saved from it |
+| [Journal](#journal) | Built | Everything you sent the bot, with the facts saved from it, and the facts from GitHub |
 | [Profile](#profile) | Built | Your basics, roles, education, projects and bullets, the rules that drive tailoring, and every earlier version |
 | [Resumes](#resumes) | Built | Preview and download your master resume and tailored resumes |
 | [Tailor](#tailor) | Built | Tailor a resume to a job posting, and see where you applied |
@@ -223,7 +223,9 @@ You can correct anything in place:
 - **Facts:** edit the statement, outcome, kind, your part in it, date, numbers, role, project and tools, or delete the fact. If the profile cites a fact, the page names the bullets before it deletes.
 - **Entries:** delete a whole entry, with its messages and facts. If the profile cites any of those facts, the page names the bullets and asks you to confirm first.
 
-**Download Markdown** and **Download JSON** at the top save the whole journal, with the facts from your imported resume and from your [linked GitHub repositories](#projects-from-github), by repository.
+**From GitHub**, after the journal, lists each [linked repository](#projects-from-github), marked private when it is, and the facts read from it by month, newest first, each with links to the pull requests and commits it rests on. A repository you linked that has no fact yet says so. You edit and delete these facts as the others; they belong to a project only, so their form has no role, and a fact for the new project you named when linking says so. The **From GitHub** link beside the months takes you there.
+
+**Download Markdown** and **Download JSON** at the top save the whole journal, even before your first entry, with the facts from your imported resume and from your [linked GitHub repositories](#projects-from-github), by repository.
 
 ### Profile
 
@@ -407,7 +409,7 @@ With `--db`, a section that names one of your confidential terms is written once
 
 ### Projects from GitHub
 
-Work Journal can read a GitHub repository's history to find facts for one of your projects, so you don't have to journal about side projects. Link a repository to a project with `wj github link`, which saves the facts in its history, and read what's new later with `wj github sync`. Each `/refresh` reads what's new in them first, and proposes changes from those facts too (see [At a refresh](#at-a-refresh)). `wj github digest` shows exactly what it would read, and `wj github extract` prints the facts without saving them. Showing the facts on the Journal page is **Coming** (T-072).
+Work Journal can read a GitHub repository's history to find facts for one of your projects, so you don't have to journal about side projects. Link a repository to a project with `wj github link`, which saves the facts in its history, and read what's new later with `wj github sync`. Each `/refresh` reads what's new in them first, and proposes changes from those facts too (see [At a refresh](#at-a-refresh)). The [Journal](#journal) page shows the saved facts. `wj github digest` shows exactly what it would read, and `wj github extract` prints the facts without saving them.
 
 **Make a token.** On GitHub, open Settings, Developer settings, Personal access tokens, Fine-grained tokens, and generate a new token:
 

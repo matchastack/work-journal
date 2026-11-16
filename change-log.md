@@ -2,6 +2,14 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-11-13 · T-072 GitHub facts on the Journal page · [#84](https://github.com/matchastack/work-journal/pull/84)
+**Changed:** the Journal page ends with a "From GitHub" section: each linked repository, and its facts by month with links to their pull requests and commits. They're edited and deleted like other facts, with no role. The downloads show even with no journal entries.
+
+**Verify:**
+- With a repository linked, the Journal page shows "From GitHub" with its facts by month, and their links open the pull requests and commits
+- Editing a GitHub fact has no Role field, and deleting one the profile cites asks first
+- With no journal entries, Download Markdown and Download JSON still show
+
 ## 2026-11-13 · T-071 `/refresh` reads linked repositories first · [#83](https://github.com/matchastack/work-journal/pull/83)
 **Changed:** `/refresh` reads what's new in your linked GitHub repositories before it proposes, up to `GITHUB_REFRESH_WINDOWS` parts (default 3), and the bot says what it read, what waits and what failed, without naming a repository. `wj propose --db` reads all of it first, and a repository another read is working on is left to it.
 

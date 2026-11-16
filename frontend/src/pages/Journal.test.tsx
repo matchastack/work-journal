@@ -58,6 +58,7 @@ function journal(): Journal {
       { id: "contoso", label: "Research Intern, Contoso Research (2024-2024)" },
     ],
     projects: [{ id: "recipe_box", name: "Recipe Box" }],
+    repositories: [],
     entries: [
       entry(PLANNING, "2026-09-28T10:00:00Z", {
         triage: "other",
@@ -173,6 +174,19 @@ function serveJournal(start: Journal = journal(), refuse: Record<string, Respons
       }
       if (kind === "entries" && request.method === "DELETE") {
         state = { ...state, entries: state.entries.filter((entry) => entry.id !== id) };
+        return new Response(null, { status: 204 });
+      }
+      const repository = state.repositories.find((item) =>
+        item.facts.some((fact) => fact.id === id),
+      );
+      if (kind === "facts" && repository !== undefined && request.method === "PUT") {
+        repository.facts = repository.facts.map((fact) =>
+          fact.id === id ? { ...fact, ...(body as FactEdit) } : fact,
+        );
+        return json({});
+      }
+      if (kind === "facts" && repository !== undefined && request.method === "DELETE") {
+        repository.facts = repository.facts.filter((fact) => fact.id !== id);
         return new Response(null, { status: 204 });
       }
       const entry = entryOf(id);
@@ -493,11 +507,82 @@ describe("the journal page", () => {
     );
   });
 
-  it("says when the journal is empty", async () => {
-    serveJournal({ entries: [], roles: [], projects: [] });
+  it("says when the journal is empty, and still offers the downloads", async () => {
+    serveJournal({ entries: [], roles: [], projects: [], repositories: [] });
     renderAt();
     expect(await screen.findByText("Your journal is empty.")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Download JSON" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Download JSON" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "From GitHub" })).not.toBeInTheDocument();
+  });
+
+  it("lists the facts from GitHub by repository and month, edited without a role", async () => {
+    const url = "https://github.com/casey-example/recipe-box";
+    const source = (ref: string) => ({
+      repository: "casey-example/recipe-box",
+      url,
+      private: true,
+      items: [{ kind: "pull" as const, ref, url: `${url}/pull/${ref}` }],
+    });
+    const github = (id: string, statement: string, date: string, ref: string) =>
+      fact(id, statement, {
+        origin: "github",
+        entryId: null,
+        roleId: null,
+        projectId: "recipe_box",
+        date,
+        source: source(ref),
+      });
+    const withGitHub: Journal = {
+      entries: [],
+      roles: journal().roles,
+      projects: journal().projects,
+      repositories: [
+        {
+          repository: "casey-example/allotment",
+          url: "https://github.com/casey-example/allotment",
+          private: null,
+          facts: [],
+        },
+        {
+          repository: "casey-example/recipe-box",
+          url,
+          private: true,
+          facts: [
+            github("gh_a_2", "Added a weekly shopping list.", "2023-08", "4"),
+            github("gh_a_1", "Added recipe import from a link.", "2023-07", "3"),
+          ],
+        },
+      ],
+    };
+    const sent = serveJournal(withGitHub);
+    renderAt();
+    const section = within(await screen.findByRole("region", { name: "From GitHub" }));
+    expect(section.getByRole("link", { name: "casey-example/recipe-box" })).toHaveAttribute(
+      "href",
+      url,
+    );
+    expect(section.getByText("(private)")).toBeInTheDocument();
+    expect(section.getByText("No facts from it yet.")).toBeInTheDocument();
+    expect(
+      section.getAllByRole("heading", { level: 4 }).map((heading) => heading.textContent),
+    ).toEqual(["August 2023", "July 2023"]);
+    expect(section.getByRole("link", { name: "pull request 4" })).toHaveAttribute(
+      "href",
+      `${url}/pull/4`,
+    );
+    expect(section.getAllByText("Project: Recipe Box")).toHaveLength(2);
+
+    await userEvent.click(nth(section.getAllByRole("button", { name: "Edit fact" }), 0));
+    const form = within(section.getByRole("form", { name: "Edit the fact" }));
+    expect(form.queryByLabelText("Role")).not.toBeInTheDocument();
+    await userEvent.click(form.getByRole("button", { name: "Save fact" }));
+    const saved = sent.find((request) => request.method === "PUT");
+    expect(saved?.path).toBe("/api/journal/facts/gh_a_2");
+    expect(saved?.body).toMatchObject({
+      roleId: null,
+      proposedRole: null,
+      projectId: "recipe_box",
+    });
   });
 
   it("offers to try again when the journal doesn't load", async () => {

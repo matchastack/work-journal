@@ -20,7 +20,9 @@ from app.config import Settings
 from app.db.crypto import KeyRing, new_key, use_key_ring
 from app.db.models import FactRow, JournalEntry, JournalMessage, JournalMessageEdit, User
 from app.db.profiles import save_version
+from app.db.repo_links import link_repository
 from app.db.store import save_facts
+from app.github.extraction import RepoTarget
 from app.main import create_app
 from app.schema.fact import Fact, Metric, RepoItem, RepoSource, SingleValue
 from app.schema.profile import Profile
@@ -172,7 +174,12 @@ def test_the_journal_needs_a_signed_in_owner(client: TestClient) -> None:
 def test_an_empty_journal_lists_the_roles_and_projects_facts_can_link_to(
     database_url: str, owner: Owner, client: TestClient
 ) -> None:
-    assert client.get("/api/journal").json() == {"entries": [], "roles": [], "projects": []}
+    assert client.get("/api/journal").json() == {
+        "entries": [],
+        "roles": [],
+        "projects": [],
+        "repositories": [],
+    }
 
     async def load_profile(session: AsyncSession) -> None:
         await save_version(session, owner.id, PROFILE, author="owner")
@@ -711,6 +718,66 @@ def test_the_exports_hold_the_github_facts_by_repository(
         "  (accomplishment; 2023-07)\n"
         "  from https://github.com/casey-example/recipe-box/pull/4\n"
     )
+
+
+def test_the_journal_lists_the_github_facts_by_repository(
+    database_url: str, owner: Owner, client: TestClient
+) -> None:
+    """FR-GH-10, with each linked repository that has no fact yet."""
+
+    async def linked(session: AsyncSession) -> None:
+        facts = [
+            github_fact("gh_a_1", "casey-example/recipe-box", "2023-07"),
+            github_fact("gh_a_2", "casey-example/recipe-box", "2023-08"),
+            github_fact("gh_b_1", "casey-example/bird-calls", "2024-04", private=True),
+        ]
+        await save_facts(session, owner.id, facts)
+        await link_repository(
+            session,
+            owner.id,
+            github_id=_random.randrange(10**9),
+            name="casey-example/allotment",
+            target=RepoTarget(new_project="Allotment Planner"),
+            since=None,
+        )
+
+    seed(database_url, linked)
+    repositories = client.get("/api/journal").json()["repositories"]
+    assert [
+        (repository["repository"], repository["private"], [f["id"] for f in repository["facts"]])
+        for repository in repositories
+    ] == [
+        ("casey-example/allotment", None, []),
+        ("casey-example/bird-calls", True, ["gh_b_1"]),
+        ("casey-example/recipe-box", False, ["gh_a_2", "gh_a_1"]),
+    ]
+    fact = repositories[2]["facts"][0]
+    assert fact["citedBy"] == []
+    assert fact["source"]["items"][0]["url"] == "https://github.com/casey-example/recipe-box/pull/4"
+
+
+def test_a_github_fact_is_edited_and_deleted_like_others_but_never_given_a_role(
+    database_url: str, owner: Owner, client: TestClient
+) -> None:
+    """FR-GH-2 and FR-EXT-3."""
+
+    async def build(session: AsyncSession) -> None:
+        await save_version(session, owner.id, PROFILE, author="owner")
+        await save_facts(
+            session, owner.id, [github_fact("gh_a_1", "casey-example/recipe-box", "2023-07")]
+        )
+
+    seed(database_url, build)
+    path = "/api/journal/facts/gh_a_1"
+    with_role = client.put(path, json=edited(roleId="northwind"), headers=owner.csrf)
+    assert with_role.status_code == 422
+    assert "never to a role" in with_role.json()["detail"]
+    changed = client.put(path, json=edited(roleId=None, projectId="recipe_box"), headers=owner.csrf)
+    assert changed.status_code == 200, changed.text
+    assert (changed.json()["origin"], changed.json()["projectId"]) == ("github", "recipe_box")
+    assert changed.json()["source"]["repository"] == "casey-example/recipe-box"
+    assert client.delete(path, headers=owner.csrf).status_code == 204
+    assert client.get("/api/journal").json()["repositories"] == []
 
 
 def test_the_markdown_export_is_in_the_owners_time_zone(
