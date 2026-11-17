@@ -1114,25 +1114,27 @@ As the owner, I want to decide on proposed changes in the chat, one at a time, s
 - [ ] Tests for each button, out-of-date presses, dependent changes, flagged changes and Apply.
 
 ### T-078 · Job postings through the bot
-**Status:** ☐ · **Size:** M · **Depends on:** T-045, T-032 · **Requirements:** FR-CAP-9, FR-CAP-7, FR-TLR-1 – FR-TLR-7 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-045, T-032 · **Requirements:** FR-CAP-9, FR-CAP-7, FR-TLR-1 – FR-TLR-7 · **PR:** —
 
 As the owner, I want to send a job posting to the bot, so that a tailored resume is waiting when I next open the Tailor page.
 
-- [ ] `/tailor` starts a posting. Text sent with it, and the messages after it, join the posting until `/done` sends it for tailoring.
+- [x] `/tailor` starts a posting. Text sent with it, and the messages after it, join the posting until `/done` sends it for tailoring.
   - `/tailor` first closes an open entry, as `/done` does.
   - A posting not finished with `/done` closes as an entry does (FR-CAP-4), and is tailored then.
-- [ ] The posting becomes a draft on the Tailor page, as one pasted there does. Its text is stored as the Tailor page stores it, and never as a journal message, entry or fact.
-- [ ] A posting that's only a link isn't tailored. The bot says it doesn't open links, and asks for the posting's text.
-- [ ] Once the draft is tailored, the bot replies with:
+- [x] The posting becomes a draft on the Tailor page, as one pasted there does. Its text is stored as the Tailor page stores it, and never as a journal message, entry or fact.
+- [x] A posting that's only a link isn't tailored. The bot says it doesn't open links, and asks for the posting's text.
+- [x] Once the draft is tailored, the bot replies with:
   - the posting's title and company;
   - how many of its key terms the draft covers;
   - what waits for the owner, such as new phrasings to approve and skills to confirm;
   - a link to the draft on the Tailor page.
-- [ ] If tailoring fails, the bot says why, with the same link.
-- [ ] `/help` and Telegram's command menu list `/tailor`.
-- [ ] No posting text is logged, and job arguments are IDs only.
-- [ ] `user-guide.md` describes sending a posting to the bot.
-- [ ] Tests for collecting the posting, `/done`, a posting closed by its timeout, a link alone, the reply, and a failed draft.
+- [x] If tailoring fails, the bot says why, with the same link.
+- [x] `/help` and Telegram's command menu list `/tailor`.
+- [x] No posting text is logged, and job arguments are IDs only.
+- [x] `user-guide.md` describes sending a posting to the bot.
+- [x] Tests for collecting the posting, `/done`, a posting closed by its timeout, a link alone, the reply, and a failed draft.
+
+**Built (2026-11-17):** stacked on T-076 (#86). The posting being collected is kept encrypted on the chat's link (`telegram_links.posting`, migration 0024) until it becomes a draft, whose text is then stored as the Tailor page stores it; `tailor_drafts.from_bot` marks it, so the parse and tailoring jobs reply in the chat. The bot replies once, when the draft is tailored or fails, not when it's parsed or rendered. A posting longer than the Tailor page's 50,000 characters isn't tailored either, and the bot says so. `/done` sends an open posting before it closes an entry. No new model call.
 
 ### Epics
 

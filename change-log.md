@@ -2,6 +2,15 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-11-17 · T-078 Job postings through the bot · PR
+**Changed:** `/tailor`, then a job posting's text, then `/done` tailors a resume to it, as the Tailor page does. The bot says when the draft is ready to check, with a link to it, or why it failed. Postings aren't journaled, and the bot never opens links.
+
+**Verify:**
+- After the deploy, `scripts/post-deploy.sh` applies migration 0024, and Telegram's command menu lists `/tailor`
+- `/tailor`, a posting in two messages, then `/done`: the bot says it's tailoring, then that the resume is ready, with the title, company, terms shown and a link that opens the draft on the Tailor page
+- The posting's messages aren't on the Journal page
+- A posting that's only a link gets "I don't open links" and no draft
+
 ## 2026-11-16 · T-076 Telegram in M3: requirements · [#86](https://github.com/matchastack/work-journal/pull/86)
 **Changed:** the requirements give FR-REV-5 (reviewing changes in the chat) and FR-CAP-9 (job postings through the bot) their acceptance criteria, and `tasks.md` plans them as T-077 and T-078. T-072 and M2 are marked done.
 
