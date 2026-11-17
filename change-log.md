@@ -2,7 +2,7 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-11-17 · T-078 Job postings through the bot · PR
+## 2026-11-17 · T-078 Job postings through the bot · [#88](https://github.com/matchastack/work-journal/pull/88)
 **Changed:** `/tailor`, then a job posting's text, then `/done` tailors a resume to it, as the Tailor page does. The bot says when the draft is ready to check, with a link to it, or why it failed. Postings aren't journaled, and the bot never opens links.
 
 **Verify:**

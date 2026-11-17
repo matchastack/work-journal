@@ -1114,7 +1114,7 @@ As the owner, I want to decide on proposed changes in the chat, one at a time, s
 - [ ] Tests for each button, out-of-date presses, dependent changes, flagged changes and Apply.
 
 ### T-078 · Job postings through the bot
-**Status:** ◐ · **Size:** M · **Depends on:** T-045, T-032 · **Requirements:** FR-CAP-9, FR-CAP-7, FR-TLR-1 – FR-TLR-7 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-045, T-032 · **Requirements:** FR-CAP-9, FR-CAP-7, FR-TLR-1 – FR-TLR-7 · **PR:** [#88](https://github.com/matchastack/work-journal/pull/88)
 
 As the owner, I want to send a job posting to the bot, so that a tailored resume is waiting when I next open the Tailor page.
 
