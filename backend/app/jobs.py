@@ -82,6 +82,7 @@ from app.telegram.api import BotApi, BotCall, TelegramError
 from app.telegram.entries import close_quiet_entries
 from app.telegram.follow_up import follow_up, record_follow_up
 from app.telegram.journal import purge_updates
+from app.telegram.postings import close_quiet_postings, failed_text, sent_to_bot, tailored
 from app.telegram.processing import chat_of, entry_link, failure_text, process_entry
 from app.telegram.refresh import failure_text as refresh_failure_text
 from app.telegram.refresh import proposals_text
@@ -152,15 +153,22 @@ async def purge_telegram_updates(timestamp: int) -> None:
 @jobs.task(name="close_quiet_entries", retry=RETRY)
 async def close_quiet_entries_task(timestamp: int) -> None:
     """Close the journal entries that have gone quiet (FR-CAP-4), then queue every closed entry
-    that isn't processed yet (FR-CAP-5). Due every minute, so it runs on every tick, and every
+    that isn't processed yet (FR-CAP-5). Job postings sent to the bot that have gone quiet close
+    too, and are tailored (FR-CAP-9). Due every minute, so it runs on every tick, and every
     minute under `wj worker`."""
     timeout = timedelta(minutes=get_settings().entry_timeout_minutes)
     now = datetime.fromtimestamp(timestamp, UTC)
     async with database() as session:
         closed = await close_quiet_entries(session, now, timeout)
+        postings = await close_quiet_postings(session, now, timeout)
     async with database() as session:
         queued = await queue_extractions(session, now=now, timeout=timeout)
     logger.info("closed %d quiet journal entries; queued %d for extraction", len(closed), queued)
+    for posting in postings:
+        if posting.draft is not None:
+            await queue_draft(posting.draft)
+        for call in posting.calls:
+            await _make(call)
 
 
 @jobs.periodic(cron="* * * * *")
@@ -715,7 +723,8 @@ async def queue_tailoring(draft_id: uuid.UUID) -> bool:
 async def run_tailoring(draft_id: uuid.UUID) -> None:
     """Tailor the draft, outside a transaction, then keep the result and queue its render. A
     failure fails the draft, and so does running out of time, when the tick stops the job, or
-    finding that an earlier try never finished."""
+    finding that an earlier try never finished. When its posting was sent to the bot, the bot
+    says how it went (FR-CAP-9)."""
     try:
         async with database() as session:
             inputs = await begin_tailoring(session, draft_id, now=datetime.now(UTC))
@@ -749,6 +758,10 @@ async def run_tailoring(draft_id: uuid.UUID) -> None:
     finally:
         async with database() as session:
             await log.save(session)
+    async with database() as session:
+        told = await tailored(session, draft_id, get_settings().app_url)
+    if told is not None:
+        await _tell_of_draft(draft_id, *told)
     if render:
         await queue_draft_render(draft_id)
 
@@ -791,9 +804,24 @@ async def run_draft_render(draft_id: uuid.UUID) -> None:
 
 
 async def _draft_failed(draft_id: uuid.UUID, reason: str) -> None:
+    """Fail the draft, and if its posting was sent to the bot, say so in the chat (FR-CAP-9)."""
     logger.warning("tailoring draft %s failed", draft_id)
     async with database() as session:
-        await fail_draft(session, draft_id, reason)
+        failed = await fail_draft(session, draft_id, reason)
+        sent = await sent_to_bot(session, draft_id) if failed else None
+    if sent is not None:
+        await _tell_of_draft(
+            draft_id, sent[1], failed_text(draft_id, reason, get_settings().app_url)
+        )
+
+
+async def _tell_of_draft(draft_id: uuid.UUID, chat_id: int, text: str) -> None:
+    """Tell the owner how a posting they sent to the bot went. A failure is only logged: the
+    draft waits on the Tailor page all the same."""
+    try:
+        await _send(chat_id, text)
+    except TelegramError:
+        logger.warning("couldn't tell the owner about tailoring draft %s", draft_id)
 
 
 @jobs.task(name="write_linkedin_pack", retry=RETRY, pass_context=True)
@@ -929,6 +957,19 @@ async def _send(chat_id: int, text: str, **options: Any) -> int | None:
         return None
     async with _telegram_http() as http:
         return await BotApi(token, http).send_message(chat_id, text, **options)
+
+
+async def _make(call: BotCall) -> None:
+    """Make one of the bot's calls. A failure is only logged."""
+    token = get_settings().telegram_bot_token
+    if token is None:
+        logger.warning("TELEGRAM_BOT_TOKEN isn't set, so the bot can't reply")
+        return
+    async with _telegram_http() as http:
+        try:
+            await BotApi(token, http).make(call)
+        except TelegramError:
+            logger.warning("couldn't make the bot's %s call", call.method)
 
 
 async def _remove_buttons(chat_id: int, message_id: int) -> None:

@@ -123,9 +123,12 @@ class TailoringInterrupted(Exception):
 # --- The page ----------------------------------------------------------------------------------
 
 
-async def create_draft(session: AsyncSession, user_id: uuid.UUID, text: str) -> uuid.UUID:
-    """Store a pasted posting as a new draft, waiting to be parsed."""
-    row = TailorDraftRow(user_id=user_id, posting_text=text, choices={})
+async def create_draft(
+    session: AsyncSession, user_id: uuid.UUID, text: str, *, from_bot: bool = False
+) -> uuid.UUID:
+    """Store a pasted posting as a new draft, waiting to be parsed. `from_bot` marks one sent to
+    the bot (FR-CAP-9)."""
+    row = TailorDraftRow(user_id=user_id, posting_text=text, choices={}, from_bot=from_bot)
     session.add(row)
     await session.flush()
     return row.id

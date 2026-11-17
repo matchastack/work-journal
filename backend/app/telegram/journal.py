@@ -1,28 +1,30 @@
 """Turning Telegram updates into journal messages (FR-JRN-1, FR-JRN-3, FR-CAP-2).
 
-`handle_update` is shared by the webhook and by `wj telegram poll`. It stores the raw update
-first, so nothing is lost, then the journal message in it. Only private chats linked to a user
-become journal messages, grouped into entries (`app/telegram/entries.py`). `/start <token>` from
-a link to the bot links a chat (`app/telegram/linking.py`), and a first link starts the catch-up
-interview; any other unlinked chat is told how to link itself. Commands aren't journaled: `/done`
-closes the open entry and pauses the interview, `/skip` skips the follow-up question or the
-interview's, `/refresh` proposes profile changes from the facts since the last refresh
+`handle_update` is shared by the webhook and by `wj telegram poll`. It stores the raw update first,
+so nothing is lost, then the journal message in it. Only private chats linked to a user become
+journal messages, grouped into entries (`app/telegram/entries.py`). `/start <token>` from a link to
+the bot links a chat (`app/telegram/linking.py`), and a first link starts the catch-up interview;
+any other unlinked chat is told how to link itself. Commands aren't journaled: `/done` closes the
+open entry and pauses the interview, `/skip` skips the follow-up question or the interview's,
+`/refresh` proposes profile changes from the facts since the last refresh
 (`app/telegram/refresh.py`), `/catchup` starts or carries on with the interview
-(`app/telegram/catch_up.py`), `/pause` and `/resume` stop and restart the reminders
-(`app/telegram/reminders.py`), and `/help` lists the commands (FR-CAP-7), as Telegram's command
-menu does (`COMMANDS`). Button presses, and the message that names a new role, answer which
-role an entry is about (`app/telegram/roles.py`). A message that answers a closed entry's
-follow-up question joins that entry, and its Skip button skips the question
-(`app/telegram/follow_up.py`). Otherwise, a message that answers the interview's question becomes
-an entry of its own. A reminder's buttons say there's nothing this week, ask for it again
-tomorrow, or answer the open question it asks: the owner's next message is then the answer, an
-entry of its own (`app/telegram/reminders.py`). That comes before a new role's name asked for
-earlier, a follow-up answer and the interview's answer, which wait longer; pressing New role
-afterwards ends the wait for the answer instead. Message text is never logged.
+(`app/telegram/catch_up.py`), `/tailor` starts a job posting, which the owner's next messages join
+until `/done` sends it for tailoring (`app/telegram/postings.py`), `/pause` and `/resume` stop and
+restart the reminders (`app/telegram/reminders.py`), and `/help` lists the commands (FR-CAP-7), as
+Telegram's command menu does (`COMMANDS`). While a posting is open, the owner's messages join it,
+before anything below. Button presses, and the message that names a new role, answer which role an
+entry is about (`app/telegram/roles.py`). A message that answers a closed entry's follow-up question
+joins that entry, and its Skip button skips the question (`app/telegram/follow_up.py`). Otherwise, a
+message that answers the interview's question becomes an entry of its own. A reminder's buttons say
+there's nothing this week, ask for it again tomorrow, or answer the open question it asks: the
+owner's next message is then the answer, an entry of its own (`app/telegram/reminders.py`). That
+comes before a new role's name asked for earlier, a follow-up answer and the interview's answer,
+which wait longer; pressing New role afterwards ends the wait for the answer instead. Message text
+is never logged.
 """
 
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Self
 
@@ -32,7 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import JournalMessage, JournalMessageEdit, TelegramLink, TelegramUpdate
 from app.reminders import DEFAULT_SCHEDULE, Schedule
-from app.telegram import catch_up
+from app.telegram import catch_up, postings
 from app.telegram.api import BotCall, send
 from app.telegram.catch_up import CatchUpAnswer
 from app.telegram.entries import DEFAULT_TIMEOUT, close_open_entry, close_quiet_entry, entry_for
@@ -53,9 +55,10 @@ DONE_AND_PAUSED = f"Closed this entry. {catch_up.PAUSED}"
 NOTHING_OPEN = "There's no open entry to close. Send me a note to start one."
 UNKNOWN = "I don't know that command, so I didn't journal it."
 COMMANDS: tuple[tuple[str, str], ...] = (
-    ("done", "close the current entry now, or pause the catch-up"),
+    ("done", "close the current entry now, send a job posting, or pause the catch-up"),
     ("skip", "skip the bot's question"),
     ("refresh", "propose profile changes from your new facts"),
+    ("tailor", "tailor a resume to a job posting you send next"),
     ("catchup", "catch up on your work since your resume was last updated"),
     ("pause", "stop reminders"),
     ("resume", "restart reminders"),
@@ -90,6 +93,8 @@ class Handled:
     ready: tuple[uuid.UUID, ...] = ()
     refresh: uuid.UUID | None = None
     catch_up: uuid.UUID | None = None
+    draft: uuid.UUID | None = None
+    """A Tailor page draft of a posting sent to the bot, whose jobs can run right away."""
 
     @classmethod
     def of(cls, answer: Answer | CatchUpAnswer) -> Self:
@@ -176,6 +181,20 @@ async def _new_message(
         return await _command(
             session, owner, chat_id, body, message.sent_at, entry_timeout, app_url, reminders
         )
+    joined, closed = await postings.take_message(
+        session, owner, body, message.sent_at, entry_timeout
+    )
+    if joined:
+        return Handled()
+    handled = await _journal(session, owner, message, body, entry_timeout)
+    return replace(handled, calls=(*closed.calls, *handled.calls), draft=closed.draft)
+
+
+async def _journal(
+    session: AsyncSession, owner: uuid.UUID, message: Message, body: str, entry_timeout: timedelta
+) -> Handled:
+    """Journal a message from the owner, or take it as the answer the bot waits for."""
+    chat_id = message.chat.id
     if (answer := await take_answer(session, owner, message.sent_at, entry_timeout)) is not None:
         closed = await close_quiet_entry(session, owner, message.sent_at, entry_timeout)
         entry_id, handled = answer, Handled(ready=(*_ids(closed), answer))
@@ -244,15 +263,24 @@ async def _command(
     app_url: str | None,
     reminders: Schedule,
 ) -> Handled:
-    """The bot's answer to a command sent at `sent_at`. `/done` closes the open entry as of then
-    and pauses the catch-up interview, `/skip` skips the follow-up question that waits for an
-    answer, or else the interview's, `/refresh` starts a refresh, `/catchup` starts the interview
+    """The bot's answer to a command sent at `sent_at`. `/tailor` closes the open entry and starts a
+    job posting, and `/done` sends an open posting for tailoring, or else closes the open entry as
+    of then and pauses the catch-up interview, `/skip` skips the follow-up question that waits for
+    an answer, or else the interview's, `/refresh` starts a refresh, `/catchup` starts the interview
     or carries on with it, closing the open entry and stopping a waiting follow-up question first
     (when both had an entry, the entry closed here runs now, and the other at the next tick, whose
     sweep queues it), and `/pause` and `/resume` stop and restart the reminders. `/start` and
     `/help` get the list of commands, and so does an unknown command, with a note that it wasn't
     journaled."""
     command = body.split(maxsplit=1)[0].split("@", 1)[0].lower()
+    if command == "/tailor":
+        closed = await close_open_entry(session, owner, sent_at)
+        parts = body.split(maxsplit=1)
+        text = parts[1] if len(parts) > 1 else ""
+        started = await postings.start(session, owner, chat_id, text, sent_at)
+        return Handled(started.calls, _ids(closed), draft=started.draft)
+    if command == "/done" and (posting := await postings.done(session, owner)) is not None:
+        return Handled(posting.calls, draft=posting.draft)
     if command == "/done":
         closed = await close_open_entry(session, owner, sent_at)
         interview = await catch_up.unfinished(session, owner)

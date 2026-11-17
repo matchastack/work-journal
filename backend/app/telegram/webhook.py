@@ -6,8 +6,9 @@ reply as a Bot API call, which Telegram makes itself, so replying needs no reque
 Any further calls, such as editing a message after a button press, are made right after the
 answer. When the update closes an entry or chooses its role, the entry's jobs run right after
 that (FR-CAP-5), in one tick with any other entry it closed, after `/refresh`, the refresh's job
-(FR-REV-6), and when it moves the catch-up interview on, the job that asks its next question,
-ahead of the entry's (FR-REM-4).
+(FR-REV-6), when it moves the catch-up interview on, the job that asks its next question,
+ahead of the entry's (FR-REM-4), and when it sends a job posting for tailoring, the draft's jobs
+(FR-CAP-9).
 """
 
 import logging
@@ -24,7 +25,7 @@ from app.deps import AppSettings, Db
 from app.reminders import default_schedule
 from app.telegram.api import BotApi, BotCall, TelegramError
 from app.telegram.journal import handle_update
-from app.tick import catch_up_now, extract_now, refresh_now
+from app.tick import catch_up_now, draft_now, extract_now, refresh_now
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/telegram", tags=["telegram"])
@@ -66,6 +67,8 @@ async def webhook(
         background.add_task(extract_now, *handled.ready)
     if handled.refresh is not None:
         background.add_task(refresh_now, handled.refresh)
+    if handled.draft is not None:
+        background.add_task(draft_now, handled.draft)
     if not handled.calls:
         return Response(status_code=status.HTTP_200_OK)
     return JSONResponse(handled.calls[0].webhook_body())
