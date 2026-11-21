@@ -75,8 +75,14 @@ def test_the_default_template_is_the_owners_layout() -> None:
     assert [text.find(heading) for heading in headings] == sorted(
         text.find(heading) for heading in headings
     )
+    # The bars come from the math font. From TeX Live 2025, pdfTeX writes the space before each one
+    # as a shift that pypdf reads as no space, though the page shows it.
+    contact = re.sub(r" ?\| ?", " | ", text)
+    assert (
+        "+1 555 0100 | casey@example.com | Springfield, US | example.com | github.com/casey"
+        in contact
+    )
     for line in (
-        "+1 555 0100 | casey@example.com | Springfield, US | example.com | github.com/casey",
         "Springfield State University Aug 2020 - May 2024",
         "Bachelor of Science in Computer Science, Magna Cum Laude",
         "Relevant coursework: Algorithms, Operating Systems",

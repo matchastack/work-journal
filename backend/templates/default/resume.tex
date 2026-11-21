@@ -37,6 +37,10 @@
 }{}{0em}{}[\color{black}\titlerule \vspace{-5pt}]
 
 \pdfgentounicode=1
+% Write a space character at each gap between words, so the text taken from the PDF keeps its
+% spaces. pdfTeX from TeX Live 2025 writes some gaps, such as the \hfill before a date, as a shift
+% that pypdf, and so the ATS check, reads as no space. The page looks the same.
+\pdfinterwordspaceon
 
 \newcommand{\resumeItem}[1]{
   \item\small{

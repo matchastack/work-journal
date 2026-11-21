@@ -30,7 +30,7 @@ Every generated sentence is checked against your facts, so wording never changes
 | Fix your profile by hand, keep its tailoring rules, or go back to an earlier version | The web app, Profile page |
 | Update your profile from new notes | `/refresh` in Telegram, then the web app's Inbox, or the bot's Review here button |
 | Preview and download your master resume and tailored resumes | The web app, Resumes page |
-| Tailor a resume to a job posting, and see where you applied | The web app, Tailor page (its PDFs render on your computer: `uv run wj worker`) |
+| Tailor a resume to a job posting, and see where you applied | The web app, Tailor page, or `/tailor` in Telegram (its PDFs render on your computer: `uv run wj worker`) |
 | Link Telegram, change reminders, style notes and other preferences, see what the model cost each month, or export or delete your data | The web app, Settings page |
 | Publish your portfolio page, and choose the resumes it offers | The web app, Portfolio page |
 | Render the master resume, or write the LinkedIn text, without waiting for a refresh | The command-line tool: `wj render --db`, `wj linkedin --db` |
@@ -177,13 +177,29 @@ Press **Accept** or **Reject**, or **Next** to leave it for now. The same messag
 
 Once every change is decided, the message counts what you accepted and rejected. **Apply N changes** makes a new version of your profile from the accepted ones, as the Inbox's **Apply** does, and your resume, LinkedIn pack and published portfolio page then catch up. If you rejected everything, **Finish** closes the changes, and your profile stays as it was.
 
+### Send a job posting
+
+To tailor a resume to a job posting from your phone, send it to the bot:
+
+1. Send `/tailor`. You can paste the posting in the same message, after the command.
+2. Paste the posting's text. A long posting can take several messages; send them one after another.
+3. Send `/done`. The bot says it's tailoring a resume to the posting.
+
+A minute or two later, the bot says the resume is ready to check. Its message gives the posting's title and company, and how many of the posting's terms the resume shows. It also says how many new phrasings in the posting's words it offers, and how many skills you must confirm or drop before you download it. It ends with a link to the draft on the [Tailor](#tailor) page, where you choose the wording and download the PDF, as for a posting pasted there. If tailoring fails, the bot says why, and you can try again on the Tailor page.
+
+- **Postings aren't journaled.** While a posting is open, your messages join it, and the bot takes none of them as a note or as the answer to one of its questions. `/tailor` closes your open entry first, as `/done` does.
+- **Forgot `/done`?** A posting closes like an entry, 30 minutes after its last message (or `ENTRY_TIMEOUT_MINUTES`), and is tailored then: at your next message, which is then journaled as usual, or at the next tick of background work.
+- **The bot doesn't open links.** A posting that is only a link isn't tailored. Copy the posting's text from the page and send that instead.
+- **Another `/tailor`** sends the open posting for tailoring, then starts the next one.
+
 ### Commands
 
 | Command | What it does |
 |---|---|
-| `/done` | Close the current entry now, or pause the catch-up interview |
+| `/done` | Close the current entry now, send an open job posting for tailoring, or pause the catch-up interview |
 | `/skip` | Skip the bot's question: the follow-up question about the last entry, or the interview's |
 | `/refresh` | Propose profile changes from your new facts, after reading what's new in your [linked GitHub repositories](#at-a-refresh). The bot says how many it proposes, with a link to the Inbox and a [Review here](#review-changes-in-the-chat) button, or that there is nothing new, and what it read from GitHub. While a refresh runs, `/refresh` says so. If proposals are still waiting, decide on them before sending it again |
+| `/tailor` | Start a job posting to tailor a resume to: paste it, then send `/done` ([Send a job posting](#send-a-job-posting)) |
 | `/catchup` | Start the catch-up interview, or carry on where it paused |
 | `/pause` | Stop reminders |
 | `/resume` | Restart reminders, and say when they go out |
@@ -294,7 +310,7 @@ Resumes made with `wj tailor` without `--db` stay in `local/resumes/` and don't 
 
 ### Tailor
 
-Tailor a one-page resume to a job posting, adjust it, and download it.
+Tailor a one-page resume to a job posting, adjust it, and download it. A posting you [send to the bot](#send-a-job-posting) shows up here as a draft too.
 
 1. **Paste the posting** under New tailored resume and choose **Tailor a resume**. The draft opens below. Within a minute it shows the posting's requirements as Work Journal read them: seniority, must-have and nice-to-have skills, key terms and responsibilities, spelled as the posting spells them. Terms the posting doesn't contain are left out, and the page lists them.
 2. **Wait for the draft.** Choosing what your resume shows and wording it in the posting's language takes a minute or two; the page updates by itself. If it fails, the page says why; **Try again** starts it again.

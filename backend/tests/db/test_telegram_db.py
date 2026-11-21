@@ -27,12 +27,14 @@ from app.db.models import (
     JournalMessageEdit,
     ProfileVersionRow,
     Refresh,
+    TailorDraftRow,
     TelegramLink,
     TelegramUpdate,
     User,
 )
 from app.main import create_app
 from app.schema.profile import Profile
+from app.telegram import postings
 from app.telegram.api import BotApi, BotCall
 from app.telegram.entries import close_quiet_entries, entry_for
 from app.telegram.journal import DONE, LINK_HINT, NOTHING_OPEN, UNKNOWN, help_text, purge_updates
@@ -342,6 +344,7 @@ def test_polling_journals_updates_as_the_webhook_does(database_url: str, chat_id
         "done",
         "skip",
         "refresh",
+        "tailor",
         "catchup",
         "pause",
         "resume",
@@ -461,6 +464,25 @@ def test_done_closes_the_entry_at_once(
     closed_at = run(database_url, select(JournalEntry.closed_at).where(JournalEntry.id == first))
     assert closed_at == [(datetime.fromtimestamp(NINE + 60, UTC),)], "when /done was sent"
     assert extracted == [first], "only the update that closed an entry hands it on"
+
+
+def test_a_posting_sent_for_tailoring_runs_its_draft_jobs(
+    client: TestClient, database_url: str, chat_id: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Right after the answer to `/done`, as the Tailor page does (FR-CAP-9)."""
+    drafted: list[uuid.UUID] = []
+
+    async def record(draft_id: uuid.UUID) -> None:
+        drafted.append(draft_id)
+
+    monkeypatch.setattr("app.telegram.webhook.draft_now", record)
+    user_id = link(database_url, chat_id)
+    posting = "/tailor Backend Engineer at Fabrikam"
+    assert send(client, chat_id, 1, NINE, posting) == postings.STARTED_WITH_TEXT
+    assert drafted == []
+    assert send(client, chat_id, 2, NINE + 60, "/done") == postings.SENT
+    rows = run(database_url, select(TailorDraftRow.id).where(TailorDraftRow.user_id == user_id))
+    assert drafted == [rows[0][0]]
 
 
 @pytest.mark.parametrize("command", ["/help", "/help@wj_example_bot", "/start", "/HELP extra"])

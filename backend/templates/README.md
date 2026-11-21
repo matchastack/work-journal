@@ -55,3 +55,7 @@ The default template uses pdfLaTeX's default OT1 encoding with Computer Modern, 
 - An underscore is drawn as a line, and accented letters are built from separate accents. So PDF text extraction drops underscores and splits accents ("José" comes out as "Jos´ e").
 
 The T1 encoding avoids the last two, but it changes how the PDF looks, so the template keeps OT1.
+
+## Spaces in the PDF's text
+
+The template turns on `\pdfinterwordspaceon`, so pdfTeX writes a space character at each gap between words. From TeX Live 2025, pdfTeX writes some gaps, such as the `\hfill` before a date, as a shift inside the line, which pypdf, and so the ATS check, reads as no space. With the setting, the page looks the same and its text keeps its spaces. The space before each `|` in the contact line, a math symbol, still reads as none under TeX Live 2025.
