@@ -13,8 +13,9 @@ until `/done` sends it for tailoring (`app/telegram/postings.py`), `/pause` and 
 restart the reminders (`app/telegram/reminders.py`), and `/help` lists the commands (FR-CAP-7), as
 Telegram's command menu does (`COMMANDS`). While a posting is open, the owner's messages join it,
 before anything below. Button presses, and the message that names a new role, answer which role an
-entry is about (`app/telegram/roles.py`). A message that answers a closed entry's follow-up question
-joins that entry, and its Skip button skips the question (`app/telegram/follow_up.py`). Otherwise, a
+entry is about (`app/telegram/roles.py`), and those under a refresh's proposals review them one at a
+time (`app/telegram/review.py`). A message that answers a closed entry's follow-up question joins
+that entry, and its Skip button skips the question (`app/telegram/follow_up.py`). Otherwise, a
 message that answers the interview's question becomes an entry of its own. A reminder's buttons say
 there's nothing this week, ask for it again tomorrow, or answer the open question it asks: the
 owner's next message is then the answer, an entry of its own (`app/telegram/reminders.py`). That
@@ -34,7 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import JournalMessage, JournalMessageEdit, TelegramLink, TelegramUpdate
 from app.reminders import DEFAULT_SCHEDULE, Schedule
-from app.telegram import catch_up, postings
+from app.telegram import catch_up, postings, review
 from app.telegram.api import BotCall, send
 from app.telegram.catch_up import CatchUpAnswer
 from app.telegram.entries import DEFAULT_TIMEOUT, close_open_entry, close_quiet_entry, entry_for
@@ -129,7 +130,7 @@ async def handle_update(
         await _edit(session, update.edited_message)
     if update.callback_query is not None:
         pressed_at = datetime.now(UTC) if now is None else now
-        return await _press(session, update.callback_query, pressed_at, reminders)
+        return await _press(session, update.callback_query, pressed_at, reminders, app_url)
     return Handled()
 
 
@@ -234,7 +235,11 @@ async def _journal(
 
 
 async def _press(
-    session: AsyncSession, query: CallbackQuery, now: datetime, reminders: Schedule
+    session: AsyncSession,
+    query: CallbackQuery,
+    now: datetime,
+    reminders: Schedule,
+    app_url: str | None,
 ) -> Handled:
     """A button under one of the bot's messages, in a linked private chat, pressed at `now`."""
     message = query.message
@@ -250,6 +255,8 @@ async def _press(
         return Handled.of(answer)
     if query.data in (catch_up.SKIP_QUESTION, catch_up.STOP):
         return Handled.of(await catch_up.press(session, owner, query))
+    if review.parse(query.data) is not None:
+        return Handled(await review.press(session, owner, query, app_url=app_url, now=now))
     return Handled.of(await press(session, owner, query))
 
 

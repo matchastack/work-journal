@@ -1096,22 +1096,24 @@ As the owner, I want to read, correct and delete the facts from my repositories,
 The Telegram epics come first, as T-077 and T-078. Neither adds a model call. The other epics are broken into tasks when these are done.
 
 ### T-077 · Review changes in Telegram
-**Status:** ☐ · **Size:** M · **Depends on:** T-038, T-040 · **Requirements:** FR-REV-5, FR-REV-2, FR-REV-3, FR-REV-7, FR-FID-7 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-038, T-040 · **Requirements:** FR-REV-5, FR-REV-2, FR-REV-3, FR-REV-7, FR-FID-7 · **PR:** [#87](https://github.com/matchastack/work-journal/pull/87)
 
 As the owner, I want to decide on proposed changes in the chat, one at a time, so that a refresh doesn't wait until I'm at a computer.
 
-- [ ] The bot's message about a refresh's proposals has a **Review here** button. It shows the first change still waiting for a decision:
+- [x] The bot's message about a refresh's proposals has a **Review here** button. It shows the first change still waiting for a decision:
   - what it does, before and after, in plain text;
   - how many facts it rests on, and the verifier's result;
   - **Accept** (only when the verifier passed it), **Reject**, and a link to the Inbox.
-- [ ] Each decision edits the message to show the next change waiting, so the chat holds one message, not one per change.
-- [ ] Decisions are the Inbox's own: rejecting a change rejects the ones that need it, and accepting one that needs a rejected change says so and changes nothing.
-- [ ] Edits, rejection reasons and flagged changes are left to the Inbox, which the message links to.
-- [ ] A button pressed after the change set changed elsewhere, such as in the Inbox, says what happened and shows where it stands now, rather than acting.
-- [ ] Once every change is decided, an **Apply** button applies the accepted ones as one new version and brings the outputs up to date, as the Inbox's Apply does. The bot says how many were applied.
-- [ ] Only the linked owner's presses act on their change sets (FR-CAP-2). No change text is logged.
-- [ ] `user-guide.md` describes reviewing in the chat.
-- [ ] Tests for each button, out-of-date presses, dependent changes, flagged changes and Apply.
+- [x] Each decision edits the message to show the next change waiting, so the chat holds one message, not one per change.
+- [x] Decisions are the Inbox's own: rejecting a change rejects the ones that need it, and accepting one that needs a rejected change says so and changes nothing.
+- [x] Edits, rejection reasons and flagged changes are left to the Inbox, which the message links to.
+- [x] A button pressed after the change set changed elsewhere, such as in the Inbox, says what happened and shows where it stands now, rather than acting.
+- [x] Once every change is decided, an **Apply** button applies the accepted ones as one new version and brings the outputs up to date, as the Inbox's Apply does. The bot says how many were applied.
+- [x] Only the linked owner's presses act on their change sets (FR-CAP-2). No change text is logged.
+- [x] `user-guide.md` describes reviewing in the chat.
+- [x] Tests for each button, out-of-date presses, dependent changes, flagged changes and Apply.
+
+**Built (2026-11-16):** stacked on T-076 (#86). Review here sends a new message, so the proposals message keeps its counts; each button carries the change set, the change and a short fingerprint of what the message showed, so a press after a decision or an edit in the Inbox only says so. Next goes round the changes still waiting, as the Inbox's focus does. Apply checks that nothing changed since the message counted the decisions. No migration and no new model call.
 
 ### T-078 · Job postings through the bot
 **Status:** ◐ · **Size:** M · **Depends on:** T-045, T-032 · **Requirements:** FR-CAP-9, FR-CAP-7, FR-TLR-1 – FR-TLR-7 · **PR:** [#88](https://github.com/matchastack/work-journal/pull/88)

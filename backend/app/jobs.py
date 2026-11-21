@@ -87,6 +87,7 @@ from app.telegram.processing import chat_of, entry_link, failure_text, process_e
 from app.telegram.refresh import failure_text as refresh_failure_text
 from app.telegram.refresh import proposals_text
 from app.telegram.reminders import record_sent, reminder_due
+from app.telegram.review import review_keyboard
 from app.telegram.roles import record_question, role_question
 
 logger = logging.getLogger(__name__)
@@ -514,8 +515,12 @@ async def run_refresh(refresh_id: uuid.UUID) -> None:
             await log.save(session)
     if proposals is None or chat_id is None:
         return
+    options: dict[str, Any] = {}
+    if proposals.change_set_id is not None:
+        options["reply_markup"] = review_keyboard(proposals.change_set_id)
     try:
-        await _send(chat_id, proposals_text(proposals, get_settings().app_url, github=github))
+        text = proposals_text(proposals, get_settings().app_url, github=github)
+        await _send(chat_id, text, **options)
     except TelegramError:
         logger.warning("couldn't tell the owner that refresh %s is ready", refresh_id)
 

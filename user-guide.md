@@ -28,7 +28,7 @@ Every generated sentence is checked against your facts, so wording never changes
 | Record what you did | The Telegram bot |
 | Fix a note or a saved fact | The web app, Journal page |
 | Fix your profile by hand, keep its tailoring rules, or go back to an earlier version | The web app, Profile page |
-| Update your profile from new notes | `/refresh` in Telegram, then the web app's Inbox |
+| Update your profile from new notes | `/refresh` in Telegram, then the web app's Inbox, or the bot's Review here button |
 | Preview and download your master resume and tailored resumes | The web app, Resumes page |
 | Tailor a resume to a job posting, and see where you applied | The web app, Tailor page, or `/tailor` in Telegram (its PDFs render on your computer: `uv run wj worker`) |
 | Link Telegram, change reminders, style notes and other preferences, see what the model cost each month, or export or delete your data | The web app, Settings page |
@@ -160,6 +160,23 @@ To capture the months since your resume was last updated, the bot interviews you
 
 After the last question, send `/refresh` to turn your answers into proposed changes. While the interview runs, the bot asks no follow-up questions about other notes.
 
+### Review changes in the chat
+
+When `/refresh` proposes changes, the bot's message about them has a **Review here** button. Press it, and the bot sends a message with the first change still waiting for a decision:
+
+- what the change does, with the text before and after;
+- how many facts it rests on, the verifier's result, and how many changes still wait;
+- a link to the [Inbox](#inbox), which shows everything about it.
+
+Press **Accept** or **Reject**, or **Next** to leave it for now. The same message then shows the next change waiting, so the chat keeps one message rather than one per change.
+
+- **Flagged changes have no Accept button.** If the verifier flagged a change, the message says why. You can reject it here, but to accept it, open the Inbox, where its whole report shows.
+- **Edits and reasons stay in the Inbox.** To change a bullet's words, or to say why you rejected one, use the Inbox.
+- **Dependent changes are rejected together.** Rejecting a change also rejects the ones that need it, such as the bullets under a new role, and the bot says how many.
+- **The chat and the Inbox share your decisions.** You can start in one and finish in the other. If something changed in the Inbox since the message was sent, a button press does nothing: the bot says so and shows where things stand now.
+
+Once every change is decided, the message counts what you accepted and rejected. **Apply N changes** makes a new version of your profile from the accepted ones, as the Inbox's **Apply** does, and your resume, LinkedIn pack and published portfolio page then catch up. If you rejected everything, **Finish** closes the changes, and your profile stays as it was.
+
 ### Send a job posting
 
 To tailor a resume to a job posting from your phone, send it to the bot:
@@ -181,7 +198,7 @@ A minute or two later, the bot says the resume is ready to check. Its message gi
 |---|---|
 | `/done` | Close the current entry now, send an open job posting for tailoring, or pause the catch-up interview |
 | `/skip` | Skip the bot's question: the follow-up question about the last entry, or the interview's |
-| `/refresh` | Propose profile changes from your new facts, after reading what's new in your [linked GitHub repositories](#at-a-refresh). The bot says how many it proposes with a link to the Inbox, or that there is nothing new, and what it read from GitHub. While a refresh runs, `/refresh` says so. If proposals are still waiting, decide on them before sending it again |
+| `/refresh` | Propose profile changes from your new facts, after reading what's new in your [linked GitHub repositories](#at-a-refresh). The bot says how many it proposes, with a link to the Inbox and a [Review here](#review-changes-in-the-chat) button, or that there is nothing new, and what it read from GitHub. While a refresh runs, `/refresh` says so. If proposals are still waiting, decide on them before sending it again |
 | `/tailor` | Start a job posting to tailor a resume to: paste it, then send `/done` ([Send a job posting](#send-a-job-posting)) |
 | `/catchup` | Start the catch-up interview, or carry on where it paused |
 | `/pause` | Stop reminders |
@@ -209,7 +226,7 @@ A page that is not built yet says which task will add it. Until then, use the co
 
 ### Inbox
 
-After `/refresh`, each set of proposed changes appears here. Nothing changes in your profile until you apply it.
+After `/refresh`, each set of proposed changes appears here. Nothing changes in your profile until you apply it. You can also decide on them one at a time in the chat ([Review changes in the chat](#review-changes-in-the-chat)); both places show the same decisions.
 
 For each change you see the text before and after (removed words struck through, added words underlined), the facts it came from with a link to the journal entry (or, for a fact from GitHub, its repository and links to the pull requests and commits it rests on), any note to read before deciding, and the verifier's result. Then:
 

@@ -13,6 +13,11 @@ The owner decides on each operation (FR-REV-2):
 - accept, at once, every operation still waiting whose verifier report passed. Flagged ones are
   left for the owner to decide one by one.
 
+The bot offers the same decisions in the chat, one operation at a time (FR-REV-5,
+`app/telegram/review.py`): `load_review` gives it the change set and which operations passed, and
+`accept_if_passed` accepts only one that passed, so a flagged one is accepted where its whole
+report shows.
+
 Each new or reworded bullet is checked again for what it must leave out each time it's shown or
 bulk accepted (`rechecked` in `app/review.py`): the owner's confidential terms as they are now,
 and operational detail under a role marked sensitive (R5). What's found joins its verifier
@@ -33,6 +38,7 @@ text is decrypted only for the signed-in owner, and never logged.
 import asyncio
 import uuid
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 
@@ -58,7 +64,16 @@ from app.llm.client import LLMClient
 from app.profile_ops import ProfileOpError, apply
 from app.refresh import change_set_decided
 from app.review import needs, rechecked
-from app.schema.changes import AddBullet, Author, ChangeOp, EditBullet, OpStatus, ReviewedOp
+from app.schema.changes import (
+    AddBullet,
+    Author,
+    ChangeOp,
+    ChangeSet,
+    ChangeSetStatus,
+    EditBullet,
+    OpStatus,
+    ReviewedOp,
+)
 from app.schema.common import Model
 from app.schema.fact import Fact, RepoSource
 from app.schema.profile import Profile
@@ -143,6 +158,16 @@ class Inbox(Model):
     """The latest profile version, which the changes apply to."""
 
 
+@dataclass(frozen=True)
+class ChatReview:
+    """A change set as the chat reviews it (FR-REV-5)."""
+
+    change_set: InboxChangeSet
+    status: ChangeSetStatus
+    passed: frozenset[int]
+    """The positions of the operations that passed (`passed`), which the chat can accept."""
+
+
 async def load_inbox(session: AsyncSession, user_id: uuid.UUID) -> Inbox:
     """The change sets waiting for review."""
     version = await latest_version(session, user_id)
@@ -152,7 +177,10 @@ async def load_inbox(session: AsyncSession, user_id: uuid.UUID) -> Inbox:
     facts = await _facts(session, user_id, cited)
     terms = (await get_confidential_terms(session, user_id)).terms
     return Inbox(
-        change_sets=tuple(_view(item, profile, facts, terms) for item in saved),
+        change_sets=tuple(
+            _view(item, rechecked(item.change_set, profile, facts, terms), profile, facts)
+            for item in saved
+        ),
         profile_version=version.number if version else None,
     )
 
@@ -160,12 +188,28 @@ async def load_inbox(session: AsyncSession, user_id: uuid.UUID) -> Inbox:
 async def load_change_set(
     session: AsyncSession, user_id: uuid.UUID, change_set_id: uuid.UUID
 ) -> InboxChangeSet:
+    return (await load_review(session, user_id, change_set_id)).change_set
+
+
+async def load_review(
+    session: AsyncSession, user_id: uuid.UUID, change_set_id: uuid.UUID
+) -> ChatReview:
+    """The change set as the Inbox shows it, whether it still waits for review, and which of its
+    operations passed."""
     saved = await _get(session, user_id, change_set_id)
     version = await latest_version(session, user_id)
+    profile = version.profile if version else NO_PROFILE
     cited = [fact_id for op in saved.change_set.ops for fact_id in op.op.fact_ids]
     facts = await _facts(session, user_id, cited)
     terms = (await get_confidential_terms(session, user_id)).terms
-    return _view(saved, version.profile if version else NO_PROFILE, facts, terms)
+    checked = rechecked(saved.change_set, profile, facts, terms)
+    return ChatReview(
+        change_set=_view(saved, checked, profile, facts),
+        status=saved.change_set.status,
+        passed=frozenset(
+            position for position, reviewed in enumerate(checked.ops) if passed(reviewed)
+        ),
+    )
 
 
 async def decide(
@@ -264,12 +308,38 @@ async def accept_passed(session: AsyncSession, user_id: uuid.UUID, change_set_id
     )
     accepted = 0
     for position, reviewed in enumerate(change_set.ops):
-        report = _report(reviewed.verifier_report)
-        flagged = report is not None and not report.passed
-        if reviewed.status == "proposed" and not flagged and not _unreadable(reviewed):
+        if reviewed.status == "proposed" and passed(reviewed):
             await decide_op(session, user_id, change_set_id, position, "accepted")
             accepted += 1
     return accepted
+
+
+async def accept_if_passed(
+    session: AsyncSession, user_id: uuid.UUID, change_set_id: uuid.UUID, position: int
+) -> None:
+    """Accept an operation, as `decide` does, only if it passed (`passed`): a flagged one is
+    accepted in the Inbox, where its whole report shows (FR-REV-5, FR-FID-7)."""
+    saved = await _open(session, user_id, change_set_id)
+    _op(saved, position)
+    version = await latest_version(session, user_id)
+    cited = [fact_id for op in saved.change_set.ops for fact_id in op.op.fact_ids]
+    change_set = rechecked(
+        saved.change_set,
+        version.profile if version else NO_PROFILE,
+        await _facts(session, user_id, cited),
+        (await get_confidential_terms(session, user_id)).terms,
+    )
+    if not passed(change_set.ops[position]):
+        raise ReviewError("the verifier flagged it, so accept it in the Inbox")
+    await decide(session, user_id, change_set_id, position, "accepted")
+
+
+def passed(reviewed: ReviewedOp) -> bool:
+    """Whether the operation can be accepted without the owner reading its report: its text
+    passed the verifier, checked again for what it must leave out (`rechecked`), or it has no
+    text to verify."""
+    report = _report(reviewed.verifier_report)
+    return not _unreadable(reviewed) and (report is None or report.passed)
 
 
 async def apply_change_set(
@@ -306,9 +376,10 @@ async def apply_change_set(
 
 
 def _view(
-    saved: SavedChangeSet, profile: Profile, facts: Mapping[str, Fact], terms: Sequence[str]
+    saved: SavedChangeSet, change_set: ChangeSet, profile: Profile, facts: Mapping[str, Fact]
 ) -> InboxChangeSet:
-    change_set = rechecked(saved.change_set, profile, facts, terms)
+    """The change set as the Inbox shows it. `change_set` is the saved one, checked again for
+    what it must leave out (`rechecked`)."""
     ops = [reviewed.op for reviewed in change_set.ops]
     return InboxChangeSet(
         id=saved.id,

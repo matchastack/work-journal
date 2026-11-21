@@ -11,6 +11,16 @@ One short entry per pull request, newest first: what changed and what to verify.
 - The posting's messages aren't on the Journal page
 - A posting that's only a link gets "I don't open links" and no draft
 
+## 2026-11-16 · T-077 Review changes in Telegram · [#87](https://github.com/matchastack/work-journal/pull/87)
+**Changed:** the bot's message about a refresh's proposals has a **Review here** button, which shows the changes one at a time in one message, with Accept (only for changes the verifier passed), Reject and Next, then an Apply button once every change is decided. The decisions are the Inbox's own.
+
+**Verify:**
+- After `/refresh` proposes changes, Review here shows the first change with its text before and after, the verifier's result and a link to the Inbox
+- A flagged change has only Reject and Next; Accept it in the Inbox
+- Rejecting a new role also rejects the bullets under it, and the bot says how many
+- Deciding a change in the Inbox, then pressing its button in the chat, does nothing but say so
+- Apply makes a new profile version, as the Inbox's Apply does
+
 ## 2026-11-16 · T-076 Telegram in M3: requirements · [#86](https://github.com/matchastack/work-journal/pull/86)
 **Changed:** the requirements give FR-REV-5 (reviewing changes in the chat) and FR-CAP-9 (job postings through the bot) their acceptance criteria, and `tasks.md` plans them as T-077 and T-078. T-072 and M2 are marked done.
 

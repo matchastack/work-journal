@@ -92,6 +92,7 @@ from app.schema.profile import Profile, Skill
 from app.schema.settings import ConfidentialTerms
 from app.synthesis import PlannedBullet, Synthesis, SynthesisPlan, synthesize
 from app.telegram.refresh import NOTHING_NEW, failure_text, github_text, proposals_text
+from app.telegram.review import review_keyboard
 from app.tick import refresh_now, tick
 from app.validate.claims import ClaimReply, JudgedClaim
 from app.writing import WrittenBullet
@@ -293,8 +294,11 @@ async def test_the_proposals_are_saved_and_the_facts_covered(session: AsyncSessi
     inputs = await started(session, user_id)
     synthesis = synthesized(inputs, *synthesis_replies())
     proposals = await record_proposals(session, inputs, synthesis, now=NOW)
-    assert proposals == Proposals(user_id=user_id, facts=2, changes=1)
     row = await refresh_row(session, inputs.refresh_id)
+    assert row.change_set_id is not None
+    assert proposals == Proposals(
+        user_id=user_id, facts=2, changes=1, change_set_id=row.change_set_id
+    )
     assert (row.status, row.finished_at, row.fact_count) == ("proposed", NOW, 2)
     assert (row.outputs, row.output_version) == (None, None), "not until they're decided"
     [saved] = await list_change_sets(session, user_id)
@@ -601,11 +605,13 @@ async def test_the_job_proposes_changes_and_tells_the_owner(
     fake = claude(*synthesis_replies())
     await run_refresh(refresh_id)
     text = f"1 update proposed from 2 facts since your last refresh. Review them:\n{APP_URL}/inbox"
-    assert telegram.sent == [{"chat_id": chat_id, "text": text}]
+    row = await committed_row(refresh_id)
+    assert (row.status, row.fact_count) == ("proposed", 2)
+    assert row.change_set_id is not None
+    keyboard = review_keyboard(row.change_set_id)
+    assert telegram.sent == [{"chat_id": chat_id, "text": text, "reply_markup": keyboard}]
     assert proposals_text(Proposals(user_id, facts=2, changes=1), APP_URL) == text
     assert fake.requests[0]["model"] == "heavy-model"
-    row = await committed_row(refresh_id)
-    assert (row.status, row.fact_count, row.change_set_id is not None) == ("proposed", 2, True)
     async with database() as session:
         calls = await session.scalars(
             select(LlmCallRow.task).where(LlmCallRow.user_id == user_id).order_by(LlmCallRow.at)
