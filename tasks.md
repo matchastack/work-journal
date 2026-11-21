@@ -585,7 +585,7 @@ From the review of #60:
 - [x] A test for each, which fails without the fix.
 
 ### T-079 · PDF text keeps its spaces under TeX Live 2025
-**Status:** ◐ · **Size:** S · **Depends on:** T-010, T-022 · **Requirements:** FR-RES-1, FR-RES-4, FR-TLR-9 · **PR:** —
+**Status:** ◐ · **Size:** S · **Depends on:** T-010, T-022 · **Requirements:** FR-RES-1, FR-RES-4, FR-TLR-9 · **PR:** [#90](https://github.com/matchastack/work-journal/pull/90)
 
 As the owner, I want the text read from my resume's PDF to keep its spaces whichever TeX Live renders it, so that the ATS check reads my resume as an ATS would.
 

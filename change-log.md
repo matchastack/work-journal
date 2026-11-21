@@ -2,7 +2,7 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
-## 2026-11-21 · T-079 PDF text keeps its spaces under TeX Live 2025 · PR
+## 2026-11-21 · T-079 PDF text keeps its spaces under TeX Live 2025 · [#90](https://github.com/matchastack/work-journal/pull/90)
 **Changed:** the resume template writes real spaces into the PDF, so text read from a resume rendered with TeX Live 2025 keeps its spaces ("Northwind Traders Aug 2025", not "TradersAug"), and the ATS check reads it as an ATS would. The page looks the same. This fixes CI on `main`, whose runner moved to TeX Live 2025.
 
 **Verify:**
