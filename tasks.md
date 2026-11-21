@@ -24,7 +24,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 | Milestone | Tasks | Status |
 |---|---|---|
 | M0: Documents | T-000, T-055, T-056, T-066 and T-076 | ◐ |
-| M1: Engine and command line | T-001 – T-024, T-054, T-060, T-065, T-067, T-068, T-073, T-074 and T-075 (T-007 dropped) | ☑ |
+| M1: Engine and command line | T-001 – T-024, T-054, T-060, T-065, T-067, T-068, T-073 – T-075 and T-079 (T-007 dropped) | ◐ |
 | M2: Journal loop | T-025 – T-053, T-057 – T-059, T-061 – T-064 and T-069 – T-072 | ☑ |
 | M3: Quality and habit | T-077 and T-078; the other epics are at the end of this file | ☐ |
 | M4: Open to others | Epics (at the end of this file) | — |
@@ -583,6 +583,17 @@ From the review of #60:
 - [x] A part the model declines, or can't answer in the right shape, is recorded and skipped, and the other parts' facts are kept. An outage still stops the read, as the next part would fail too.
 - [x] `wj github extract` names a skipped part and exits with status 1.
 - [x] A test for each, which fails without the fix.
+
+### T-079 · PDF text keeps its spaces under TeX Live 2025
+**Status:** ◐ · **Size:** S · **Depends on:** T-010, T-022 · **Requirements:** FR-RES-1, FR-RES-4, FR-TLR-9 · **PR:** [#90](https://github.com/matchastack/work-journal/pull/90)
+
+As the owner, I want the text read from my resume's PDF to keep its spaces whichever TeX Live renders it, so that the ATS check reads my resume as an ATS would.
+
+CI's `ubuntu-latest` moved to Ubuntu 26.04, with TeX Live 2025 (pdfTeX 1.40.28). It writes some gaps between words, such as the `\hfill` before a date, as a shift inside the line, which pypdf reads as no space ("Northwind TradersAug 2025"), so `test_the_default_template_is_the_owners_layout` failed on `main`.
+- [x] The default template turns on `\pdfinterwordspaceon`, so the PDF holds a space character at each gap. The page looks the same.
+- [x] FR-RES-1 allows that one line in the preamble.
+- [x] The test still checks every line's spacing, except around the contact line's bars: TeX Live 2025 writes the space before each bar, a math symbol, as a shift that pypdf reads as no space.
+- [x] The LaTeX tests pass with TeX Live 2023 and 2025.
 
 ---
 
