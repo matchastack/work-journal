@@ -24,7 +24,7 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 | Milestone | Tasks | Status |
 |---|---|---|
 | M0: Documents | T-000, T-055, T-056, T-066 and T-076 | ☑ |
-| M1: Engine and command line | T-001 – T-024, T-054, T-060, T-065, T-067, T-068, T-073 – T-075 and T-079 (T-007 dropped) | ◐ |
+| M1: Engine and command line | T-001 – T-024, T-054, T-060, T-065, T-067, T-068, T-073 – T-075 and T-079 (T-007 dropped) | ☑ |
 | M2: Journal loop | T-025 – T-053, T-057 – T-059, T-061 – T-064 and T-069 – T-072 | ☑ |
 | M3: Quality and habit | T-077 and T-078; the other epics are at the end of this file | ◐ |
 | M4: Open to others | Epics (at the end of this file) | — |
@@ -585,7 +585,7 @@ From the review of #60:
 - [x] A test for each, which fails without the fix.
 
 ### T-079 · PDF text keeps its spaces under TeX Live 2025
-**Status:** ◐ · **Size:** S · **Depends on:** T-010, T-022 · **Requirements:** FR-RES-1, FR-RES-4, FR-TLR-9 · **PR:** [#90](https://github.com/matchastack/work-journal/pull/90)
+**Status:** ☑ · **Size:** S · **Depends on:** T-010, T-022 · **Requirements:** FR-RES-1, FR-RES-4, FR-TLR-9 · **PR:** [#90](https://github.com/matchastack/work-journal/pull/90)
 
 As the owner, I want the text read from my resume's PDF to keep its spaces whichever TeX Live renders it, so that the ATS check reads my resume as an ATS would.
 
