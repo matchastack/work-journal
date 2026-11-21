@@ -248,7 +248,7 @@ Priority: **M** = Must (v1) · **S** = Should (v1 if time allows) · **C** = Cou
 
 | ID | Requirement | Pri | Acceptance criteria |
 |---|---|---|---|
-| FR-RES-1 | Resumes render from the owner's LaTeX template (based on Jake's Resume, compiled with pdfLaTeX), converted into a Jinja template. The preamble and macros stay unchanged. | M | |
+| FR-RES-1 | Resumes render from the owner's LaTeX template (based on Jake's Resume, compiled with pdfLaTeX), converted into a Jinja template. The preamble and macros stay unchanged, except `\pdfinterwordspaceon`, which writes real spaces into the PDF's text without changing the page (T-079). | M | |
 | FR-RES-2 | Every value is LaTeX-escaped automatically. | M | Tests cover `& % $ # _ { } ~ ^ \`. |
 | FR-RES-3 | Compilation runs with shell-escape off, restricted file access, a timeout and an isolated temporary directory. | M | |
 | FR-RES-4 | Each render reports its page count and checks that the text can be extracted. | M | |
