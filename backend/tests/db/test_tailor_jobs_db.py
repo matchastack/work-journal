@@ -3,14 +3,17 @@ it, rendering its resume, and the sweep that queues them. Claude is the fake cli
 stand-in that returns a fixture PDF."""
 
 import hashlib
+import json
 import logging
 import random
+import re
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import httpx2
 import pytest
 from procrastinate.testing import InMemoryConnector
 from pydantic import TypeAdapter
@@ -21,10 +24,11 @@ import app.render.resume as resume_module
 import app.tick as tick_module
 from app.config import Settings, get_settings
 from app.db.crypto import KeyRing, new_key, use_key_ring
-from app.db.models import LlmCallRow, TailorDraftRow, User
+from app.db.models import LlmCallRow, TailorDraftRow, TelegramLink, User
 from app.db.profiles import save_version
 from app.db.store import find_render, save_facts
 from app.jobs import (
+    close_quiet_entries_task,
     database,
     jobs,
     queue_tailor_jobs,
@@ -41,6 +45,7 @@ from app.schema.jobs import JobPosting
 from app.schema.profile import Profile
 from app.tailor.drafts import create_draft, draft_to_render, record_render
 from app.tailoring.tailor import PlannedBullet, PlannedItem, PlannedSkillLine, TailoringPlan
+from app.telegram.postings import SENT
 from app.tick import draft_now
 from app.validate.claims import ClaimReply, JudgedClaim
 from app.writing import WrittenBullet
@@ -131,7 +136,7 @@ def latex(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     return sources
 
 
-Committed = Callable[[], Awaitable[tuple[uuid.UUID, uuid.UUID]]]
+Committed = Callable[..., Awaitable[tuple[uuid.UUID, uuid.UUID]]]
 
 
 @pytest.fixture
@@ -140,14 +145,19 @@ async def committed(job_settings: None) -> AsyncIterator[Committed]:
     as jobs see them. Returns both IDs. The users are deleted afterwards, with all their rows."""
     users: list[uuid.UUID] = []
 
-    async def make() -> tuple[uuid.UUID, uuid.UUID]:
+    async def make(*, chat_id: int | None = None) -> tuple[uuid.UUID, uuid.UUID]:
+        """With `chat_id`, the user's chat is linked, and the posting was sent to the bot."""
         async with database() as session:
             user = User(github_id=_random.randrange(10**9, 10**12), github_login="casey-example")
             session.add(user)
             await session.flush()
             await save_version(session, user.id, PROFILE, author="owner")
             await save_facts(session, user.id, FACTS)
-            draft_id = await create_draft(session, user.id, POSTING_TEXT)
+            if chat_id is not None:
+                session.add(TelegramLink(user_id=user.id, chat_id=chat_id))
+            draft_id = await create_draft(
+                session, user.id, POSTING_TEXT, from_bot=chat_id is not None
+            )
         users.append(user.id)
         return user.id, draft_id
 
@@ -371,3 +381,119 @@ async def test_the_page_runs_a_drafts_jobs_right_after_answering(
         await draft_now(draft_id)
     row = await row_of(draft_id)
     assert (row.status, row.render_status) == ("ready", "waiting")
+
+
+# --- Postings sent to the bot (FR-CAP-9, T-078) ------------------------------------------------
+
+APP_URL = "https://journal.example.com"
+
+
+class Telegram:
+    """A stand-in for the Bot API that keeps each message sent."""
+
+    def __init__(self) -> None:
+        self.sent: list[dict[str, Any]] = []
+
+    def handle(self, request: httpx2.Request) -> httpx2.Response:
+        assert request.url.path.endswith("/sendMessage")
+        self.sent.append(json.loads(request.content))
+        return httpx2.Response(200, json={"ok": True, "result": {"message_id": 1}})
+
+
+@pytest.fixture
+def telegram(job_settings: None, monkeypatch: pytest.MonkeyPatch) -> Telegram:
+    """The bot, with its token and the app's address set, as on the server."""
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123456:test-token")
+    monkeypatch.setenv("APP_URL", APP_URL)
+    get_settings.cache_clear()
+    bot = Telegram()
+    transport = httpx2.MockTransport(bot.handle)
+    monkeypatch.setattr(
+        job_module, "_telegram_http", lambda: httpx2.AsyncClient(transport=transport)
+    )
+    return bot
+
+
+@pytest.fixture
+def chat_id() -> int:
+    return _random.randrange(10**9, 10**12)
+
+
+async def test_the_bot_says_when_a_posting_it_was_sent_is_tailored(
+    committed: Committed, claude: Callable[..., FakeMessages], telegram: Telegram, chat_id: int
+) -> None:
+    _, draft_id = await committed(chat_id=chat_id)
+    claude(reply(POSTING), *tailoring_replies())
+    with jobs.replace_connector(InMemoryConnector()):
+        await run_posting_parse(draft_id, last_attempt=never)
+        assert telegram.sent == [], "not when it's parsed"
+        await run_tailoring(draft_id)
+    [message] = telegram.sent
+    assert message["chat_id"] == chat_id
+    text = message["text"]
+    assert text.startswith(f"Your resume for {POSTING.title} at {POSTING.company} is ready")
+    assert "It offers 1 new phrasing in the posting's words." in text
+    assert text.endswith(f"\n{APP_URL}/tailor?draft={draft_id}")
+    shows = re.search(r"It shows (\d+) of the posting's (\d+) terms\.", text)
+    assert shows is not None
+    covered, terms = shows.groups()
+    assert 0 < int(covered) <= int(terms)
+    assert "Northwind" not in text, "no resume text in the chat"
+
+
+async def test_the_bot_says_when_a_posting_it_was_sent_fails(
+    committed: Committed, claude: Callable[..., FakeMessages], telegram: Telegram, chat_id: int
+) -> None:
+    _, draft_id = await committed(chat_id=chat_id)
+    claude(refusal(), refusal())
+    await run_posting_parse(draft_id, last_attempt=never)
+    assert telegram.sent == [
+        {
+            "chat_id": chat_id,
+            "text": "The posting couldn't be read because the model declined it. You can try "
+            f"again on the Tailor page.\n{APP_URL}/tailor?draft={draft_id}",
+        }
+    ]
+
+
+async def test_a_posting_pasted_on_the_tailor_page_sends_nothing(
+    committed: Committed, claude: Callable[..., FakeMessages], telegram: Telegram
+) -> None:
+    _, draft_id = await committed()
+    claude(reply(POSTING), *tailoring_replies())
+    with jobs.replace_connector(InMemoryConnector()):
+        await run_posting_parse(draft_id, last_attempt=never)
+        await run_tailoring(draft_id)
+    assert (await row_of(draft_id)).status == "ready"
+    assert telegram.sent == []
+
+
+async def test_the_sweep_tailors_a_posting_that_went_quiet(
+    committed: Committed, telegram: Telegram, chat_id: int
+) -> None:
+    """It closes as a quiet entry does (FR-CAP-4): the bot says so, and its draft is queued."""
+    user_id, _ = await committed(chat_id=chat_id)
+    sent_at = datetime.now(UTC) - timedelta(hours=1)
+    async with database() as session:
+        await session.execute(
+            update(TelegramLink)
+            .where(TelegramLink.user_id == user_id)
+            .values(posting="Backend Engineer at Fabrikam", posting_at=sent_at)
+        )
+    connector = InMemoryConnector()
+    with jobs.replace_connector(connector):
+        await close_quiet_entries_task(timestamp=int(datetime.now(UTC).timestamp()))
+    async with database() as session:
+        drafts = await session.scalars(
+            select(TailorDraftRow).where(
+                TailorDraftRow.user_id == user_id,
+                TailorDraftRow.posting_text == "Backend Engineer at Fabrikam",
+            )
+        )
+        [draft] = drafts.all()
+        link = await session.get(TelegramLink, user_id)
+        assert link is not None and link.posting_at is None
+    assert draft.from_bot
+    queued = [(job["task_name"], job["args"]) for job in connector.jobs.values()]
+    assert ("parse_draft_posting", {"draft_id": str(draft.id)}) in queued
+    assert telegram.sent == [{"chat_id": chat_id, "text": SENT}]

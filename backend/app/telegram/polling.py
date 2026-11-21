@@ -37,11 +37,13 @@ async def poll(
     run_jobs: Callable[..., Awaitable[object]] | None = None,
     run_refresh: Callable[[uuid.UUID], Awaitable[object]] | None = None,
     run_catch_up: Callable[..., Awaitable[object]] | None = None,
+    run_draft: Callable[[uuid.UUID], Awaitable[object]] | None = None,
 ) -> int:
     """Journal the bot's updates as the webhook would, and send its replies. When an update
     closes an entry or chooses its role, `run_jobs` gets the entry, or each entry, as arguments,
-    `run_refresh` gets the refresh `/refresh` starts, and `run_catch_up` gets the catch-up
-    interview it moves on, then its entries, so that the next question comes first. Asks Telegram
+    `run_refresh` gets the refresh `/refresh` starts, `run_catch_up` gets the catch-up
+    interview it moves on, then its entries, so that the next question comes first, and
+    `run_draft` gets the Tailor page draft of a posting sent to the bot. Asks Telegram
     `rounds` times, or until cancelled. Returns how many updates it handled."""
     await api.set_my_commands(COMMANDS)
     await api.delete_webhook()
@@ -75,5 +77,7 @@ async def poll(
                 await run_jobs(*result.ready)
             if result.refresh is not None and run_refresh is not None:
                 await run_refresh(result.refresh)
+            if result.draft is not None and run_draft is not None:
+                await run_draft(result.draft)
             handled += 1
     return handled

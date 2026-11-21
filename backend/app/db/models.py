@@ -488,6 +488,9 @@ class TailorDraftRow(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     """When a job started tailoring it. A job that finds it set long ago knows an earlier try
     didn't finish, and fails the draft rather than call the heavy-tier model again."""
+    from_bot: Mapped[bool] = mapped_column(server_default="false")
+    """Whether the posting was sent to the bot, which then says in the chat when the draft is
+    tailored or fails (FR-CAP-9)."""
     posting_text: Mapped[str] = mapped_column(Text)
     """The posting as pasted."""
     posting: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
@@ -551,6 +554,10 @@ class TelegramLink(Base):
     chat_id: Mapped[int] = mapped_column(BigInteger, unique=True)
     """The private chat with the bot, which Telegram numbers the same as the person."""
     linked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    posting: Mapped[str | None] = mapped_column(EncryptedText("telegram_links.posting"))
+    """The job posting `/tailor` started, as sent so far (FR-CAP-9, `app/telegram/postings.py`)."""
+    posting_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    """When the open posting's last message was sent; None while no posting is open."""
 
 
 class TelegramUpdate(Base):

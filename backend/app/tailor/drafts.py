@@ -98,6 +98,8 @@ UNFINISHED_AFTER = timedelta(minutes=30)
 300 s a job may run in a tick. Until then, another try leaves it to the one that started it."""
 DRAFTS_LISTED = 20
 """How many drafts not yet downloaded the page lists."""
+POSTING_LIMIT = 50_000
+"""The longest posting, in characters: several times a long one."""
 
 
 class DraftError(Exception):
@@ -121,9 +123,12 @@ class TailoringInterrupted(Exception):
 # --- The page ----------------------------------------------------------------------------------
 
 
-async def create_draft(session: AsyncSession, user_id: uuid.UUID, text: str) -> uuid.UUID:
-    """Store a pasted posting as a new draft, waiting to be parsed."""
-    row = TailorDraftRow(user_id=user_id, posting_text=text, choices={})
+async def create_draft(
+    session: AsyncSession, user_id: uuid.UUID, text: str, *, from_bot: bool = False
+) -> uuid.UUID:
+    """Store a pasted posting as a new draft, waiting to be parsed. `from_bot` marks one sent to
+    the bot (FR-CAP-9)."""
+    row = TailorDraftRow(user_id=user_id, posting_text=text, choices={}, from_bot=from_bot)
     session.add(row)
     await session.flush()
     return row.id
@@ -407,15 +412,16 @@ async def record_tailoring(
     return await _point_render(session, row, posting.posting, resume)
 
 
-async def fail_draft(session: AsyncSession, draft_id: uuid.UUID, reason: str) -> None:
-    """Mark a draft that's being parsed or tailored failed, saying why."""
+async def fail_draft(session: AsyncSession, draft_id: uuid.UUID, reason: str) -> bool:
+    """Mark a draft that's being parsed or tailored failed, saying why. Returns whether it did."""
     row = await session.scalar(
         select(TailorDraftRow).where(TailorDraftRow.id == draft_id).with_for_update()
     )
     if row is None or row.status not in ("parsing", "tailoring"):
-        return
+        return False
     row.status = "failed"
     row.error = reason
+    return True
 
 
 @dataclass(frozen=True)

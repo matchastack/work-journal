@@ -23,10 +23,10 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 
 | Milestone | Tasks | Status |
 |---|---|---|
-| M0: Documents | T-000, T-055, T-056, T-066 and T-076 | ◐ |
-| M1: Engine and command line | T-001 – T-024, T-054, T-060, T-065, T-067, T-068, T-073 – T-075 and T-079 (T-007 dropped) | ◐ |
+| M0: Documents | T-000, T-055, T-056, T-066 and T-076 | ☑ |
+| M1: Engine and command line | T-001 – T-024, T-054, T-060, T-065, T-067, T-068, T-073 – T-075 and T-079 (T-007 dropped) | ☑ |
 | M2: Journal loop | T-025 – T-053, T-057 – T-059, T-061 – T-064 and T-069 – T-072 | ☑ |
-| M3: Quality and habit | T-077 and T-078; the other epics are at the end of this file | ☐ |
+| M3: Quality and habit | T-077 and T-078; the other epics are at the end of this file | ◐ |
 | M4: Open to others | Epics (at the end of this file) | — |
 
 ---
@@ -89,7 +89,7 @@ As the owner, I want my GitHub repositories' history to become facts for my proj
 - [x] No personal data is committed.
 
 ### T-076 · Telegram in M3: requirements
-**Status:** ◐ · **Size:** S · **Depends on:** T-000 · **Requirements:** FR-REV-5, FR-CAP-9 (defines their acceptance criteria) · **PR:** [#86](https://github.com/matchastack/work-journal/pull/86)
+**Status:** ☑ · **Size:** S · **Depends on:** T-000 · **Requirements:** FR-REV-5, FR-CAP-9 (defines their acceptance criteria) · **PR:** [#86](https://github.com/matchastack/work-journal/pull/86)
 
 As the owner, I want the first M3 tasks planned before they're built, so that I can agree how the bot reviews changes and takes job postings.
 
@@ -585,7 +585,7 @@ From the review of #60:
 - [x] A test for each, which fails without the fix.
 
 ### T-079 · PDF text keeps its spaces under TeX Live 2025
-**Status:** ◐ · **Size:** S · **Depends on:** T-010, T-022 · **Requirements:** FR-RES-1, FR-RES-4, FR-TLR-9 · **PR:** [#90](https://github.com/matchastack/work-journal/pull/90)
+**Status:** ☑ · **Size:** S · **Depends on:** T-010, T-022 · **Requirements:** FR-RES-1, FR-RES-4, FR-TLR-9 · **PR:** [#90](https://github.com/matchastack/work-journal/pull/90)
 
 As the owner, I want the text read from my resume's PDF to keep its spaces whichever TeX Live renders it, so that the ATS check reads my resume as an ATS would.
 
@@ -1107,7 +1107,7 @@ As the owner, I want to read, correct and delete the facts from my repositories,
 The Telegram epics come first, as T-077 and T-078. Neither adds a model call. The other epics are broken into tasks when these are done.
 
 ### T-077 · Review changes in Telegram
-**Status:** ◐ · **Size:** M · **Depends on:** T-038, T-040 · **Requirements:** FR-REV-5, FR-REV-2, FR-REV-3, FR-REV-7, FR-FID-7 · **PR:** [#87](https://github.com/matchastack/work-journal/pull/87)
+**Status:** ☑ · **Size:** M · **Depends on:** T-038, T-040 · **Requirements:** FR-REV-5, FR-REV-2, FR-REV-3, FR-REV-7, FR-FID-7 · **PR:** [#87](https://github.com/matchastack/work-journal/pull/87)
 
 As the owner, I want to decide on proposed changes in the chat, one at a time, so that a refresh doesn't wait until I'm at a computer.
 
@@ -1127,25 +1127,27 @@ As the owner, I want to decide on proposed changes in the chat, one at a time, s
 **Built (2026-11-16):** stacked on T-076 (#86). Review here sends a new message, so the proposals message keeps its counts; each button carries the change set, the change and a short fingerprint of what the message showed, so a press after a decision or an edit in the Inbox only says so. Next goes round the changes still waiting, as the Inbox's focus does. Apply checks that nothing changed since the message counted the decisions. No migration and no new model call.
 
 ### T-078 · Job postings through the bot
-**Status:** ☐ · **Size:** M · **Depends on:** T-045, T-032 · **Requirements:** FR-CAP-9, FR-CAP-7, FR-TLR-1 – FR-TLR-7 · **PR:** —
+**Status:** ◐ · **Size:** M · **Depends on:** T-045, T-032 · **Requirements:** FR-CAP-9, FR-CAP-7, FR-TLR-1 – FR-TLR-7 · **PR:** [#88](https://github.com/matchastack/work-journal/pull/88)
 
 As the owner, I want to send a job posting to the bot, so that a tailored resume is waiting when I next open the Tailor page.
 
-- [ ] `/tailor` starts a posting. Text sent with it, and the messages after it, join the posting until `/done` sends it for tailoring.
+- [x] `/tailor` starts a posting. Text sent with it, and the messages after it, join the posting until `/done` sends it for tailoring.
   - `/tailor` first closes an open entry, as `/done` does.
   - A posting not finished with `/done` closes as an entry does (FR-CAP-4), and is tailored then.
-- [ ] The posting becomes a draft on the Tailor page, as one pasted there does. Its text is stored as the Tailor page stores it, and never as a journal message, entry or fact.
-- [ ] A posting that's only a link isn't tailored. The bot says it doesn't open links, and asks for the posting's text.
-- [ ] Once the draft is tailored, the bot replies with:
+- [x] The posting becomes a draft on the Tailor page, as one pasted there does. Its text is stored as the Tailor page stores it, and never as a journal message, entry or fact.
+- [x] A posting that's only a link isn't tailored. The bot says it doesn't open links, and asks for the posting's text.
+- [x] Once the draft is tailored, the bot replies with:
   - the posting's title and company;
   - how many of its key terms the draft covers;
   - what waits for the owner, such as new phrasings to approve and skills to confirm;
   - a link to the draft on the Tailor page.
-- [ ] If tailoring fails, the bot says why, with the same link.
-- [ ] `/help` and Telegram's command menu list `/tailor`.
-- [ ] No posting text is logged, and job arguments are IDs only.
-- [ ] `user-guide.md` describes sending a posting to the bot.
-- [ ] Tests for collecting the posting, `/done`, a posting closed by its timeout, a link alone, the reply, and a failed draft.
+- [x] If tailoring fails, the bot says why, with the same link.
+- [x] `/help` and Telegram's command menu list `/tailor`.
+- [x] No posting text is logged, and job arguments are IDs only.
+- [x] `user-guide.md` describes sending a posting to the bot.
+- [x] Tests for collecting the posting, `/done`, a posting closed by its timeout, a link alone, the reply, and a failed draft.
+
+**Built (2026-11-17):** stacked on T-076 (#86). The posting being collected is kept encrypted on the chat's link (`telegram_links.posting`, migration 0024) until it becomes a draft, whose text is then stored as the Tailor page stores it; `tailor_drafts.from_bot` marks it, so the parse and tailoring jobs reply in the chat. The bot replies once, when the draft is tailored or fails, not when it's parsed or rendered. A posting longer than the Tailor page's 50,000 characters isn't tailored either, and the bot says so. `/done` sends an open posting before it closes an entry. No new model call.
 
 ### Epics
 

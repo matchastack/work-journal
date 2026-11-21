@@ -22,6 +22,7 @@ from app.deps import Db
 from app.resumes.routes import PDF_HEADERS
 from app.schema.common import Model
 from app.tailor.drafts import (
+    POSTING_LIMIT,
     DraftConflict,
     DraftNotFound,
     approve_phrasing,
@@ -41,8 +42,6 @@ from app.tick import draft_now
 
 router = APIRouter(prefix="/api/tailor", tags=["tailor"])
 
-POSTING_LIMIT = 50_000
-"""The longest posting, in characters: several times a long one."""
 SKILL_LIMIT = 100
 
 BulletId = Annotated[str, Path(pattern=r"^[a-z0-9][a-z0-9_-]*$", max_length=64)]

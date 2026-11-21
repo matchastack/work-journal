@@ -2,6 +2,15 @@
 
 One short entry per pull request, newest first: what changed and what to verify. Verification is ticked in the pull request, not here.
 
+## 2026-11-17 · T-078 Job postings through the bot · [#88](https://github.com/matchastack/work-journal/pull/88)
+**Changed:** `/tailor`, then a job posting's text, then `/done` tailors a resume to it, as the Tailor page does. The bot says when the draft is ready to check, with a link to it, or why it failed. Postings aren't journaled, and the bot never opens links. T-076, T-077 and T-079 are marked done.
+
+**Verify:**
+- After the deploy, `scripts/post-deploy.sh` applies migration 0024, and Telegram's command menu lists `/tailor`
+- `/tailor`, a posting in two messages, then `/done`: the bot says it's tailoring, then that the resume is ready, with the title, company, terms shown and a link that opens the draft on the Tailor page
+- The posting's messages aren't on the Journal page
+- A posting that's only a link gets "I don't open links" and no draft
+
 ## 2026-11-21 · T-079 PDF text keeps its spaces under TeX Live 2025 · [#90](https://github.com/matchastack/work-journal/pull/90)
 **Changed:** the resume template writes real spaces into the PDF, so text read from a resume rendered with TeX Live 2025 keeps its spaces ("Northwind Traders Aug 2025", not "TradersAug"), and the ATS check reads it as an ATS would. The page looks the same. This fixes CI on `main`, whose runner moved to TeX Live 2025.
 

@@ -151,7 +151,7 @@ from app.telegram.journal import COMMANDS
 from app.telegram.linking import deep_link, new_link_token
 from app.telegram.polling import poll
 from app.telegram.refresh import github_text
-from app.tick import TICK_BUDGET_S, catch_up_now, extract_now, refresh_now, tick
+from app.tick import TICK_BUDGET_S, catch_up_now, draft_now, extract_now, refresh_now, tick
 from app.validate.lint import LintReport, check_sendable, format_report, lint_profile
 from app.writing import Style, apply_swap, locate_bullet, swap_op, write_bullet
 
@@ -1973,6 +1973,7 @@ async def _poll(database_url: str) -> int:
                 run_jobs=extract_now,
                 run_refresh=refresh_now,
                 run_catch_up=catch_up_now,
+                run_draft=draft_now,
             )
     finally:
         await engine.dispose()
