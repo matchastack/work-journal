@@ -133,11 +133,11 @@ See milestones M3 and M4 in [§14](#14-milestones).
   5. The app extracts facts, linked to that role, and the bot replies with a one-to-three-line summary of what it understood.
 - **J2 — Refresh.** Only when the owner asks; nothing in this journey runs on a schedule or when an entry closes.
   1. The owner sends `/refresh`. The app proposes changes to the master profile from the facts gathered since the last refresh. The bot says how many there are, or that there's nothing new.
-  2. The owner opens the Inbox. Each change shows a before/after diff, its sources and a verifier report.
+  2. The owner opens the Inbox. Each change shows a before/after diff, its sources and a verifier report. From M3, the owner can also decide on them one at a time in the chat (FR-REV-5).
   3. The owner accepts, edits or rejects each change.
   4. Applying the accepted changes creates a new version and updates every output from it: the master resume re-renders, the LinkedIn pack is regenerated, and the portfolio page moves to the new version if it's published.
 - **J3 — Tailor.**
-  1. The owner pastes a job posting.
+  1. The owner pastes a job posting in the Tailor page or, from M3, sends it to the bot (FR-CAP-9).
   2. The app selects bullets and uses approved swaps where one fits. Where none fits, it offers a new verified phrasing.
   3. It picks a title variant, a coursework subset and skills lines, fits the resume to one page, and shows a keyword coverage report.
   4. The owner adjusts it and downloads the PDF. The application is logged.
@@ -167,7 +167,7 @@ Priority: **M** = Must (v1) · **S** = Should (v1 if time allows) · **C** = Cou
 | FR-CAP-6 | The bot asks at most one follow-up question per entry, when impact, metrics or ownership are unclear. | M | Never more than one question per entry. It's asked when the entry closes, before the role question (FR-CAP-11), and only while the owner is likely there to answer: within the entry timeout of the close, with no other entry open. A Skip button and `/skip` are offered. The answer, the owner's next message within the entry timeout, joins the same entry; after that, the question lapses. An answer to an open question (FR-EXT-4) gets none, and none is asked while the bot waits for one. |
 | FR-CAP-7 | Commands: `/start`, `/done`, `/skip`, `/refresh`, `/catchup`, `/pause`, `/resume`, `/help`. | M | `/help` lists every command, and so does Telegram's command menu when the owner types "/". |
 | FR-CAP-8 | Chit-chat and messages unrelated to work are recognised and don't become facts. | S | A triage label is stored with each entry. |
-| FR-CAP-9 | Job postings can be sent to the bot for tailoring. | C | M3 |
+| FR-CAP-9 | Job postings can be sent to the bot for tailoring. | C | M3 (T-078). `/tailor` starts a posting: its text, sent with the command or in the next messages, joins it until `/done` sends it for tailoring as the Tailor page does (FR-TLR-1 – FR-TLR-7). A posting the owner doesn't finish closes as an entry does (FR-CAP-4) and is tailored then. Its text is stored as the Tailor page stores it, never as a journal message, and `/tailor` first closes an open entry, as `/done` does. The bot never fetches a link: a posting that's only a link isn't tailored, and the bot asks for its text. Once the draft is tailored, the bot replies with the posting's title and company, how many of its key terms the draft covers, what waits for the owner (new phrasings to approve, skills to confirm) and a link to the draft on the Tailor page; if it fails, the bot says why. `/help` and the command menu list `/tailor`. |
 | FR-CAP-10 | Voice notes are transcribed into entries. | C | M3 |
 | FR-CAP-11 | When an entry closes, the bot asks which role it's about: a button for each role in the profile, and one for a new role, which the owner then names. Every entry gets a role this way. | M | Nothing is extracted from an entry until the owner answers, and every fact from it links to the role chosen, never to one the model picks. A new role's name is stored encrypted, and the entry's facts carry it until a refresh adds the role to the profile. An answer to an open question takes the role of the bullets that need the question when they're all under one role; otherwise the bot asks. |
 
@@ -216,7 +216,7 @@ Priority: **M** = Must (v1) · **S** = Should (v1 if time allows) · **C** = Cou
 | FR-REV-2 | The owner can accept each operation, edit it (it is re-verified) or reject it with an optional reason. | M | |
 | FR-REV-3 | Accepted operations are applied atomically as one new profile version. | M | |
 | FR-REV-4 | Rejection reasons feed into future prompts as style notes. | S | |
-| FR-REV-5 | Single operations can be approved or rejected inline in Telegram. | C | M3 |
+| FR-REV-5 | Single operations can be approved or rejected inline in Telegram. | C | M3 (T-077). The bot's message about a refresh's proposals offers to review them in the chat. The bot then shows one operation at a time: what it does, before and after, how many facts it rests on and the verifier's result, with Accept and Reject buttons and a link to the Inbox. Accept is offered only when the verifier passed the operation; a flagged one is accepted in the Inbox, where its whole report shows (FR-FID-7). Edits and rejection reasons stay in the Inbox. A decision in the chat is the Inbox's own (FR-REV-2), with the same rules for operations that need another, so each place shows what the other decided, and a button pressed on an out-of-date message says what changed instead of acting. Once every operation is decided, an Apply button applies the accepted ones as the Inbox's Apply does (FR-REV-3, FR-REV-7). |
 | FR-REV-6 | Profile changes are proposed only on demand, when the owner sends `/refresh`. Nothing is proposed on a schedule or when an entry closes. | M | A refresh covers the facts added or edited since the last refresh. Until then, facts wait in the brag bank. |
 | FR-REV-7 | Applying a refresh's accepted changes updates every output from the new version, in one step: the master resume re-renders, the LinkedIn pack is regenerated, and the portfolio page moves to the new version if it's published. Outputs are never updated on a schedule or when an entry closes. | M | Owner edits in the web app reach the outputs at the next refresh. A refresh with no new facts still brings every output up to date with the latest version. Tailored resumes already made are not changed. |
 
@@ -504,7 +504,7 @@ Owner's machine: the `wj` commands, including `wj render --db` (LaTeX) and `wj g
 | **M0: Documents** | This document, the task backlog, the change log and `CLAUDE.md` | T-000 |
 | **M1: Engine and command line** | Usable from the command line on local files: schemas, import of the owner's master resume, rendering with the owner's template, the number/claim/style verifier, writers, synthesis, tailoring, and the portfolio and LinkedIn generators | T-001 – T-024 |
 | **M2: Journal loop** | Deployed for the owner: database, encryption, background jobs, sign-in, the Telegram bot, the web app and deployment | T-025 – T-053 |
-| **M3: Quality and habit** | LLM confidentiality detector, inline approvals in Telegram, voice notes, postings via the bot, evaluations in CI, monthly recap and brag doc, LinkedIn milestone posts, application status | Epics |
+| **M3: Quality and habit** | LLM confidentiality detector, inline approvals in Telegram, voice notes, postings via the bot, evaluations in CI, monthly recap and brag doc, LinkedIn milestone posts, application status | T-077 and T-078; the rest are epics |
 | **M4: Open to others** | Email/Google sign-in and sign-up, PDF and LinkedIn-export import, a template gallery and per-user templates, custom domains, GitHub Pages and JSON Resume export, quotas, billing, a privacy policy and a security review | Epics |
 
 ## 15. Open questions

@@ -23,10 +23,10 @@ The backlog for Work Journal. **Each task is one pull request.** Tasks cite requ
 
 | Milestone | Tasks | Status |
 |---|---|---|
-| M0: Documents | T-000, T-055, T-056 and T-066 | ☑ |
+| M0: Documents | T-000, T-055, T-056, T-066 and T-076 | ◐ |
 | M1: Engine and command line | T-001 – T-024, T-054, T-060, T-065, T-067, T-068, T-073, T-074 and T-075 (T-007 dropped) | ☑ |
-| M2: Journal loop | T-025 – T-053, T-057 – T-059, T-061 – T-064 and T-069 – T-072 | ◐ |
-| M3: Quality and habit | Epics (at the end of this file) | — |
+| M2: Journal loop | T-025 – T-053, T-057 – T-059, T-061 – T-064 and T-069 – T-072 | ☑ |
+| M3: Quality and habit | T-077 and T-078; the other epics are at the end of this file | ☐ |
 | M4: Open to others | Epics (at the end of this file) | — |
 
 ---
@@ -86,6 +86,15 @@ As the owner, I want my GitHub repositories' history to become facts for my proj
   - where GitHub facts show.
 - [x] §3, §5, §6 (J7), NFR-PRIV-2, §10, §11 (C7), §12 and §13 follow.
 - [x] This file adds T-067 – T-072, each with its requirements and dependencies.
+- [x] No personal data is committed.
+
+### T-076 · Telegram in M3: requirements
+**Status:** ◐ · **Size:** S · **Depends on:** T-000 · **Requirements:** FR-REV-5, FR-CAP-9 (defines their acceptance criteria) · **PR:** [#86](https://github.com/matchastack/work-journal/pull/86)
+
+As the owner, I want the first M3 tasks planned before they're built, so that I can agree how the bot reviews changes and takes job postings.
+
+- [x] `project-requirements.md` gives FR-REV-5 and FR-CAP-9 acceptance criteria, and J2, J3 and §14 follow.
+- [x] This file splits the Telegram epics into T-077 and T-078, marks T-072 and M2 done, and keeps the other M3 epics as epics.
 - [x] No personal data is committed.
 
 ---
@@ -1066,7 +1075,7 @@ As the owner, I want `/refresh` to read my linked repositories first, so that on
 **Built (2026-11-13):** stacked on T-070 (#82). The job marks the refresh started before it reads, then reads its facts after, so the facts the read saved are proposed from and a refresh stopped while reading counts as unfinished. `GITHUB_REFRESH_WINDOWS` defaults to 3. A read claims each repository for up to 30 minutes (`repo_links.reading_since`, migration 0023), and `wj github sync` claims them too, so a repository another read is working on is skipped. The parts are read in the order of the links and their history, so a long backlog in one repository can hold back the others until `wj github sync` reads it all.
 
 ### T-072 · GitHub facts on the Journal page
-**Status:** ◐ · **Size:** M · **Depends on:** T-069 · **Requirements:** FR-GH-10, FR-JRN-5, FR-JRN-6, FR-EXT-3 · **PR:** [#84](https://github.com/matchastack/work-journal/pull/84)
+**Status:** ☑ · **Size:** M · **Depends on:** T-069 · **Requirements:** FR-GH-10, FR-JRN-5, FR-JRN-6, FR-EXT-3 · **PR:** [#84](https://github.com/matchastack/work-journal/pull/84)
 
 As the owner, I want to read, correct and delete the facts from my repositories, so that my record stays accurate.
 
@@ -1082,12 +1091,55 @@ As the owner, I want to read, correct and delete the facts from my repositories,
 
 ---
 
-## M3: Quality and habit (epics, broken into tasks when M2 is done)
+## M3: Quality and habit
+
+The Telegram epics come first, as T-077 and T-078. Neither adds a model call. The other epics are broken into tasks when these are done.
+
+### T-077 · Review changes in Telegram
+**Status:** ◐ · **Size:** M · **Depends on:** T-038, T-040 · **Requirements:** FR-REV-5, FR-REV-2, FR-REV-3, FR-REV-7, FR-FID-7 · **PR:** [#87](https://github.com/matchastack/work-journal/pull/87)
+
+As the owner, I want to decide on proposed changes in the chat, one at a time, so that a refresh doesn't wait until I'm at a computer.
+
+- [x] The bot's message about a refresh's proposals has a **Review here** button. It shows the first change still waiting for a decision:
+  - what it does, before and after, in plain text;
+  - how many facts it rests on, and the verifier's result;
+  - **Accept** (only when the verifier passed it), **Reject**, and a link to the Inbox.
+- [x] Each decision edits the message to show the next change waiting, so the chat holds one message, not one per change.
+- [x] Decisions are the Inbox's own: rejecting a change rejects the ones that need it, and accepting one that needs a rejected change says so and changes nothing.
+- [x] Edits, rejection reasons and flagged changes are left to the Inbox, which the message links to.
+- [x] A button pressed after the change set changed elsewhere, such as in the Inbox, says what happened and shows where it stands now, rather than acting.
+- [x] Once every change is decided, an **Apply** button applies the accepted ones as one new version and brings the outputs up to date, as the Inbox's Apply does. The bot says how many were applied.
+- [x] Only the linked owner's presses act on their change sets (FR-CAP-2). No change text is logged.
+- [x] `user-guide.md` describes reviewing in the chat.
+- [x] Tests for each button, out-of-date presses, dependent changes, flagged changes and Apply.
+
+**Built (2026-11-16):** stacked on T-076 (#86). Review here sends a new message, so the proposals message keeps its counts; each button carries the change set, the change and a short fingerprint of what the message showed, so a press after a decision or an edit in the Inbox only says so. Next goes round the changes still waiting, as the Inbox's focus does. Apply checks that nothing changed since the message counted the decisions. No migration and no new model call.
+
+### T-078 · Job postings through the bot
+**Status:** ☐ · **Size:** M · **Depends on:** T-045, T-032 · **Requirements:** FR-CAP-9, FR-CAP-7, FR-TLR-1 – FR-TLR-7 · **PR:** —
+
+As the owner, I want to send a job posting to the bot, so that a tailored resume is waiting when I next open the Tailor page.
+
+- [ ] `/tailor` starts a posting. Text sent with it, and the messages after it, join the posting until `/done` sends it for tailoring.
+  - `/tailor` first closes an open entry, as `/done` does.
+  - A posting not finished with `/done` closes as an entry does (FR-CAP-4), and is tailored then.
+- [ ] The posting becomes a draft on the Tailor page, as one pasted there does. Its text is stored as the Tailor page stores it, and never as a journal message, entry or fact.
+- [ ] A posting that's only a link isn't tailored. The bot says it doesn't open links, and asks for the posting's text.
+- [ ] Once the draft is tailored, the bot replies with:
+  - the posting's title and company;
+  - how many of its key terms the draft covers;
+  - what waits for the owner, such as new phrasings to approve and skills to confirm;
+  - a link to the draft on the Tailor page.
+- [ ] If tailoring fails, the bot says why, with the same link.
+- [ ] `/help` and Telegram's command menu list `/tailor`.
+- [ ] No posting text is logged, and job arguments are IDs only.
+- [ ] `user-guide.md` describes sending a posting to the bot.
+- [ ] Tests for collecting the posting, `/done`, a posting closed by its timeout, a link alone, the reply, and a failed draft.
+
+### Epics
 
 - **Confidentiality detector:** an LLM check on top of the blocklist (FR-SET-5, R5).
-- **Inline approvals in Telegram:** single operations approved or rejected in the chat (FR-REV-5).
 - **Voice notes:** transcribed into entries (FR-CAP-10).
-- **Job postings through the bot** (FR-CAP-9).
 - **Evaluations in CI on demand, and a cost dashboard.**
 - **Monthly recap and brag-doc export** (FR-REM-7).
 - **LinkedIn milestone posts** through the official Share API, opt-in (FR-LIN-5).

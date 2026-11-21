@@ -115,6 +115,8 @@ class Proposals:
     """How many facts it covered."""
     changes: int
     """How many changes wait for review: none when it proposed nothing."""
+    change_set_id: uuid.UUID | None = None
+    """The change set that holds them, if it proposed any."""
 
 
 @dataclass(frozen=True)
@@ -287,7 +289,12 @@ async def record_proposals(
         await outputs_due(session, refresh, now=now)
     await session.flush()
     changes = 0 if change_set is None else len(change_set.ops)
-    return Proposals(user_id=inputs.user_id, facts=len(inputs.facts), changes=changes)
+    return Proposals(
+        user_id=inputs.user_id,
+        facts=len(inputs.facts),
+        changes=changes,
+        change_set_id=refresh.change_set_id,
+    )
 
 
 async def fail_refresh(
